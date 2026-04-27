@@ -32,8 +32,7 @@ DISTRIBUTED_ARGS=(
 )
 
 MODEL_ARGS=(
-    #--model-name qwen3-0.6b
-    --config-file configs/models/qwen3/qwen3_0_6b.yaml
+    --model-name qwen3-0.6b
     --rotary-base 1000000
     --rotary-seq-len-interpolation-factor 1
 )

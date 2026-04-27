@@ -8,6 +8,7 @@ from typing import Union
 from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
 from omegaconf import OmegaConf
+import torch
 
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, project_root)
@@ -119,7 +120,7 @@ class Parser:
         param_dict['moe_grouped_gemm'] = getattr(args, 'moe_grouped_gemm', False)
         param_dict['lora_alpha'] = getattr(args, 'lora_alpha', None)
         param_dict['lora_dim'] = getattr(args, 'lora_dim', None)
-        # ===== Parameters marked with # are not in training args, only in convert ckpt args =====
+        # =====加#的参数都不在train的args里，只在convert ckpt的args =====================
         param_dict['vpp_scheduler'] = getattr(args, 'vpp_scheduler', None) #
         param_dict['safetensors'] = getattr(args, 'safetensors', True) #
         param_dict['max_workers'] = getattr(args, 'max_workers', 1) # 
@@ -152,6 +153,11 @@ class Parser:
         for field in parallel_fields:
             if field in self.param_dict:
                 parallel_params[field] = self.param_dict[field]
+        parallel_params['hf_checkpoint_device'] = f'cuda:{torch.cuda.current_device()}' if torch.cuda.is_available() else 'cpu'
+        if 'ep_size' in self.param_dict:
+            etp_size = self.param_dict['etp_size'] if 'etp_size' in self.param_dict else self.param_dict['tp_size']
+            if etp_size == 1:
+                parallel_params['hf_checkpoint_device'] = "cpu"
 
         return ParallelConfig(**parallel_params)
 

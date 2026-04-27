@@ -1,20 +1,19 @@
 #! /bin/bash
+# The script needs to be run on at least 1 nodes.
 export TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=1
-export CUDA_DEVICE_MAX_CONNECTIONS=1
-export TORCH_NCCL_AVOID_RECORD_STREAMS=1
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-export NCCL_DEBUG=WARNING
 
 MEGATRON_PATH=${MEGATRON_PATH:-"/workspace/Loong-Megatron"}
 export LOONGFORGE_PATH=${LOONGFORGE_PATH:-"/workspace/LoongForge"}
 
-DATA_PATH=${DATA_PATH:-"/workspace/loongforge-ckpt/pile_test/pile-qwen_text_document"}
+DATA_PATH=${DATA_PATH:-"/mnt/cluster/LoongForge/dataset/mllm/demo/wds/"}
 
-TOKENIZER_PATH=${TOKENIZER_PATH:-"/workspace/loongforge-ckpt/Qwen2.5-7B-Instruct/"}
-CHECKPOINT_PATH=${CHECKPOINT_PATH:-"/workspace/loongforge-ckpt/Qwen2.5-7B-Instruct/"}
-SAVE_HF_PATH=${SAVE_HF_PATH:-"/workspace/loongforge-ckpt/qwen2.5-7b-roundtrip-output"}
+TOKENIZER_PATH=${TOKENIZER_PATH:-"/workspace/loongforge-ckpt/Qwen2.5-VL-7B-Instruct"}
 
-TENSORBOARD_PATH=${TENSORBOARD_PATH:-"/workspace/loongforge-ckpt/tensorboard/qwen2.5-7b"}
+CHECKPOINT_PATH=${CHECKPOINT_PATH:-"/workspace/loongforge-ckpt/Qwen2.5-VL-7B-Instruct"}
+SAVE_HF_PATH=${SAVE_HF_PATH:-"/workspace/loongforge-ckpt/qwen2.5-vl-7b-roundtrip-output"}
+
+TENSORBOARD_PATH=${TENSORBOARD_PATH:-"/workspace/tensorboard-log/qwen2_5-vl-7b"}
+
 GPUS_PER_NODE=8
 
 # Change for multinode config
@@ -22,6 +21,9 @@ MASTER_ADDR=${MASTER_ADDR:-"localhost"}
 MASTER_PORT=${MASTER_PORT:-"6000"}
 NNODES=${WORLD_SIZE:-"1"}
 NODE_RANK=${RANK:-"0"}
+
+# To specify the model config file
+MODEL_CONFIG_PATH=${LOONGFORGE_PATH}/configs/models/qwen2.5vl/qwen2_5_vl_7b.yaml
 
 DISTRIBUTED_ARGS=(
     --nproc_per_node $GPUS_PER_NODE
@@ -31,37 +33,34 @@ DISTRIBUTED_ARGS=(
     --master_port $MASTER_PORT
 )
 
-MODEL_ARGS=(
-    --model-name qwen2.5-7b # qwen2.5 options: 0.5b, 1.5b, 3b, 7b, 14b, 32b, 72b
-    --rotary-base 1000000
-    --rotary-seq-len-interpolation-factor 1
-)
-
 DATA_ARGS=(
     --tokenizer-type HFTokenizer
     --hf-tokenizer-path $TOKENIZER_PATH
-    --eod-mask-loss
     --data-path $DATA_PATH
-    --split 99,1,0
+    --dataloader-type external
+    --split 100,0,0
+    --add-question-in-pretrain
+    --enable-discard-sample
+    --num-workers 16
 )
 
 TRAINING_ARGS=(
-    --training-phase pretrain # options: pretrain, sft
+    --norm-epsilon 1e-6
+    --training-phase pretrain
     --seq-length 4096
-    --max-position-embeddings 32768
-    --init-method-std 0.006
+    --max-position-embeddings 4096
+    --init-method-std 0.02
     --micro-batch-size 1
-    --global-batch-size 8
-    --lr 1.0e-5
-    --min-lr 1.0e-6
+    --global-batch-size 512
+    --lr 0.0002
+    --min-lr 1.0e-5
     --clip-grad 1.0
-    --weight-decay 0.1
+    --weight-decay 0.01
     --optimizer adam
     --adam-beta1 0.9
     --adam-beta2 0.95
-    --adam-eps 1e-08
-    --norm-epsilon 1e-6
-    --train-iters 50
+    --adam-eps 1e-05
+    --train-iters 20
     --lr-decay-iters 50000
     --lr-decay-style cosine
     --lr-warmup-fraction 0.002
@@ -70,25 +69,24 @@ TRAINING_ARGS=(
     --load $CHECKPOINT_PATH
     --save-hf true
     --save-hf-path $SAVE_HF_PATH
-    --save-interval 40
-    --eval-interval 1000
-    --eval-iters 10
-    #--ckpt-step 0
-    #--no-load-optim
-    #--no-load-rng
-    #--num-workers 8
+    --save-interval 10
+    --eval-iters 0
+    --ckpt-format torch
+    --dataloader-save ${CHECKPOINT_PATH}/dataloader
 )
 
 MODEL_PARALLEL_ARGS=(
+    --attention-backend flash
+    --pipeline-model-parallel-size 2
+    --tensor-model-parallel-size 1
     --use-distributed-optimizer
     --overlap-grad-reduce
     --overlap-param-gather
-    --attention-backend fused
-    --tensor-model-parallel-size 2
-    --pipeline-model-parallel-size 4
-    --custom-pipeline-layers 6,8,6,8
-    #--num-virtual-stages-per-pipeline-rank 2
     --distributed-backend nccl
+)
+
+MODEL_CONFIG_ARGS=(
+    --config-file $MODEL_CONFIG_PATH
 )
 
 LOGGING_ARGS=(
@@ -100,14 +98,14 @@ LOGGING_ARGS=(
 if [ -n "${WANDB_API_KEY}" ]; then
     LOGGING_ARGS+=(
         --wandb-project ${WANDB_PROJECT}
-        --wandb-exp-name ${WANDB_NAME} 
+        --wandb-exp-name ${WANDB_NAME}
     )
 fi
 
 PYTHONPATH=$MEGATRON_PATH:$LOONGFORGE_PATH:$PYTHONPATH \
     torchrun ${DISTRIBUTED_ARGS[@]} \
     $LOONGFORGE_PATH/loongforge/train.py \
-    ${MODEL_ARGS[@]} \
+    ${MODEL_CONFIG_ARGS[@]} \
     ${DATA_ARGS[@]} \
     ${TRAINING_ARGS[@]} \
     ${MODEL_PARALLEL_ARGS[@]} \
