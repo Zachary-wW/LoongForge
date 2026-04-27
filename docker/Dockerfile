@@ -4,7 +4,7 @@ FROM ${BASE_IMAGE}
 # =========================================================
 # Build Arguments
 # =========================================================
-ARG COMPILE_ENV={{COMPILE_ENV}}
+ARG COMPILE_ENV="hopper"
 # LeRobot has dependency conflicts with the base environment; disabled by default.
 # Enable only when training VLA models (e.g., Pi0.5, GR00T).
 ARG ENABLE_LEROBOT="false"
@@ -30,7 +30,8 @@ RUN set -exuo pipefail && \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata && \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
-    apt-get install -y bc tree pwgen nodejs iproute2
+    apt-get install -y bc tree pwgen nodejs iproute2 && \
+    rm -rf /var/lib/apt/lists/*
 
 # ======================== Install Base Requirements ========================
 RUN set -exuo pipefail && \
@@ -45,12 +46,12 @@ RUN set -exuo pipefail && \
 RUN set -exuo pipefail && \
     install_flash_attn() { \
         echo "Installing Flash Attention 2 & 3..." && \
-        wget -q https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.1/flash_attn-2.8.1+cu12torch2.8cxx11abiTRUE-cp312-cp312-linux_x86_64.whl && \
+        wget -q -O flash_attn-2.8.1+cu12torch2.8cxx11abiTRUE-cp312-cp312-linux_x86_64.whl https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.1/flash_attn-2.8.1+cu12torch2.8cxx11abiTRUE-cp312-cp312-linux_x86_64.whl && \
         pip install flash_attn-2.8.1+cu12torch2.8cxx11abiTRUE-cp312-cp312-linux_x86_64.whl && \
         rm flash_attn-2.8.1+cu12torch2.8cxx11abiTRUE-cp312-cp312-linux_x86_64.whl && \
-        wget -q https://github.com/windreamer/flash-attention3-wheels/releases/download/2026.01.26-f6c4937/flash_attn_3-3.0.0b1%2B20260126.cu129torch280cxx11abitrue.438325-cp39-abi3-linux_x86_64.whl && \
-        pip install flash_attn_3-3.0.0b1%2B20260126.cu129torch280cxx11abitrue.438325-cp39-abi3-linux_x86_64.whl && \
-        rm flash_attn_3-3.0.0b1%2B20260126.cu129torch280cxx11abitrue.438325-cp39-abi3-linux_x86_64.whl; \
+        wget -q -O flash_attn_3-3.0.0b1+20260126.cu129torch280cxx11abitrue.438325-cp39-abi3-linux_x86_64.whl https://github.com/windreamer/flash-attention3-wheels/releases/download/2026.01.26-f6c4937/flash_attn_3-3.0.0b1%2B20260126.cu129torch280cxx11abitrue.438325-cp39-abi3-linux_x86_64.whl && \
+        pip install flash_attn_3-3.0.0b1+20260126.cu129torch280cxx11abitrue.438325-cp39-abi3-linux_x86_64.whl && \
+        rm flash_attn_3-3.0.0b1+20260126.cu129torch280cxx11abitrue.438325-cp39-abi3-linux_x86_64.whl; \
     }; \
     update_flash_attn3_path_for_te() { \
         echo "Updating Flash Attention 3 import path for TE..." && \
@@ -64,7 +65,7 @@ RUN set -exuo pipefail && \
         fi; \
     }; \
     install_deepep() { \
-        local torch_cuda_arch_list="$1"; \
+        local torch_cuda_arch_list="$1" && \
         local disable_sm90="$2" && \
         echo "Installing DeepEP..." && \
         wget -q https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb && \
@@ -77,7 +78,7 @@ RUN set -exuo pipefail && \
         git fetch --all --tags && \
         git checkout v1.2.1 && \
         TORCH_CUDA_ARCH_LIST="${torch_cuda_arch_list}" DISABLE_SM90_FEATURES="${disable_sm90}" pip install --no-build-isolation . && \
-        cd .. && rm -rf DeepEP && \
+        cd /workspace && rm -rf DeepEP && \
         rm -rf /var/lib/apt/lists/*; \
     }; \
     upgrade_cudnn_9_16_0() { \
@@ -104,8 +105,9 @@ RUN set -exuo pipefail && \
         cd flash-mla && \
         git submodule update --init --recursive && \
         pip install -v . && \
-        rm -rf flash-mla; \
+        cd /workspace && rm -rf flash-mla; \
     }; \
+    install_flash_attn && \
     update_flash_attn3_path_for_te && \
     upgrade_cudnn_9_16_0 && \
     install_deepgemm && \
