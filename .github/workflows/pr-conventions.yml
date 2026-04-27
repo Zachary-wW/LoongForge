@@ -1,0 +1,34 @@
+name: PR Conventions
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title format
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "PR title: $PR_TITLE"
+          if ! echo "$PR_TITLE" | grep -qP '^\[.+\] (feat|fix|perf|refactor|test|docs|chore): .+'; then
+            echo ""
+            echo "PR title does not match the required format."
+            echo ""
+            echo "Expected: [<module>] <type>: <description>"
+            echo ""
+            echo "Examples:"
+            echo "  [model] feat: add Qwen3-VL support"
+            echo "  [bridge] perf: improve TP checkpoint loading speed"
+            echo "  [ci] chore: add unit test scaffolding"
+            echo "  [data] fix: handle empty batch in packer"
+            echo ""
+            echo "Allowed types: feat | fix | perf | refactor | test | docs | chore"
+            exit 1
+          fi
+          echo "PR title format OK."
