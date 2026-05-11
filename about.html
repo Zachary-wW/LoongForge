@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>About — LoongForge</title>
+<meta name="description" content="About LoongForge — the project story, roadmap, license, citation, and contacts." />
+<link rel="icon" type="image/svg+xml" href="assets/img/logo.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={darkMode:'class'};</script>
+<link rel="stylesheet" href="assets/css/style.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" />
+</head>
+<body class="bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+
+<div id="scroll-progress"></div>
+<header class="sticky top-0 z-40 backdrop-blur bg-white/80 dark:bg-gray-950/75 border-b border-gray-200 dark:border-gray-800">
+  <div class="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+    <a href="index.html" class="flex items-center gap-2 font-bold text-lg"><img src="assets/img/logo.svg" class="w-8 h-8"><span>LoongForge</span></a>
+    <nav class="hidden md:flex items-center gap-7 text-sm font-medium">
+      <a href="index.html" class="hover:text-indigo-600" data-i18n="nav.home">Home</a>
+      <a href="https://loongforge.readthedocs.io/en/latest/index.html" target="_blank" rel="noopener" class="ext hover:text-indigo-600 dark:hover:text-indigo-300" data-i18n="nav.docs">Docs</a>
+      <a href="blog.html" class="hover:text-indigo-600" data-i18n="nav.blog">Blog</a>
+      <a href="about.html" class="text-indigo-600 dark:text-indigo-300 font-semibold" data-i18n="nav.about">About</a>
+      <a href="index.html#community" class="hover:text-indigo-600 dark:hover:text-indigo-300" data-i18n="nav.contact">Contact</a>
+    </nav>
+    <div class="flex items-center gap-2">
+      <div class="lang-switch hidden sm:inline-flex">
+        <button type="button" data-lang-btn="en">EN</button>
+        <button type="button" data-lang-btn="zh">中文</button>
+      </div>
+      <a href="https://github.com/baidu-baige/LoongForge" target="_blank" rel="noopener" class="gh-pill hidden sm:inline-flex" aria-label="GitHub repository">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.37.5 0 5.87 0 12.5c0 5.3 3.44 9.79 8.21 11.39.6.11.82-.26.82-.58 0-.29-.01-1.05-.02-2.06-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.33-1.76-1.33-1.76-1.09-.74.08-.73.08-.73 1.2.09 1.83 1.24 1.83 1.24 1.07 1.83 2.8 1.3 3.49.99.11-.77.42-1.3.76-1.6-2.67-.3-5.47-1.34-5.47-5.96 0-1.32.47-2.39 1.24-3.23-.12-.3-.54-1.52.12-3.16 0 0 1.01-.32 3.3 1.23a11.48 11.48 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.64.24 2.86.12 3.16.77.84 1.24 1.91 1.24 3.23 0 4.63-2.8 5.65-5.48 5.95.43.37.81 1.1.81 2.22 0 1.6-.01 2.89-.01 3.28 0 .32.22.7.83.58A12.01 12.01 0 0 0 24 12.5C24 5.87 18.63.5 12 .5z"/></svg>
+        <span>GitHub</span><span class="text-gray-300 dark:text-gray-600">|</span><span class="star">★</span><span id="gh-stars">Star</span>
+      </a>
+      <button data-theme-toggle class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"><span data-theme-icon>🌙</span></button>
+      <button data-mobile-toggle class="md:hidden p-2 rounded-lg">☰</button>
+    </div>
+  </div>
+  <div id="mobile-menu" class="md:hidden hidden border-t border-gray-200 dark:border-gray-800 px-6 py-3 space-y-2 text-sm">
+    <a href="index.html" class="block py-1" data-i18n="nav.home">Home</a><a href="https://loongforge.readthedocs.io/en/latest/index.html" target="_blank" class="block py-1 ext" data-i18n="nav.docs">Docs</a><a href="blog.html" class="block py-1" data-i18n="nav.blog">Blog</a><a href="about.html" class="block py-1" data-i18n="nav.about">About</a><a href="index.html#community" class="block py-1" data-i18n="nav.contact">Contact</a>
+    <div class="lang-switch mt-2"><button type="button" data-lang-btn="en">EN</button><button type="button" data-lang-btn="zh">中文</button></div>
+  </div>
+</header>
+
+<section class="hero-gradient text-white">
+  <div class="max-w-7xl mx-auto px-6 py-20 text-center relative">
+    <div class="hero-grid absolute inset-0"></div>
+    <div class="relative">
+      <h1 class="text-4xl md:text-5xl font-extrabold mb-3" data-i18n="about.hero.title">About LoongForge</h1>
+      <p class="text-gray-300 max-w-2xl mx-auto" data-i18n="about.hero.desc">A training framework born from real-world, large-scale production workloads — and shared back with the community.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Story -->
+<section class="max-w-5xl mx-auto px-6 py-14 reveal">
+  <h2 class="text-2xl md:text-3xl font-bold mb-4">🐉 The Baige "Loong" Family</h2>
+  <div class="prose-lf">
+    <p>LoongForge is part of the <b>Loong open-source series</b> from Baidu's Baige AI infrastructure platform — named after the traditional Chinese loong boat, a symbol of coordinated power and direction.</p>
+    <p>Before becoming open source, LoongForge had already empowered numerous enterprise use cases with its robust training acceleration and scaling capabilities:</p>
+    <ul>
+      <li>Powers proprietary large-scale models across <b>Education</b>, <b>Computer Vision</b>, and <b>Embodied AI</b>.</li>
+      <li>Typically achieves a <b>30%~50% speedup</b> over standard customer baselines.</li>
+      <li>Supports ultra-large cluster training scaling to <b>5,000+ XPUs</b>.</li>
+    </ul>
+    <p>Sister projects include <a href="https://github.com/baidu-baige/LoongFlow" target="_blank">LoongFlow</a> for AI workflow orchestration.</p>
+  </div>
+</section>
+
+<!-- Roadmap -->
+<section class="bg-gray-50 dark:bg-gray-900/50 border-y border-gray-200 dark:border-gray-800">
+<div class="max-w-5xl mx-auto px-6 py-14 reveal">
+  <h2 class="text-2xl md:text-3xl font-bold mb-6">🚀 Roadmap</h2>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="rounded-2xl p-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+      <h4 class="font-semibold mb-1">📦 Expanded foundation models</h4>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Kimi 2.5 / 2.6, DeepSeek-V4 and next-generation open weights.</p>
+    </div>
+    <div class="rounded-2xl p-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+      <h4 class="font-semibold mb-1">🤖 Embodied AI</h4>
+      <p class="text-sm text-gray-600 dark:text-gray-400">DreamZero and LingBot VA.</p>
+    </div>
+    <div class="rounded-2xl p-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+      <h4 class="font-semibold mb-1">🎬 Diffusion acceleration</h4>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Continued performance work on the WAN family.</p>
+    </div>
+    <div class="rounded-2xl p-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+      <h4 class="font-semibold mb-1">🧩 Heterogeneous DP</h4>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Full heterogeneous DP memory optimization + parallelism compatibility.</p>
+    </div>
+    <div class="rounded-2xl p-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+      <h4 class="font-semibold mb-1">⚖️ Advanced MoE load balancing</h4>
+      <p class="text-sm text-gray-600 dark:text-gray-400">New strategies for skewed expert routing at scale.</p>
+    </div>
+    <div class="rounded-2xl p-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+      <h4 class="font-semibold mb-1">🔢 INT4 QAT</h4>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Quantization-aware training, inspired by Kimi 2.5.</p>
+    </div>
+    <div class="rounded-2xl p-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+      <h4 class="font-semibold mb-1">📜 Long-sequence training</h4>
+      <p class="text-sm text-gray-600 dark:text-gray-400">ChunkPipe scheduling and Context Parallelism (CP).</p>
+    </div>
+    <div class="rounded-2xl p-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+      <h4 class="font-semibold mb-1">🎯 MTP scaling</h4>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Real-world Multi-Token Prediction for better speculative decoding.</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- License / Citation -->
+<section class="max-w-5xl mx-auto px-6 py-14 reveal">
+  <h2 class="text-2xl md:text-3xl font-bold mb-6">📄 License &amp; Citation</h2>
+  <div class="grid md:grid-cols-2 gap-5">
+    <div class="rounded-2xl p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+      <h3 class="font-semibold mb-2">License</h3>
+      <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">LoongForge is released under the <a href="https://github.com/baidu-baige/LoongForge/blob/master/LICENSE" target="_blank" class="text-indigo-600 underline">Apache License 2.0</a>. Some files are derived from third-party open-source projects — please consult file headers for their specific notices.</p>
+    </div>
+    <div class="rounded-2xl p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+      <h3 class="font-semibold mb-2">Citation</h3>
+<pre><code class="language-bash">@software{LoongForge2026,
+  title = {LoongForge: A modular, scalable, high-performance training framework
+           for LLMs, VLMs, diffusion, and embodied models},
+  author = {{The LoongForge Authors}},
+  year = {2026},
+  url = {https://github.com/baidu-baige/LoongForge}
+}</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- Acks & Contact -->
+<section class="bg-gray-50 dark:bg-gray-900/50 border-y border-gray-200 dark:border-gray-800">
+<div class="max-w-5xl mx-auto px-6 py-14 reveal grid md:grid-cols-2 gap-8">
+  <div>
+    <h2 class="text-2xl font-bold mb-3">🙏 Acknowledgments</h2>
+    <p class="text-sm text-gray-600 dark:text-gray-400">LoongForge is built upon NVIDIA's Megatron-LM. We also referenced and drew inspiration from excellent open-source projects including Transformers, LLaMA-Factory, and Megatron-Bridge. We sincerely thank these communities for their outstanding contributions.</p>
+  </div>
+  <div>
+    <h2 class="text-2xl font-bold mb-3">💬 Contact</h2>
+    <p class="text-sm text-gray-600 dark:text-gray-400">We welcome questions, feedback, feature requests, and contributions. Please open a <a href="https://github.com/baidu-baige/LoongForge/issues" target="_blank" class="text-indigo-600 underline">GitHub issue</a> or start a <a href="https://github.com/baidu-baige/LoongForge/discussions" target="_blank" class="text-indigo-600 underline">discussion</a> — we read every one.</p>
+  </div>
+</div>
+</section>
+
+<footer class="border-t border-gray-200 dark:border-gray-800">
+  <div class="max-w-7xl mx-auto px-6 py-8 text-center text-xs text-gray-500">© 2026 LoongForge Authors · Apache 2.0</div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-bash.min.js"></script>
+<script src="assets/js/main.js"></script>
+</body></html>
