@@ -51,7 +51,7 @@ html_theme_options = {
     "repository_url": "https://github.com/baidu-baige/LoongForge",
     "use_repository_button": True,
 }
-html_static_path = ['../_static']
+html_static_path = ['../../_static']
 html_css_files = [
     "custom.css",
 ]
