@@ -1,0 +1,133 @@
+name: Claude PR Review
+
+permissions:
+  contents: read
+  pull-requests: write
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to review"
+        required: true
+        type: string
+
+jobs:
+  auto-review:
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine PR number
+        id: pr
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "number=${{ inputs.pr_number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Get PR diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr diff ${{ steps.pr.outputs.number }} > /tmp/pr-diff.txt
+          [ -s /tmp/pr-diff.txt ] || { echo "Empty diff"; exit 1; }
+
+      - name: Get PR metadata
+        id: meta
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr view ${{ steps.pr.outputs.number }} --json title,author --jq '"title=" + .title' >> "$GITHUB_OUTPUT"
+          gh pr view ${{ steps.pr.outputs.number }} --json author --jq '"author=" + .author.login' >> "$GITHUB_OUTPUT"
+
+      - name: Run Claude review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+          CLAUDE_MODEL: "Claude Sonnet 4.6"
+          SKILL_PATH: "skills/loongforge-review/SKILL.md"
+          DIFF_PATH: "/tmp/pr-diff.txt"
+          PR_TITLE: ${{ steps.meta.outputs.title }}
+          PR_AUTHOR: ${{ steps.meta.outputs.author }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 .github/scripts/claude-review.py
+
+      - name: Delete previous bot reviews
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh api "repos/${REPO}/pulls/${PR_NUMBER}/reviews" --jq \
+            '.[] | select(.user.login == "github-actions[bot]") | .id' | \
+          while read -r review_id; do
+            echo "Dismissing old review: $review_id"
+            gh api "repos/${REPO}/pulls/${PR_NUMBER}/reviews/${review_id}" \
+              --method DELETE 2>/dev/null || true
+          done
+
+      - name: Post review with inline comments
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 << 'PYEOF'
+          import json
+          import subprocess
+          import os
+
+          with open("/tmp/review-result.json", "r") as f:
+              review = json.load(f)
+
+          verdict = review.get("verdict", "COMMENT")
+          summary = review.get("summary", "")
+          comments = review.get("inline_comments", [])
+
+          body = "## 🤖 Claude Code Review\n\n"
+          body += f"**Verdict: {verdict}**\n\n"
+          body += f"{summary}\n\n"
+          if comments:
+              body += f"📝 {len(comments)} inline comment(s) posted below.\n\n"
+          body += "---\n*Automated review by Claude Sonnet 4.6 · [Review Skill](skills/loongforge-review/SKILL.md)*"
+
+          pr_number = os.environ["PR_NUMBER"]
+          repo = os.environ["REPO"]
+
+          # Use COMMENT event to avoid blocking merges
+          payload = {
+              "event": "COMMENT",
+              "body": body,
+              "comments": [
+                  {"path": c["path"], "line": c["line"], "body": c["body"]}
+                  for c in comments
+              ],
+          }
+
+          payload_json = json.dumps(payload)
+          result = subprocess.run(
+              ["gh", "api", f"repos/{repo}/pulls/{pr_number}/reviews",
+               "--method", "POST", "--input", "-"],
+              input=payload_json.encode(),
+              capture_output=True,
+          )
+
+          if result.returncode != 0:
+              print(f"Failed to post review: {result.stderr.decode()}")
+              # Fallback: post as simple comment
+              subprocess.run(
+                  ["gh", "pr", "comment", pr_number, "--body", body],
+                  check=True,
+              )
+          else:
+              print("Review posted successfully with inline comments")
+          PYEOF
