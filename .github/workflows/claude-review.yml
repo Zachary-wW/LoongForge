@@ -22,6 +22,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh pr diff ${{ github.event.pull_request.number }} > /tmp/pr-diff.txt
+          [ -s /tmp/pr-diff.txt ] || { echo "Empty diff"; exit 1; }
 
       - name: Run Claude review
         env:
@@ -32,19 +33,75 @@ jobs:
           DIFF_PATH: "/tmp/pr-diff.txt"
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          python3 .github/scripts/claude-review.py > /tmp/review-result.md
+          python3 .github/scripts/claude-review.py
 
-      - name: Post review comment
+      - name: Post review with inline comments
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          {
-            echo '## 🤖 Claude Code Review'
-            echo ''
-            cat /tmp/review-result.md
-            echo ''
-            echo '---'
-            echo '*Automated review by Claude Sonnet 4.6 · [Review Skill](skills/loongforge-review/SKILL.md)*'
-          } > /tmp/review-comment.md
-          gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/review-comment.md
+          python3 - <<'PYEOF'
+          import json
+          import subprocess
+          import os
+
+          with open("/tmp/review-result.json", "r") as f:
+              review = json.load(f)
+
+          verdict = review.get("verdict", "COMMENT")
+          summary = review.get("summary", "")
+          comments = review.get("inline_comments", [])
+
+          # Map verdict to GitHub review event
+          event_map = {
+              "APPROVE": "APPROVE",
+              "REQUEST_CHANGES": "REQUEST_CHANGES",
+              "COMMENT": "COMMENT",
+          }
+          event = event_map.get(verdict, "COMMENT")
+
+          # Build review body
+          body = f"## 🤖 Claude Code Review\n\n"
+          body += f"**Verdict: {verdict}**\n\n"
+          body += f"{summary}\n\n"
+          if comments:
+              body += f"📝 {len(comments)} inline comment(s) posted below.\n\n"
+          body += "---\n*Automated review by Claude Sonnet 4.6 · [Review Skill](skills/loongforge-review/SKILL.md)*"
+
+          # Build the review payload
+          pr_number = os.environ.get("PR_NUMBER", "${{ github.event.pull_request.number }}")
+          repo = os.environ.get("REPO", "${{ github.repository }}")
+
+          payload = {
+              "event": event,
+              "body": body,
+              "comments": [
+                  {"path": c["path"], "line": c["line"], "body": c["body"]}
+                  for c in comments
+              ],
+          }
+
+          # Post review via GitHub API
+          payload_json = json.dumps(payload)
+          result = subprocess.run(
+              ["gh", "api", f"repos/{repo}/pulls/{pr_number}/reviews",
+               "--method", "POST", "--input", "-"],
+              input=payload_json.encode(),
+              capture_output=True,
+          )
+
+          if result.returncode != 0:
+              print(f"Failed to post review: {result.stderr.decode()}")
+              # Fallback: post as simple comment
+              subprocess.run(
+                  ["gh", "pr", "comment", pr_number, "--body", body],
+                  check=True,
+              )
+          else:
+              print("Review posted successfully with inline comments")
+          PYEOF
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
