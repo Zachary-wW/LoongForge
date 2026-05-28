@@ -3,20 +3,13 @@ name: Claude PR Review
 permissions:
   contents: read
   pull-requests: write
-  issues: write
-  id-token: write
 
 on:
   pull_request:
     types: [opened, synchronize]
-  issue_comment:
-    types: [created]
-  pull_request_review_comment:
-    types: [created]
 
 jobs:
   auto-review:
-    if: github.event_name == 'pull_request'
     runs-on: self-hosted
     timeout-minutes: 15
     steps:
@@ -24,40 +17,34 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Read review skill
-        id: skill
+      - name: Get PR diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr diff ${{ github.event.pull_request.number }} > /tmp/pr-diff.txt
+
+      - name: Run Claude review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+          CLAUDE_MODEL: "Claude Sonnet 4.6"
+          SKILL_PATH: "skills/loongforge-review/SKILL.md"
+          DIFF_PATH: "/tmp/pr-diff.txt"
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          python3 .github/scripts/claude-review.py > /tmp/review-result.md
+
+      - name: Post review comment
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           {
-            echo 'REVIEW_PROMPT<<EOF'
-            cat skills/loongforge-review/SKILL.md
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
-
-      - uses: anthropics/claude-code-action@v1
-        env:
-          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: |
-            ${{ steps.skill.outputs.REVIEW_PROMPT }}
-
-            Now review the current pull request following the instructions above.
-          claude_args: "--model 'Claude Sonnet 4.6' --max-turns 10"
-
-  interactive:
-    if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
-    runs-on: self-hosted
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: anthropics/claude-code-action@v1
-        env:
-          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          claude_args: "--model 'Claude Sonnet 4.6' --max-turns 10"
+            echo '## 🤖 Claude Code Review'
+            echo ''
+            cat /tmp/review-result.md
+            echo ''
+            echo '---'
+            echo '*Automated review by Claude Sonnet 4.6 · [Review Skill](skills/loongforge-review/SKILL.md)*'
+          } > /tmp/review-comment.md
+          gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/review-comment.md
