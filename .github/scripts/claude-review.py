@@ -29,7 +29,16 @@ def call_claude(api_key, base_url, model, prompt):
 
     with urllib.request.urlopen(req, timeout=180) as resp:
         result = json.loads(resp.read())
-        return result["content"][0]["text"]
+
+    for block in result.get("content", []):
+        if block.get("type") == "text" and "text" in block:
+            return block["text"]
+
+    print(
+        f"Claude response did not include a text content block: {json.dumps(result)[:1000]}",
+        file=sys.stderr,
+    )
+    raise RuntimeError("Claude response missing text content block")
 
 
 def parse_diff_files(diff_text):
