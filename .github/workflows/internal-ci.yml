@@ -68,28 +68,9 @@ jobs:
           : "${INTERNAL_CI_RUN_DIR:?INTERNAL_CI_RUN_DIR repository variable is required}"
           echo "INTERNAL_CI_RUN_DIR=$INTERNAL_CI_RUN_DIR" >> "$GITHUB_ENV"
           echo "INTERNAL_CI_RUNNER_LABEL=${INTERNAL_CI_RUNNER_LABEL:-self-hosted runner}" >> "$GITHUB_ENV"
+          grep -q '^BOS_BUCKET=' "$GITHUB_ENV" || { echo "BOS_BUCKET not found in config"; exit 1; }
+          grep -q '^BOS_PATH_PREFIX=' "$GITHUB_ENV" || { echo "BOS_PATH_PREFIX not found in config"; exit 1; }
           echo "配置已加载"
-          echo "--- Keys written to GITHUB_ENV ---"
-          grep '=' "$GITHUB_ENV" | sed 's/=.*/=***/' || echo "(empty)"
-          echo "---"
-          grep -q '^BOS_BUCKET=' "$GITHUB_ENV" || { echo "BOS_BUCKET not found in GITHUB_ENV"; exit 1; }
-          grep -q '^BOS_PATH_PREFIX=' "$GITHUB_ENV" || { echo "BOS_PATH_PREFIX not found in GITHUB_ENV"; exit 1; }
-          echo "All required config keys verified in GITHUB_ENV"
-
-      - name: Verify config propagation
-        run: |
-          set -euo pipefail
-
-          echo "BOS_BUCKET set: ${BOS_BUCKET:+yes}"
-          echo "BOS_PATH_PREFIX set: ${BOS_PATH_PREFIX:+yes}"
-          echo "RULIU_WEBHOOK set: ${RULIU_WEBHOOK:+yes}"
-
-          if [ -z "${BOS_BUCKET:-}" ]; then
-            echo "ERROR: BOS_BUCKET is empty in this step's environment"
-            echo "GITHUB_ENV contents from current step, keys only:"
-            grep '=' "$GITHUB_ENV" | sed 's/=.*/=***/' || echo "(empty or file missing)"
-            exit 1
-          fi
 
       - name: Get PR info
         id: pr-info
@@ -203,7 +184,7 @@ jobs:
 
           mkdir -p "$LOCAL_RUN_DIR"
           chmod 700 "$LOCAL_RUN_DIR"
-          bcecmd bos put "$OUTPUT_FILE" "bos:/$BOS_BUCKET/$BOS_PATH" > "$LOCAL_UPLOAD_LOG" 2>&1
+          bcecmd bos cp "$OUTPUT_FILE" "bos:/$BOS_BUCKET/$BOS_PATH" > "$LOCAL_UPLOAD_LOG" 2>&1
           chmod 600 "$LOCAL_UPLOAD_LOG"
 
           BRANCH="${{ steps.pr-info.outputs.branch }}"
@@ -253,7 +234,7 @@ jobs:
             '{pr_number:$pr_number,branch:$branch,sha7:$sha7,timestamp:$timestamp,local_result_file:$local_result_file,status:"pending",updated_at:$updated_at}' \
             > /tmp/ci_trigger.json
 
-          bcecmd bos put /tmp/ci_trigger.json "bos:/$BOS_BUCKET/$BOS_PREFIX/ci_trigger_pr${PR_NUM}.json" > "$LOCAL_SIGNAL_LOG" 2>&1
+          bcecmd bos cp /tmp/ci_trigger.json "bos:/$BOS_BUCKET/$BOS_PREFIX/ci_trigger_pr${PR_NUM}.json" > "$LOCAL_SIGNAL_LOG" 2>&1
           chmod 600 "$LOCAL_SIGNAL_LOG"
 
           echo "CI trigger signal uploaded"
