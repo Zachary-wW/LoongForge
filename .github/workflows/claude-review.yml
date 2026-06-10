@@ -40,13 +40,16 @@ jobs:
           ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # Default trigger phrase is @claude; using built-in behavior.
+          # Default trigger phrase is @claude.
           # Model ID matches what the internal gateway exposes via /v1/models
           # (uses spaces, not dashes — gateway-specific naming).
           claude_args: '--model "Claude Sonnet 4.6" --max-turns 20'
-          # Hint the agent to use the repo's review skill when asked to review.
-          prompt: |
-            When asked to review a PR or diff, follow the contract in
-            `skills/code-review/SKILL.md` exactly: its checklist, severity
-            tags, and output format are authoritative. For other tasks,
-            behave as a normal @claude assistant.
+          # NOTE: do NOT set `prompt:` here. Setting it puts the action in
+          # custom-automation mode, which overrides the user's @claude
+          # comment and skips the GitHub MCP tool injection — meaning the
+          # agent has no way to post a review back. With `prompt:` empty,
+          # the action's default agent mode injects PR context + GitHub
+          # tools, and the user's @claude comment becomes the agent input.
+          # Project-wide instructions (e.g. "use skills/code-review/SKILL.md
+          # when reviewing") belong in CLAUDE.md, which the agent loads
+          # automatically.

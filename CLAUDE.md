@@ -183,3 +183,7 @@ Megatron-LM is managed as a git submodule (`third_party/Loong-Megatron` → `bai
 ## Patches
 
 `patches/TransformerEngine_v2.9/` contains patch files applied to upstream TransformerEngine during setup. These implement LoongForge-specific optimizations and fixes.
+
+## Code Review
+
+When asked to review a pull request or a diff (e.g. via `@claude review this PR`), follow `skills/code-review/SKILL.md` exactly: its checklist, severity tags (🔴 Critical / 🟠 Major / 🟡 Minor / 🟢 Nit), and output format are the authoritative contract for review output.
