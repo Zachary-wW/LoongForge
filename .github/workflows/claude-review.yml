@@ -11,7 +11,7 @@ on:
     types: [opened, assigned]
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
   issues: write
   actions: read
@@ -19,12 +19,41 @@ permissions:
 
 jobs:
   claude:
-    # Run only when @claude is mentioned in the relevant event payload.
+    # Run only when @claude is mentioned AND the commenter is a trusted
+    # actor on the repo (or the PR/issue author themselves). Without this
+    # gate, anyone on the public internet who can comment on the repo
+    # (e.g. a fork-PR contributor) could trigger paid agent runs and
+    # execute tools on the self-hosted runner.
     if: >-
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      (
+        github.event_name == 'issue_comment' &&
+        contains(github.event.comment.body, '@claude') &&
+        (
+          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) ||
+          github.event.comment.user.login == github.event.issue.user.login
+        )
+      ) ||
+      (
+        github.event_name == 'pull_request_review_comment' &&
+        contains(github.event.comment.body, '@claude') &&
+        (
+          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) ||
+          github.event.comment.user.login == github.event.pull_request.user.login
+        )
+      ) ||
+      (
+        github.event_name == 'pull_request_review' &&
+        contains(github.event.review.body, '@claude') &&
+        (
+          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association) ||
+          github.event.review.user.login == github.event.pull_request.user.login
+        )
+      ) ||
+      (
+        github.event_name == 'issues' &&
+        (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')) &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
+      )
     runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 30
     steps:
