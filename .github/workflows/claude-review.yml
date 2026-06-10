@@ -63,7 +63,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
           CLAUDE_MODEL: "Claude Sonnet 4.6"
-          SKILL_PATH: "skills/loongforge-review/SKILL.md"
+          SKILL_PATH: "skills/code-review/SKILL.md"
           DIFF_PATH: "/tmp/pr-diff.txt"
           PR_TITLE: ${{ steps.meta.outputs.title }}
           PR_AUTHOR: ${{ steps.meta.outputs.author }}
@@ -109,7 +109,7 @@ jobs:
           body += f"{summary}\n\n"
           if comments:
               body += f"📝 {len(comments)} inline comment(s) posted below.\n\n"
-          body += "---\n*Automated review by Claude Sonnet 4.6 · [Review Skill](skills/loongforge-review/SKILL.md)*"
+          body += "---\n*Automated review by Claude Sonnet 4.6 · [Review Skill](skills/code-review/SKILL.md)*"
 
           pr_number = os.environ["PR_NUMBER"]
           repo = os.environ["REPO"]

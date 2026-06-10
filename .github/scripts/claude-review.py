@@ -71,7 +71,7 @@ def main():
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     base_url = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
     model = os.environ.get("CLAUDE_MODEL", "Claude Sonnet 4.6")
-    skill_path = os.environ.get("SKILL_PATH", "skills/loongforge-review/SKILL.md")
+    skill_path = os.environ.get("SKILL_PATH", "skills/code-review/SKILL.md")
     diff_path = os.environ.get("DIFF_PATH", "/tmp/pr-diff.txt")
     pr_title = os.environ.get("PR_TITLE", "")
     pr_author = os.environ.get("PR_AUTHOR", "")
