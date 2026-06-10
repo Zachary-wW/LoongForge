@@ -187,3 +187,5 @@ Megatron-LM is managed as a git submodule (`third_party/Loong-Megatron` → `bai
 ## Code Review
 
 When asked to review a pull request or a diff (e.g. via `@claude review this PR`), follow `skills/code-review/SKILL.md` exactly: its checklist, severity tags (🔴 Critical / 🟠 Major / 🟡 Minor / 🟢 Nit), and output format are the authoritative contract for review output.
+
+**Posting findings — prefer inline comments.** For every finding tied to specific code, call the `mcp__github_inline_comment__create_inline_comment` tool to post it on the exact `file:line` (or `startLine`–`line` range) instead of listing it in the summary. Use the top-level summary comment ONLY for: the overall `Verdict`, the 2–4 sentence `Summary`, the `Tests` line, and the `Checklist` table. Each inline comment body should follow the same severity-tag format as the SKILL spec (`🔴 Critical: ...`, `🟠 Major: ...`, etc.). Set `confirmed: true` only on real review findings — never on probes or self-tests.
