@@ -41,7 +41,9 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # Default trigger phrase is @claude; using built-in behavior.
-          claude_args: '--model claude-sonnet-4-6 --max-turns 20'
+          # Model ID matches what the internal gateway exposes via /v1/models
+          # (uses spaces, not dashes — gateway-specific naming).
+          claude_args: '--model "Claude Sonnet 4.6" --max-turns 20'
           # Hint the agent to use the repo's review skill when asked to review.
           prompt: |
             When asked to review a PR or diff, follow the contract in
