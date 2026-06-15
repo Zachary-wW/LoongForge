@@ -70,6 +70,15 @@ jobs:
         # 27542697733.
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
+      - name: Stage runner HOME on /ssd1 (root fs is too small)
+        # / on this self-hosted runner (/dev/sda2) is only 19G and is
+        # already 100% full. claude-code-action's bundled install.sh
+        # downloads the ~250MB Claude CLI binary into $HOME/.claude/
+        # downloads/, which lands on / by default and fails with ENOSPC.
+        # Redirect HOME (for the Claude action step only) onto /ssd1
+        # which has 3T+ free. Verified against run 27542928617.
+        run: mkdir -p /ssd1/runner-home/.claude/downloads
+
       - name: Checkout PR head
         uses: actions/checkout@v4
         with:
@@ -87,6 +96,9 @@ jobs:
         env:
           # Route Claude API traffic through the internal proxy.
           ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+          # Override HOME so the action's install.sh writes the Claude CLI
+          # binary onto /ssd1 instead of the 19G root filesystem.
+          HOME: /ssd1/runner-home
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # track_progress shows a live checkbox list in the bot's
