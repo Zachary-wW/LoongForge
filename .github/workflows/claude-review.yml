@@ -15,8 +15,12 @@ permissions:
   pull-requests: write
   issues: write
   actions: read
-  # id-token: write removed: OIDC is unused; this action authenticates via
-  # ANTHROPIC_API_KEY against the internal gateway.
+  # Required: anthropics/claude-code-action@v1 unconditionally requests an
+  # OIDC token in setupGitHubToken() during run.ts startup; without this
+  # permission ACTIONS_ID_TOKEN_REQUEST_URL is unset and the action fails
+  # with "Could not fetch an OIDC token" before it ever reads
+  # anthropic_api_key. Verified against run 27542279912.
+  id-token: write
 
 # Same-PR @claude bursts collapse to the latest run instead of piling up
 # behind the single self-hosted runner slot. Different PRs still run in
