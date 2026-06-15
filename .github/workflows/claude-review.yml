@@ -60,6 +60,16 @@ jobs:
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
     steps:
+      - name: Trust workspace (self-hosted runner)
+        # The runner process runs as root but _work/ files were created
+        # by other users in earlier sessions, so git's CVE-2022-24765
+        # check (`fatal: detected dubious ownership`) trips when
+        # claude-code-action runs `git fetch` from outside the
+        # actions/checkout step's temporary HOME. Add the workspace to
+        # root's global git config once per job. Verified against run
+        # 27542697733.
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Checkout PR head
         uses: actions/checkout@v4
         with:
