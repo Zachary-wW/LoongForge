@@ -15,39 +15,38 @@ permissions:
   pull-requests: write
   issues: write
   actions: read
-  id-token: write
+  # id-token: write removed: OIDC is unused; this action authenticates via
+  # ANTHROPIC_API_KEY against the internal gateway.
+
+# Same-PR @claude bursts collapse to the latest run instead of piling up
+# behind the single self-hosted runner slot. Different PRs still run in
+# parallel (subject to runner availability).
+concurrency:
+  group: claude-review-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   claude:
     # Run only when @claude is mentioned AND the commenter is a trusted
-    # actor on the repo (or the PR/issue author themselves). Without this
-    # gate, anyone on the public internet who can comment on the repo
-    # (e.g. a fork-PR contributor) could trigger paid agent runs and
-    # execute tools on the self-hosted runner.
+    # actor on the repo. The previous "PR/issue author" bypass is removed:
+    # for fork PRs, the author's author_association is NONE/CONTRIBUTOR,
+    # so that branch effectively let any GitHub user trigger paid agent
+    # runs and execute tools on this self-hosted runner.
     if: >-
       (
         github.event_name == 'issue_comment' &&
         contains(github.event.comment.body, '@claude') &&
-        (
-          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) ||
-          github.event.comment.user.login == github.event.issue.user.login
-        )
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
       ) ||
       (
         github.event_name == 'pull_request_review_comment' &&
         contains(github.event.comment.body, '@claude') &&
-        (
-          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) ||
-          github.event.comment.user.login == github.event.pull_request.user.login
-        )
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
       ) ||
       (
         github.event_name == 'pull_request_review' &&
         contains(github.event.review.body, '@claude') &&
-        (
-          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association) ||
-          github.event.review.user.login == github.event.pull_request.user.login
-        )
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)
       ) ||
       (
         github.event_name == 'issues' &&
@@ -55,12 +54,19 @@ jobs:
         contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
       )
     runs-on: [self-hosted, Linux, X64]
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
-      - name: Checkout
+      - name: Checkout PR head
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          # issue_comment events default to the repo's default branch — review
+          # tools (Read/Grep/Glob) would then see the wrong code. Resolve to
+          # the PR head SHA when available, otherwise refs/pull/<n>/head.
+          ref: ${{ github.event.pull_request.head.sha || format('refs/pull/{0}/head', github.event.issue.number) }}
+          fetch-depth: 50
+          # _work is reused across jobs on a self-hosted runner; don't leave
+          # GITHUB_TOKEN behind in .git/config for the next workflow.
+          persist-credentials: false
 
       - name: Claude Code Action Official
         uses: anthropics/claude-code-action@v1
