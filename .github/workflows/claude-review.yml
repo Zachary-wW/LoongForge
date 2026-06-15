@@ -65,19 +65,15 @@ jobs:
         # by other users in earlier sessions, so git's CVE-2022-24765
         # check (`fatal: detected dubious ownership`) trips when
         # claude-code-action runs `git fetch` from outside the
-        # actions/checkout step's temporary HOME. Add the workspace to
-        # root's global git config once per job. Verified against run
-        # 27542697733.
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-      - name: Stage runner HOME on /ssd1 (root fs is too small)
-        # / on this self-hosted runner (/dev/sda2) is only 19G and is
-        # already 100% full. claude-code-action's bundled install.sh
-        # downloads the ~250MB Claude CLI binary into $HOME/.claude/
-        # downloads/, which lands on / by default and fails with ENOSPC.
-        # Redirect HOME (for the Claude action step only) onto /ssd1
-        # which has 3T+ free. Verified against run 27542928617.
-        run: mkdir -p /ssd1/runner-home/.claude/downloads
+        # actions/checkout step's temporary HOME. Write safe.directory
+        # into BOTH /root/.gitconfig (for the default-HOME steps) and
+        # /ssd1/runner-home/.gitconfig (for the Claude action step,
+        # which we relocate below). Verified against runs 27542697733
+        # and 27544080883.
+        run: |
+          mkdir -p /ssd1/runner-home/.claude/downloads
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          HOME=/ssd1/runner-home git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Checkout PR head
         uses: actions/checkout@v4
