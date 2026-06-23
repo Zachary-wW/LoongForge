@@ -1,9 +1,16 @@
 # Copyright 2026 The LoongForge Authors.
 # SPDX-License-Identifier: Apache-2.0
 
-"""DeepSeek-V4 model with Manifold-Constrained Hyper-Connections and MTP."""
+"""DeepSeek-V4 model with Manifold-Constrained Hyper-Connections and MTP.
 
-from contextlib import nullcontext
+V4 extends DeepSeek-V3 with:
+- Manifold-Constrained Hyper-Connections (mHC)
+- Shared-KV MQA attention with grouped output projection
+- Hash-MoE bootstrap routing
+- Compressed Sparse / Heavily Compressed Attention
+- Interleaved RoPE with two rope type labels
+"""
+
 import logging
 from typing import Dict, Literal, Optional, Any
 
@@ -20,34 +27,33 @@ from .deepseek_v4_config import DeepseekV4Config
 
 
 def _load_state_dict_hook_ignore_extra_state(module, incompatible_keys):
-    """Hook to ignore Transformer Engine _extra_state used for FP8."""
+    """Hook to ignore Transformer Engine _extra_state used for FP8.
+
+    G6: Uses general substring pattern '._extra_state' to match all
+    extra-state keys regardless of module name, not an explicit
+    module name enumeration. Hardcoded module lists break when layer
+    names change.
+
+    Keys that must NOT be ignored (non-trivial data):
+    - tid2eid: token-to-expert mapping for Hash-MoE layers
+    - expert_bias: MoE bias for load balancing
+    These carry non-trivial data that affects forward computation.
+    """
     keys_to_remove = [
         key
         for key in incompatible_keys.missing_keys
-        if "input_layernorm._extra_state" in key
-        or "pre_mlp_layernorm._extra_state" in key
-        or "enorm._extra_state" in key
-        or "hnorm._extra_state" in key
-        or "eh_proj._extra_state" in key
-        or "output_layernorm._extra_state" in key
-        or "linear_fc1._extra_state" in key
-        or "linear_fc2._extra_state" in key
-        or "final_layernorm._extra_state" in key
+        if "._extra_state" in key
     ]
     for key in keys_to_remove:
         if key in incompatible_keys.missing_keys:
             incompatible_keys.missing_keys.remove(key)
 
 
-class DeepseekV4ModelWithMTP(BaseGPTModel):
+class DeepseekV4Model(BaseGPTModel):
     """DeepSeek-V4 Transformer language model with MTP and mHC support.
 
-    V4 extends DeepSeek-V3 with:
-    - Manifold-Constrained Hyper-Connections (mHC)
-    - Shared-KV MQA attention with grouped output projection
-    - Hash-MoE bootstrap routing
-    - Compressed Sparse / Heavily Compressed Attention
-    - Interleaved RoPE with two rope type labels
+    G5: Model class uses <Family>Model naming convention.
+    MTP support is implicit in the GPT model base class.
     """
 
     config_class = DeepseekV4Config
@@ -73,7 +79,7 @@ class DeepseekV4ModelWithMTP(BaseGPTModel):
         else:
             model_spec = config.model_spec
 
-        transformer_layer_spec, mtp_layer_spec = import_module(
+        transformer_layer_spec, mtp_block_spec = import_module(
             model_spec, config, vp_stage=vp_stage
         )
 
@@ -97,7 +103,7 @@ class DeepseekV4ModelWithMTP(BaseGPTModel):
             rope_scaling_factor=config.rope_scaling_factor,
             scatter_embedding_sequence_parallel=scatter_embedding_sequence_parallel,
             seq_len_interpolation_factor=config.rotary_seq_len_interpolation_factor,
-            mtp_block_spec=mtp_layer_spec,
+            mtp_block_spec=mtp_block_spec,
             pg_collection=pg_collection,
             vp_stage=vp_stage,
         )
@@ -123,6 +129,8 @@ class DeepseekV4ModelWithMTP(BaseGPTModel):
         """Forward function of the DeepSeek-V4 model.
 
         PHASE1_VERIFY hook: fixes inputs for Step 7 forward comparison.
+        Gated by OMNI_PHASE1_VERIFY environment variable (defaults to disabled).
+        After Step 7 passes, this hook is removed or kept gated.
         """
         # PHASE1_VERIFY: fix inputs for Step 7 forward comparison
         import os as _os

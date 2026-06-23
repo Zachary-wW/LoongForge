@@ -17,7 +17,7 @@ from .internlm import InternLMModel, InternLMConfig
 
 from .ernie4_5_vl import ErnieMoeModel, ErnieMoeConfig
 from .glm import GlmConfig, GlmModelWithMTP
-from .deepseek_v4 import DeepseekV4Config, DeepseekV4ModelWithMTP
+from .deepseek_v4 import DeepseekV4Config, DeepseekV4Model
 # The config name should not be the same as the huggingface config name
 # or we can use exist_ok flag?
 AutoModel.register(Qwen2Config, Qwen2Model, exist_ok=True)  # overwrite existing Qwen2Config
@@ -31,4 +31,4 @@ AutoModel.register(MimoConfig, MimoModelWithMTP)
 AutoModel.register(MinimaxConfig, MinimaxModelWithMTP)
 AutoModel.register(LLaMAConfig, LLaMAModel)
 AutoModel.register(ErnieMoeConfig, ErnieMoeModel)
-AutoModel.register(DeepseekV4Config, DeepseekV4ModelWithMTP, exist_ok=True)
+AutoModel.register(DeepseekV4Config, DeepseekV4Model, exist_ok=True)
