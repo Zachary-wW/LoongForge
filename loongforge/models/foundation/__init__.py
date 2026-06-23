@@ -30,6 +30,3 @@ AutoModel.register(MimoConfig, MimoModelWithMTP)
 AutoModel.register(MinimaxConfig, MinimaxModelWithMTP)
 AutoModel.register(LLaMAConfig, LLaMAModel)
 AutoModel.register(ErnieMoeConfig, ErnieMoeModel)
-
-from .deepseek_v4 import DeepseekV4Model, DeepseekV4Config
-AutoModel.register(DeepseekV4Config, DeepseekV4Model, exist_ok=True)
