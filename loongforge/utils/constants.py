@@ -87,6 +87,7 @@ class LanguageModelFamilies(_BaseFamilies):
     MINIMAX = "minimax"
     MIMO = "mimo"
     GLM = "glm"
+    DEEPSEEK_V4 = "deepseek_v4"
 
 
 class VisionLanguageModelFamilies(_BaseFamilies):
