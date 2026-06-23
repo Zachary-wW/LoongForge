@@ -33,9 +33,8 @@ swiglu_limit: 10.0
 
 # ── mHC ──────────────────────────────────────────────────────────────
 enable_hyper_connections: true
-hc_mult: 4
-hc_sinkhorn_iters: 20
-hc_eps: 1.0e-6
+num_residual_streams: 4
+mhc_sinkhorn_iterations: 20
 
 # ── Compressed Attention ─────────────────────────────────────────────
 compress_rope_theta: 160000
@@ -65,25 +64,18 @@ rotary_percent: 0.125
 # ── Routing ───────────────────────────────────────────────────────────
 routed_scaling_factor: 1.5
 
-# ── Normalization ────────────────────────────────────────────────────
+# ── Common defaults ──────────────────────────────────────────────────
 normalization: RMSNorm
-layernorm_epsilon: 1.0e-6
-
-# ── FFN ──────────────────────────────────────────────────────────────
 swiglu: true
-
-# ── Dropout ──────────────────────────────────────────────────────────
 attention_dropout: 0
 hidden_dropout: 0
-
-# ── Linear bias ──────────────────────────────────────────────────────
 add_bias_linear: false
 add_qkv_bias: false
 qk_layernorm: false
 untie_embeddings_and_output_weights: true
 
 # ── MTP ──────────────────────────────────────────────────────────────
-mtp_num_layers: 1
+mtp_num_layers: 0
 mtp_loss_coef: 0.1
 
 model_type: deepseek_v4
