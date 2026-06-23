@@ -3,5 +3,5 @@
 
 """DeepSeek-V4 module"""
 
-from .deepseek_v4_model import DeepseekV4Model
+from .deepseek_v4_model import DeepseekV4ModelWithMTP
 from .deepseek_v4_config import DeepseekV4Config
