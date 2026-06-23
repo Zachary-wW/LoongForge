@@ -85,20 +85,6 @@ TENSOR_PARALLEL_DIM = {
     "attention.q.weight": 0,
     "attention.dense.weight" : 1,
     "attention.query_gate_key_value.weight": 0,
-    # V4 Shared-KV MQA
-    "attention.kv_shared.weight": 0,
-    # V4 Grouped output projection
-    "attention.dense_a.weight": 1,
-    "attention.dense_b.weight": 0,
-    # V4 CSA/HCA compressor
-    "attention.compressor.kv.weight": 0,
-    "attention.compressor.gate.weight": 0,
-    # V4 Lightning Indexer
-    "attention.indexer.wq_b.weight": 0,
-    "attention.indexer.compressor.kv.weight": 0,
-    "attention.indexer.compressor.gate.weight": 0,
-    # V4 MTP extensions
-    "mtp_h_proj.weight": 0,
     "mixer_att.log.weight": 0,
     "mixer_att.dt_bias.weight": 0,
     "mixer_att.conv1d.weight": 0,
@@ -109,8 +95,6 @@ TENSOR_PARALLEL_DIM = {
     "moe.expert_h_to_4h.weight": 0,
     "moe.expert_h_to_4h.bias": 0,
     "moe.expert_4h_to_h.weight": 1,
-    "moe.shared_expert_h_to_4h.weight": 0,
-    "moe.shared_expert_4h_to_h.weight": 1,
     "word_embeddings_for_head.weight": 0,
     "mtp_word_embeddings.weight": 0,
     "mtp_shared_head_head.weight": 0,
