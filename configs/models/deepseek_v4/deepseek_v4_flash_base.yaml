@@ -1,3 +1,6 @@
+# Copyright 2026 The LoongForge Authors.
+# SPDX-License-Identifier: Apache-2.0
+
 # DeepSeek-V4-Flash-Base model configuration
 _target_: loongforge.models.foundation.deepseek_v4.DeepseekV4Config
 num_layers: 43
