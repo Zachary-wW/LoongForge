@@ -1,0 +1,70 @@
+phase: 0
+status: passed
+summary: "HF model DeepSeek-V4-Flash-Base parsed; model_spec.yaml with 16 components, 10 novel modules, 8 behavior modifications, weight_structure with 69189 keys written; candidate family deepseek_v3; no slicing (disabled)."
+
+step_gate:
+  mandatory_steps_complete: true
+steps:
+  step1:
+    status: passed
+    evidence: "resolved HF source from installed transformers library (modeling_source=transformers_library), modeling=transformers/models/deepseek_v4/modeling_deepseek_v4.py, configuration=transformers/models/deepseek_v4/configuration_deepseek_v4.py"
+  step2:
+    status: passed
+    evidence: "scanned HF checkpoint directory: config.json, tokenizer files, model.safetensors.index.json; model_type=llm; no README found; all required config fields present (hidden_size=4096, num_hidden_layers=43, num_attention_heads=64)"
+  step3:
+    status: passed
+    evidence: "phases/phase0/model_spec.yaml — 16 components identified, candidate family deepseek_v3 (structural score=8), 10 novel modules, 8 behavior modifications, 12 traps, 5 special_features"
+  step4:
+    status: passed
+    evidence: "weight_structure appended to model_spec.yaml — 69189 total keys, FP8 quantization, layer_type_schedule (3 sliding + 20 CSA + 20 HCA), mlp_layer_type_schedule (3 hash_moe + 40 moe), 1577 MTP keys"
+  step5:
+    status: passed
+    evidence: "skipped — no WIP code paths provided; reference_contract_path=null"
+  step6:
+    status: passed
+    evidence: "slice disabled (enable_slice_ckpt=false); slice.hf_ckpt_path = original path"
+  step7:
+    status: passed
+    evidence: "phases/phase0_output.yml — all checks passed"
+
+source:
+  hf_ckpt_path: /Users/weizhihao/workspace/tmp_repo/0623/hf_source/ckpt_meta
+  hf_modeling_path: /Users/weizhihao/miniconda3/lib/python3.12/site-packages/transformers/models/deepseek_v4/modeling_deepseek_v4.py
+  hf_transformers_path: null
+  modeling_source: transformers_library
+  resolved_source_files:
+    modeling: /Users/weizhihao/miniconda3/lib/python3.12/site-packages/transformers/models/deepseek_v4/modeling_deepseek_v4.py
+    configuration: /Users/weizhihao/miniconda3/lib/python3.12/site-packages/transformers/models/deepseek_v4/configuration_deepseek_v4.py
+    processor: null
+    image_processor: null
+
+model:
+  model_name: DeepSeek-V4-Flash-Base
+  model_type: llm
+  candidate_family: deepseek_v3
+  candidate_match_reason: "config field inference: architectures[0]=DeepseekV4ForCausalLM maps to deepseek_v3 family; structural scoring score=8 (MLA=3, MoE=2, MTP=2, yarn=1); all key fields match deepseek_v3 KB entry"
+
+artifacts:
+  model_spec_path: phases/phase0/model_spec.yaml
+  reference_contract_path: null
+  wip_analysis_path: null
+  slice_report_path: null
+
+slice:
+  enabled: false
+  performed: false
+  reason: disabled
+  hf_ckpt_path: /Users/weizhihao/workspace/tmp_repo/0623/hf_source/ckpt_meta
+  config_path: /Users/weizhihao/workspace/tmp_repo/0623/hf_source/ckpt_meta/config.json
+  report_path: null
+
+checks:
+  model_spec_exists: true
+  components_non_empty: true
+  weight_structure_non_empty: true
+  source_resolved: true
+  reference_contract_extracted: null
+  required_references_resolved: null
+  slice_hf_ckpt_path_resolved: true
+  slice_config_path_resolved: true
+  mtp_preserved_when_present: true

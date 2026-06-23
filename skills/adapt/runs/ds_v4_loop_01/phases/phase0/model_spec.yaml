@@ -1,0 +1,497 @@
+model_category: llm
+candidate_family: deepseek_v3
+hf_reference_path: /Users/weizhihao/workspace/agent_skills/harness/hf_models/llm/DeepSeek-V3
+candidate_match_reason: "config field inference: architectures[0]=DeepseekV4ForCausalLM maps to deepseek_v3 family; structural scoring score=8 (MLA=3, MoE=2, MTP=2, yarn=1); all key fields (q_lora_rank, n_routed_experts, rope_scaling.type=yarn, num_nextn_predict_layers) match deepseek_v3 KB entry"
+has_chat_template: false
+partial_rotary_factor: 0.125
+
+components:
+  embedding:
+    diff: same
+    strategy: reuse_ref
+    hf_class: inline
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 1243
+    structural_tags: [untied, padding_idx]
+
+  positional_encoding:
+    diff: differs
+    strategy: adapt_ref
+    delta:
+      - "Dual-theta rotary: main (theta=10000, no scaling) + compress (theta=160000, yarn factor=16)"
+      - "Interleaved RoPE: consecutive channel pairs (no end-to-end duplication), apply_rotary_pos_emb uses repeat_interleave(2)"
+      - "V3 uses single YarnRotaryEmbedding; V4 splits per rope_type label (main/compress)"
+    hf_class: DeepseekV4RotaryEmbedding
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 75
+    structural_tags: [yarn, dual_theta, interleaved_rope, factor=16, partial_rotary=0.125, compress_rope_theta=160000]
+
+  attention:
+    diff: differs
+    strategy: new_impl
+    delta:
+      - "Shared-KV MQA: num_key_value_heads=1, single KV head broadcast to all attn heads (V3 uses MLA with kv_lora_rank latent compression)"
+      - "Grouped output projection: DeepseekV4GroupedLinear (o_a_proj) + o_b_proj with o_groups=8, o_lora_rank=1024"
+      - "Per-head learnable attention sinks (nn.Parameter torch.empty(num_heads))"
+      - "Partial RoPE applied to trailing qk_rope_head_dim=64 of each head; layout [nope | rope]"
+      - "CSA/HCA compressor modules attached per layer_type (V3 has none)"
+      - "Conjugate rotation on attention output (apply_rotary_pos_emb with -sin) before grouped output proj"
+      - "KV identity: key == value (shared tensor), unlike V3 which has separate KV projections"
+    hf_class: DeepseekV4Attention
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 743
+    structural_tags: [mqa, shared_kv, partial_rope, attention_sink, grouped_output_proj,
+                      o_groups=8, o_lora_rank=1024, head_dim=512, q_lora_rank=1024,
+                      sliding_window=128, csa_compressor, hca_compressor]
+
+  attention_norm:
+    diff: differs
+    strategy: adapt_ref
+    delta:
+      - "V3: latent_norm on MLA compressed q/kv (DeepseekV3RMSNorm inside attention)"
+      - "V4: q_a_norm on q_residual (RMSNorm), kv_norm on single KV head (RMSNorm), q_b_norm (UnweightedRMSNorm)"
+      - "V4 adds UnweightedRMSNorm (no learnable weight) for q_b_norm"
+    hf_class: DeepseekV4RMSNorm
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 46
+    structural_tags: [rms_norm, q_a_norm, kv_norm, q_b_norm_unweighted, eps=1e-6]
+
+  ffn:
+    diff: same
+    strategy: reuse_ref
+    hf_class: DeepseekV4MLP
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 962
+    structural_tags: [swiglu, gate_proj, up_proj, down_proj, silu]
+
+  moe_gate:
+    diff: differs
+    strategy: new_impl
+    delta:
+      - "V3: MoEGate with sigmoid scoring + noaux_tc + e_score_correction_bias"
+      - "V4: Two router classes: DeepseekV4TopKRouter (standard moe layers) + DeepseekV4HashRouter (hash_moe bootstrap layers)"
+      - "V4 TopKRouter uses sqrtsoftplus scoring (not sigmoid/softmax); V3 uses sigmoid"
+      - "V4 HashRouter uses frozen tid2eid[input_ids] lookup for expert selection (first 3 layers)"
+      - "V4 routed_scaling_factor=1.5 (V3=2.5 for 256-expert or 1.0 for 64-expert)"
+    hf_class: DeepseekV4TopKRouter
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 1019
+    structural_tags: [sqrtsoftplus, noaux_tc, e_score_correction_bias, hash_router_bootstrap,
+                      routed_scaling_factor=1.5, num_experts_per_tok=6, n_routed_experts=256]
+
+  moe_experts:
+    diff: differs
+    strategy: new_impl
+    delta:
+      - "V3: DeepseekV3MLP per-expert (gate_proj, up_proj, down_proj as separate Linears)"
+      - "V4: DeepseekV4Experts uses fused 3D Parameter tensors (gate_up_proj [n_experts, 2*intermediate, hidden], down_proj [n_experts, hidden, intermediate])"
+      - "V4 adds swiglu_limit clamping in _apply_gate: gate.clamp(max=limit), up.clamp(min=-limit, max=limit)"
+      - "V4 uses @use_experts_implementation for backend swapping (grouped_mm, batched_mm)"
+    hf_class: DeepseekV4Experts
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 979
+    same_class_as: ffn
+    structural_tags: [fused_3d_weights, swiglu_limit=10.0, n_routed_experts=256,
+                      moe_intermediate_size=2048, fp8_expert_dtype]
+
+  moe_shared_experts:
+    diff: same
+    strategy: reuse_ref
+    hf_class: DeepseekV4MLP
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 962
+    same_class_as: ffn
+    structural_tags: [n_shared_experts=1, always_active]
+
+  moe_layer:
+    diff: differs
+    strategy: adapt_ref
+    delta:
+      - "V3: DeepseekV3MoE with single MoEGate + experts + shared_experts"
+      - "V4: DeepseekV4SparseMoeBlock with is_hash flag choosing HashRouter vs TopKRouter"
+      - "V4 hash_moe layers (first 3) take input_ids for tid2eid lookup"
+    hf_class: DeepseekV4SparseMoeBlock
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 1071
+    structural_tags: [hash_moe_bootstrap, mlp_layer_types=hash_moe+moe, gate_plus_experts_plus_shared]
+
+  norm:
+    diff: same
+    strategy: reuse_ref
+    hf_class: DeepseekV4RMSNorm
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 46
+    structural_tags: [rms_norm, pre_norm, eps=1e-6]
+
+  decoder_layer:
+    diff: differs
+    strategy: new_impl
+    delta:
+      - "V3: standard residual connection (hidden = hidden + sublayer(norm(hidden)))"
+      - "V4: Manifold-Constrained Hyper-Connections (mHC) replace standard residual"
+      - "V4: hidden_states shape [B, S, hc_mult=4, D] throughout layer (parallel streams)"
+      - "V4: attn_hc and ffn_hc (DeepseekV4HyperConnection) produce pre/post/comb weights"
+      - "V4: Sinkhorn-Knopp projection onto doubly-stochastic matrices for comb weights"
+      - "V4: layer output = post * sublayer_output + comb.T @ residual (no simple addition)"
+    hf_class: DeepseekV4DecoderLayer
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 1091
+    structural_tags: [hyper_connection, hc_mult=4, hc_sinkhorn_iters=20, hc_eps=1e-6,
+                      manifold_constrained_residual, parallel_streams, all_moe_layers]
+
+  mtp:
+    diff: absent_in_hf
+    hf_config_field: num_nextn_predict_layers
+    omni_config_field: mtp_num_layers
+    strategy: new_impl
+    note: "HF code has no MTP implementation (weights exist in checkpoint as mtp.0.* but modeling_deepseek_v4.py does not instantiate MTP layers). Phase 0 records this as new_impl; Phase 1 may override final_strategy to reuse_megatron after reading Megatron/Omni MTP support."
+
+  lm_head:
+    diff: same
+    strategy: reuse_ref
+    hf_class: inline
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 1396
+    structural_tags: [no_bias, untied]
+
+  model:
+    diff: differs
+    strategy: adapt_ref
+    delta:
+      - "V4 model expands input to [B, S, hc_mult, D] before layer loop (V3 keeps [B, S, D])"
+      - "V4 has hc_head (DeepseekV4HyperHead) to collapse final HC streams before norm"
+      - "V4 uses dual position_embeddings dict {main: (cos,sin), compress: (cos,sin)}"
+      - "V4 _keys_to_ignore_on_load_unexpected includes mtp.* pattern"
+    hf_class: DeepseekV4Model
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 1237
+
+  causal_lm:
+    diff: same
+    strategy: reuse_ref
+    hf_class: DeepseekV4ForCausalLM
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 1396
+
+  config:
+    diff: differs
+    strategy: adapt_ref
+    delta:
+      - "Added index_n_heads, index_head_dim, index_topk (Lightning Indexer fields)"
+      - "Added hc_mult, hc_sinkhorn_iters, hc_eps (Hyper-Connection fields)"
+      - "Added compress_rates dict, layer_types list, mlp_layer_types list"
+      - "Added swiglu_limit, sliding_window, o_groups, o_lora_rank"
+      - "Added scoring_func (sqrtsoftplus), compress_rope_theta"
+      - "Added rope_parameters with main/compress dual-rope-type nesting"
+      - "attribute_map: num_local_experts -> n_routed_experts, intermediate_size -> moe_intermediate_size"
+      - "__post_init__ folds legacy kwargs (compress_ratios, compress_rate_csa/hca, num_hash_layers, qk_rope_head_dim)"
+    hf_class: DeepseekV4Config
+    hf_file: configuration_deepseek_v4.py
+    hf_line: 40
+    structural_tags: [dual_rope_parameters, layer_types_schedule, mlp_layer_types_schedule]
+
+novel_modules:
+  - hf_class: DeepseekV4HCACompressor
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 362
+    desc: "Heavily Compressed Attention compressor (paper 2.3.2). Compresses every compress_rate_hca=128 source tokens into a single compressed KV entry using softmax-gated convex combination with position_bias."
+
+  - hf_class: DeepseekV4CSACompressor
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 579
+    desc: "Compressed Sparse Attention compressor (paper 2.3.1). Compresses every compress_rate_csa=4 source tokens with overlapping Ca/Cb series, runs Lightning Indexer for top-k compressed KV selection."
+
+  - hf_class: DeepseekV4Indexer
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 448
+    desc: "Lightning Indexer (paper 2.3.1, eqs. 13-17). Scores queries against compressed keys with sum_h w*ReLU(q*K), keeps top index_topk=512 entries per query."
+
+  - hf_class: DeepseekV4HyperConnection
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 864
+    desc: "Manifold-Constrained Hyper-Connections (mHC, paper 2.2). Replaces standard residual with hc_mult=4 parallel streams, Sinkhorn-Knopp projection onto doubly-stochastic matrices, pre/post/comb weight decomposition."
+
+  - hf_class: DeepseekV4HyperHead
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 943
+    desc: "Final HC-stream collapse head. Collapses hc_mult=4 parallel streams to single sequence before final norm."
+
+  - hf_class: DeepseekV4HashRouter
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 1040
+    desc: "Hash routing for bootstrap MoE layers (paper 2.1). Expert selection via frozen tid2eid[input_ids] lookup instead of learned argmax."
+
+  - hf_class: DeepseekV4GroupedLinear
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 303
+    desc: "Block-diagonal grouped linear for output projection. Splits num_attention_heads*head_dim into o_groups=8 groups, projects each to o_lora_rank=1024, then mixed by o_b_proj."
+
+  - hf_class: DeepseekV4HCACache
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 171
+    desc: "Cache layer for HCA blocks. Holds sliding-window K=V + running compressed entries with non-overlapping windows."
+
+  - hf_class: DeepseekV4CSACache
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 255
+    desc: "Cache layer for CSA blocks. Extends HCACache with indexer entries and per-name overlap state for two-series window scheme."
+
+  - hf_class: DeepseekV4UnweightedRMSNorm
+    hf_file: modeling_deepseek_v4.py
+    hf_line: 66
+    desc: "Weightless RMSNorm. No learnable weight parameter; output = x * rsqrt(variance + eps)."
+
+behavior_modifications:
+  - id: swiglu_clamp_limit
+    component: moe_experts
+    behavior_type: activation
+    source_evidence:
+      hf_file: modeling_deepseek_v4.py
+      hf_line: 1009
+      config_fields: [swiglu_limit]
+    required_behavior: "Clamp routed experts' gate and up pre-activations: gate.clamp(max=10.0), up.clamp(min=-10.0, max=10.0) before SiLU*gating. Affects DeepseekV4Experts._apply_gate."
+    affected_existing_modules: [moe_experts]
+    validation_hint: "Use synthetic inputs exceeding the clamp threshold (gate > 10.0, up > 10.0 or up < -10.0); random initialization is insufficient to expose this behavior."
+
+  - id: scoring_func_sqrtsoftplus
+    component: moe_gate
+    behavior_type: routing_scoring
+    source_evidence:
+      hf_file: modeling_deepseek_v4.py
+      hf_line: 1026
+      config_fields: [scoring_func]
+    required_behavior: "Router activation uses sqrtsoftplus scoring function instead of sigmoid or softmax. ACT2FN['sqrtsoftplus'] must be available. Affects both TopKRouter and HashRouter."
+    affected_existing_modules: [moe_gate]
+    validation_hint: "Verify router scores match sqrt(softplus(logits)) vs sigmoid(logits); discrepancy causes different expert selection and output divergence."
+
+  - id: compress_layer_types_schedule
+    component: attention
+    behavior_type: attention_schedule
+    source_evidence:
+      hf_file: configuration_deepseek_v4.py
+      hf_line: 260
+      config_fields: [compress_ratios, layer_types, compress_rates]
+    required_behavior: "Three attention layer types: sliding_attention (compress_ratio=0), compressed_sparse_attention (m=4), heavily_compressed_attention (m'=128). Layer 0-1 are HCA, then interleaved CSA/HCA for the rest. Derived from compress_ratios=[0,0,4,128,4,128,...,0]."
+    affected_existing_modules: [attention, decoder_layer]
+    validation_hint: "Verify per-layer compressor attachment matches layer_types schedule; wrong compressor type causes shape mismatch and KV concatenation failure."
+
+  - id: hc_manifold_residual
+    component: decoder_layer
+    behavior_type: residual_connection
+    source_evidence:
+      hf_file: modeling_deepseek_v4.py
+      hf_line: 864
+      config_fields: [hc_mult, hc_sinkhorn_iters, hc_eps]
+    required_behavior: "Manifold-Constrained Hyper-Connections replace standard residual. Input expanded to [B,S,hc_mult=4,D]. Each sublayer wrapped by attn_hc/ffn_hc producing pre/post/comb weights. comb matrix projected onto doubly-stochastic manifold via Sinkhorn-Knopp (20 iterations). Output = post*sublayer + comb.T @ residual."
+    affected_existing_modules: [decoder_layer]
+    validation_hint: "Verify Sinkhorn convergence by checking comb row/col sums approach 1.0; test with hc_mult>1 streams to confirm non-trivial mixing."
+
+  - id: partial_rotary_0.125
+    component: positional_encoding
+    behavior_type: positional_encoding
+    source_evidence:
+      hf_file: configuration_deepseek_v4.py
+      hf_line: 139
+      config_fields: [head_dim, qk_rope_head_dim]
+    required_behavior: "Partial RoPE: only qk_rope_head_dim=64 out of head_dim=512 gets rotary encoding (factor=0.125). V4 applies interleaved RoPE to the trailing rope slice [nope | rope] layout."
+    affected_existing_modules: [positional_encoding, attention]
+    validation_hint: "Compare with full-dimension RoPE (rotary_percent=1.0); divergence confirms partial application. Failure pattern from KB: partial_rotary_factor_missed."
+
+  - id: routed_scaling_factor_1.5
+    component: moe_gate
+    behavior_type: routing_scaling
+    source_evidence:
+      hf_file: modeling_deepseek_v4.py
+      hf_line: 1037
+      config_fields: [routed_scaling_factor]
+    required_behavior: "Routed expert outputs scaled by routed_scaling_factor=1.5 after normalization. V3 uses different values (2.5 for 256-expert or 1.0 for 64-expert)."
+    affected_existing_modules: [moe_gate]
+    validation_hint: "Verify routed expert outputs are multiplied by 1.5; mismatch causes logit shift."
+
+  - id: mlp_layer_types_hash_moe
+    component: moe_layer
+    behavior_type: moe_routing_schedule
+    source_evidence:
+      hf_file: configuration_deepseek_v4.py
+      hf_line: 271
+      config_fields: [num_hash_layers, mlp_layer_types]
+    required_behavior: "First 3 layers use hash_moe (DeepseekV4HashRouter with tid2eid lookup), remaining layers use standard moe (DeepseekV4TopKRouter). ALL layers are MoE (no dense_first_k unlike V3)."
+    affected_existing_modules: [moe_layer]
+    validation_hint: "Verify first 3 layers receive input_ids and route via tid2eid; later layers use learned top-k routing."
+
+  - id: dual_rope_theta
+    component: positional_encoding
+    behavior_type: positional_encoding
+    source_evidence:
+      hf_file: configuration_deepseek_v4.py
+      hf_line: 286
+      config_fields: [rope_theta, compress_rope_theta, rope_parameters]
+    required_behavior: "Dual RoPE theta: sliding_attention layers use theta=10000 (no scaling); CSA/HCA layers use compress_rope_theta=160000 with yarn factor=16 and attention_factor=1.0 (no mscale scaling)."
+    affected_existing_modules: [positional_encoding, attention]
+    validation_hint: "Verify that sliding_attention layers get plain RoPE while CSA/HCA layers get yarn-scaled RoPE with theta=160000."
+
+traps:
+  - "ALL 43 layers are MoE (no dense_first_k unlike V3 which has 3 dense layers); first 3 are hash_moe bootstrap layers with frozen tid2eid routing"
+  - "e_score_correction_bias participates in TopKRouter scoring; this field must be preserved in config and conversion"
+  - "MTP absent in HF code is normal -- Omni implements MTP independently via Megatron; checkpoint has mtp.0.* weights"
+  - "V4 uses shared-KV MQA (num_key_value_heads=1, K==V); not MLA like V3 which has separate kv_lora_rank compression"
+  - "HyperConnection (mHC) changes hidden_states to [B,S,hc_mult,D] shape; every layer and the model must handle this 4D stream layout"
+  - "swiglu_limit=10.0 clamps expert gate/up activations; missing this causes numerical divergence in MoE expert outputs"
+  - "scoring_func=sqrtsoftplus is NOT sigmoid or softmax; ACT2FN must resolve this new activation function"
+  - "V4 is eager-only: no FlashAttention2/3 (head_dim=512 > 256 cap), no SDPA (attention sinks), no FlexAttention (compressor variable KV length)"
+  - "compress_ratios in config.json is a legacy field; __post_init__ converts it to layer_types list. New configs may omit compress_ratios and provide layer_types directly"
+  - "V4 config attribute_map: num_local_experts reads from n_routed_experts, intermediate_size reads from moe_intermediate_size"
+  - "tid2eid buffer in HashRouter is persistent and loaded from checkpoint; must not be zero-initialized for hash_moe layers"
+  - "KV identity: key == value in V4 (shared tensor via repeat_kv with n_rep=num_attention_heads); conversion must map single KV head correctly"
+
+special_features:
+  routing_bias:
+    hf_key: e_score_correction_bias
+    desc: "noaux_tc routing load balancing correction bias in TopKRouter; dynamically added to scores before top-k selection"
+  hash_routing:
+    hf_key: tid2eid
+    desc: "Frozen token-id to expert-id lookup table for hash_moe bootstrap layers (first 3 layers); persistent buffer loaded from checkpoint"
+  hyper_connection:
+    config_key: hc_mult
+    desc: "Manifold-Constrained Hyper-Connections replace standard residual; hc_mult=4 parallel streams with Sinkhorn-Knopp projection"
+  attention_sink:
+    config_key: sinks
+    desc: "Per-head learnable attention sink parameter appended to attention logits before softmax"
+  grouped_output_proj:
+    config_key: o_groups
+    desc: "Grouped output projection with o_groups=8 groups, o_lora_rank=1024 intermediate; reduces per-token cost of large head_dim*num_heads output"
+
+weight_structure:
+  total_keys: 69189
+  total_size_bytes: 294673469000
+  quantization: fp8
+  quantization_config:
+    quant_method: fp8
+    fmt: e4m3
+    activation_scheme: dynamic
+    scale_fmt: ue8m0
+    weight_block_size: [128, 128]
+  components:
+    global:
+      key_count: 6
+      sample_keys:
+        - "embed.weight"
+        - "norm.weight"
+        - "head.weight"
+        - "hc_head_base"
+        - "hc_head_fn"
+        - "hc_head_scale"
+      naming_pattern: "<module>.<param>"
+    per_layer_attn:
+      key_count: 870
+      per_layer_avg: 20
+      sample_keys:
+        - "layers.0.attn.attn_sink"
+        - "layers.0.attn.q_norm.weight"
+        - "layers.0.attn.kv_norm.weight"
+        - "layers.0.attn.wq_a.weight"
+        - "layers.0.attn.wq_b.weight"
+        - "layers.0.attn.wkv.weight"
+        - "layers.0.attn.wo_a.weight"
+        - "layers.0.attn.wo_b.weight"
+      naming_pattern: "layers.{i}.attn.<param>"
+      index_range: "layers.0 ~ layers.42"
+    per_layer_attn_norm:
+      key_count: 43
+      per_layer: 1
+      sample_keys:
+        - "layers.0.attn_norm.weight"
+      naming_pattern: "layers.{i}.attn_norm.weight"
+    per_layer_ffn_experts:
+      key_count: 66048
+      per_layer: 1536
+      sample_keys:
+        - "layers.0.ffn.experts.0.w1.weight"
+        - "layers.0.ffn.experts.0.w1.scale"
+        - "layers.0.ffn.experts.0.w2.weight"
+        - "layers.0.ffn.experts.0.w3.weight"
+      naming_pattern: "layers.{i}.ffn.experts.{e}.<w1|w2|w3>.<weight|scale>"
+      expert_count: 256
+      note: "Each expert has w1 (gate_up fused), w2 (down), w3; each has paired .weight and .scale (FP8)"
+    per_layer_ffn_gate:
+      key_count: 86
+      per_layer: 2
+      sample_keys:
+        - "layers.0.ffn.gate.weight"
+        - "layers.0.ffn.gate.tid2eid"
+      naming_pattern: "layers.{i}.ffn.gate.<param>"
+      note: "Layers 0-2 (hash_moe): gate.weight + gate.tid2eid; Layers 3+ (moe): gate.weight + gate.bias"
+    per_layer_ffn_shared_experts:
+      key_count: 258
+      per_layer: 6
+      sample_keys:
+        - "layers.0.ffn.shared_experts.w1.weight"
+        - "layers.0.ffn.shared_experts.w1.scale"
+      naming_pattern: "layers.{i}.ffn.shared_experts.<w1|w2|w3>.<weight|scale>"
+    per_layer_ffn_norm:
+      key_count: 43
+      per_layer: 1
+      sample_keys:
+        - "layers.0.ffn_norm.weight"
+      naming_pattern: "layers.{i}.ffn_norm.weight"
+    per_layer_hc:
+      key_count: 258
+      per_layer: 6
+      sample_keys:
+        - "layers.0.hc_attn_base"
+        - "layers.0.hc_attn_fn"
+        - "layers.0.hc_attn_scale"
+        - "layers.0.hc_ffn_base"
+        - "layers.0.hc_ffn_fn"
+        - "layers.0.hc_ffn_scale"
+      naming_pattern: "layers.{i}.hc_<attn|ffn>_<base|fn|scale>"
+      note: "HyperConnection parameters per layer: 3 per site (attn, ffn) = 6 total"
+    per_layer_csa_compressor:
+      key_count: 162
+      per_layer: 9
+      applicable_layers: [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40]
+      sample_keys:
+        - "layers.2.attn.compressor.wkv.weight"
+        - "layers.2.attn.compressor.wgate.weight"
+        - "layers.2.attn.compressor.ape"
+        - "layers.2.attn.compressor.norm.weight"
+        - "layers.2.attn.indexer.compressor.wkv.weight"
+        - "layers.2.attn.indexer.compressor.wgate.weight"
+        - "layers.2.attn.indexer.compressor.ape"
+        - "layers.2.attn.indexer.compressor.norm.weight"
+        - "layers.2.attn.indexer.weights_proj.weight"
+        - "layers.2.attn.indexer.wq_b.weight"
+      naming_pattern: "layers.{i}.attn.compressor.<param> + layers.{i}.attn.indexer.<param>"
+      note: "CSA compressor with Lightning Indexer; even-indexed CSA layers (compress_ratio=4)"
+    per_layer_hca_compressor:
+      key_count: 168
+      per_layer: 4
+      applicable_layers: [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41]
+      sample_keys:
+        - "layers.5.attn.compressor.wkv.weight"
+        - "layers.5.attn.compressor.wgate.weight"
+        - "layers.5.attn.compressor.ape"
+        - "layers.5.attn.compressor.norm.weight"
+      naming_pattern: "layers.{i}.attn.compressor.<param>"
+      note: "HCA compressor only (no indexer); odd-indexed HCA layers (compress_ratio=128)"
+    mtp:
+      key_count: 1577
+      sample_keys:
+        - "mtp.0.attn.attn_sink"
+        - "mtp.0.ffn.experts.0.w1.weight"
+        - "mtp.0.e_proj.weight"
+        - "mtp.0.emb.tok_emb.weight"
+        - "mtp.0.enorm.weight"
+        - "mtp.0.h_proj.weight"
+        - "mtp.0.hnorm.weight"
+        - "mtp.0.norm.weight"
+        - "mtp.0.head.weight"
+      naming_pattern: "mtp.0.<submodule>.<param>"
+      note: "MTP layer 0 structure mirrors decoder layer structure with additional e_proj, h_proj, enorm, hnorm"
+  layer_type_schedule:
+    sliding_attention_layers: [0, 1, 42]
+    compressed_sparse_attention_layers: [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40]
+    heavily_compressed_attention_layers: [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41]
+  mlp_layer_type_schedule:
+    hash_moe_layers: [0, 1, 2]
+    moe_layers: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42]
