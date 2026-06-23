@@ -44,65 +44,6 @@ ATTENTION_LIGHTHING_INDEXER_WK = ATTENTION_INDEXER_WK
 ATTENTION_LIGHTHING_INDEXER_WQ_B = ATTENTION_INDEXER_WQ_B
 # MLA end
 
-# V4 Shared-KV MQA begin
-ATTENTION_KV_SHARED = "attention.kv_shared"
-ATTENTION_KV_SHARED_LAYERNORM = "attention.kv_shared_layernorm"
-# V4 Shared-KV MQA end
-
-# V4 Grouped output projection begin
-ATTENTION_DENSE_A = "attention.dense_a"
-ATTENTION_DENSE_B = "attention.dense_b"
-# V4 Grouped output projection end
-
-# V4 Attention sink begin
-ATTENTION_SINK = "attention.sink"
-# V4 Attention sink end
-
-# V4 CSA/HCA compressor begin
-ATTENTION_COMPRESSOR_KV = "attention.compressor.kv"
-ATTENTION_COMPRESSOR_GATE = "attention.compressor.gate"
-ATTENTION_COMPRESSOR_NORM = "attention.compressor.norm"
-ATTENTION_COMPRESSOR_APE = "attention.compressor.ape"
-# V4 CSA/HCA compressor end
-
-# V4 Lightning Indexer compressor begin
-ATTENTION_INDEXER_COMPRESSOR_KV = "attention.indexer.compressor.kv"
-ATTENTION_INDEXER_COMPRESSOR_GATE = "attention.indexer.compressor.gate"
-ATTENTION_INDEXER_COMPRESSOR_NORM = "attention.indexer.compressor.norm"
-ATTENTION_INDEXER_COMPRESSOR_APE = "attention.indexer.compressor.ape"
-# V4 Lightning Indexer compressor end
-
-# V4 HyperConnection begin
-ATTENTION_HC_BASE = "attention.hc_base"
-ATTENTION_HC_FN = "attention.hc_fn"
-ATTENTION_HC_SCALE = "attention.hc_scale"
-MLP_HC_BASE = "mlp.hc_base"
-MLP_HC_FN = "mlp.hc_fn"
-MLP_HC_SCALE = "mlp.hc_scale"
-HC_HEAD_BASE = "hc_head_base"
-HC_HEAD_FN = "hc_head_fn"
-HC_HEAD_SCALE = "hc_head_scale"
-# V4 HyperConnection end
-
-# V4 Hash Router begin
-MOE_GATE_TID2EID = "moe.gate.tid2eid"
-# V4 Hash Router end
-
-# V4 MTP extensions begin
-MTP_H_PROJ = "mtp_h_proj"
-MTP_ATTENTION_HC_BASE = "mtp_attention.hc_base"
-MTP_ATTENTION_HC_FN = "mtp_attention.hc_fn"
-MTP_ATTENTION_HC_SCALE = "mtp_attention.hc_scale"
-MLP_HC_MTP_BASE = "mlp.hc_mtp_base"
-MLP_HC_MTP_FN = "mlp.hc_mtp_fn"
-MLP_HC_MTP_SCALE = "mlp.hc_mtp_scale"
-MTP_HC_HEAD_BASE = "mtp_hc_head_base"
-MTP_HC_HEAD_FN = "mtp_hc_head_fn"
-MTP_HC_HEAD_SCALE = "mtp_hc_head_scale"
-MTP_MOE_GATE = "mtp_moe.gate"
-MTP_MOE_GATE_BIAS = "mtp_moe.gate.bias"
-# V4 MTP extensions end
-
 ATTENTION_QUERY_KEY_VALUE = "attention.query_key_value"
 ATTENTION_QUERY_GATE_KEY_VALUE = "attention.query_gate_key_value"
 MIXER_ATT_LOG = "mixer_att.log"
@@ -180,32 +121,15 @@ BASE_NAMES = [INPUT_LAYERNORM, ATTENTION_ROTARY_EMB_INV_FREQ, ROTARY_EMB_INV_FRE
             MIXER_ATT_NORM, MIXER_ATT_OUT_PROJ, MIXER_ATT_IN_PROJ, MIXER_ATT_IN_PROJ_QKVZ, MIXER_ATT_IN_PROJ_BA,
             ATTENTION_Q_DOWN, ATTENTION_Q_UP, ATTENTION_Q_UP_LAYERNORM, ATTENTION_KV_DOWN, ATTENTION_KV_UP,
             ATTENTION_KV_UP_LAYERNORM, ATTENTION_Q, ATTENTION_DENSE,
-            ATTENTION_KV_SHARED, ATTENTION_KV_SHARED_LAYERNORM,
-            ATTENTION_DENSE_A, ATTENTION_DENSE_B,
-            ATTENTION_SINK,
-            ATTENTION_COMPRESSOR_KV, ATTENTION_COMPRESSOR_GATE, ATTENTION_COMPRESSOR_NORM, ATTENTION_COMPRESSOR_APE,
             ATTENTION_INDEXER_K_NORM, ATTENTION_INDEXER_WEIGHTS_PROJ,
-            ATTENTION_INDEXER_WK, ATTENTION_INDEXER_WQ_B,
-            ATTENTION_INDEXER_COMPRESSOR_KV, ATTENTION_INDEXER_COMPRESSOR_GATE,
-            ATTENTION_INDEXER_COMPRESSOR_NORM, ATTENTION_INDEXER_COMPRESSOR_APE,
-            MOE_SHARED_EXPERT_GATE, MOE_GATE_TID2EID,
-            ATTENTION_HC_BASE, ATTENTION_HC_FN, ATTENTION_HC_SCALE,
-            MLP_HC_BASE, MLP_HC_FN, MLP_HC_SCALE,
+            ATTENTION_INDEXER_WK, ATTENTION_INDEXER_WQ_B, MOE_SHARED_EXPERT_GATE,
             POST_ATTENTION_LAYERNORM, POST_ATTENTION_LAYERSCALE, ATTENTION_QNORM, ATTENTION_KNORM,
             POST_MLP_LAYERNORM, POST_MLP_LAYERSCALE, MLP_DENSE_H_TO_4H, MLP_DENSE_4H_TO_H, MOE_GATE]
 MOE_EXPERT_PROJS = [MOE_EXPERT_H_TO_4H, MOE_EXPERT_4H_TO_H]
-LAST_LAYER_NAMES = [FINAL_LAYERNORM, WORD_EMBEDDINGS_FOR_HEAD, HC_HEAD_BASE, HC_HEAD_FN, HC_HEAD_SCALE] # in the last layer
-MTP_NAMES = [MTP_WORD_EMBEDDING, MTP_ENORM, MTP_HNORM, MTP_EH_PROJ, MTP_SHARED_HEAD_NORM, MTP_SHARED_HEAD_HEAD,
-             MTP_H_PROJ,
-             MTP_ATTENTION_HC_BASE, MTP_ATTENTION_HC_FN, MTP_ATTENTION_HC_SCALE,
-             MLP_HC_MTP_BASE, MLP_HC_MTP_FN, MLP_HC_MTP_SCALE,
-             MTP_HC_HEAD_BASE, MTP_HC_HEAD_FN, MTP_HC_HEAD_SCALE,
-             MTP_MOE_GATE, MTP_MOE_GATE_BIAS]
+LAST_LAYER_NAMES = [FINAL_LAYERNORM, WORD_EMBEDDINGS_FOR_HEAD] # in the last layer
+MTP_NAMES = [MTP_WORD_EMBEDDING, MTP_ENORM, MTP_HNORM, MTP_EH_PROJ, MTP_SHARED_HEAD_NORM, MTP_SHARED_HEAD_HEAD]
 
 EMBED_NAMES = [WORD_EMBEDDINGS, MTP_WORD_EMBEDDING, WORD_EMBEDDINGS_FOR_HEAD, VISION_WORD_EMBEDDINGS, MTP_SHARED_HEAD_HEAD]
-
-# V4 model-level parameters (not per-layer, not first/last layer)
-HC_NAMES = [HC_HEAD_BASE, HC_HEAD_FN, HC_HEAD_SCALE]
 
 WEIGHT = "weight"
 BIAS = "bias"
