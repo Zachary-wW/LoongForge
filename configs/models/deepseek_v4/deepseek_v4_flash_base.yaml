@@ -1,0 +1,83 @@
+# DeepSeek-V4-Flash-Base model configuration
+_target_: loongforge.models.foundation.deepseek_v4.DeepseekV4Config
+num_layers: 43
+hidden_size: 4096
+ffn_hidden_size: 2048
+num_attention_heads: 64
+vocab_size_in_config_file: 129280
+make_vocab_size_divisible_by: 128
+
+# ── V4-specific: Shared-KV MQA ──────────────────────────────────────
+head_dim: 512
+q_lora_rank: 1024
+qk_rope_head_dim: 64
+o_groups: 8
+o_lora_rank: 1024
+
+# ── MoE (all 43 layers are MoE) ─────────────────────────────────────
+num_experts: 256
+moe_ffn_hidden_size: 2048
+moe_shared_expert_intermediate_size: 4096
+moe_layer_freq: 1
+moe_router_score_function: sqrtsoftplus
+moe_router_load_balancing_type: none
+moe_router_topk: 6
+moe_router_enable_expert_bias: true
+moe_grouped_gemm: true
+
+# ── Hash-MoE bootstrap (first 3 layers) ──────────────────────────────
+num_hash_layers: 3
+
+# ── SwiGLU clamp ────────────────────────────────────────────────────
+swiglu_limit: 10.0
+
+# ── mHC ──────────────────────────────────────────────────────────────
+enable_hyper_connections: true
+num_residual_streams: 4
+mhc_sinkhorn_iterations: 20
+
+# ── Compressed Attention ─────────────────────────────────────────────
+compress_rope_theta: 160000
+sliding_window: 128
+
+# ── Lightning Indexer ────────────────────────────────────────────────
+index_n_heads: 64
+index_head_dim: 128
+index_topk: 512
+
+# ── GQA (single KV head) ─────────────────────────────────────────────
+group_query_attention: true
+num_query_groups: 1
+kv_channels: 512
+
+# ── MLA flag ─────────────────────────────────────────────────────────
+multi_latent_attention: true
+apply_rope_fusion: true
+
+# ── RoPE ──────────────────────────────────────────────────────────────
+position_embedding_type: rope
+add_position_embedding: false
+rotary_interleaved: true
+rotary_base: 10000
+rotary_percent: 0.125
+
+# ── Routing ───────────────────────────────────────────────────────────
+routed_scaling_factor: 1.5
+
+# ── Common defaults ──────────────────────────────────────────────────
+normalization: RMSNorm
+swiglu: true
+attention_dropout: 0
+hidden_dropout: 0
+add_bias_linear: false
+add_qkv_bias: false
+qk_layernorm: false
+untie_embeddings_and_output_weights: true
+
+# ── MTP ──────────────────────────────────────────────────────────────
+mtp_num_layers: 0
+mtp_loss_coef: 0.1
+
+model_type: deepseek_v4
+
+convert_file: ${oc.env:LOONGFORGE_PATH}/configs/models/deepseek_v4/ckpt_convert/deepseek_v4_convert.yaml
