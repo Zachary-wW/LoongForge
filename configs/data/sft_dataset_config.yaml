@@ -37,6 +37,8 @@ openai:
   columns:
     messages: messages
     tools: tools
+    images: images
+    videos: videos
   tags:
     role_tag: role
     content_tag: content

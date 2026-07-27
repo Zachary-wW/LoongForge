@@ -1,0 +1,15 @@
+hydra:
+  searchpath:
+    - file://${oc.env:LOONGFORGE_PATH}/configs/models/
+
+defaults:
+  - image_encoder@module: ???
+  - _self_
+
+prefix_map:
+  vision_model: model.vision_tower
+
+vision_patch:
+  vision_model.embeddings.patch_embedding.weight: model.vision_tower.embeddings.patch_embedding.weight
+
+torch_dtype: bfloat16

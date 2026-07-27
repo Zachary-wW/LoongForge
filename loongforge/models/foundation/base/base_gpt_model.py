@@ -510,7 +510,6 @@ class BaseGPTModel(BaseMegatronLanguageModule):
         (decoder_input, rotary_pos_emb, rotary_pos_cos, rotary_pos_sin, sequence_len_offset) = (
             preproc_output[:5]
         )
-
         rotary_pos_cos_sin = preproc_output[5] if len(preproc_output) == 6 else None
 
         # Filter out next_batch from extra_block_kwargs before passing to decoder,

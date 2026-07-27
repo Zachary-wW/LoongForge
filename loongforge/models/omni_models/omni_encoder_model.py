@@ -330,7 +330,15 @@ class OmniEncoderModel(torch.nn.Module):
                 images, image_grid_thw=image_grid_thw
             )
         if self.image_projector is not None:
-            image_embeddings = self.image_projector(image_embeddings, window_index)
+            if getattr(self.image_projector, "requires_target_sizes", False):
+                image_embeddings = self.image_projector(
+                    image_embeddings,
+                    window_index,
+                    image_grid_thw=image_grid_thw,
+                    target_sizes=window_index if torch.is_tensor(window_index) else None,
+                )
+            else:
+                image_embeddings = self.image_projector(image_embeddings, window_index)
 
         if isinstance(image_embeddings, (list, tuple)):
             image_embeddings = torch.cat([e.reshape(-1, e.shape[-1]) for e in image_embeddings], dim=0)
@@ -381,7 +389,15 @@ class OmniEncoderModel(torch.nn.Module):
             )
             video_token_id = self.video_encoder.config.video_token_id
         if self.mix_used_vision_projector and self.image_projector is not None:
-            video_embeddings = self.image_projector(video_embeddings, window_index)
+            if getattr(self.image_projector, "requires_target_sizes", False):
+                video_embeddings = self.image_projector(
+                    video_embeddings,
+                    window_index,
+                    image_grid_thw=video_grid_thw,
+                    target_sizes=window_index if torch.is_tensor(window_index) else None,
+                )
+            else:
+                video_embeddings = self.image_projector(video_embeddings, window_index)
         elif self.video_projector is not None:
             video_embeddings = self.video_projector(video_embeddings, window_index)
         
@@ -531,7 +547,17 @@ class OmniEncoderModel(torch.nn.Module):
             encoder_output = encoder_ret
             window_index = None
         if projector_model is not None:
-            encoder_output = projector_model(encoder_output, window_index)
+            if getattr(projector_model, "requires_target_sizes", False):
+                dummy_grid_thw = dummy_input[1] if len(dummy_input) > 1 else None
+                target_sizes = window_index if torch.is_tensor(window_index) else None
+                encoder_output = projector_model(
+                    encoder_output,
+                    window_index,
+                    image_grid_thw=dummy_grid_thw,
+                    target_sizes=target_sizes,
+                )
+            else:
+                encoder_output = projector_model(encoder_output, window_index)
         if isinstance(encoder_output, (tuple, list)):
             encoder_output = encoder_output[0]
         input_embeds = input_embeds + encoder_output.sum() * 0.0

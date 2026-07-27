@@ -11,6 +11,7 @@ import torch
 from functools import partial
 import copy
 import itertools
+from pathlib import Path
 
 from megatron.training import get_timers
 
@@ -25,14 +26,13 @@ from megatron.core import parallel_state
 
 from megatron.core.transformer.enums import AttnMaskType
 
-from transformers import DataCollatorForSeq2Seq
+from transformers import AutoProcessor
 
-from loongforge.utils import constants, get_args, get_model_config
+from loongforge.utils import constants, get_args, get_model_config, get_chat_template
 
 # from loongforge.models.qwen_vl.utils import get_inputs_on_this_cp_rank_by_tex # TODO:@yizhan
 from loongforge.train.megatron_trainer import MegatronTrainer
 from loongforge.train.trainer_builder import register_model_trainer
-from loongforge.train.training_utils import dump_model_input_example_once
 from loongforge.train.sft.utils import (
     build_sft_data_collator,
     build_sft_cyclic_iterators,
@@ -42,6 +42,7 @@ from loongforge.data.multimodal.dataloader_provider import (
     get_train_loader,
     VLMPretrainCollator,
 )
+from loongforge.data import MultiModalDataCollatorForSupervisedDataset
 from loongforge.data.multimodal import build_task_encoder
 from datasets import load_from_disk
 
@@ -62,6 +63,85 @@ from loongforge.train.initialize import (
 from loongforge.utils.global_vars import get_model_config
 
 stimer = StragglerDetector()
+
+_exported_batch_count = 0
+
+
+def _maybe_export_training_batch(batch):
+    """Save collated training inputs when explicitly requested by env vars."""
+    export_dir = os.environ.get("LOONGFORGE_EXPORT_BATCH_DIR")
+    if not export_dir:
+        return
+
+    global _exported_batch_count
+    export_limit = int(os.environ.get("LOONGFORGE_EXPORT_BATCH_LIMIT", "0") or 0)
+    if export_limit > 0 and _exported_batch_count >= export_limit:
+        return
+
+    keys = (
+        "tokens",
+        "labels",
+        "attn_mask",
+        "position_ids",
+        "loss_mask",
+        "imgs",
+        "image_grid_thw",
+        "pixel_values_videos",
+        "video_grid_thw",
+        "cu_lengths",
+        "max_lengths",
+    )
+    payload = {}
+    for key in keys:
+        value = batch.get(key)
+        if torch.is_tensor(value):
+            payload[key] = value.detach().cpu().clone()
+        else:
+            payload[key] = value
+
+    path = Path(export_dir)
+    path.mkdir(parents=True, exist_ok=True)
+    torch.save(payload, path / f"batch_{_exported_batch_count:06d}.pt")
+    _exported_batch_count += 1
+
+
+class TokenizedVLMDataCollator:
+    """Adapt tokenized multimodal SFT batches to the VLM pretrain batch schema."""
+
+    def __init__(self, sft_collator, vlm_collator):
+        self.sft_collator = sft_collator
+        self.vlm_collator = vlm_collator
+
+    def __call__(self, features):
+        batch = self.sft_collator(features)
+        input_ids = batch.pop("input_ids")
+        labels = batch.pop("labels")
+        attention_mask = batch.pop("attention_mask")
+
+        batch["tokens"] = input_ids
+        batch["labels"] = labels
+        batch["attn_mask"] = attention_mask == 0
+
+        seq_len = input_ids.shape[-1]
+        device = input_ids.device
+        batch["cu_lengths"] = torch.tensor(
+            [[0, seq_len]], dtype=torch.int32, device=device
+        )
+        batch["max_lengths"] = torch.tensor([seq_len], dtype=torch.int32, device=device)
+
+        if "images" in batch:
+            batch["imgs"] = batch.pop("images")
+        if "videos" in batch:
+            batch["pixel_values_videos"] = batch.pop("videos")
+
+        if batch.get("image_grid_thw") is not None:
+            batch["image_grid_thw"] = batch["image_grid_thw"].to(dtype=torch.int32)
+        if batch.get("video_grid_thw") is not None:
+            batch["video_grid_thw"] = batch["video_grid_thw"].to(dtype=torch.int32)
+
+        self.vlm_collator._build_masks_and_positions(batch)
+        _maybe_export_training_batch(batch)
+        return batch
 
 
 def _batch_has_non_dummy_value(data, key):
@@ -377,10 +457,6 @@ def forward_step(data_iterator, model, return_schedule_plan: bool = False):
             packed_seq_params,
         ) = batch_list[inner_group_id].values()
 
-        dump_model_input_example_once(
-            tokens, labels, attn_mask, cu_lengths, packed_seq_params,
-        )
-
         loss_func = getattr(model_config, "loss_func", default_loss_func)
 
         if not is_higher_vpp_chunk:
@@ -453,7 +529,34 @@ def train_valid_test_dataset_provider(train_val_test_num_samples, vp_stage=None)
         save_path = os.path.join(args.data_path[0], "preprocess", str(rank))
         print(f"[rank{rank}] loading preprocessed dataset from {save_path}")
         train_ds = load_from_disk(save_path)
-        collator = build_sft_data_collator(DataCollatorForSeq2Seq)
+        if isinstance(train_ds, dict):
+            train_ds = train_ds["train"]
+        processor = AutoProcessor.from_pretrained(
+            args.hf_tokenizer_path,
+            trust_remote_code=True,
+        )
+        if args.image_resolution:
+            setattr(processor, "image_resolution", args.image_resolution)
+        downsample_mode = getattr(
+            getattr(get_model_config(), "image_encoder", None),
+            "downsample_mode",
+            None,
+        )
+        if downsample_mode is not None:
+            if getattr(processor, "image_processor", None) is not None:
+                processor.image_processor.downsample_mode = downsample_mode
+            if getattr(processor, "video_processor", None) is not None:
+                processor.video_processor.downsample_mode = downsample_mode
+        chat_template = get_chat_template()
+        collator = build_sft_data_collator(
+            MultiModalDataCollatorForSupervisedDataset,
+            processor=processor,
+            plugin=chat_template.mm_plugin,
+        )
+        collator = TokenizedVLMDataCollator(
+            sft_collator=collator,
+            vlm_collator=build_sft_data_collator(VLMPretrainCollator),
+        )
         train_data_iterator, valid_data_iterator, test_data_iterator = (
             build_sft_cyclic_iterators(train_ds, None, None, collator)
         )

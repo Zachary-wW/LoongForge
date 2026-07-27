@@ -61,6 +61,132 @@ except ImportError:
     HAVE_FLA = False
 
 
+def _torch_l2norm(x: torch.FloatTensor, dim: int = -1, eps: float = 1e-6):
+    inv_norm = torch.rsqrt((x * x).sum(dim=dim, keepdim=True) + eps)
+    return x * inv_norm
+
+
+def _torch_causal_conv1d(
+    x,
+    weight,
+    bias=None,
+    activation=None,
+    cu_seqlens=None,
+    cu_seqlens_cpu=None,
+):
+    def _conv_segment(segment):
+        original_dtype = segment.dtype
+        segment = segment.transpose(1, 2).contiguous().to(weight.dtype)
+        segment = F.pad(segment, (weight.shape[-1] - 1, 0))
+        out = F.conv1d(segment, weight.unsqueeze(1), bias, groups=weight.shape[0])
+        if activation in ("silu", "swish"):
+            out = F.silu(out)
+        elif activation is not None:
+            raise ValueError(f"Unsupported causal conv activation: {activation}")
+        return out.transpose(1, 2).contiguous().to(original_dtype)
+
+    cu = cu_seqlens_cpu if cu_seqlens_cpu is not None else cu_seqlens
+    if cu is None:
+        return (_conv_segment(x),)
+
+    if x.shape[0] != 1:
+        raise NotImplementedError("Packed fallback causal conv supports batch size 1 only.")
+
+    cu = cu.detach().cpu().tolist()
+    outputs = []
+    for start, end in zip(cu[:-1], cu[1:]):
+        outputs.append(_conv_segment(x[:, start:end, :]))
+    return (torch.cat(outputs, dim=1),)
+
+
+def _torch_chunk_gated_delta_rule(
+    query,
+    key,
+    value,
+    g,
+    beta,
+    chunk_size=64,
+    initial_state=None,
+    output_final_state=False,
+    use_qk_l2norm_in_kernel=False,
+    **kwargs,
+):
+    del kwargs
+    initial_dtype = query.dtype
+    if use_qk_l2norm_in_kernel:
+        query = _torch_l2norm(query, dim=-1, eps=1e-6)
+        key = _torch_l2norm(key, dim=-1, eps=1e-6)
+    query, key, value, beta, g = [
+        x.transpose(1, 2).contiguous().to(torch.float32)
+        for x in (query, key, value, beta, g)
+    ]
+
+    batch_size, num_heads, sequence_length, k_head_dim = key.shape
+    v_head_dim = value.shape[-1]
+    pad_size = (chunk_size - sequence_length % chunk_size) % chunk_size
+    query = F.pad(query, (0, 0, 0, pad_size))
+    key = F.pad(key, (0, 0, 0, pad_size))
+    value = F.pad(value, (0, 0, 0, pad_size))
+    beta = F.pad(beta, (0, pad_size))
+    g = F.pad(g, (0, pad_size))
+    total_sequence_length = sequence_length + pad_size
+    scale = 1 / (query.shape[-1] ** 0.5)
+    query = query * scale
+
+    v_beta = value * beta.unsqueeze(-1)
+    k_beta = key * beta.unsqueeze(-1)
+    query, key, value, k_beta, v_beta = [
+        x.reshape(x.shape[0], x.shape[1], -1, chunk_size, x.shape[-1])
+        for x in (query, key, value, k_beta, v_beta)
+    ]
+    g = g.reshape(g.shape[0], g.shape[1], -1, chunk_size)
+    mask = torch.triu(
+        torch.ones(chunk_size, chunk_size, dtype=torch.bool, device=query.device),
+        diagonal=0,
+    )
+
+    g = g.cumsum(dim=-1)
+    decay_mask = ((g.unsqueeze(-1) - g.unsqueeze(-2)).tril().exp().float()).tril()
+    attn = -((k_beta @ key.transpose(-1, -2)) * decay_mask).masked_fill(mask, 0)
+    for i in range(1, chunk_size):
+        row = attn[..., i, :i].clone()
+        sub = attn[..., :i, :i].clone()
+        attn[..., i, :i] = row + (row.unsqueeze(-1) * sub).sum(-2)
+    attn = attn + torch.eye(chunk_size, dtype=attn.dtype, device=attn.device)
+    value = attn @ v_beta
+    k_cumdecay = attn @ (k_beta * g.exp().unsqueeze(-1))
+    last_recurrent_state = (
+        torch.zeros(batch_size, num_heads, k_head_dim, v_head_dim, dtype=value.dtype, device=value.device)
+        if initial_state is None
+        else initial_state.to(value)
+    )
+    core_attn_out = torch.zeros_like(value)
+
+    for i in range(0, total_sequence_length // chunk_size):
+        q_i, k_i, v_i = query[:, :, i], key[:, :, i], value[:, :, i]
+        attn = q_i @ k_i.transpose(-1, -2) * decay_mask[:, :, i]
+        v_prime = (k_cumdecay[:, :, i]) @ last_recurrent_state
+        v_new = v_i - v_prime
+        attn_inter = (q_i * g[:, :, i, :, None].exp()) @ last_recurrent_state
+        core_attn_out[:, :, i] = attn_inter + attn @ v_new
+        last_recurrent_state = (
+            last_recurrent_state * g[:, :, i, -1, None, None].exp()
+            + (k_i * (g[:, :, i, -1, None] - g[:, :, i]).exp()[..., None]).transpose(-1, -2) @ v_new
+        )
+
+    if not output_final_state:
+        last_recurrent_state = None
+    core_attn_out = core_attn_out.reshape(
+        core_attn_out.shape[0],
+        core_attn_out.shape[1],
+        -1,
+        core_attn_out.shape[-1],
+    )
+    core_attn_out = core_attn_out[:, :, :sequence_length]
+    core_attn_out = core_attn_out.transpose(1, 2).contiguous().to(initial_dtype)
+    return core_attn_out, last_recurrent_state
+
+
 class Qwen3NextRMSNormGated(nn.Module):
     """
     The RMSNorm layer with gating, used in the Qwen3-Next model.
@@ -140,6 +266,7 @@ class GatedDeltaNet(HuggingFaceModule):
         conv_bias: bool = False,
         conv_init: Optional[float] = None,
         use_qk_l2norm: bool = True,
+        projection_split_mode: str = "merged",
         A_init_range: Tuple[float, float] = (0, 16),
         pg_collection: ProcessGroupCollection = None,
         **kwargs
@@ -159,7 +286,6 @@ class GatedDeltaNet(HuggingFaceModule):
         """
         super().__init__(config)
         assert config.context_parallel_size == 1, "GatedDeltaNet currently does not support context parallelism."
-        assert HAVE_FLA, "GatedDeltaNet requires FLA support."
 
         # Attributes from arguments
         self.layer_number = layer_number
@@ -169,6 +295,7 @@ class GatedDeltaNet(HuggingFaceModule):
         assert A_init_range[0] >= 0 and A_init_range[1] >= A_init_range[0]
         self.A_init_range = A_init_range
         self.use_qk_l2norm = use_qk_l2norm
+        self.projection_split_mode = projection_split_mode
         assert pg_collection is not None, "pg_collection must be provided for GatedDeltaNet"
         self.pg_collection = pg_collection
         self.tp_size = self.pg_collection.tp.size()
@@ -238,6 +365,8 @@ class GatedDeltaNet(HuggingFaceModule):
         )
 
         self.out_proj = TE_Linear(self.v_dim, self.hidden_size, bias=False)
+        self.causal_conv1d = causal_conv1d or _torch_causal_conv1d
+        self.chunk_gated_delta_rule = chunk_gated_delta_rule or _torch_chunk_gated_delta_rule
 
     def fix_query_key_value_ordering(self, mixed_qkvz, mixed_ba):
         """
@@ -269,13 +398,39 @@ class GatedDeltaNet(HuggingFaceModule):
         b = b.reshape(b.size(0), b.size(1), self.num_value_heads)
         a = a.reshape(a.size(0), a.size(1), self.num_value_heads)
         return query, key, value, z, b, a
+
+    def _split_qwen35_qkvz_weights(self):
+        weight = self.in_proj_qkvz.weight
+        grouped = weight.reshape(
+            self.num_key_heads,
+            2 * self.key_head_dim + 2 * self.value_head_dim * self.num_value_heads // self.num_key_heads,
+            self.hidden_size,
+        )
+        values_per_key_group = self.num_value_heads // self.num_key_heads * self.value_head_dim
+        query = grouped[:, : self.key_head_dim, :].reshape(-1, self.hidden_size)
+        key = grouped[:, self.key_head_dim : 2 * self.key_head_dim, :].reshape(-1, self.hidden_size)
+        value = grouped[
+            :,
+            2 * self.key_head_dim : 2 * self.key_head_dim + values_per_key_group,
+            :,
+        ].reshape(-1, self.hidden_size)
+        z = grouped[:, 2 * self.key_head_dim + values_per_key_group :, :].reshape(-1, self.hidden_size)
+        return torch.cat((query, key, value), dim=0), z
+
+    def _split_qwen35_ba_weights(self):
+        weight = self.in_proj_ba.weight
+        values_per_key_group = self.num_value_heads // self.num_key_heads
+        grouped = weight.reshape(self.num_key_heads, 2 * values_per_key_group, self.hidden_size)
+        b = grouped[:, :values_per_key_group, :].reshape(-1, self.hidden_size)
+        a = grouped[:, values_per_key_group:, :].reshape(-1, self.hidden_size)
+        return b, a
     
     def apply_mask_to_padding_states(self, hidden_states, attention_mask):
         """
         Tunes out the hidden states for padding tokens according to the attention mask
         """
         # NOTE: attention mask is a 2D boolean tensor
-        if attention_mask is not None and attention_mask.shape[1] > 1:
+        if attention_mask is not None and attention_mask.shape[1] > 1 and attention_mask.shape[0] > 1:
             dtype = hidden_states.dtype
             hidden_states = (hidden_states * attention_mask[:, :, None]).to(dtype)
 
@@ -338,20 +493,27 @@ class GatedDeltaNet(HuggingFaceModule):
             # TODO: support inference
             raise NotImplementedError("GDN does not support inference for now.")
 
-        # Input projection
-        projected_states_qkvz = self.in_proj_qkvz(hidden_states)
-        projected_states_ba = self.in_proj_ba(hidden_states)
-        
-        query, key, value, z, beta, alpha = self.fix_query_key_value_ordering(
-            projected_states_qkvz,
-            projected_states_ba
-        )
-        query, key, value = (x.reshape(x.shape[0], x.shape[1], -1) for x in (query, key, value))
+        if self.projection_split_mode == "qwen3_5":
+            qkv_weight, z_weight = self._split_qwen35_qkvz_weights()
+            b_weight, a_weight = self._split_qwen35_ba_weights()
+            qkv = F.linear(hidden_states, qkv_weight)
+            z = F.linear(hidden_states, z_weight)
+            z = z.reshape(hidden_states.shape[0], hidden_states.shape[1], -1, self.value_head_dim)
+            beta = F.linear(hidden_states, b_weight)
+            alpha = F.linear(hidden_states, a_weight)
+        else:
+            projected_states_qkvz = self.in_proj_qkvz(hidden_states)
+            projected_states_ba = self.in_proj_ba(hidden_states)
 
-        qkv = torch.cat((query, key, value), dim=-1)
+            query, key, value, z, beta, alpha = self.fix_query_key_value_ordering(
+                projected_states_qkvz,
+                projected_states_ba
+            )
+            query, key, value = (x.reshape(x.shape[0], x.shape[1], -1) for x in (query, key, value))
+            qkv = torch.cat((query, key, value), dim=-1)
         
         nvtx_range_push(suffix="conv1d")
-        qkv = causal_conv1d(
+        qkv = self.causal_conv1d(
             x=qkv,
             weight=self.conv1d.weight.squeeze(1),  # d, 1, w -> d, w
             bias=self.conv1d.bias,
@@ -386,7 +548,7 @@ class GatedDeltaNet(HuggingFaceModule):
         nvtx_range_pop(suffix="g_and_beta")
         
         nvtx_range_push(suffix="gated_delta_rule")
-        core_attn_out, _ = chunk_gated_delta_rule(
+        core_attn_out, _ = self.chunk_gated_delta_rule(
             query,
             key,
             value,

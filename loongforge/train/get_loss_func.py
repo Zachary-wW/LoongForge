@@ -8,9 +8,37 @@
 from loongforge.utils import get_args
 import torch
 import os
+from pathlib import Path
 from megatron.core import mpu
 import torch.distributed as dist
 from megatron.training.utils import average_losses_across_data_parallel_group
+
+_exported_micro_loss_count = 0
+
+
+def _maybe_export_micro_loss(losses, loss_mask, loss, num_tokens):
+    export_dir = os.environ.get("LOONGFORGE_EXPORT_MICRO_LOSS_DIR")
+    if not export_dir:
+        return
+    if torch.distributed.is_initialized() and torch.distributed.get_rank() != 0:
+        return
+
+    global _exported_micro_loss_count
+    export_limit = int(os.environ.get("LOONGFORGE_EXPORT_MICRO_LOSS_LIMIT", "0") or 0)
+    if export_limit > 0 and _exported_micro_loss_count >= export_limit:
+        return
+
+    path = Path(export_dir)
+    path.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "micro_loss": (loss / torch.clamp(num_tokens.float(), min=1.0)).detach().cpu(),
+        "loss_sum": loss.detach().cpu(),
+        "num_tokens": num_tokens.detach().cpu(),
+        "losses": losses.detach().cpu(),
+        "loss_mask": loss_mask.detach().cpu(),
+    }
+    torch.save(payload, path / f"micro_loss_{_exported_micro_loss_count:06d}.pt")
+    _exported_micro_loss_count += 1
 
 
 def default_loss_func(
@@ -73,6 +101,8 @@ def default_loss_func(
             num_tokens = loss_mask.sum().clone().detach()
     else:
         num_tokens = torch.tensor(1.0, device=output_tensor.device)
+
+    _maybe_export_micro_loss(losses, loss_mask, loss, num_tokens)
 
     # Reduce loss for logging.
     reporting_loss = torch.cat([loss.clone().detach().view(1), num_tokens.view(1)])

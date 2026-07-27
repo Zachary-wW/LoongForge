@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from loongforge.models.common.base_model_config import BaseModelConfig
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RiceVisionConfig(BaseModelConfig):
     """configuration for vision model
 

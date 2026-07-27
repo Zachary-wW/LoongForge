@@ -30,6 +30,7 @@ from datasets import Dataset, IterableDataset
 
 from loongforge.utils import constants
 from .chat_template import HFChatTemplate
+from .mm_plugin import MiniCPMV46Plugin
 
 if TYPE_CHECKING:
     from datasets import Dataset, IterableDataset
@@ -145,6 +146,8 @@ def _encode_supervised_example(
 def _encode_openai_example(
     messages_json: str,
     tools_json: Optional[str],
+    images: Sequence[str],
+    videos: Sequence[str],
     config: "SFTDatasetConfig",
 ) -> Tuple[List[int], List[int], List[int], int]:
     """Preprocess a single OpenAI-style messages/tools sample."""
@@ -160,6 +163,11 @@ def _encode_openai_example(
     if not isinstance(messages, list):
         raise ValueError(
             f"OpenAI-style sample messages must be a list, got {type(messages)}"
+        )
+
+    if isinstance(config.chat_template.mm_plugin, MiniCPMV46Plugin):
+        messages, _ = config.chat_template.mm_plugin.process_messages(
+            messages, images or [], videos or [], config.processor
         )
 
     input_ids, labels, loss_mask, ori_total_len = config.chat_template.encode_openai(
@@ -361,6 +369,8 @@ def _preprocess_supervised_dataset(
             input_ids, labels, loss_mask, ori_total_len = _encode_openai_example(
                 messages_json=samples["messages"][i],
                 tools_json=samples["tools"][i] if "tools" in samples else None,
+                images=samples["images"][i] if "images" in samples else [],
+                videos=samples["videos"][i] if "videos" in samples else [],
                 config=config,
             )
         else:

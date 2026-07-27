@@ -9,7 +9,7 @@ import torch
 from loongforge.models.common.base_model_config import BaseModelConfig
 
 
-@dataclass
+@dataclass(kw_only=True)
 class MoonVisionModelConfig(BaseModelConfig):
     """configuration for moon vision model (Kimi-K2.5)"""
     num_layers: int
@@ -48,7 +48,7 @@ class MoonVisionModelConfig(BaseModelConfig):
     model_type: str = "moon_vit_3d"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class PatchMergerMLPAdapterConfig(BaseModelConfig):
     """configuration for adapter model
     The fields need to be consistent with the definitions in args

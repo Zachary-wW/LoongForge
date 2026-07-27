@@ -40,7 +40,7 @@ from typing import (
 )
 
 from loongforge.utils.constants import DataRoles
-from .mm_plugin import MMPlugin, Qwen2VLPlugin, Qwen3VLPlugin
+from .mm_plugin import MMPlugin, MiniCPMV46Plugin, Qwen2VLPlugin, Qwen3VLPlugin
 from .kimi_k25_plugin import KimiK25Plugin
 
 
@@ -935,6 +935,13 @@ _register_chat_template(
 )
 
 _register_chat_template(
+    name="minicpm-v-4.6-hf",
+    cls=HFChatTemplate,
+    chat_template=_read_builtin_chat_template("minicpm_v_4_6_hf_training.jinja"),
+    mm_plugin=MiniCPMV46Plugin(image_token="<|image_pad|>", video_token="<|video_pad|>"),
+)
+
+_register_chat_template(
     name="llava-onevision-hf",
     cls=HFChatTemplate,
     chat_template=_read_builtin_chat_template("qwen_chat_hf_training.jinja"),
@@ -1107,6 +1114,16 @@ _register_chat_template(
     stop_words=["<|im_end|>"],
     replace_eos=True,
     mm_plugin=Qwen3VLPlugin(image_token="<|image_pad|>", video_token="<|video_pad|>"),
+)
+
+_register_chat_template(
+    name="minicpm-v-4.6",
+    format_user=StringFormatter(slots=["<|im_start|>user\n{{content}}<|im_end|>\n<|im_start|>assistant\n"]),
+    format_system=StringFormatter(slots=["<|im_start|>system\n{{content}}<|im_end|>\n"]),
+    format_separator=EmptyFormatter(slots=["\n"]),
+    stop_words=["<|im_end|>"],
+    replace_eos=True,
+    mm_plugin=MiniCPMV46Plugin(image_token="<|image_pad|>", video_token="<|video_pad|>"),
 )
 
 _register_chat_template(

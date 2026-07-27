@@ -29,6 +29,11 @@ def build_sft_dataset(args):
     processor = AutoProcessor.from_pretrained(args.hf_tokenizer_path, trust_remote_code=True)
     if args.image_resolution:
         setattr(processor, "image_resolution", args.image_resolution)
+    if args.downsample_mode:
+        if getattr(processor, "image_processor", None) is not None:
+            processor.image_processor.downsample_mode = args.downsample_mode
+        if getattr(processor, "video_processor", None) is not None:
+            processor.video_processor.downsample_mode = args.downsample_mode
 
     config = SFTDatasetConfig(
         random_seed=args.seed,
@@ -151,6 +156,14 @@ def _add_arguments(parser: argparse.ArgumentParser):
                             'if the --packing-sft-data option is enabled, sort the data after packing. Default: False')
 
     group.add_argument('--image-resolution', type=int, help='Resolution of image inputs')
+
+    group.add_argument(
+        "--downsample-mode",
+        type=str,
+        choices=["4x", "16x"],
+        default=None,
+        help="MiniCPM-V visual downsample mode used when building multimodal placeholders.",
+    )
 
     group.add_argument('--train-on-prompt', action='store_true',
                        help='Whether compute loss on prompt. Default: False')

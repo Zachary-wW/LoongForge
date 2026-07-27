@@ -45,7 +45,7 @@ class BaseModelConfig(TransformerConfig, PretrainedConfig):
     When left at 0 (default), auto-computed from ``args.seq_length * args.micro_batch_size``."""
 
     def __post_init__(self):
-        PretrainedConfig.__init__(self)
+        PretrainedConfig.__post_init__(self)
         TransformerConfig.__post_init__(self)
 
 
@@ -65,7 +65,7 @@ class BaseModelMLAConfig(MLATransformerConfig, PretrainedConfig):
     fp8_dynamic_num_tokens: int = 0
 
     def __post_init__(self):
-        PretrainedConfig.__init__(self)
+        PretrainedConfig.__post_init__(self)
         MLATransformerConfig.__post_init__(self)
 
 
@@ -135,4 +135,3 @@ class BaseModelStditConfig(TransformerConfig):
             raise ValueError(
                 f'latent_space_scale: {self.latent_space_scale} must be 1.0 / latent_patch_size[1].'
             )
-

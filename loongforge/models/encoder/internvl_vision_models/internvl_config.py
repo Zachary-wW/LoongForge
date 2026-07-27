@@ -16,7 +16,7 @@ def generate_id() -> int:
     image_token_id = tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN)
     return image_token_id
 
-@dataclass
+@dataclass(kw_only=True)
 class InternVisionConfig(BaseModelConfig):
     """configuration for intern vision model
     
@@ -59,7 +59,7 @@ class InternVisionConfig(BaseModelConfig):
     model_type: str = "intern_vit"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class InternMLPAdapterConfig(BaseModelConfig):
     """configuration for adapter model
     The fields need to be consistent with the definitions in args

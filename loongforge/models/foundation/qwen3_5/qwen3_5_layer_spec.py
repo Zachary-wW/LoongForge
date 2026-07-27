@@ -24,6 +24,7 @@ from megatron.core.models.gpt.gpt_layer_specs import (
 
 from loongforge.models.foundation.qwen3_next.gated_deltanet import Qwen3NextRMSNorm, GatedDeltaNet
 from loongforge.models.foundation.qwen3_next.gated_attention import Qwen3NextSelfAttention
+from loongforge.models.foundation.qwen3_5.qwen3_5_mlp import Qwen35DenseMLP
 from loongforge.models.foundation.qwen3_next.qwen3_next_layer_spec import (
     get_local_layer_specs,
     get_moe_module_spec,
@@ -46,7 +47,7 @@ def _get_dense_mlp_module_spec():
     (initialized to ones). The layernorm is handled separately by pre_mlp_layernorm.
     """
     return ModuleSpec(
-        module=MLP,
+        module=Qwen35DenseMLP,
         submodules=MLPSubmodules(
             linear_fc1=TEColumnParallelLinear,
             linear_fc2=TERowParallelLinear,
@@ -94,10 +95,14 @@ def get_qwen3_5_transformer_layer_spec(config, vp_stage=None):
 
         if layer_type == 'linear_attention':
             layer_spec.submodules.self_attention.module = GatedDeltaNet
+            layer_spec.submodules.self_attention.params = {"projection_split_mode": "qwen3_5"}
         elif layer_type == 'full_attention':
             layer_spec.submodules.self_attention.submodules.linear_qkv = TEColumnParallelLinear
             layer_spec.submodules.self_attention.module = Qwen3NextSelfAttention
-            layer_spec.submodules.self_attention.params = {"attn_mask_type": AttnMaskType.causal}
+            layer_spec.submodules.self_attention.params = {
+                "attn_mask_type": AttnMaskType.causal,
+                "projection_split_mode": "qwen3_5",
+            }
 
         # Replace all layernorms with Qwen3NextRMSNorm (zero-centered)
         layer_spec.submodules.input_layernorm = layer_norm_impl

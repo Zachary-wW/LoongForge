@@ -10,7 +10,7 @@ from megatron.core.activations import quick_gelu
 from ...common.base_model_config import BaseModelConfig
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Qwen2VisionModelConfig(BaseModelConfig):
     """configuration for vision model"""
 
@@ -58,7 +58,7 @@ class Qwen2VisionRMSNormConfig(Qwen2VisionModelConfig):
     model_type = "qwen2_5_vit_rmsnorm"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class MLPAdapterConfig(BaseModelConfig):
     """configuration for adapter model
     The fields need to be consistent with the definitions in args

@@ -7,6 +7,7 @@
 """GatedSoftmaxAttention"""
 
 import torch
+import torch.nn.functional as F
 from torch import Tensor
 
 from typing import Optional, Tuple, Union
@@ -60,8 +61,16 @@ class Qwen3NextSelfAttention(SelfAttention):
         *args: Extra positional arguments passed to the parent class
         **kwargs: Extra keyword arguments passed to the parent class
     """
-    def __init__(self, config: TransformerConfig, submodules: SelfAttentionSubmodules, *args, **kwargs):
+    def __init__(
+        self,
+        config: TransformerConfig,
+        submodules: SelfAttentionSubmodules,
+        *args,
+        projection_split_mode: str = "merged",
+        **kwargs,
+    ):
         super().__init__(config, submodules, *args, **kwargs)
+        self.projection_split_mode = projection_split_mode
         self.linear_qkv = build_module(
             submodules.linear_qkv,
             self.config.hidden_size,
@@ -95,6 +104,161 @@ class Qwen3NextSelfAttention(SelfAttention):
             )
         else:
             self.k_layernorm = None
+
+    @staticmethod
+    def _expand_2d_padding_causal_mask(attention_mask: torch.Tensor, seq_len: int) -> torch.Tensor:
+        """Build an explicit causal + key padding mask from a 2D padding mask."""
+        if attention_mask is None or attention_mask.dim() != 2:
+            return attention_mask
+        if attention_mask.shape[-1] != seq_len:
+            return attention_mask
+
+        batch_size = attention_mask.shape[0]
+        key_padding_mask = attention_mask[:, None, None, :]
+        causal_mask = torch.triu(
+            torch.ones(seq_len, seq_len, dtype=torch.bool, device=attention_mask.device),
+            diagonal=1,
+        ).view(1, 1, seq_len, seq_len)
+        return causal_mask | key_padding_mask.expand(batch_size, 1, seq_len, seq_len)
+
+    def _prepare_full_attention_mask(self, attention_mask: torch.Tensor, seq_len: int) -> torch.Tensor:
+        """Prepare 2D padding masks for the selected core-attention backend."""
+        if attention_mask is None or attention_mask.dim() != 2 or attention_mask.shape[-1] != seq_len:
+            return attention_mask
+        if hasattr(self.core_attention, "te_forward_mask_type"):
+            return attention_mask[:, None, None, :]
+        return self._expand_2d_padding_causal_mask(attention_mask, seq_len)
+
+    def _hf_eager_core_attention(
+        self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        attention_mask: Optional[torch.Tensor],
+    ) -> torch.Tensor:
+        """HF Qwen3.5 eager attention equivalent for full-attention layers."""
+        query = query.permute(1, 2, 0, 3).contiguous()
+        key = key.permute(1, 2, 0, 3).contiguous()
+        value = value.permute(1, 2, 0, 3).contiguous()
+
+        num_key_value_groups = (
+            self.num_attention_heads_per_partition // self.num_query_groups_per_partition
+        )
+        if num_key_value_groups > 1:
+            key = key.repeat_interleave(num_key_value_groups, dim=1)
+            value = value.repeat_interleave(num_key_value_groups, dim=1)
+
+        attn_weights = torch.matmul(query, key.transpose(2, 3)) * (
+            self.hidden_size_per_attention_head ** -0.5
+        )
+        if attention_mask is not None:
+            if attention_mask.dtype == torch.bool:
+                attn_weights = attn_weights.masked_fill(
+                    attention_mask, torch.finfo(attn_weights.dtype).min
+                )
+            else:
+                attn_weights = attn_weights + attention_mask
+
+        attn_probs = F.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query.dtype)
+        attn_probs = F.dropout(
+            attn_probs,
+            p=self.config.attention_dropout,
+            training=self.training,
+        )
+        context_layer = torch.matmul(attn_probs, value)
+        context_layer = context_layer.transpose(1, 2).contiguous()
+        return context_layer.permute(1, 0, 2, 3).contiguous().view(
+            query.size(2),
+            query.size(0),
+            -1,
+        )
+
+    def _hf_sdpa_core_attention(
+        self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        attention_mask: Optional[torch.Tensor],
+    ) -> torch.Tensor:
+        """HF Qwen3.5 SDPA attention equivalent for full-attention layers."""
+        query = query.permute(1, 2, 0, 3).contiguous()
+        key = key.permute(1, 2, 0, 3).contiguous()
+        value = value.permute(1, 2, 0, 3).contiguous()
+
+        num_key_value_groups = (
+            self.num_attention_heads_per_partition // self.num_query_groups_per_partition
+        )
+        if num_key_value_groups > 1:
+            key = key.repeat_interleave(num_key_value_groups, dim=1)
+            value = value.repeat_interleave(num_key_value_groups, dim=1)
+
+        attn_mask = None
+        is_causal = True
+        if attention_mask is not None and attention_mask.dim() == 2:
+            seq_len = query.size(2)
+            key_keep = (~attention_mask.bool())[:, None, None, :]
+            causal_keep = torch.tril(
+                torch.ones(seq_len, seq_len, dtype=torch.bool, device=query.device)
+            ).view(1, 1, seq_len, seq_len)
+            attn_mask = key_keep & causal_keep
+            is_causal = False
+
+        context_layer = torch.nn.functional.scaled_dot_product_attention(
+            query,
+            key,
+            value,
+            attn_mask=attn_mask,
+            dropout_p=0.0 if not self.training else self.config.attention_dropout,
+            scale=self.hidden_size_per_attention_head ** -0.5,
+            is_causal=is_causal,
+        )
+        context_layer = context_layer.transpose(1, 2).contiguous()
+        return context_layer.view(query.size(0), query.size(2), -1).permute(1, 0, 2).contiguous()
+
+    def _hf_qwen35_apply_rotary_pos_emb(
+        self,
+        tensor: torch.Tensor,
+        freqs: torch.Tensor,
+    ) -> torch.Tensor:
+        """Apply Qwen3.5 text RoPE with HF's BF16 arithmetic order."""
+        if self.config.rotary_interleaved:
+            return apply_rotary_pos_emb(
+                tensor,
+                freqs,
+                config=self.config,
+                cp_group=self.pg_collection.cp,
+            )
+
+        if freqs.dim() == tensor.dim() + 1 and freqs.size(-2) == 1:
+            freqs = freqs.squeeze(-2)
+
+        rotary_dim = freqs.shape[-1]
+        tensor_rot = tensor[..., :rotary_dim]
+        tensor_pass = tensor[..., rotary_dim:]
+        tensor_rot_1, tensor_rot_2 = torch.chunk(tensor_rot, 2, dim=-1)
+        tensor_rotated = torch.cat((-tensor_rot_2, tensor_rot_1), dim=-1)
+
+        cos = torch.cos(freqs).to(tensor.dtype)
+        sin = torch.sin(freqs).to(tensor.dtype)
+        tensor_embed = (tensor_rot * cos) + (tensor_rotated * sin)
+        return torch.cat((tensor_embed, tensor_pass), dim=-1)
+
+    def _split_qwen35_qgkv_weights(self):
+        weight = self.linear_qkv.weight
+        num_querys_per_group = (
+            self.num_attention_heads_per_partition // self.num_query_groups_per_partition
+        )
+        qg_dim = 2 * num_querys_per_group * self.hidden_size_per_attention_head
+        kv_dim = self.hidden_size_per_attention_head
+        grouped = weight.reshape(
+            self.num_query_groups_per_partition,
+            qg_dim + 2 * kv_dim,
+            self.config.hidden_size,
+        )
+        qg = grouped[:, :qg_dim, :].reshape(-1, self.config.hidden_size)
+        key = grouped[:, qg_dim : qg_dim + kv_dim, :].reshape(-1, self.config.hidden_size)
+        value = grouped[:, qg_dim + kv_dim :, :].reshape(-1, self.config.hidden_size)
+        return qg, key, value
 
     def forward(
         self,
@@ -164,6 +328,28 @@ class Qwen3NextSelfAttention(SelfAttention):
         nvtx_range_push(suffix='qkv')
         query, key, value, gate = self.get_query_key_value_tensors(hidden_states, key_value_states)
         nvtx_range_pop(suffix='qkv')
+        use_hf_eager_attention = False
+        use_hf_sdpa_attention = (
+            getattr(self.config, "qwen35_hf_sdpa_attention", False)
+            and self.projection_split_mode == "qwen3_5"
+            and packed_seq_params is None
+            and inference_context is None
+            and attention_bias is None
+        )
+        use_hf_qwen35_rope = (
+            getattr(self.config, "qwen35_hf_rope", False)
+            and self.projection_split_mode == "qwen3_5"
+            and packed_seq_params is None
+            and inference_context is None
+        )
+        original_attention_mask = attention_mask
+        attention_mask = (
+            self._expand_2d_padding_causal_mask(attention_mask, query.size(0))
+            if use_hf_eager_attention
+            else attention_mask
+            if use_hf_sdpa_attention
+            else self._prepare_full_attention_mask(attention_mask, query.size(0))
+        )
 
         # ===================================================
         # Adjust key, value, and rotary_pos_emb for inference
@@ -236,7 +422,9 @@ class Qwen3NextSelfAttention(SelfAttention):
 
             if q_pos_emb is not None:
                 # TODO VIJAY: simplify
-                if inference_context is None or inference_context.is_static_batching():
+                if use_hf_qwen35_rope:
+                    query = self._hf_qwen35_apply_rotary_pos_emb(query, q_pos_emb)
+                elif inference_context is None or inference_context.is_static_batching():
                     query = apply_rotary_pos_emb(
                         query,
                         q_pos_emb,
@@ -248,13 +436,16 @@ class Qwen3NextSelfAttention(SelfAttention):
                     query = inference_context.apply_rotary_emb_query(query, q_pos_emb, self.config, cu_seqlens_q,
                                                                      self.pg_collection.cp)
             if k_pos_emb is not None:
-                key = apply_rotary_pos_emb(
-                    key,
-                    k_pos_emb,
-                    config=self.config,
-                    cu_seqlens=cu_seqlens_kv,
-                    cp_group=self.pg_collection.cp,
-                )
+                if use_hf_qwen35_rope:
+                    key = self._hf_qwen35_apply_rotary_pos_emb(key, k_pos_emb)
+                else:
+                    key = apply_rotary_pos_emb(
+                        key,
+                        k_pos_emb,
+                        config=self.config,
+                        cu_seqlens=cu_seqlens_kv,
+                        cp_group=self.pg_collection.cp,
+                    )
 
             # TODO, can apply positional embedding to value_layer so it has
             # absolute positional embedding.
@@ -267,7 +458,21 @@ class Qwen3NextSelfAttention(SelfAttention):
         # ==================================
 
         nvtx_range_push(suffix='core_attention')
-        if self.checkpoint_core_attention and self.training:
+        if use_hf_eager_attention:
+            core_attn_out = self._hf_eager_core_attention(
+                query,
+                key,
+                value,
+                attention_mask,
+            )
+        elif use_hf_sdpa_attention:
+            core_attn_out = self._hf_sdpa_core_attention(
+                query,
+                key,
+                value,
+                original_attention_mask,
+            )
+        elif self.checkpoint_core_attention and self.training:
             core_attn_out = self._checkpointed_attention_forward(
                 query,
                 key,
@@ -333,6 +538,48 @@ class Qwen3NextSelfAttention(SelfAttention):
         """
         Derives query, key, value, and gate tensors from the input hidden states.
         """
+        if self.projection_split_mode == "qwen3_5":
+            qg_weight, key_weight, value_weight = self._split_qwen35_qgkv_weights()
+            mixed_qg = F.linear(hidden_states, qg_weight)
+            query, gate = torch.chunk(
+                mixed_qg.view(
+                    *mixed_qg.size()[:-1],
+                    -1,
+                    self.hidden_size_per_attention_head * 2,
+                ),
+                2,
+                dim=-1,
+            )
+            query = query.reshape(
+                query.size(0), query.size(1), -1, self.hidden_size_per_attention_head
+            )
+            gate = gate.reshape(
+                gate.size(0), gate.size(1), -1, self.hidden_size_per_attention_head
+            )
+            key = F.linear(hidden_states, key_weight).view(
+                hidden_states.size(0),
+                hidden_states.size(1),
+                -1,
+                self.hidden_size_per_attention_head,
+            )
+            value = F.linear(hidden_states, value_weight).view(
+                hidden_states.size(0),
+                hidden_states.size(1),
+                -1,
+                self.hidden_size_per_attention_head,
+            )
+
+            if self.q_layernorm is not None:
+                query = self.q_layernorm(query)
+
+            if self.k_layernorm is not None:
+                key = self.k_layernorm(key)
+
+            if self.config.test_mode:
+                self.run_realtime_tests()
+
+            return query, key, value, gate
+
         mixed_qgkv, _ = self.linear_qkv(hidden_states)
 
         new_tensor_shape = mixed_qgkv.size()[:-1] + (
