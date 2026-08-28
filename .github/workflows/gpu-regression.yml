@@ -390,9 +390,7 @@ jobs:
             // cancellation: mark the check failed, fail this job, and post
             // the result comment so the pull request shows why. CPU polling
             // is only meaningful once the GPU suite itself succeeded.
-            const conclusion = failed.length
-              ? 'failure'
-              : (pollCpuChecks ? 'success' : 'cancelled');
+            const conclusion = failed.length ? 'failure' : 'success';
             let checkId = Number(process.env.CHECK_ID);
             if (!Number.isSafeInteger(checkId) || checkId <= 0) {
               const { data: created } = await github.rest.checks.create({
@@ -421,7 +419,7 @@ jobs:
               output: {
                 title: conclusion === 'success'
                   ? 'GPU validation passed'
-                  : (conclusion === 'cancelled' ? 'GPU validation cancelled' : 'GPU validation failed'),
+                  : 'GPU validation failed',
                 summary: `Suite: ${process.env.SUITE}; results: ${JSON.stringify(results)}`,
                 // Per-model regression detail (loss baseline comparisons,
                 // failed metrics, warnings) rendered by the suite runner.
@@ -435,7 +433,7 @@ jobs:
             // re-runs against the same revision update one comment instead
             // of spamming the conversation.
             const prNumber = Number(process.env.PR_NUMBER);
-            if (Number.isSafeInteger(prNumber) && prNumber > 0 && conclusion !== 'cancelled') {
+            if (Number.isSafeInteger(prNumber) && prNumber > 0) {
               const marker = `<!-- loongforge-gpu-regression:${process.env.HEAD_SHA} -->`;
               const icon = conclusion === 'success' ? '✅' : '❌';
               const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;

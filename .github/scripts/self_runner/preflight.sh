@@ -79,7 +79,12 @@ if [[ "$min_free_mb" =~ ^[0-9]+$ ]] && command -v nvidia-smi >/dev/null 2>&1; th
     deficit=""
     index=0
     while IFS= read -r free_mb; do
-      if (( free_mb < min_free_mb )); then
+      # nvidia-smi reports "[N/A]" or "[Not Supported]" for GPUs in an
+      # error or uninitialized state; treat those as unavailable rather
+      # than letting arithmetic coercion pass the check (fail closed).
+      if [[ ! "$free_mb" =~ ^[0-9]+$ ]]; then
+        deficit="${deficit} gpu${index}=unavailable"
+      elif (( free_mb < min_free_mb )); then
         deficit="${deficit} gpu${index}=${free_mb}MiB"
       fi
       index=$((index + 1))
