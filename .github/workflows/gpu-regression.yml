@@ -386,9 +386,13 @@ jobs:
               ? cpuNames.filter((name) => latestCpuChecks.get(name)?.conclusion !== 'success')
               : [];
             failed.push(...missingCpu.map((name) => `cpu:${name}`));
-            const conclusion = pollCpuChecks
-              ? (failed.length ? 'failure' : 'success')
-              : 'cancelled';
+            // A failed or cancelled suite job is a real failure, not a
+            // cancellation: mark the check failed, fail this job, and post
+            // the result comment so the pull request shows why. CPU polling
+            // is only meaningful once the GPU suite itself succeeded.
+            const conclusion = failed.length
+              ? 'failure'
+              : (pollCpuChecks ? 'success' : 'cancelled');
             let checkId = Number(process.env.CHECK_ID);
             if (!Number.isSafeInteger(checkId) || checkId <= 0) {
               const { data: created } = await github.rest.checks.create({

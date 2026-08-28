@@ -22,11 +22,37 @@ def run_preflight(tmp_path, values, suite="llm_vlm", build_image="false"):
     config = tmp_path / "ci.env"
     config.write_text("\n".join(f"{key}={value}" for key, value in values.items()) + "\n", encoding="utf-8")
     env = os.environ.copy()
-    env.update({"CI_CONFIG_PATH": str(config), "DOCKER_BIN": str(tmp_path / "docker")})
+    env.update({
+        "CI_CONFIG_PATH": str(config),
+        "DOCKER_BIN": str(tmp_path / "docker"),
+        # Keep preflight tests host-independent: the free-GPU-memory check
+        # depends on the machine's current occupancy.
+        "LOONGFORGE_MIN_FREE_GPU_MB": "",
+    })
     return subprocess.run(
         ["bash", ".github/scripts/self_runner/preflight.sh", suite, build_image],
         env=env, capture_output=True, text=True, check=False,
     )
+
+
+def test_redactor_ignores_short_flag_values_from_environment(tmp_path):
+    source = tmp_path / "run.log"
+    target = tmp_path / "safe.log"
+    source.write_text(
+        "[2026-08-28 15:49:04] [INFO] exit code 1, duration 725.7s, 1/1 models\n",
+        encoding="utf-8",
+    )
+    result = run_redactor(source, target, {
+        "RUNNER_ALLOW_RUNASROOT": "1",
+        "RUNNER_ENVIRONMENT": "0",
+        "RUNNER_TEMP": "/long/runner/temp/path",
+    })
+    assert result.returncode == 0
+    text = target.read_text(encoding="utf-8")
+    assert "15:49:04" in text
+    assert "exit code 1" in text
+    assert "1/1 models" in text
+    assert "/long/runner/temp/path" not in text
 
 
 def test_redactor_keeps_result_fields_and_removes_runner_values(tmp_path):

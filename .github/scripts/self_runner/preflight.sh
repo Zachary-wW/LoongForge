@@ -65,4 +65,31 @@ if ! "$docker_bin" run --rm --device="$LOONGFORGE_GPU_DEVICE" "$LOONGFORGE_DEFAU
   exit 1
 fi
 printf '%s\n' 'image-device: ok'
+
+# Shared runners host other tenants' containers; fail fast with an
+# actionable message when any GPU has less free memory than the suite
+# needs, instead of burning a full training run on a late OOM. Set
+# LOONGFORGE_MIN_FREE_GPU_MB (MiB per GPU) in the runner config to
+# override; an empty value keeps the default below.
+min_free_mb="${LOONGFORGE_MIN_FREE_GPU_MB:-60000}"
+if [[ "$min_free_mb" =~ ^[0-9]+$ ]] && command -v nvidia-smi >/dev/null 2>&1; then
+  if ! free_line=$(nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>/dev/null); then
+    printf '%s\n' 'gpu-memory: query failed (skipping check)' >&2
+  else
+    deficit=""
+    index=0
+    while IFS= read -r free_mb; do
+      if (( free_mb < min_free_mb )); then
+        deficit="${deficit} gpu${index}=${free_mb}MiB"
+      fi
+      index=$((index + 1))
+    done <<<"$free_line"
+    if [[ -n "$deficit" ]]; then
+      printf '%s\n' "gpu-memory: insufficient (need >= ${min_free_mb}MiB per GPU; short:${deficit})." >&2
+      printf '%s\n' 'The suite runner is shared; retry later or free the GPUs listed above.' >&2
+      exit 1
+    fi
+  fi
+  printf '%s\n' "gpu-memory: ok (>= ${min_free_mb}MiB free per GPU)"
+fi
 printf '%s\n' 'mounts: ok'

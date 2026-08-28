@@ -13,6 +13,12 @@ permissions:
   pull-requests: write
   issues: write
   actions: read
+  # Required for the claude[bot] identity: claude-code-action exchanges the
+  # workflow OIDC token for an official Claude GitHub App installation token
+  # and posts all comments and inline reviews as claude[bot]. Without this
+  # permission the action silently falls back to github.token, and every
+  # comment appears as github-actions[bot] instead.
+  id-token: write
 
 # GitHub keeps at most one running and one pending review per PR. A newer
 # mention replaces an older pending one; the running review is not cancelled.
@@ -44,7 +50,7 @@ jobs:
     runs-on: ${{ fromJSON(vars.CI_REVIEW_RUNNER) }}
     # Self-hosted runners may need several minutes to install the pinned Claude
     # binary through the runner proxy. Keep enough room for the actual review.
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - name: Trust workspace (self-hosted runner)
         # The runner process runs as root but _work/ may contain files created
@@ -224,8 +230,11 @@ jobs:
 
             Read PR metadata and existing comments from
             ${{ steps.pr.outputs.metadata_file }} and read the exact diff from
-            ${{ steps.pr.outputs.diff_file }}. Read every changed file in full
-            when practical. Post confirmed findings with create_inline_comment.
+            ${{ steps.pr.outputs.diff_file }}. Review execution- and
+            CI-critical files (shell, python, javascript, yaml under .github/,
+            ci/, tests/, docker/) in full; for documentation and other files
+            the diff hunks with surrounding context are sufficient. Post
+            confirmed findings with create_inline_comment.
             Set commit_id to ${{ steps.pr.outputs.head_sha }} on every inline
             comment so findings stay attached to the reviewed revision.
             Return the one top-level verdict required by the Skill in the
