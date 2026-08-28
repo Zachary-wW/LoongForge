@@ -421,10 +421,6 @@ MODEL_CONFIG_REGISTRY = {
         "config_path": "configs/models/ernie4.5vl",
         "config_name": "ernie4_5_vl_28b_a3b",
     },
-    "llava-onevision-1.5-4b": {
-        "config_path": "configs/models/llava_onevision",
-        "config_name": "llava_onevision_1_5_4b",
-    },
     "glm5": {
         "config_path": "configs/models/glm5",
         "config_name": "glm5",
