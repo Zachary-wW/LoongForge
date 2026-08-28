@@ -19,8 +19,10 @@ import sys
 from typing import Any
 
 # Keep the rendered table small enough for a check run output even when a
-# suite runs every configured model.
-MAX_FIELD_CHARS = 200
+# suite runs every configured model. Generous enough that baseline
+# warnings and failure notes render in full instead of being cut
+# mid-word.
+MAX_FIELD_CHARS = 2000
 
 
 def _clip(text: str, limit: int = MAX_FIELD_CHARS) -> str:
@@ -80,9 +82,8 @@ def _render_model_row(result: dict[str, Any]) -> str:
 
 def render(summary: dict[str, Any]) -> str:
     results = summary.get("results") or []
-    chip = str(summary.get("chip") or "-")
     lines = [
-        f"Regression results (chip `{chip}`):",
+        "Regression results:",
         "",
         "| Model | Result | Loss (first → last) | Notes |",
         "| --- | --- | --- | --- |",
