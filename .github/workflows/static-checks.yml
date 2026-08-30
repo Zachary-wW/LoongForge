@@ -1,4 +1,4 @@
-name: CI Gate
+name: Static Checks
 
 on:
   pull_request:
@@ -10,7 +10,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: ci-gate-${{ github.event.pull_request.number || github.ref }}
+  group: static-checks-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -36,15 +36,13 @@ jobs:
     uses: ./.github/workflows/sensitive.yml
 
   gate:
-    name: ${{ github.event_name == 'pull_request' && 'ci-gate' || 'manual-ci-gate' }}
+    name: ${{ github.event_name == 'pull_request' && 'static-checks' || 'manual-static-checks' }}
     if: ${{ always() }}
     needs: [pr-title, license, secrets, lint, build, workflow-lint, sensitive]
     runs-on: ubuntu-latest
     steps:
       - name: Verify required checks
         env:
-          # NOTE: the GPU-regression finalize job cross-checks these same CPU
-          # checks by name via ci/cpu-checks.json; keep both in sync.
           PR_TITLE_RESULT: ${{ needs.pr-title.result }}
           LICENSE_RESULT: ${{ needs.license.result }}
           SECRETS_RESULT: ${{ needs.secrets.result }}

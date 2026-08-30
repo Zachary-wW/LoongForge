@@ -68,21 +68,21 @@ tag.
 
 Enable the `ok-to-test`, `gpu-regression`, and `gpu-invalidate` workflows on the
 default branch, then verify a maintainer-dispatched run on each labeled suite
-runner. Confirm that the PR `ci-gate` check progresses through queued, optional
+runner. Confirm that the PR `gpu-regression` check progresses through queued, optional
 candidate build, regression, and final status. Push a second commit while a GPU
 run is active and confirm that the old check becomes cancelled and the runner's
 targeted cleanup removes its regression container and candidate image where
 possible. Cancellation cleanup is best-effort and must not globally prune the
 shared BuildKit cache.
 
-Configure branch protection to require the PR job named `ci-gate`. A manual
-dispatch ends in `manual-ci-gate` and is intended only for diagnostics; it must
+Configure branch protection to require the PR job named `static-checks`. A manual
+dispatch ends in `manual-static-checks` and is intended only for diagnostics; it must
 not satisfy the PR requirement.
 
 Create the `baidu-baige/loongforge-maintainers` Team before activating the
 `.github/CODEOWNERS` rule. The repository should use a `master-protection`
 Ruleset requiring one non-author Code Owner approval, resolved conversations,
-an up-to-date branch, and the `ci-gate` check. Use a separate
+an up-to-date branch, and the `static-checks` check. Use a separate
 `release-tag-protection` Ruleset for immutable `v*` tags.
 
 Keep the default `GITHUB_TOKEN` permission read-only and require approval for

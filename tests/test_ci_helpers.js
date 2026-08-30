@@ -8,10 +8,6 @@ const path = require('node:path');
 
 const { validatePullRequestTitle } = require('../.github/scripts/pr_title');
 const { filterModelsWithBaselines, missingModels } = require('../.github/scripts/ci_model_validation');
-const {
-  selectLatestChecks,
-  shouldPollCpuChecks,
-} = require('../.github/scripts/ci_checks');
 
 const repoRoot = path.resolve(__dirname, '..');
 
@@ -41,64 +37,6 @@ test('rejects an unknown module', () => {
   const result = validatePullRequestTitle('[unknown] fix: unknown module');
   assert.equal(result.ok, false);
   assert.match(result.message, /invalid modules/i);
-});
-
-test('newer failed check overrides older success', () => {
-  const selected = selectLatestChecks([
-    {
-      id: 1,
-      name: 'pr-title / check',
-      status: 'completed',
-      conclusion: 'success',
-      started_at: '2026-08-26T01:00:00Z',
-    },
-    {
-      id: 2,
-      name: 'pr-title / check',
-      status: 'completed',
-      conclusion: 'failure',
-      started_at: '2026-08-26T02:00:00Z',
-    },
-  ], ['check']);
-  assert.equal(selected.get('check').conclusion, 'failure');
-});
-
-test('newer in-progress check prevents terminal success', () => {
-  const selected = selectLatestChecks([
-    {
-      id: 1,
-      name: 'lint / ruff',
-      status: 'completed',
-      conclusion: 'success',
-      started_at: '2026-08-26T01:00:00Z',
-    },
-    {
-      id: 2,
-      name: 'lint / ruff',
-      status: 'in_progress',
-      conclusion: null,
-      started_at: '2026-08-26T02:00:00Z',
-    },
-  ], ['ruff']);
-  assert.equal(selected.get('ruff').status, 'in_progress');
-});
-
-test('cancelled GPU validation skips CPU polling', () => {
-  assert.equal(
-    shouldPollCpuChecks({ validate: 'cancelled', embodied: 'skipped' }, 'embodied'),
-    false,
-  );
-});
-
-test('failed GPU validation skips CPU polling', () => {
-  assert.equal(
-    shouldPollCpuChecks({ validate: 'failure', embodied: 'skipped' }, 'embodied'),
-    false,
-  );
-  assert.equal(
-    shouldPollCpuChecks({ validate: 'success', embodied: 'failure' }, 'embodied'),
-    false,
-  );
 });
 
 test('new commits invalidate suite GPU jobs without SHA-scoped concurrency', () => {
@@ -162,10 +100,10 @@ test('llm_vlm feature gate is explicit in both trusted workflows', () => {
 });
 
 test('manual dispatch cannot publish the required PR gate name', () => {
-  const workflow = readWorkflow('ci-gate.yml');
+  const workflow = readWorkflow('static-checks.yml');
   assert.match(
     workflow,
-    /github\.event_name == 'pull_request'.*'ci-gate'.*'manual-ci-gate'/,
+    /github\.event_name == 'pull_request'.*'static-checks'.*'manual-static-checks'/,
   );
 });
 

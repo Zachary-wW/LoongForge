@@ -333,9 +333,6 @@ jobs:
         with:
           ref: ${{ github.ref }}
           persist-credentials: false
-      - id: cpu_checks
-        name: Read CPU check names
-        run: echo "names=$(jq -c '.' ci/cpu-checks.json)" >> "$GITHUB_OUTPUT"
       - uses: actions/github-script@v7
         env:
           CHECK_ID: ${{ inputs.gate_check_id }}
@@ -345,14 +342,11 @@ jobs:
           SUITE: ${{ inputs.suite }}
           HEAD_SHA: ${{ inputs.head_sha }}
           PR_NUMBER: ${{ inputs.pr_number }}
-          CPU_CHECK_NAMES: ${{ steps.cpu_checks.outputs.names }}
           REGRESSION_SUMMARY: ${{ needs.embodied.outputs.regression_summary }}
         with:
           script: |
-            const {
-              selectLatestChecks,
-              shouldPollCpuChecks,
-            } = require('./.github/scripts/ci_checks');
+            // CPU checks are aggregated by the static-checks workflow's gate
+            // job; this workflow reports the GPU suites only.
             const results = {
               validate: process.env.VALIDATE_RESULT,
               llm_vlm: process.env.LLM_VLM_RESULT,
@@ -361,37 +355,11 @@ jobs:
             const requiredJobs = ['validate', process.env.SUITE];
             const failed = requiredJobs.filter((name) => results[name] !== 'success');
 
-            // Expected CPU check names come from ci/cpu-checks.json so the
-            // finalize job and the CPU gate stay in sync.
-            const cpuNames = JSON.parse(process.env.CPU_CHECK_NAMES);
-            const pollCpuChecks = shouldPollCpuChecks(results, process.env.SUITE);
-            let latestCpuChecks = new Map();
-            if (pollCpuChecks) {
-              for (let attempt = 0; attempt < 120; attempt += 1) {
-                const checkRuns = await github.paginate(github.rest.checks.listForRef, {
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  ref: process.env.HEAD_SHA,
-                  per_page: 100,
-                });
-                latestCpuChecks = selectLatestChecks(checkRuns, cpuNames);
-                const terminal = cpuNames.every((name) =>
-                  latestCpuChecks.get(name)?.status === 'completed'
-                );
-                if (terminal) break;
-                await new Promise((resolve) => setTimeout(resolve, 30000));
-              }
-            }
-            const missingCpu = pollCpuChecks
-              ? cpuNames.filter((name) => latestCpuChecks.get(name)?.conclusion !== 'success')
-              : [];
-            failed.push(...missingCpu.map((name) => `cpu:${name}`));
             // A failed suite job is a real failure: mark the check failed,
             // fail this job, and post the result comment so the pull
             // request shows why. A suite job that was cancelled mid-run
             // keeps the cancelled conclusion (the author stopped it); a
             // skipped suite (for example failed validation) is a failure.
-            // CPU polling is only meaningful once the GPU suite succeeded.
             const suiteResult = results[process.env.SUITE];
             const conclusion = failed.length
               ? (suiteResult === 'cancelled' ? 'cancelled' : 'failure')

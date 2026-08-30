@@ -6,7 +6,7 @@ This directory contains the CI/CD workflows for LoongForge.
 
 | Workflow | Trigger | Purpose |
 |---|---|---|
-| `ci-gate.yml` | PR + workflow dispatch | Run and summarize all blocking CPU checks |
+| `static-checks.yml` | PR + workflow dispatch | Run and summarize all blocking CPU checks |
 | `workflow-lint.yml` | Reusable workflow | Validate GitHub Actions expressions, YAML, and CI helper contracts |
 | `pr-title.yml` | Reusable workflow | Validate PR title format: `[<modules>] <type>: <description>` |
 | `license.yml` | Reusable workflow | Check SPDX Apache-2.0 header on newly added source files |
@@ -21,9 +21,9 @@ This directory contains the CI/CD workflows for LoongForge.
 | `gpu-invalidate.yml` | PR synchronize | Cancel stale suite GPU work after a new commit |
 | `release.yml` | Version tag `vX.Y.Z` | Publish PyPI package and Docker Hub release image |
 
-Pull requests run `ci-gate.yml` automatically. Its manual dispatch is diagnostic:
+Pull requests run `static-checks.yml` automatically. Its manual dispatch is diagnostic:
 PR-only checks skip where appropriate and the final job is named
-`manual-ci-gate`, so it cannot satisfy the required PR `ci-gate` check.
+`manual-static-checks`, so it cannot satisfy the required PR `static-checks` check.
 Operational workflows such as `submodule-sync.yml` may retain their own
 dispatch inputs.
 
@@ -43,7 +43,7 @@ same runner builds the PR's Dockerfile and immediately runs regression against
 the local candidate image. Without it, regression uses the runner's configured
 default image. Explicit models must belong to the selected suite and have a
 baseline. New commits invalidate previous results.
-The PR `ci-gate` check reports whether GPU work is queued, building a candidate
+The PR `gpu-regression` check reports whether GPU work is queued, building a candidate
 image, running regression, cancelled, passed, or failed. A new PR commit
 cancels the older running or queued job for each suite, including an in-flight
 candidate build or regression. Runner cleanup is targeted and best-effort:
@@ -110,4 +110,4 @@ Required secrets:
 - `SUBMODULE_SYNC_APP_ID`
 - `SUBMODULE_SYNC_APP_PRIVATE_KEY`
 
-The GitHub App behind those secrets must be able to push to the configured target branch. This workflow is separate from the PR `CI Gate` and is not a required merge check.
+The GitHub App behind those secrets must be able to push to the configured target branch. This workflow is separate from the PR `Static Checks` and is not a required merge check.
