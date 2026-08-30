@@ -374,6 +374,7 @@ jobs:
                 external_id: `loongforge-gpu:${process.env.PR_NUMBER}:${process.env.HEAD_SHA}`,
                 status: 'in_progress',
                 started_at: new Date().toISOString(),
+                details_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               });
               checkId = created.id;
             }

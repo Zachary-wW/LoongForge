@@ -48,8 +48,8 @@ jobs:
         contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)
       )
     runs-on: ${{ fromJSON(vars.CI_REVIEW_RUNNER) }}
-    # Self-hosted runners may need several minutes to install the pinned Claude
-    # binary through the runner proxy. Keep enough room for the actual review.
+    # Reviews of large PRs are agentic and can legitimately take an hour;
+    # CLAUDE_CODE_EXECUTABLE skips the per-run binary install.
     timeout-minutes: 90
     steps:
       - name: Trust workspace (self-hosted runner)

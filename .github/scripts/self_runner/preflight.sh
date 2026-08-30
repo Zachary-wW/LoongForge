@@ -70,11 +70,20 @@ printf '%s\n' 'image-device: ok'
 # actionable message when any GPU has less free memory than the suite
 # needs, instead of burning a full training run on a late OOM. Set
 # LOONGFORGE_MIN_FREE_GPU_MB (MiB per GPU) in the runner config to
-# override; an empty value keeps the default below.
+# override; an empty value disables the check.
 min_free_mb="${LOONGFORGE_MIN_FREE_GPU_MB:-60000}"
+if [[ -n "${LOONGFORGE_MIN_FREE_GPU_MB:-}" && ! "$min_free_mb" =~ ^[0-9]+$ ]]; then
+  printf '%s\n' "gpu-memory: LOONGFORGE_MIN_FREE_GPU_MB must be a number in MiB or empty (got: ${LOONGFORGE_MIN_FREE_GPU_MB})." >&2
+  exit 2
+fi
 if [[ "$min_free_mb" =~ ^[0-9]+$ ]] && command -v nvidia-smi >/dev/null 2>&1; then
   if ! free_line=$(nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>/dev/null); then
     printf '%s\n' 'gpu-memory: query failed (skipping check)' >&2
+  elif [[ -z "${free_line//$'\n'/}" ]]; then
+    # nvidia-smi exists but reports no GPUs at all; a GPU suite runner in
+    # that state cannot train. Fail closed instead of passing vacuously.
+    printf '%s\n' 'gpu-memory: nvidia-smi reported no GPUs.' >&2
+    exit 1
   else
     deficit=""
     index=0
