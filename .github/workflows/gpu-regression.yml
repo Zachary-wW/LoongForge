@@ -48,7 +48,7 @@ jobs:
           ref: ${{ github.ref }}
           persist-credentials: false
       - id: validate
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
           HEAD_REPO: ${{ inputs.head_repo }}
@@ -136,7 +136,7 @@ jobs:
         run: trusted-ci/.github/scripts/self_runner/preflight.sh llm_vlm "${{ inputs.build_image && 'true' || 'false' }}"
       - name: Report candidate image build
         if: ${{ inputs.build_image && inputs.gate_check_id != '' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         env:
           CHECK_ID: ${{ inputs.gate_check_id }}
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -164,7 +164,7 @@ jobs:
         run: trusted-ci/.github/scripts/build_candidate_image.sh a
       - name: Report regression run
         if: ${{ inputs.gate_check_id != '' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         env:
           CHECK_ID: ${{ inputs.gate_check_id }}
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -237,7 +237,7 @@ jobs:
         run: trusted-ci/.github/scripts/self_runner/preflight.sh embodied "${{ inputs.build_image && 'true' || 'false' }}"
       - name: Report candidate image build
         if: ${{ inputs.build_image && inputs.gate_check_id != '' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         env:
           CHECK_ID: ${{ inputs.gate_check_id }}
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -265,7 +265,7 @@ jobs:
         run: trusted-ci/.github/scripts/build_candidate_image.sh p
       - name: Report regression run
         if: ${{ inputs.gate_check_id != '' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         env:
           CHECK_ID: ${{ inputs.gate_check_id }}
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -333,7 +333,7 @@ jobs:
         with:
           ref: ${{ github.ref }}
           persist-credentials: false
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         env:
           CHECK_ID: ${{ inputs.gate_check_id }}
           VALIDATE_RESULT: ${{ needs.validate.result }}

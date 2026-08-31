@@ -20,7 +20,7 @@ import sys
 from typing import Any
 
 # Keep the rendered table compact: the Notes column condenses baseline
-# findings to "metric delta" form and clips anything else to a short
+# findings to "metric degraded N%" form and clips anything else to a short
 # excerpt. Full detail stays in the suite log artifact.
 NOTE_EXCERPT_CHARS = 120
 
@@ -43,7 +43,11 @@ def _clip(text: str, limit: int = NOTE_EXCERPT_CHARS) -> str:
 def _condense_warning(note: str) -> str:
     match = _METRIC_WARNING_RE.match(note.strip())
     if match:
-        return f"{match.group('metric')} -{match.group('pct')}%"
+        # The percentage is a direction-normalised "how much worse" magnitude,
+        # not a signed delta: baseline.py flips the sign for metrics where
+        # smaller is worse. Rendering it as "-X%" therefore reads as an
+        # improvement for elapsed_time_ms, so keep the framework's wording.
+        return f"{match.group('metric')} degraded {match.group('pct')}%"
     return _clip(note)
 
 

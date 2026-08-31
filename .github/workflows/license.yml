@@ -13,6 +13,7 @@ concurrency:
 jobs:
   spdx:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         if: github.event_name == 'pull_request'
@@ -46,9 +47,12 @@ jobs:
             BASE="HEAD~1"
             HEAD="HEAD"
           fi
+          # Keep the listing separate from the filter: a failing `git diff` has to
+          # fail the step, while `grep` exiting 1 only means the filter emptied
+          # the list. Piping them together hid both behind the same `|| true`.
           git diff --name-only --diff-filter=A "$BASE" "$HEAD" \
-              -- '*.py' '*.sh' '*.cu' '*.cpp' '*.h' \
-            | grep -vE '^(third_party|patches)/' > new_files.txt || true
+              -- '*.py' '*.sh' '*.cu' '*.cpp' '*.h' > added_files.txt
+          grep -vE '^(third_party|patches)/' added_files.txt > new_files.txt || true
           if [ -s new_files.txt ]; then
             echo "has_files=true" >> "$GITHUB_OUTPUT"
           else

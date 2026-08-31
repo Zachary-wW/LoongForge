@@ -35,7 +35,17 @@ def test_condense_warning_matches_metric_pattern():
         "throughput: actual_mean=4.40 baseline_mean=14.47 degraded 69.6% > 5% "
         "(soft check, warning only)"
     )
-    assert summarize._condense_warning(note) == "throughput -69.6%"
+    assert summarize._condense_warning(note) == "throughput degraded 69.6%"
+
+
+def test_condense_warning_keeps_direction_for_time_metrics():
+    # baseline.py reports a direction-normalised degradation magnitude, so a
+    # leading "-" would render this 248% slowdown as an improvement.
+    note = (
+        "elapsed_time_ms: actual_mean=10.00 baseline_mean=2.87 degraded 248.4% > 5% "
+        "(soft check, warning only)"
+    )
+    assert summarize._condense_warning(note) == "elapsed_time_ms degraded 248.4%"
 
 
 def test_condense_warning_falls_back_to_excerpt_for_unknown_text():
@@ -83,7 +93,7 @@ def test_render_marks_failures_with_notes():
     text = summarize.render(summary)
     assert "FAIL" in text
     assert "failed: action_loss@iter2" in text
-    assert "warn: throughput -69.6%" in text
+    assert "warn: throughput degraded 69.6%" in text
     assert "error: train exit 1" in text
 
 
