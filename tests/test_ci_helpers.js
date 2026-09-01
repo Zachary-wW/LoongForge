@@ -8,6 +8,11 @@ const path = require('node:path');
 
 const { validatePullRequestTitle } = require('../.github/scripts/pr_title');
 const { filterModelsWithBaselines, missingModels } = require('../.github/scripts/ci_model_validation');
+const {
+  findActionRequiredCheck,
+  gpuConclusion,
+  hasGpuValidation,
+} = require('../.github/scripts/gpu_checks');
 
 const repoRoot = path.resolve(__dirname, '..');
 
@@ -47,6 +52,43 @@ test('new commits invalidate suite GPU jobs without SHA-scoped concurrency', () 
     assert.match(regression, new RegExp(`group: gpu-regression-.*-${suite}`));
     assert.match(invalidation, new RegExp(`group: gpu-regression-.*-${suite}`));
   }
+});
+
+test('GPU invalidation recognizes a prior check or bot result comment', () => {
+  assert.equal(hasGpuValidation([{ name: 'gpu-regression' }], []), true);
+  assert.equal(hasGpuValidation([], [
+    { user: { login: 'github-actions[bot]' }, body: '<!-- loongforge-gpu-regression:abc -->' },
+  ]), true);
+  assert.equal(hasGpuValidation([], [
+    { user: { login: 'maintainer' }, body: '<!-- loongforge-gpu-regression:abc -->' },
+  ]), false);
+  assert.equal(hasGpuValidation([], []), false);
+});
+
+test('GPU invalidation reuses only an action_required check for the current SHA', () => {
+  const checks = [
+    { id: 1, name: 'gpu-regression', head_sha: 'old', status: 'completed', conclusion: 'action_required' },
+    { id: 2, name: 'gpu-regression', head_sha: 'new', status: 'completed', conclusion: 'failure' },
+    { id: 3, name: 'gpu-regression', head_sha: 'new', status: 'completed', conclusion: 'action_required' },
+    { id: 4, name: 'gpu-regression', head_sha: 'new', status: 'in_progress', conclusion: null },
+  ];
+  assert.equal(findActionRequiredCheck(checks, 'new')?.id, 3);
+  assert.equal(findActionRequiredCheck(checks, 'missing'), null);
+});
+
+test('GPU conclusion keeps cancelled runs distinct from failures', () => {
+  assert.deepEqual(
+    gpuConclusion({ validate: 'success', embodied: 'success', llm_vlm: 'skipped' }, 'embodied'),
+    { conclusion: 'success', failed: [] },
+  );
+  assert.deepEqual(
+    gpuConclusion({ validate: 'success', embodied: 'cancelled', llm_vlm: 'skipped' }, 'embodied'),
+    { conclusion: 'cancelled', failed: ['embodied'] },
+  );
+  assert.deepEqual(
+    gpuConclusion({ validate: 'failure', embodied: 'skipped', llm_vlm: 'skipped' }, 'embodied'),
+    { conclusion: 'failure', failed: ['validate', 'embodied'] },
+  );
 });
 
 test('PR check exposes queued build regression and cancellation stages', () => {
@@ -133,5 +175,27 @@ test('release uses matching context and immutable image tags', () => {
   assert.match(workflow, /group: release-\$\{\{ github\.ref \}\}/);
   assert.match(workflow, /path: LoongForge/);
   assert.match(workflow, /file: LoongForge\/docker\/Dockerfile/);
+  assert.match(workflow, /needs: \[validate, package, publish\]/);
+  assert.match(workflow, /submodules: recursive/);
+  assert.match(workflow, /LoongForge\/\*\*\/.git/);
   assert.doesNotMatch(workflow, /DOCKERHUB_IMAGE.*:latest/);
+});
+
+test('all external Actions are pinned to full commit SHAs', () => {
+  for (const name of fs.readdirSync(path.join(repoRoot, '.github/workflows'))) {
+    if (!name.endsWith('.yml') && !name.endsWith('.yaml')) continue;
+    const workflow = readWorkflow(name);
+    for (const match of workflow.matchAll(/^\s+uses:\s+([^@\s]+)@([^\s#]+)/gm)) {
+      if (match[1].startsWith('./')) continue;
+      assert.match(match[2], /^[0-9a-f]{40}$/, `${name}: ${match[1]} is not pinned`);
+    }
+  }
+  const action = fs.readFileSync(
+    path.join(repoRoot, '.github/actions/validate-models/action.yml'),
+    'utf8',
+  );
+  assert.match(action, /uses:\s+actions\/github-script@[0-9a-f]{40}/);
+  const sync = readWorkflow('submodule-sync.yml');
+  assert.match(sync, /create-github-app-token@[0-9a-f]{40}/);
+  assert.match(sync, /token: \$\{\{ steps\.app-token\.outputs\.token \}\}/);
 });

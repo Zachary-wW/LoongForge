@@ -38,49 +38,108 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      contents: read
       checks: write
+      issues: read
+      pull-requests: read
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PREVIOUS_SHA: ${{ github.event.before }}
-          CURRENT_SHA: ${{ github.event.after }}
+          CURRENT_SHA: ${{ github.event.pull_request.head.sha }}
         with:
           script: |
-            // Only pull requests that had already been validated need this
-            // marker. GPU validation is opt-in via `/ok-to-test`, so creating
-            // the check unconditionally would put a blocking marker on every
-            // pull request that never asked for GPU work in the first place.
-            const previous = await github.paginate(github.rest.checks.listForRef, {
+            const {
+              findActionRequiredCheck,
+              hasGpuValidation,
+            } = require('./.github/scripts/gpu_checks');
+            const previousSha = process.env.PREVIOUS_SHA || '';
+            const currentSha = process.env.CURRENT_SHA || '';
+            if (!/^[0-9a-f]{40}$/.test(currentSha)) {
+              core.setFailed('pull request head SHA is missing or malformed');
+              return;
+            }
+            const { data: pull } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              ref: process.env.PREVIOUS_SHA,
+              pull_number: Number(process.env.PR_NUMBER),
+            });
+            if (pull.head.sha !== currentSha) {
+              core.setFailed('pull request head changed while invalidation was starting');
+              return;
+            }
+
+            // `before` is only the immediately previous head. A PR can receive
+            // several commits between GPU runs, so also inspect the bot's
+            // result comments to retain the opt-in decision across those hops.
+            const previous = /^[0-9a-f]{40}$/.test(previousSha)
+              ? await github.paginate(github.rest.checks.listForRef, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: previousSha,
+                check_name: 'gpu-regression',
+                per_page: 100,
+              })
+              : [];
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: Number(process.env.PR_NUMBER),
+              per_page: 100,
+            });
+            if (!hasGpuValidation(previous, comments)) {
+              console.log('No prior GPU validation for this pull request; nothing to invalidate.');
+              return;
+            }
+
+            const current = await github.paginate(github.rest.checks.listForRef, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: currentSha,
               check_name: 'gpu-regression',
               per_page: 100,
             });
-            if (previous.length === 0) {
-              console.log('No GPU validation on the previous revision; nothing to invalidate.');
-              return;
-            }
+            const existing = findActionRequiredCheck(current, currentSha);
+            const previousLabel = previousSha ? `Revision \`${previousSha.slice(0, 12)}\`` : 'An earlier revision';
+            const summary = [
+              `${previousLabel} was validated on GPU;`,
+              `\`${currentSha.slice(0, 12)}\` has not been.`,
+              '',
+              'Comment `/ok-to-test` to revalidate this revision.',
+            ].join('\n');
             // `action_required` rather than `neutral`: neutral counts as a pass
             // for required status checks, which would make this marker
             // toothless the moment branch protection starts enforcing them.
-            await github.rest.checks.create({
+            const checkInput = {
               owner: context.repo.owner,
               repo: context.repo.repo,
               name: 'gpu-regression',
-              head_sha: process.env.CURRENT_SHA,
-              external_id: `loongforge-gpu:${process.env.PR_NUMBER}:${process.env.CURRENT_SHA}`,
+              head_sha: currentSha,
+              external_id: `loongforge-gpu:${process.env.PR_NUMBER}:${currentSha}`,
               status: 'completed',
               conclusion: 'action_required',
               completed_at: new Date().toISOString(),
+              details_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/pull/${process.env.PR_NUMBER}`,
               output: {
                 title: 'GPU validation is out of date',
-                summary: [
-                  `Revision \`${process.env.PREVIOUS_SHA.slice(0, 12)}\` was validated on GPU;`,
-                  `\`${process.env.CURRENT_SHA.slice(0, 12)}\` has not been.`,
-                  '',
-                  'Comment `/ok-to-test` to revalidate this revision.',
-                ].join('\n'),
+                summary,
               },
-            });
+            };
+            if (existing) {
+              await github.rest.checks.update({
+                check_run_id: existing.id,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                status: checkInput.status,
+                conclusion: checkInput.conclusion,
+                completed_at: checkInput.completed_at,
+                details_url: checkInput.details_url,
+                output: checkInput.output,
+              });
+            } else {
+              await github.rest.checks.create(checkInput);
+            }

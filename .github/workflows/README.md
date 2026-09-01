@@ -56,8 +56,9 @@ GitHub Actions.
 ## Releases
 
 Version tags publish the validated Python package and only the matching
-immutable Docker image tag (for example, `1.2.3`). The release workflow does
-not move Docker Hub's `latest` tag.
+immutable Docker image tag (for example, `1.2.3`). The release image checkout
+includes the tracked submodules and the Docker context excludes Git metadata.
+The release workflow does not move Docker Hub's `latest` tag.
 
 Operator hook contracts:
 

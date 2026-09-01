@@ -71,7 +71,13 @@ printf '%s\n' 'image-device: ok'
 # needs, instead of burning a full training run on a late OOM. Set
 # LOONGFORGE_MIN_FREE_GPU_MB (MiB per GPU) in the runner config to
 # override; an empty value disables the check.
-min_free_mb="${LOONGFORGE_MIN_FREE_GPU_MB:-60000}"
+if [[ -v LOONGFORGE_MIN_FREE_GPU_MB ]]; then
+  # An explicitly empty value is the documented way to disable this optional
+  # host-occupancy check; only an unset variable receives the default.
+  min_free_mb="$LOONGFORGE_MIN_FREE_GPU_MB"
+else
+  min_free_mb=60000
+fi
 if [[ -n "${LOONGFORGE_MIN_FREE_GPU_MB:-}" && ! "$min_free_mb" =~ ^[0-9]+$ ]]; then
   printf '%s\n' "gpu-memory: LOONGFORGE_MIN_FREE_GPU_MB must be a number in MiB or empty (got: ${LOONGFORGE_MIN_FREE_GPU_MB})." >&2
   exit 2

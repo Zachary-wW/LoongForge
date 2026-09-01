@@ -335,7 +335,7 @@ def test_regression_clears_stale_workspace_artifacts_between_runs(tmp_path):
     )
     env = os.environ.copy()
     env.update({"CI_CONFIG_PATH": str(config), "DOCKER_BIN": str(docker), "SOURCE_DIR": str(source),
-                "MODELS": "test_model"})
+                "MODELS": "test_model", "LOONGFORGE_MIN_FREE_GPU_MB": ""})
     artifact_root = Path("loongforge-artifacts")
     try:
         first = subprocess.run(

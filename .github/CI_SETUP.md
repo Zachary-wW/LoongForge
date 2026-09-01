@@ -56,6 +56,11 @@ release workflow. Configure PyPI Trusted Publishing (OIDC) in the former, and
 latter. The repository's release workflow does not move Docker Hub's `latest`
 tag.
 
+The submodule sync workflow uses a GitHub App token so it can push through the
+repository's protected branch rules. Configure `SUBMODULE_SYNC_APP_ID` and
+`SUBMODULE_SYNC_APP_PRIVATE_KEY` as repository secrets, and install that App on
+this repository with permission to write contents.
+
 ## Runner labels
 
 - A-card regression runner: `self-hosted`, plus the registered A-card custom

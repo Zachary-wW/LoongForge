@@ -43,7 +43,7 @@ jobs:
     outputs:
       tree_sha: ${{ steps.validate.outputs.tree_sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.ref }}
           persist-credentials: false
@@ -110,14 +110,14 @@ jobs:
       cancel-in-progress: true
     steps:
       - name: Checkout trusted CI scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.ref }}
           path: trusted-ci
           persist-credentials: false
           submodules: false
       - name: Checkout immutable PR source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: ${{ inputs.head_repo }}
           ref: ${{ inputs.head_sha }}
@@ -192,7 +192,7 @@ jobs:
         run: trusted-ci/.github/scripts/run_regression.sh llm_vlm
       - name: Upload regression logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: gpu-llm-vlm-${{ inputs.pr_number }}-${{ inputs.head_sha }}
           path: loongforge-artifacts
@@ -211,14 +211,14 @@ jobs:
       cancel-in-progress: true
     steps:
       - name: Checkout trusted CI scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.ref }}
           path: trusted-ci
           persist-credentials: false
           submodules: false
       - name: Checkout immutable PR source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: ${{ inputs.head_repo }}
           ref: ${{ inputs.head_sha }}
@@ -308,7 +308,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - name: Upload regression logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: gpu-embodied-${{ inputs.pr_number }}-${{ inputs.head_sha }}
           path: loongforge-artifacts
@@ -329,7 +329,7 @@ jobs:
       checks: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.ref }}
           persist-credentials: false
@@ -345,6 +345,7 @@ jobs:
           REGRESSION_SUMMARY: ${{ needs.embodied.outputs.regression_summary }}
         with:
           script: |
+            const { gpuConclusion } = require('./.github/scripts/gpu_checks');
             // CPU checks are aggregated by the static-checks workflow's gate
             // job; this workflow reports the GPU suites only.
             const results = {
@@ -352,18 +353,13 @@ jobs:
               llm_vlm: process.env.LLM_VLM_RESULT,
               embodied: process.env.EMBODIED_RESULT,
             };
-            const requiredJobs = ['validate', process.env.SUITE];
-            const failed = requiredJobs.filter((name) => results[name] !== 'success');
 
             // A failed suite job is a real failure: mark the check failed,
             // fail this job, and post the result comment so the pull
             // request shows why. A suite job that was cancelled mid-run
             // keeps the cancelled conclusion (the author stopped it); a
             // skipped suite (for example failed validation) is a failure.
-            const suiteResult = results[process.env.SUITE];
-            const conclusion = failed.length
-              ? (suiteResult === 'cancelled' ? 'cancelled' : 'failure')
-              : 'success';
+            const { conclusion, failed } = gpuConclusion(results, process.env.SUITE);
             let checkId = Number(process.env.CHECK_ID);
             if (!Number.isSafeInteger(checkId) || checkId <= 0) {
               const { data: created } = await github.rest.checks.create({
