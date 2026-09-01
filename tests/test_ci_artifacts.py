@@ -287,6 +287,34 @@ def test_runner_errors_do_not_echo_config_paths(tmp_path):
     assert str(runner) not in result.stdout + result.stderr
 
 
+def test_internal_source_download_failure_is_explicit_and_redacted(tmp_path):
+    manifest = tmp_path / "source-manifest.env"
+    internal_url = "https://signed-source.example.invalid/private/archive.tar.gz"
+    manifest.write_text(
+        "TEST_SOURCE_URL=" + internal_url + "\n"
+        "TEST_SOURCE_SHA256=" + "a" * 64 + "\n",
+        encoding="utf-8",
+    )
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    wget = fake_bin / "wget"
+    wget.write_text("#!/usr/bin/env bash\nexit 4\n", encoding="utf-8")
+    wget.chmod(0o755)
+    env = os.environ.copy()
+    env.update({
+        "PATH": str(fake_bin) + os.pathsep + env["PATH"],
+        "SOURCE_MANIFEST_PATH": str(manifest),
+    })
+    result = subprocess.run(
+        ["bash", "docker/fetch_source.sh", "TEST_SOURCE", str(tmp_path / "source"),
+         "source-root", "false"],
+        env=env, capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 1
+    assert result.stderr.strip() == "failed to download internal source: TEST_SOURCE"
+    assert internal_url not in result.stdout + result.stderr
+
+
 def test_regression_outputs_only_a_stable_relative_artifact_name():
     script = Path(".github/scripts/self_runner/run_regression.sh").read_text(encoding="utf-8")
     assert "result_json=%s" not in script

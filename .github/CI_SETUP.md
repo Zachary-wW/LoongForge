@@ -39,7 +39,10 @@ environment, pointing at that machine's private `image.env`. The service
 environment and that file together must provide the values shown in
 `.github/ci-config.example.env`, including the default image, isolated mounts,
 and BuildKit mirror paths. Do not put registry credentials or signed source
-URLs in the repository.
+URLs in the repository. When a source-manifest object store is reachable only
+without the runner's external proxy, include its hostname suffix in both
+`NO_PROXY` and `no_proxy`; the candidate-image builder propagates both values
+into Docker BuildKit.
 
 Each suite runner must also provide a working Docker Buildx plugin because the
 PR Dockerfile uses BuildKit secrets for runner-local APT, PyPI, and source

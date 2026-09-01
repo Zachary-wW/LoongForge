@@ -86,6 +86,10 @@ test('GPU conclusion keeps cancelled runs distinct from failures', () => {
     { conclusion: 'cancelled', failed: ['embodied'] },
   );
   assert.deepEqual(
+    gpuConclusion({ validate: 'success', embodied: 'failure', llm_vlm: 'skipped' }, 'embodied'),
+    { conclusion: 'failure', failed: ['embodied'] },
+  );
+  assert.deepEqual(
     gpuConclusion({ validate: 'failure', embodied: 'skipped', llm_vlm: 'skipped' }, 'embodied'),
     { conclusion: 'failure', failed: ['validate', 'embodied'] },
   );
@@ -98,6 +102,8 @@ test('PR check exposes queued build regression and cancellation stages', () => {
   assert.match(regression, /title: 'Building candidate image'/);
   assert.match(regression, /title: `Running \$\{process\.env\.SUITE\} regression`/);
   assert.match(regression, /GPU validation cancelled/);
+  assert.match(regression, /if \(regressionSummary\) checkOutput\.text = regressionSummary/);
+  assert.doesNotMatch(regression, /text: process\.env\.REGRESSION_SUMMARY \|\| null/);
   assert.match(regression, /finalize:\n    timeout-minutes: (?:6[1-9]|[7-9][0-9])/);
 });
 

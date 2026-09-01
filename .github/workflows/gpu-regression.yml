@@ -360,6 +360,16 @@ jobs:
             // keeps the cancelled conclusion (the author stopped it); a
             // skipped suite (for example failed validation) is a failure.
             const { conclusion, failed } = gpuConclusion(results, process.env.SUITE);
+            const regressionSummary = process.env.REGRESSION_SUMMARY.trim();
+            const checkOutput = {
+              title: conclusion === 'success'
+                ? 'GPU validation passed'
+                : (conclusion === 'cancelled' ? 'GPU validation cancelled' : 'GPU validation failed'),
+              summary: `Suite: ${process.env.SUITE}; results: ${JSON.stringify(results)}`,
+            };
+            // The Checks API rejects an explicit null output.text. Leave the
+            // optional field out when a suite failed before rendering results.
+            if (regressionSummary) checkOutput.text = regressionSummary;
             let checkId = Number(process.env.CHECK_ID);
             if (!Number.isSafeInteger(checkId) || checkId <= 0) {
               const { data: created } = await github.rest.checks.create({
@@ -386,16 +396,10 @@ jobs:
               // an unrelated check suite (for example the auto-label run).
               // Point the details link at the real regression run.
               details_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              output: {
-                title: conclusion === 'success'
-                  ? 'GPU validation passed'
-                  : (conclusion === 'cancelled' ? 'GPU validation cancelled' : 'GPU validation failed'),
-                summary: `Suite: ${process.env.SUITE}; results: ${JSON.stringify(results)}`,
-                // Per-model regression detail (loss baseline comparisons,
-                // failed metrics, warnings) rendered by the suite runner.
-                // Markdown is supported in the check run output text.
-                text: process.env.REGRESSION_SUMMARY || null,
-              },
+              // Per-model regression detail (loss baseline comparisons,
+              // failed metrics, warnings) is included when the suite runner
+              // reached its summary step.
+              output: checkOutput,
             });
 
             // Mirror the outcome as a pull request comment from the
@@ -413,7 +417,7 @@ jobs:
                 '',
                 `Verdict: **${conclusion}** · commit \`${process.env.HEAD_SHA.slice(0, 12)}\` · [workflow run](${runUrl})`,
                 '',
-                process.env.REGRESSION_SUMMARY || 'Per-model detail is unavailable for this suite.',
+                regressionSummary || 'Per-model detail is unavailable for this suite.',
               ].join('\n');
 
               const existing = await github.paginate(github.rest.issues.listComments, {
