@@ -3,7 +3,7 @@
 
 from pathlib import Path
 
-from ci.check_doc_links import PLACEHOLDER, references, scan_documents
+from ci.check_doc_links import PLACEHOLDER, changed_markdown_files, references, scan_documents
 
 
 def _references(text: str):
@@ -49,3 +49,30 @@ def test_missing_reference_is_reported_with_document_line(tmp_path):
     findings, scanned = scan_documents(tmp_path, [Path("README.md")])
     assert scanned == 1
     assert findings == [(Path("README.md"), 1, "examples/not-shipped.sh")]
+
+
+def test_changed_markdown_files_uses_git_revision(tmp_path):
+    import subprocess
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    document = tmp_path / "README.md"
+    document.write_text("initial\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(tmp_path), "add", "README.md"], check=True)
+    subprocess.run(
+        [
+            "git", "-C", str(tmp_path), "-c", "user.name=Test",
+            "-c", "user.email=test@example.invalid", "commit", "-qm", "initial",
+        ],
+        check=True,
+    )
+    document.write_text("[missing](examples/not-shipped.sh)\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(tmp_path), "add", "README.md"], check=True)
+    subprocess.run(
+        [
+            "git", "-C", str(tmp_path), "-c", "user.name=Test",
+            "-c", "user.email=test@example.invalid", "commit", "-qm", "changed",
+        ],
+        check=True,
+    )
+    changed = changed_markdown_files(tmp_path, "HEAD^")
+    assert changed == [Path("README.md")]

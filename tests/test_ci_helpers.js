@@ -292,5 +292,5 @@ test('doc-links is part of the blocking static checks gate', () => {
   assert.match(workflow, /"doc-links:\$DOC_LINKS_RESULT"/);
   assert.match(docLinks, /actions\/checkout@[0-9a-f]{40}/);
   assert.match(docLinks, /actions\/setup-python@[0-9a-f]{40}/);
-  assert.match(docLinks, /ci\/check_doc_links\.py/);
+  assert.match(docLinks, /ci\/check_doc_links\.py --changed-since/);
 });

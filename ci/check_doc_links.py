@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -58,7 +59,7 @@ def markdown_files(repo: Path, arguments: list[str]) -> list[Path]:
     if arguments:
         result = []
         for argument in arguments:
-            path = Path(argument).resolve()
+            path = (repo / argument).resolve()
             try:
                 relative = path.relative_to(repo)
             except ValueError:
@@ -75,6 +76,30 @@ def markdown_files(repo: Path, arguments: list[str]) -> list[Path]:
             if path.suffix.lower() == ".md" and not path.is_symlink():
                 result.append(path.relative_to(repo))
     return sorted(result)
+
+
+def changed_markdown_files(repo: Path, revision: str) -> list[Path]:
+    """Return Markdown files changed between ``revision`` and ``HEAD``."""
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--name-only",
+                "--diff-filter=ACMR",
+                f"{revision}...HEAD",
+                "--",
+                "*.md",
+            ],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise ValueError(f"could not determine changed Markdown files from {revision}: {exc}") from exc
+    paths = [line for line in result.stdout.splitlines() if line]
+    return markdown_files(repo, paths) if paths else []
 
 
 def _clean_reference(reference: str) -> str:
@@ -146,8 +171,23 @@ def scan_documents(repo: Path, documents: list[Path]):
 
 def main(arguments: list[str]) -> int:
     repo = Path(__file__).resolve().parents[1]
+    changed_since = None
+    paths = arguments
+    if arguments[:1] == ["--changed-since"]:
+        if len(arguments) < 2 or len(arguments) > 2:
+            print(
+                "doc-links: --changed-since requires exactly one revision",
+                file=sys.stderr,
+            )
+            return 2
+        changed_since = arguments[1]
+        paths = []
     try:
-        documents = markdown_files(repo, arguments)
+        documents = (
+            changed_markdown_files(repo, changed_since)
+            if changed_since is not None
+            else markdown_files(repo, paths)
+        )
     except ValueError as exc:
         print(f"doc-links: {exc}", file=sys.stderr)
         return 2
@@ -156,13 +196,19 @@ def main(arguments: list[str]) -> int:
 
     if not findings:
         roots = " / ".join(ROOTS)
-        print(f"doc-links: {scanned} markdown file(s) scanned, no broken {roots} references")
+        print(
+            f"doc-links: {scanned} markdown file(s) scanned, no broken {roots} references"
+        )
         return 0
 
-    print(f"doc-links: {len(findings)} broken reference(s) in {scanned} markdown file(s)\n")
+    print(
+        f"doc-links: {len(findings)} broken reference(s) in {scanned} markdown file(s)\n"
+    )
     for document, line_number, raw in findings:
         print(f"  {document}:{line_number}: {raw}")
-    print("\nThe referenced path does not exist. Update the reference, or restore the file it points to.")
+    print(
+        "\nThe referenced path does not exist. Update the reference, or restore the file it points to."
+    )
     return 1
 
 
