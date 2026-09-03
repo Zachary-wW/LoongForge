@@ -30,7 +30,8 @@ repos:
           - --use-current-year
           - --detect-license-in-X-top-lines=10
           - --no-extra-eol
-          - --comment-style '#'
+          - --comment-style
+          - '#'
       - id: insert-license
         alias: spdx-check-cpp
         name: SPDX header check (C/C++/CUDA)
@@ -41,7 +42,8 @@ repos:
           - --use-current-year
           - --detect-license-in-X-top-lines=10
           - --no-extra-eol
-          - --comment-style '//'
+          - --comment-style
+          - '//'
 
   # The Go language hook builds the pinned gitleaks release in pre-commit's
   # isolated environment, so developers do not need a system gitleaks binary.

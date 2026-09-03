@@ -274,10 +274,10 @@ test('license checks use language-appropriate comment styles', () => {
   const workflow = readWorkflow('license.yml');
   assert.ok(config.includes('alias: spdx-check-script'));
   assert.ok(config.includes("files: '\\.(py|sh)$"));
-  assert.ok(config.includes("--comment-style '#'"));
+  assert.match(config, /--comment-style\s+- ['"]#['"]/);
   assert.ok(config.includes('alias: spdx-check-cpp'));
   assert.ok(config.includes("files: '\\.(c|cc|cpp|cxx|h|hh|hpp|hxx|cu|cuh)$"));
-  assert.ok(config.includes("--comment-style '//'"));
+  assert.match(config, /--comment-style\s+- ['"]\/\/['"]/);
   assert.ok(workflow.includes('spdx-check-script'));
   assert.ok(workflow.includes('spdx-check-cpp'));
   assert.ok(workflow.includes("'*.cuh'"));
@@ -291,6 +291,7 @@ test('doc-links is part of the blocking static checks gate', () => {
   assert.match(workflow, /DOC_LINKS_RESULT/);
   assert.match(workflow, /"doc-links:\$DOC_LINKS_RESULT"/);
   assert.match(docLinks, /actions\/checkout@[0-9a-f]{40}/);
+  assert.match(docLinks, /persist-credentials: false\s+fetch-depth: 0/);
   assert.match(docLinks, /actions\/setup-python@[0-9a-f]{40}/);
   assert.match(docLinks, /ci\/check_doc_links\.py --changed-since/);
 });
