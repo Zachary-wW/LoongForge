@@ -51,8 +51,10 @@ jobs:
           # fail the step, while `grep` exiting 1 only means the filter emptied
           # the list. Piping them together hid both behind the same `|| true`.
           git diff --name-only --diff-filter=A "$BASE" "$HEAD" \
-              -- '*.py' '*.sh' '*.cu' '*.cpp' '*.h' > added_files.txt
+              -- '*.py' '*.sh' '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' '*.cu' '*.cuh' > added_files.txt
           grep -vE '^(third_party|patches)/' added_files.txt > new_files.txt || true
+          grep -Ei '\.(py|sh)$' new_files.txt > script_files.txt || true
+          grep -Ei '\.(c|cc|cpp|cxx|h|hh|hpp|hxx|cu|cuh)$' new_files.txt > cpp_files.txt || true
           if [ -s new_files.txt ]; then
             echo "has_files=true" >> "$GITHUB_OUTPUT"
           else
@@ -60,9 +62,23 @@ jobs:
           fi
           echo "--- newly added files ---"
           cat new_files.txt || true
+          echo "--- script files ---"
+          cat script_files.txt || true
+          echo "--- C/C++/CUDA files ---"
+          cat cpp_files.txt || true
 
-      - name: Run SPDX check
+      - name: Run SPDX check for Python and Shell
         if: steps.new.outputs.has_files == 'true'
         shell: bash
         run: |
-          xargs -a new_files.txt pre-commit run spdx-check --files
+          if [ -s script_files.txt ]; then
+            xargs -a script_files.txt pre-commit run spdx-check-script --files
+          fi
+
+      - name: Run SPDX check for C/C++/CUDA
+        if: steps.new.outputs.has_files == 'true'
+        shell: bash
+        run: |
+          if [ -s cpp_files.txt ]; then
+            xargs -a cpp_files.txt pre-commit run spdx-check-cpp --files
+          fi

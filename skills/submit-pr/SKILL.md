@@ -1,6 +1,6 @@
 ---
 name: submit-pr
-description: Use when ready to submit a pull request for LoongForge changes — handles branch push, PR title formatting (module/type validation), description generation, and pre-submission checks. Triggers on 'submit PR', 'create PR', 'open pull request', '提交PR', '发PR'.
+description: Use when ready to submit a pull request for LoongForge changes — handles branch push, PR title validation (Conventional Commits or legacy module format), description generation, and pre-submission checks. Triggers on 'submit PR', 'create PR', 'open pull request', '提交PR', '发PR'.
 ---
 
 # Submit Pull Request for LoongForge
@@ -36,12 +36,18 @@ Run these checks before proceeding. STOP and fix if any fail:
 
 ### Title Format (CI-enforced)
 
+Conventional Commits are preferred:
+
 ```
-[<modules>] <type>: <description>
+<type>(<scope>): <description>
+<type>: <description>
+<type>(<scope>)!: <description>
 ```
 
-Or for breaking changes:
+The legacy module-prefixed format remains supported:
+
 ```
+[<modules>] <type>: <description>
 [BREAKING][<modules>] <type>: <description>
 ```
 
@@ -142,8 +148,8 @@ Co-Authored-By: Name <email>"
 
 After PR is created:
 1. Report the PR URL to the user
-2. Mention if any CI checks are expected to run (PR Title, License Header, Secret Scan, Build)
-3. If the PR touches new `.py/.sh/.cu/.cpp/.h` files, remind about SPDX headers
+2. Mention if any CI checks are expected to run (PR Title, License Header, Secret Scan, Build, Doc Links)
+3. If the PR touches new source files, remind about language-appropriate SPDX headers
 
 ## Quick Reference
 
@@ -170,9 +176,9 @@ After PR is created:
 
 | Mistake | Fix |
 |---------|-----|
-| Title doesn't match regex | Must be `[modules] type: desc` — check module/type spelling |
+| Title doesn't match validation | Prefer `type(scope): description` (Conventional Commits); legacy `[modules] type: desc` remains supported |
 | Pushing to upstream instead of fork | Always use `git push origin` |
 | PR against wrong base branch | LoongForge PRs target `master` (handled by `--repo` + `--base`) |
-| New files missing SPDX header | Run `pre-commit run spdx-check --files <path>` |
+| New files missing SPDX header | Run `pre-commit run spdx-check-script --files <path>` for Python/Shell or `pre-commit run spdx-check-cpp --files <path>` for C/C++/CUDA |
 | Forgot to rebase on latest master | `git pull --rebase origin master` before pushing |
 | Submodule pointer changed accidentally | `git checkout upstream/master -- third_party/Loong-Megatron` to reset |

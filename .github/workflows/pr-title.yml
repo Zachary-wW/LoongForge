@@ -34,4 +34,6 @@ jobs:
               core.setFailed(result.message);
               return;
             }
-            core.info(`OK: type=${result.type}, modules=[${result.modules.join(', ')}]`);
+            const scope = result.scope ? `, scope=${result.scope}` : '';
+            const modules = result.modules.length ? `, modules=[${result.modules.join(', ')}]` : '';
+            core.info(`OK: type=${result.type}${scope}${modules}`);

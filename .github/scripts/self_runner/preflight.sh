@@ -58,6 +58,13 @@ if [[ "$build_image" == true ]]; then
     exit 1
   fi
   printf '%s\n' 'buildx: ok'
+
+  if [[ -v LOONGFORGE_MIN_DOCKER_FREE_GB ]]; then
+    min_docker_free_gb="$LOONGFORGE_MIN_DOCKER_FREE_GB"
+  else
+    min_docker_free_gb=250
+  fi
+  "$script_dir/../check_docker_storage.sh" "$min_docker_free_gb"
 fi
 
 if ! "$docker_bin" run --rm --device="$LOONGFORGE_GPU_DEVICE" "$LOONGFORGE_DEFAULT_IMAGE" true >/dev/null 2>&1; then
@@ -78,38 +85,40 @@ if [[ -v LOONGFORGE_MIN_FREE_GPU_MB ]]; then
 else
   min_free_mb=60000
 fi
-if [[ -n "${LOONGFORGE_MIN_FREE_GPU_MB:-}" && ! "$min_free_mb" =~ ^[0-9]+$ ]]; then
-  printf '%s\n' "gpu-memory: LOONGFORGE_MIN_FREE_GPU_MB must be a number in MiB or empty (got: ${LOONGFORGE_MIN_FREE_GPU_MB})." >&2
+if [[ -n "${LOONGFORGE_MIN_FREE_GPU_MB:-}" && ! "$min_free_mb" =~ ^[0-9]{1,9}$ ]]; then
+  printf '%s\n' 'gpu-memory: invalid configuration' >&2
   exit 2
 fi
-if [[ "$min_free_mb" =~ ^[0-9]+$ ]] && command -v nvidia-smi >/dev/null 2>&1; then
+if [[ "$min_free_mb" =~ ^[0-9]{1,9}$ ]]; then
+  if ! command -v nvidia-smi >/dev/null 2>&1; then
+    printf '%s\n' 'gpu-memory: unavailable' >&2
+    exit 1
+  fi
   if ! free_line=$(nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>/dev/null); then
-    printf '%s\n' 'gpu-memory: query failed (skipping check)' >&2
+    printf '%s\n' 'gpu-memory: unavailable' >&2
+    exit 1
   elif [[ -z "${free_line//$'\n'/}" ]]; then
     # nvidia-smi exists but reports no GPUs at all; a GPU suite runner in
     # that state cannot train. Fail closed instead of passing vacuously.
-    printf '%s\n' 'gpu-memory: nvidia-smi reported no GPUs.' >&2
+    printf '%s\n' 'gpu-memory: unavailable' >&2
     exit 1
   else
-    deficit=""
-    index=0
+    insufficient=false
     while IFS= read -r free_mb; do
       # nvidia-smi reports "[N/A]" or "[Not Supported]" for GPUs in an
       # error or uninitialized state; treat those as unavailable rather
       # than letting arithmetic coercion pass the check (fail closed).
-      if [[ ! "$free_mb" =~ ^[0-9]+$ ]]; then
-        deficit="${deficit} gpu${index}=unavailable"
+      if [[ ! "$free_mb" =~ ^[0-9]{1,9}$ ]]; then
+        insufficient=true
       elif (( free_mb < min_free_mb )); then
-        deficit="${deficit} gpu${index}=${free_mb}MiB"
+        insufficient=true
       fi
-      index=$((index + 1))
     done <<<"$free_line"
-    if [[ -n "$deficit" ]]; then
-      printf '%s\n' "gpu-memory: insufficient (need >= ${min_free_mb}MiB per GPU; short:${deficit})." >&2
-      printf '%s\n' 'The suite runner is shared; retry later or free the GPUs listed above.' >&2
+    if [[ "$insufficient" == true ]]; then
+      printf '%s\n' 'gpu-memory: insufficient' >&2
       exit 1
     fi
   fi
-  printf '%s\n' "gpu-memory: ok (>= ${min_free_mb}MiB free per GPU)"
+  printf '%s\n' 'gpu-memory: ok'
 fi
 printf '%s\n' 'mounts: ok'

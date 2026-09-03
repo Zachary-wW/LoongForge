@@ -1,5 +1,9 @@
 name: GPU Regression
 
+run-name: >-
+  GPU Regression PR #${{ inputs.pr_number }} ${{ inputs.suite }}
+  ${{ inputs.head_sha }}
+
 on:
   workflow_dispatch:
     inputs:
@@ -45,7 +49,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ github.sha }}
           persist-credentials: false
       - id: validate
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
@@ -109,10 +113,27 @@ jobs:
       group: gpu-regression-${{ inputs.pr_number }}-llm_vlm
       cancel-in-progress: true
     steps:
+      - name: Revalidate current PR head
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          HEAD_REPO: ${{ inputs.head_repo }}
+          HEAD_SHA: ${{ inputs.head_sha }}
+        with:
+          script: |
+            const { data: pull } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: Number(process.env.PR_NUMBER),
+            });
+            if (pull.head.sha !== process.env.HEAD_SHA ||
+                pull.head.repo?.full_name !== process.env.HEAD_REPO) {
+              core.setFailed('the requested revision is no longer the PR head');
+            }
       - name: Checkout trusted CI scripts
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ github.sha }}
           path: trusted-ci
           persist-credentials: false
           submodules: false
@@ -161,7 +182,7 @@ jobs:
           HEAD_SHA: ${{ inputs.head_sha }}
           TREE_SHA: ${{ needs.validate.outputs.tree_sha }}
           SOURCE_DIR: ${{ github.workspace }}/source
-        run: trusted-ci/.github/scripts/build_candidate_image.sh a
+        run: trusted-ci/.github/scripts/build_candidate_image.sh auto
       - name: Report regression run
         if: ${{ inputs.gate_check_id != '' }}
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
@@ -210,10 +231,27 @@ jobs:
       group: gpu-regression-${{ inputs.pr_number }}-embodied
       cancel-in-progress: true
     steps:
+      - name: Revalidate current PR head
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          HEAD_REPO: ${{ inputs.head_repo }}
+          HEAD_SHA: ${{ inputs.head_sha }}
+        with:
+          script: |
+            const { data: pull } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: Number(process.env.PR_NUMBER),
+            });
+            if (pull.head.sha !== process.env.HEAD_SHA ||
+                pull.head.repo?.full_name !== process.env.HEAD_REPO) {
+              core.setFailed('the requested revision is no longer the PR head');
+            }
       - name: Checkout trusted CI scripts
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ github.sha }}
           path: trusted-ci
           persist-credentials: false
           submodules: false
@@ -262,7 +300,7 @@ jobs:
           HEAD_SHA: ${{ inputs.head_sha }}
           TREE_SHA: ${{ needs.validate.outputs.tree_sha }}
           SOURCE_DIR: ${{ github.workspace }}/source
-        run: trusted-ci/.github/scripts/build_candidate_image.sh p
+        run: trusted-ci/.github/scripts/build_candidate_image.sh auto
       - name: Report regression run
         if: ${{ inputs.gate_check_id != '' }}
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
@@ -331,7 +369,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ github.sha }}
           persist-credentials: false
       - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         env:

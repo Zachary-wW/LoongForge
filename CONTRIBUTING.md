@@ -142,17 +142,26 @@ Every PR runs the following checks through the `Static Checks` GitHub Actions wo
 | Workflow | What it checks | Reproduce locally |
 |---|---|---|
 | Static Checks | All blocking CPU checks below | Open or update a PR |
-| PR Title Check | Title matches `[<modules>] <type>: <description>` | n/a — edit the PR title |
-| License Header | Newly added `.py/.sh/.cu/.cpp/.h` files have the SPDX Apache-2.0 header | `pre-commit run spdx-check --files <path>` |
+| PR Title Check | Title matches Conventional Commits (preferred) or the legacy module-prefixed format | n/a — edit the PR title |
+| License Header | Newly added source files have the SPDX Apache-2.0 header with the correct comment syntax (`#` for Python/Shell, `//` for C/C++/CUDA) | `pre-commit run spdx-check-script --files <path>` or `pre-commit run spdx-check-cpp --files <path>` |
 | Secret Scan | gitleaks finds no leaked secrets in staged files locally and new commits in CI | `pre-commit run gitleaks` (staged files); CI scans the PR commit range |
 | Ruff | New or modified Python files pass Ruff (`E4,E7,E9,E501,F,S506`) | `ruff check <changed-python-files>` |
 | Build | `python -m build` and wheel import smoke succeed on Python 3.12 | `python -m build --sdist --wheel --outdir dist/` |
 | Sensitive Scan | No blocking internal-only information is present in changed files | `pre-commit run sensitive-scan --all-files` |
+| Doc Links | Markdown references to shipped `examples/` and `configs/` paths exist | `python3 ci/check_doc_links.py` |
 | Workflow Lint | GitHub Actions files pass `actionlint`, YAML parsing, and CI helper contract tests | `actionlint && node --test tests/test_ci_helpers.js` |
 
 `workflow_dispatch` on `static-checks.yml` is diagnostic and publishes a final job
 named `manual-static-checks`. Only the automatically triggered PR job is named
 `static-checks` and can satisfy the required merge check.
+
+### PR title format
+
+Conventional Commits are preferred, for example `feat(fastwam): add structured FlashAttention backend`.
+Unscoped (`fix: ...`) and breaking (`feat(scope)!: ...`) variants are accepted.
+The legacy module-prefixed form remains valid for compatibility:
+
+`[llm, ckpt] feat: support Qwen3-Next checkpoint conversion`
 
 ### Valid PR title modules
 
