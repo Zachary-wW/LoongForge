@@ -90,18 +90,12 @@ def extract_assistant_response(json_path):
 
         if task_type == "sft" and isinstance(data, dict):
             try:
-                assistant_content = next(
-                    msg["content"]
-                    for msg in data["messages"]
-                    if msg["role"] == "assistant"
-                )
+                assistant_content = next(msg["content"] for msg in data["messages"] if msg["role"] == "assistant")
                 return assistant_content
             except Exception as e:
                 pass
             try:
-                assistant_content = next(
-                    msg["value"] for msg in data["texts"] if msg["from"] == "gpt"
-                )
+                assistant_content = next(msg["value"] for msg in data["texts"] if msg["from"] == "gpt")
                 return assistant_content
             except Exception as e:
                 pass
@@ -136,17 +130,13 @@ def extract_user_prompt(json_path):
 
         if isinstance(data, dict):
             try:
-                user_content = next(
-                    msg["content"] for msg in data["messages"] if msg["role"] == "user"
-                )
+                user_content = next(msg["content"] for msg in data["messages"] if msg["role"] == "user")
                 return user_content
             except Exception as e:
                 pass
 
             try:
-                user_content = next(
-                    msg["value"] for msg in data["texts"] if msg["from"] == "human"
-                )
+                user_content = next(msg["value"] for msg in data["texts"] if msg["from"] == "human")
                 return user_content
             except Exception as e:
                 pass
@@ -188,10 +178,7 @@ def extract_media_files(json_path):
         if not media_files:
             return defaultdict(list)
         if not isinstance(media_files, list):
-            raise ValueError(
-                f"`media_files`/`name` must be a list in {json_path}, "
-                f"got {type(media_files).__name__}"
-            )
+            raise ValueError(f"`media_files`/`name` must be a list in {json_path}, got {type(media_files).__name__}")
 
         media_sources = defaultdict(list)
 
@@ -209,14 +196,10 @@ def extract_media_files(json_path):
             else:
                 media_type = infer_media_type(media_file)
                 if not media_type and declared_media_type not in (None, "mix"):
-                    raise ValueError(
-                        f"Unsupported media type '{declared_media_type}' in {json_path}"
-                    )
+                    raise ValueError(f"Unsupported media type '{declared_media_type}' in {json_path}")
 
             if not media_type:
-                raise ValueError(
-                    f"Cannot infer media type for '{media_file}' in {json_path}"
-                )
+                raise ValueError(f"Cannot infer media type for '{media_file}' in {json_path}")
 
             media_sources[media_type + "s"].append(media_file)
 
@@ -225,9 +208,7 @@ def extract_media_files(json_path):
     except (FileNotFoundError, json.JSONDecodeError):
         raise
     except Exception as e:
-        raise ValueError(
-            f"Failed to extract media files from {json_path}: {str(e)}"
-        ) from e
+        raise ValueError(f"Failed to extract media files from {json_path}: {str(e)}") from e
 
 
 def dataset_tokinfo_generator(f_name):
@@ -330,16 +311,13 @@ def _normalize_media(packed_media, sample_count, box_index):
         raise ValueError(f"[box {box_index}] no media collected for packed samples")
     if len(media_types) > 1:
         raise ValueError(
-            f"[box {box_index}] multiple media types found {media_types}, "
-            "but cooker expects a single media_type"
+            f"[box {box_index}] multiple media types found {media_types}, but cooker expects a single media_type"
         )
 
     media_key = media_types[0]
     media_files = packed_media[media_key]
     if len(media_files) != sample_count:
-        raise ValueError(
-            f"[box {box_index}] media/sample count mismatch: {len(media_files)} vs {sample_count}"
-        )
+        raise ValueError(f"[box {box_index}] media/sample count mismatch: {len(media_files)} vs {sample_count}")
 
     # cooker expects singular media_type: "image" or "video"
     media_type = media_key[:-1] if media_key.endswith("s") else media_key
@@ -355,9 +333,7 @@ def process_box(box_index, samples_in_box, dst_dir_json):
     for sample_name in packed_sample_names:
         json_path = os.path.join(SRC_DIR_JSONS, f"{sample_name}.json")
         if task_type == "pretrain":
-            packed_info.append(
-                (extract_media_files(json_path), extract_assistant_response(json_path))
-            )
+            packed_info.append((extract_media_files(json_path), extract_assistant_response(json_path)))
         elif task_type == "sft":
             packed_info.append(
                 (
@@ -385,9 +361,7 @@ def process_box(box_index, samples_in_box, dst_dir_json):
 
     texts = {"captions": packed_assist_responses, "prompts": packed_user_prompts}
 
-    media_type, media_files = _normalize_media(
-        packed_media, len(samples_in_box), box_index
-    )
+    media_type, media_files = _normalize_media(packed_media, len(samples_in_box), box_index)
 
     json_data = {
         "media_files": media_files,
@@ -401,23 +375,17 @@ def process_box(box_index, samples_in_box, dst_dir_json):
         with open(packed_json_path, "w", encoding="utf-8") as f:
             json.dump(json_data, f, indent=4, ensure_ascii=False)
     except Exception as e:
-        print(
-            f" thread {threading.current_thread().name} failed to generate JSON file {packed_json_path} : {str(e)}"
-        )
+        print(f" thread {threading.current_thread().name} failed to generate JSON file {packed_json_path} : {str(e)}")
     return box_index
 
 
 if __name__ == "__main__":
-    print(
-        "Step1-----------------Read the tokenlen information of the original ds-----------------Start"
-    )
+    print("Step1-----------------Read the tokenlen information of the original ds-----------------Start")
     info_reader = TokenInfoReader(input_token_file)
     base_names, token_lens, n_count = info_reader.read()
 
     print(f" read {n_count} datas ")
-    print(
-        "Step1-----------------Read the tokenlen information of the original ds-----------------Stop\n\n"
-    )
+    print("Step1-----------------Read the tokenlen information of the original ds-----------------Stop\n\n")
 
     print("Step2-----------------packing grouping-----------------Start")
 
@@ -433,26 +401,15 @@ if __name__ == "__main__":
     bin_boxs = load_bin_boxes(bin_boxs)
     num_bin_boxs = len(bin_boxs)
 
-    print(
-        f"raw data number----{n_count}----,after packing number----{num_bin_boxs}----"
-    )
+    print(f"raw data number----{n_count}----,after packing number----{num_bin_boxs}----")
     print("Step2-----------------packing grouping-----------------Stop\n\n")
 
-    print(
-        "Step3----------------- Start building the new dataset -----------------Start"
-    )
-    print(
-        f" starts processing the {num_bin_boxs} group of data using {MAX_WORKERS} threads "
-    )
+    print("Step3----------------- Start building the new dataset -----------------Start")
+    print(f" starts processing the {num_bin_boxs} group of data using {MAX_WORKERS} threads ")
 
-    with ThreadPoolExecutor(
-        max_workers=MAX_WORKERS, thread_name_prefix="PackThread"
-    ) as executor:
-
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="PackThread") as executor:
         futures = {
-            executor.submit(
-                process_box, box_index, samples_in_box, dst_dir_json
-            ): box_index
+            executor.submit(process_box, box_index, samples_in_box, dst_dir_json): box_index
             for box_index, samples_in_box in enumerate(bin_boxs)
         }
 
@@ -473,10 +430,6 @@ if __name__ == "__main__":
                 future.result()
             except Exception as e:
                 box_index = futures[future]
-                print(
-                    f"an error occurred when processing the {box_index} th group of data: {e}"
-                )
+                print(f"an error occurred when processing the {box_index} th group of data: {e}")
 
-    print(
-        "----------------- The new dataset was successfully constructed -----------------Stop"
-    )
+    print("----------------- The new dataset was successfully constructed -----------------Stop")

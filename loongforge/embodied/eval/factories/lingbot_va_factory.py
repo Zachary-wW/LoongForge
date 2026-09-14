@@ -47,11 +47,7 @@ class LingBotVAModelFactory:
         import torch
 
         ckpt_root = str(Path(server_args.ckpt_path).expanduser()) if server_args.ckpt_path else ""
-        device = (
-            server_args.device
-            if torch.cuda.is_available() or not server_args.device.startswith("cuda")
-            else "cpu"
-        )
+        device = server_args.device if torch.cuda.is_available() or not server_args.device.startswith("cuda") else "cpu"
         wan_path = ckpt_root or model_cfg.wan_pretrained_path or ""
         config = dataclasses.replace(
             model_cfg,

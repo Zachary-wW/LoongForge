@@ -116,9 +116,7 @@ class MultiEmbodimentActionEncoder(nn.Module):
 
         # W1: R^{w x d}, W2: R^{w x 2w}, W3: R^{w x w}
         self.W1 = CategorySpecificLinear(num_embodiments, action_dim, hidden_size)
-        self.W2 = CategorySpecificLinear(
-            num_embodiments, 2 * hidden_size, hidden_size
-        )
+        self.W2 = CategorySpecificLinear(num_embodiments, 2 * hidden_size, hidden_size)
         self.W3 = CategorySpecificLinear(num_embodiments, hidden_size, hidden_size)
         self.pos_encoding = SinusoidalPositionalEncoding(hidden_size)
 

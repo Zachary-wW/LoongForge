@@ -48,9 +48,7 @@ def _transformer_directory(path: str) -> Path:
 def _read_index(directory: Path):
     indexes = sorted(directory.glob("*.safetensors.index.json"))
     if len(indexes) != 1:
-        raise FileNotFoundError(
-            f"Expected one sharded safetensors index in {directory}, found {len(indexes)}"
-        )
+        raise FileNotFoundError(f"Expected one sharded safetensors index in {directory}, found {len(indexes)}")
     with indexes[0].open("r", encoding="utf-8") as handle:
         payload = json.load(handle)
     weight_map = payload.get("weight_map")
@@ -66,11 +64,7 @@ def load_sharded_safetensors(model: torch.nn.Module, path: str) -> Dict:
     parameters = dict(model.named_parameters())
     buffers = dict(model.named_buffers())
     persistent_names = set(model.state_dict().keys())
-    expected = {
-        name: tensor
-        for name, tensor in {**parameters, **buffers}.items()
-        if name in persistent_names
-    }
+    expected = {name: tensor for name, tensor in {**parameters, **buffers}.items() if name in persistent_names}
     loaded = set()
     loaded_packed_parts = defaultdict(set)
     unexpected = []
@@ -84,9 +78,7 @@ def load_sharded_safetensors(model: torch.nn.Module, path: str) -> Dict:
         for shard_name, names in sorted(shard_weights.items()):
             shard_path = directory / shard_name
             if not shard_path.is_file():
-                raise FileNotFoundError(
-                    f"Checkpoint shard listed by index is missing: {shard_path}"
-                )
+                raise FileNotFoundError(f"Checkpoint shard listed by index is missing: {shard_path}")
             with safe_open(str(shard_path), framework="pt", device="cpu") as shard:
                 available = set(shard.keys())
                 for name in names:
@@ -105,11 +97,7 @@ def load_sharded_safetensors(model: torch.nn.Module, path: str) -> Dict:
                     packed = None
                     if destination is None:
                         packed = next(
-                            (
-                                candidate
-                                for candidate in _packed_projection_targets(name)
-                                if candidate[0] in expected
-                            ),
+                            (candidate for candidate in _packed_projection_targets(name) if candidate[0] in expected),
                             None,
                         )
                         if packed is None:
@@ -130,10 +118,7 @@ def load_sharded_safetensors(model: torch.nn.Module, path: str) -> Dict:
                         rows = source.shape[0]
                         packed_rows = destination.shape[0]
                         groups = (
-                            3
-                            if packed_name.endswith("to_qkv.weight")
-                            or packed_name.endswith("to_qkv.bias")
-                            else 2
+                            3 if packed_name.endswith("to_qkv.weight") or packed_name.endswith("to_qkv.bias") else 2
                         )
                         group_rows = packed_rows // groups
                         start = part * group_rows
@@ -147,11 +132,13 @@ def load_sharded_safetensors(model: torch.nn.Module, path: str) -> Dict:
                             or rows != group_rows
                             or stop > packed_rows
                         ):
-                            shape_mismatch.append({
-                                "name": name,
-                                "checkpoint": list(source.shape),
-                                "model": list(destination.shape),
-                            })
+                            shape_mismatch.append(
+                                {
+                                    "name": name,
+                                    "checkpoint": list(source.shape),
+                                    "model": list(destination.shape),
+                                }
+                            )
                             del source
                             continue
                         destination.narrow(0, start, rows).copy_(
@@ -170,9 +157,7 @@ def load_sharded_safetensors(model: torch.nn.Module, path: str) -> Dict:
                         )
                         del source
                         continue
-                    destination.copy_(
-                        source.to(device=destination.device, dtype=destination.dtype)
-                    )
+                    destination.copy_(source.to(device=destination.device, dtype=destination.dtype))
                     loaded.add(name)
                     del source
 

@@ -12,6 +12,7 @@ from loongforge.models.common.base_model_config import BaseModelConfig
 @dataclass
 class MoonVisionModelConfig(BaseModelConfig):
     """configuration for moon vision model (Kimi-K2.5)"""
+
     num_layers: int
     hidden_size: int
     ffn_hidden_size: int

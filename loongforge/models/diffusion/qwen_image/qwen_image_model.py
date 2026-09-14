@@ -173,9 +173,7 @@ class QwenImageModel(VisionModule):
             layer_num = layer_num + 1
             img_shapes = [(1, latents.shape[2] // 2, latents.shape[3] // 2)] * layer_num
         txt_seq_lens = self._text_lengths(prompt_emb_mask, prompt_emb)
-        timestep = (
-            timestep.flatten().to(device=latents.device, dtype=latents.dtype) / 1000
-        )
+        timestep = timestep.flatten().to(device=latents.device, dtype=latents.dtype) / 1000
 
         image = self._patchify(latents, height, width, layer_num)  # [B, S, C']
         image_seq_len = image.shape[1]
@@ -186,9 +184,7 @@ class QwenImageModel(VisionModule):
 
         if context_latents is not None:
             context_latents = self._normalize_latents(context_latents)
-            img_shapes += [
-                (context_latents.shape[0], context_latents.shape[2] // 2, context_latents.shape[3] // 2)
-            ]
+            img_shapes += [(context_latents.shape[0], context_latents.shape[2] // 2, context_latents.shape[3] // 2)]
             context_image = rearrange(
                 context_latents,
                 "B C (H P) (W Q) -> B (H W) (C P Q)",
@@ -253,8 +249,7 @@ class QwenImageModel(VisionModule):
         if zero_cond_t:
             timestep = torch.cat([timestep, timestep * 0], dim=0)
             modulate_index = torch.tensor(
-                [0] * math.prod(img_shapes[0])
-                + [1] * sum(math.prod(s) for s in img_shapes[1:]),
+                [0] * math.prod(img_shapes[0]) + [1] * sum(math.prod(s) for s in img_shapes[1:]),
                 device=timestep.device,
                 dtype=torch.int,
             )

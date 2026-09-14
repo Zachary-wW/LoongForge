@@ -4,7 +4,7 @@
 # Modified from Megatron-LM under the BSD 3-Clause License.
 # Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
 
-""" intern vision attention module """
+"""intern vision attention module"""
 
 import torch
 
@@ -34,7 +34,7 @@ except ImportError:
 
 
 class InternViTRMSNorm(MegatronModule):
-    """ InternViTRMSNorm for InternViT-6B qk_layernorm """
+    """InternViTRMSNorm for InternViT-6B qk_layernorm"""
 
     def __init__(
         self,
@@ -62,7 +62,7 @@ class InternViTRMSNorm(MegatronModule):
 
         assert not sequence_parallel, "Sequence parallelism is not supported with InternViT."
 
-        setattr(self.weight, 'sequence_parallel', sequence_parallel)
+        setattr(self.weight, "sequence_parallel", sequence_parallel)
 
     def _norm(self, x, var):
         if var is None:
@@ -119,15 +119,13 @@ class InternViTRMSNorm(MegatronModule):
 
         return output.sum(-1, keepdim=True)
 
-    def sharded_state_dict(self, prefix='', sharded_offsets=(), metadata={}):
-        """ overwrite sharded_state_dict """
+    def sharded_state_dict(self, prefix="", sharded_offsets=(), metadata={}):
+        """overwrite sharded_state_dict"""
         # in InternVitSelfAttention the q_layernorm and k_layernorm weights
         # are tensor-parallel so must be converted to sharded tensors
-        if 'q_layernorm' in prefix or 'k_layernorm' in prefix:
-            state_dict = self.state_dict(prefix='', keep_vars=True)
-            return make_sharded_tensors_for_checkpoint(
-                state_dict, prefix, {'weight': 0}, sharded_offsets
-            )
+        if "q_layernorm" in prefix or "k_layernorm" in prefix:
+            state_dict = self.state_dict(prefix="", keep_vars=True)
+            return make_sharded_tensors_for_checkpoint(state_dict, prefix, {"weight": 0}, sharded_offsets)
         else:
             return super().sharded_state_dict(prefix, sharded_offsets, metadata)
 
@@ -167,7 +165,7 @@ class InternSelfAttention(Attention):
             bias=self.config.add_bias_linear and self.config.add_qkv_bias,  # `or` modified to `and`
             skip_bias_add=False,
             is_expert=False,
-            tp_comm_buffer_name='qkv',
+            tp_comm_buffer_name="qkv",
         )
 
         qk_layernorm_hidden_size = (
@@ -196,27 +194,31 @@ class InternSelfAttention(Attention):
         else:
             self.k_layernorm = None
 
-
     def get_query_key_value_tensors(self, hidden_states, key_value_states=None):
         """
         Derives `query`, `key` and `value` tensors from `hidden_states`.
         """
         # Attention heads [sq, b, h] --> [sq, b, ng * (np/ng + 2) * hn)]
-        #hidden_states = hidden_states.transpose(0, 1).contiguous()
+        # hidden_states = hidden_states.transpose(0, 1).contiguous()
         mixed_qkv, _ = self.linear_qkv(hidden_states)
         if self.config.sequence_parallel:
             mixed_qkv = mixed_qkv.transpose(0, 1).contiguous()
         # [sq, b, hp] --> [sq, b, ng, (np/ng + 2) * hn]
         new_tensor_shape = mixed_qkv.size()[:-1] + (
             self.num_query_groups_per_partition,
-            ((self.num_attention_heads_per_partition // self.num_query_groups_per_partition + 2) *
-             self.hidden_size_per_attention_head),
+            (
+                (self.num_attention_heads_per_partition // self.num_query_groups_per_partition + 2)
+                * self.hidden_size_per_attention_head
+            ),
         )
         mixed_qkv = mixed_qkv.view(*new_tensor_shape)
 
         split_arg_list = [
-            (self.num_attention_heads_per_partition // self.num_query_groups_per_partition *
-             self.hidden_size_per_attention_head),
+            (
+                self.num_attention_heads_per_partition
+                // self.num_query_groups_per_partition
+                * self.hidden_size_per_attention_head
+            ),
             self.hidden_size_per_attention_head,
             self.hidden_size_per_attention_head,
         ]
@@ -290,16 +292,10 @@ class InternSelfAttention(Attention):
 
         # This branch only runs in the decode phase of flash decoding and returns after the linear
         # projection. This conditional is not used in the prefill phase or non-flash-decoding cases.
-        if (
-            self.config.flash_decode
-            and inference_params is not None
-            and inference_params.decode_mode
-        ):
+        if self.config.flash_decode and inference_params is not None and inference_params.decode_mode:
             assert self.layer_number in inference_params.key_value_memory_dict
             assert inference_params.sequence_len_offset is not None
-            inference_key_memory, inference_value_memory = inference_params.key_value_memory_dict[
-                self.layer_number
-            ]
+            inference_key_memory, inference_value_memory = inference_params.key_value_memory_dict[self.layer_number]
             output = self.flash_decoding(
                 sequence_len_offset=sequence_len_offset,
                 query_layer=query,
@@ -382,7 +378,7 @@ class InternSelfAttention(Attention):
                 packed_seq_params=packed_seq_params,
             )
 
-        if packed_seq_params is not None and packed_seq_params.qkv_format == 'thd':
+        if packed_seq_params is not None and packed_seq_params.qkv_format == "thd":
             # reshape to same output shape as unpacked case
             # (t, np, hn) -> (t, b=1, h=np*hn)
             # t is the pack size = sum (sq_i)
@@ -414,7 +410,7 @@ class InternViTTEDotProductAttention(TEDotProductAttention):
         mask = torch.ones_like(out, dtype=out.dtype, device=out.device)
         rank = get_tensor_model_parallel_rank()
         hidden_dim = out.shape[-1]
-        
+
         world_size = get_tensor_model_parallel_world_size()
         num_attention_heads_per_partition = divide(self.config.num_attention_heads, world_size)
         valid_ranks = (self.config.original_num_attention_heads - 1) // num_attention_heads_per_partition

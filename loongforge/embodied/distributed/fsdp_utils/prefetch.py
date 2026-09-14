@@ -98,7 +98,11 @@ def set_prefetch(
     bwd = set_prefetch_edges(fsdp_modules, backward_distance, forward=False)
     logger.info(
         "FSDP2 prefetch: modules=%d fwd_dist=%d bwd_dist=%d fwd_edges=%d bwd_edges=%d",
-        len(fsdp_modules), forward_distance, backward_distance, fwd, bwd,
+        len(fsdp_modules),
+        forward_distance,
+        backward_distance,
+        fwd,
+        bwd,
     )
 
 

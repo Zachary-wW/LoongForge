@@ -77,9 +77,7 @@ def _thd_compact(x, cu_actual, cu_padded):
 
 def _thd_expand(x_compact, indices, total_padded_len, extra_dims):
     """Scatter compact attention output back to padded positions."""
-    out = torch.zeros(
-        total_padded_len, *extra_dims, dtype=x_compact.dtype, device=x_compact.device
-    )
+    out = torch.zeros(total_padded_len, *extra_dims, dtype=x_compact.dtype, device=x_compact.device)
     out.index_copy_(0, indices, x_compact)
     return out
 
@@ -132,7 +130,7 @@ class WanSelfAttention(SelfAttention):
 
         # Extract Q, K, V contiguously
         query = mixed_qkv[:, :, :, :q_per_g, :].contiguous()  # [sq, b, ng, q_per_g, hn]
-        key   = mixed_qkv[:, :, :, q_per_g, :].contiguous()   # [sq, b, ng, hn]
+        key = mixed_qkv[:, :, :, q_per_g, :].contiguous()  # [sq, b, ng, hn]
         value = mixed_qkv[:, :, :, q_per_g + 1, :].contiguous()  # [sq, b, ng, hn]
 
         # Q/K RMSNorm
@@ -145,7 +143,7 @@ class WanSelfAttention(SelfAttention):
 
         # Reshape to per-head layout: [sq, b, np, hn] and [sq, b, ng, hn]
         query = query.view(sq, b, np_pp, hn)
-        key   = key.view(sq, b, ng, hn)
+        key = key.view(sq, b, ng, hn)
 
         if self.config.test_mode:
             self.run_realtime_tests()
@@ -180,24 +178,20 @@ class WanSelfAttention(SelfAttention):
         # =====================
         # Query, Key, and Value
         # =====================
-        query, key, value = self.get_query_key_value_tensors(
-            hidden_states, key_value_states
-        )
+        query, key, value = self.get_query_key_value_tensors(hidden_states, key_value_states)
 
         # ===================================================
         # Adjust key, value, and rotary_pos_emb for inference
         # ===================================================
-        query, key, value, rotary_pos_emb, attn_mask_type, _ = (
-            self._adjust_key_value_for_inference(
-                inference_params,
-                query,
-                key,
-                value,
-                rotary_pos_emb,
-                rotary_pos_cos,
-                rotary_pos_sin,
-                sequence_len_offset,
-            )
+        query, key, value, rotary_pos_emb, attn_mask_type, _ = self._adjust_key_value_for_inference(
+            inference_params,
+            query,
+            key,
+            value,
+            rotary_pos_emb,
+            rotary_pos_cos,
+            rotary_pos_sin,
+            sequence_len_offset,
         )
 
         # ================================================
@@ -240,10 +234,9 @@ class WanSelfAttention(SelfAttention):
         # core attention computation
         # ==================================
         # Squeeze batch dim for THD packed format (TE requires 3D: [S, H, D])
-        thd_mode = (packed_seq_params is not None and
-                    getattr(packed_seq_params, 'qkv_format', None) == 'thd')
+        thd_mode = packed_seq_params is not None and getattr(packed_seq_params, "qkv_format", None) == "thd"
         if thd_mode and query.dim() == 4:
-            query = query.squeeze(1)   # [sq, b, np, hn] -> [sq, np, hn]
+            query = query.squeeze(1)  # [sq, b, np, hn] -> [sq, np, hn]
             key = key.squeeze(1)
             value = value.squeeze(1)
 
@@ -255,20 +248,20 @@ class WanSelfAttention(SelfAttention):
         ulysses_group = None
         compact_indices = None
         total_padded_len = None
-        if thd_mode and hasattr(self.core_attention, 'cp_group') and self.core_attention.cp_group is not None:
+        if thd_mode and hasattr(self.core_attention, "cp_group") and self.core_attention.cp_group is not None:
             cp_group = self.core_attention.cp_group
             is_hierarchical = isinstance(cp_group, list)
-            is_ulysses = getattr(self.core_attention, 'cp_comm_type', 'p2p') in ('a2a', 'all_to_all')
+            is_ulysses = getattr(self.core_attention, "cp_comm_type", "p2p") in ("a2a", "all_to_all")
             if is_hierarchical:
                 # [Packing][CP][Ulysses] Do Ulysses a2a outside TE, keep TE ring on the ring subgroup.
                 saved_cp_group = cp_group
                 ulysses_group = cp_group[0]
                 ring_group = cp_group[1]
                 self.core_attention.cp_group = ring_group
-                saved_cp_global_ranks = getattr(self.core_attention, 'cp_global_ranks', None)
+                saved_cp_global_ranks = getattr(self.core_attention, "cp_global_ranks", None)
                 if saved_cp_global_ranks is not None:
                     self.core_attention.cp_global_ranks = dist.get_process_group_ranks(ring_group)
-                saved_cp_comm_type = getattr(self.core_attention, 'cp_comm_type', None)
+                saved_cp_comm_type = getattr(self.core_attention, "cp_comm_type", None)
                 self.core_attention.cp_comm_type = "p2p"
             elif is_ulysses:
                 # [Packing][CP][Ulysses] Pure Ulysses uses external a2a and no TE ring.
@@ -280,8 +273,7 @@ class WanSelfAttention(SelfAttention):
         if thd_mode:
             cu_q = packed_seq_params.cu_seqlens_q
             cu_q_padded = packed_seq_params.cu_seqlens_q_padded
-            has_padding = (cu_q_padded is not None
-                           and not torch.equal(cu_q_padded[:-1], cu_q[:-1]))
+            has_padding = cu_q_padded is not None and not torch.equal(cu_q_padded[:-1], cu_q[:-1])
             if has_padding:
                 total_padded_len = query.shape[0]
                 query, compact_indices = _thd_compact(query, cu_q, cu_q_padded)
@@ -303,8 +295,8 @@ class WanSelfAttention(SelfAttention):
             key = _THDSeqAllToAll.apply(key, 1, 0, ulysses_group)
             value = _THDSeqAllToAll.apply(value, 1, 0, ulysses_group)
             ulysses_degree = dist.get_world_size(ulysses_group)
-            saved_num_gqa_groups = getattr(self.core_attention, 'num_gqa_groups_per_partition', None)
-            saved_num_attn_heads = getattr(self.core_attention, 'num_attention_heads', None)
+            saved_num_gqa_groups = getattr(self.core_attention, "num_gqa_groups_per_partition", None)
+            saved_num_attn_heads = getattr(self.core_attention, "num_attention_heads", None)
             if saved_num_gqa_groups is not None:
                 self.core_attention.num_gqa_groups_per_partition = saved_num_gqa_groups // ulysses_degree
             if saved_num_attn_heads is not None:
@@ -336,9 +328,7 @@ class WanSelfAttention(SelfAttention):
             core_attn_out = _THDSeqAllToAll.apply(core_attn_out, 0, 1, ulysses_group)
 
         if compact_indices is not None:
-            core_attn_out = _thd_expand(
-                core_attn_out, compact_indices, total_padded_len, core_attn_out.shape[1:]
-            )
+            core_attn_out = _thd_expand(core_attn_out, compact_indices, total_padded_len, core_attn_out.shape[1:])
 
         if saved_cp_group is not None:
             self.core_attention.cp_group = saved_cp_group
@@ -376,7 +366,7 @@ class WanCrossAttention(CrossAttention):
         layer_number: int,
         attn_mask_type=AttnMaskType.padding,
         cp_comm_type: str = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             config,
@@ -384,7 +374,7 @@ class WanCrossAttention(CrossAttention):
             layer_number=layer_number,
             attn_mask_type=attn_mask_type,
             cp_comm_type=cp_comm_type,
-            **kwargs
+            **kwargs,
         )
 
         # Override q_layernorm and k_layernorm
@@ -476,33 +466,25 @@ class WanCrossAttention(CrossAttention):
         if self.has_image_input:
             n_img = self.clip_num_image_tokens
             if key_value_states is None or key_value_states.shape[0] < n_img:
-                raise ValueError(
-                    f"Wan2.1 I2V cross-attention requires {n_img} "
-                    f"CLIP image tokens before text tokens."
-                )
+                raise ValueError(f"Wan2.1 I2V cross-attention requires {n_img} CLIP image tokens before text tokens.")
             img_states = key_value_states[:n_img]
             key_value_states = key_value_states[n_img:]
 
-        query, key, value = self.get_query_key_value_tensors(
-            hidden_states, key_value_states
-        )
+        query, key, value = self.get_query_key_value_tensors(hidden_states, key_value_states)
 
-        query, key, value, rotary_pos_emb, attn_mask_type, _ = (
-            self._adjust_key_value_for_inference(
-                inference_params,
-                query,
-                key,
-                value,
-                rotary_pos_emb,
-                rotary_pos_cos,
-                rotary_pos_sin,
-                sequence_len_offset,
-            )
+        query, key, value, rotary_pos_emb, attn_mask_type, _ = self._adjust_key_value_for_inference(
+            inference_params,
+            query,
+            key,
+            value,
+            rotary_pos_emb,
+            rotary_pos_cos,
+            rotary_pos_sin,
+            sequence_len_offset,
         )
 
         # Squeeze batch dim for THD packed format (TE requires 3D: [S, H, D])
-        thd_mode = (packed_seq_params is not None and
-                    getattr(packed_seq_params, 'qkv_format', None) == 'thd')
+        thd_mode = packed_seq_params is not None and getattr(packed_seq_params, "qkv_format", None) == "thd"
         if thd_mode and query.dim() == 4:
             query = query.squeeze(1)
             key = key.squeeze(1)
@@ -531,20 +513,20 @@ class WanCrossAttention(CrossAttention):
         #   - _thd_compact, _THDSeqAllToAll, NCCL ops which may raise
         #   - the explicit NotImplementedError guard for THD+Ulysses+img_states
         try:
-            if thd_mode and hasattr(self.core_attention, 'cp_group') and self.core_attention.cp_group is not None:
+            if thd_mode and hasattr(self.core_attention, "cp_group") and self.core_attention.cp_group is not None:
                 cp_group = self.core_attention.cp_group
                 is_hierarchical = isinstance(cp_group, list)
-                is_ulysses = getattr(self.core_attention, 'cp_comm_type', 'p2p') in ('a2a', 'all_to_all')
+                is_ulysses = getattr(self.core_attention, "cp_comm_type", "p2p") in ("a2a", "all_to_all")
                 if is_hierarchical:
                     # [Packing][CP][Ulysses] Do Ulysses a2a outside TE, keep TE ring on the ring subgroup.
                     saved_cp_group = cp_group
                     ulysses_group = cp_group[0]
                     ring_group = cp_group[1]
                     self.core_attention.cp_group = ring_group
-                    saved_cp_global_ranks = getattr(self.core_attention, 'cp_global_ranks', None)
+                    saved_cp_global_ranks = getattr(self.core_attention, "cp_global_ranks", None)
                     if saved_cp_global_ranks is not None:
                         self.core_attention.cp_global_ranks = dist.get_process_group_ranks(ring_group)
-                    saved_cp_comm_type = getattr(self.core_attention, 'cp_comm_type', None)
+                    saved_cp_comm_type = getattr(self.core_attention, "cp_comm_type", None)
                     self.core_attention.cp_comm_type = "p2p"
                 elif is_ulysses:
                     # [Packing][CP][Ulysses] Pure Ulysses uses external a2a and no TE ring.
@@ -557,10 +539,8 @@ class WanCrossAttention(CrossAttention):
                 cu_q_padded = packed_seq_params.cu_seqlens_q_padded
                 cu_kv = packed_seq_params.cu_seqlens_kv
                 cu_kv_padded = packed_seq_params.cu_seqlens_kv_padded
-                has_q_padding = (cu_q_padded is not None
-                                 and not torch.equal(cu_q_padded[:-1], cu_q[:-1]))
-                has_kv_padding = (cu_kv_padded is not None
-                                  and not torch.equal(cu_kv_padded[:-1], cu_kv[:-1]))
+                has_q_padding = cu_q_padded is not None and not torch.equal(cu_q_padded[:-1], cu_q[:-1])
+                has_kv_padding = cu_kv_padded is not None and not torch.equal(cu_kv_padded[:-1], cu_kv[:-1])
                 if has_q_padding or has_kv_padding:
                     total_padded_len_q = query.shape[0]
                     if has_q_padding:
@@ -586,8 +566,8 @@ class WanCrossAttention(CrossAttention):
                 key = _THDSeqAllToAll.apply(key, 1, 0, ulysses_group)
                 value = _THDSeqAllToAll.apply(value, 1, 0, ulysses_group)
                 ulysses_degree = dist.get_world_size(ulysses_group)
-                saved_num_gqa_groups = getattr(self.core_attention, 'num_gqa_groups_per_partition', None)
-                saved_num_attn_heads = getattr(self.core_attention, 'num_attention_heads', None)
+                saved_num_gqa_groups = getattr(self.core_attention, "num_gqa_groups_per_partition", None)
+                saved_num_attn_heads = getattr(self.core_attention, "num_attention_heads", None)
                 if saved_num_gqa_groups is not None:
                     self.core_attention.num_gqa_groups_per_partition = saved_num_gqa_groups // ulysses_degree
                 if saved_num_attn_heads is not None:
@@ -596,17 +576,17 @@ class WanCrossAttention(CrossAttention):
             disable_core_cp = (
                 self.has_image_input
                 and not thd_mode
-                and hasattr(self.core_attention, 'cp_group')
+                and hasattr(self.core_attention, "cp_group")
                 and self.core_attention.cp_group is not None
             )
             if disable_core_cp:
-                saved_attrs['cp_group'] = self.core_attention.cp_group
-                saved_attrs['cp_global_ranks'] = getattr(self.core_attention, 'cp_global_ranks', _MISSING)
-                saved_attrs['cp_comm_type'] = getattr(self.core_attention, 'cp_comm_type', _MISSING)
+                saved_attrs["cp_group"] = self.core_attention.cp_group
+                saved_attrs["cp_global_ranks"] = getattr(self.core_attention, "cp_global_ranks", _MISSING)
+                saved_attrs["cp_comm_type"] = getattr(self.core_attention, "cp_comm_type", _MISSING)
                 self.core_attention.cp_group = None
-                if hasattr(self.core_attention, 'cp_global_ranks'):
+                if hasattr(self.core_attention, "cp_global_ranks"):
                     self.core_attention.cp_global_ranks = None
-                if hasattr(self.core_attention, 'cp_comm_type'):
+                if hasattr(self.core_attention, "cp_comm_type"):
                     self.core_attention.cp_comm_type = None
 
             # THD packing + Ulysses CP scatters query along the head dim before this
@@ -664,9 +644,7 @@ class WanCrossAttention(CrossAttention):
             core_attn_out = _THDSeqAllToAll.apply(core_attn_out, 0, 1, ulysses_group)
 
         if compact_indices_q is not None:
-            core_attn_out = _thd_expand(
-                core_attn_out, compact_indices_q, total_padded_len_q, core_attn_out.shape[1:]
-            )
+            core_attn_out = _thd_expand(core_attn_out, compact_indices_q, total_padded_len_q, core_attn_out.shape[1:])
 
         # Unsqueeze batch dim back for THD mode
         if thd_mode and core_attn_out.dim() == 2:

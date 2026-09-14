@@ -12,7 +12,7 @@ def run_policy(tmp_path, *, inspect="[{}]", history="", probe_status=0):
     log = tmp_path / "docker.log"
     docker.write_text(
         "#!/usr/bin/env bash\n"
-        "printf '%s\\n' \"$*\" >> \"$FAKE_DOCKER_LOG\"\n"
+        'printf \'%s\\n\' "$*" >> "$FAKE_DOCKER_LOG"\n'
         'if [[ "$1 $2" == "image inspect" ]]; then printf "%s" "$FAKE_INSPECT"; exit 0; fi\n'
         'if [[ "$1" == history ]]; then printf "%s" "$FAKE_HISTORY"; exit 0; fi\n'
         'if [[ "$1" == run ]]; then exit "$FAKE_PROBE_STATUS"; fi\n'
@@ -21,13 +21,15 @@ def run_policy(tmp_path, *, inspect="[{}]", history="", probe_status=0):
     )
     docker.chmod(0o755)
     env = os.environ.copy()
-    env.update({
-        "DOCKER_BIN": str(docker),
-        "FAKE_DOCKER_LOG": str(log),
-        "FAKE_INSPECT": inspect,
-        "FAKE_HISTORY": history,
-        "FAKE_PROBE_STATUS": str(probe_status),
-    })
+    env.update(
+        {
+            "DOCKER_BIN": str(docker),
+            "FAKE_DOCKER_LOG": str(log),
+            "FAKE_INSPECT": inspect,
+            "FAKE_HISTORY": history,
+            "FAKE_PROBE_STATUS": str(probe_status),
+        }
+    )
     result = subprocess.run(
         [sys.executable, ".github/scripts/image_policy.py", "candidate:test"],
         env=env,

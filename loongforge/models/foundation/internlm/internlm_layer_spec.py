@@ -28,9 +28,7 @@ def get_internlm_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
     # To simplify the code, temporarily remove the compatibility with MoE/MLA.
     # If there is a new LLaMA version in the future, add and test it separately.
     assert config.num_moe_experts is None, "Not support MoE for Llama model yet."
-    assert (
-        not config.multi_latent_attention
-    ), "Not support multi-latent attention for Llama model yet."
+    assert not config.multi_latent_attention, "Not support multi-latent attention for Llama model yet."
 
     # Dense MLP w/ TE modules.
     dense_mlp = ModuleSpec(
@@ -45,8 +43,7 @@ def get_internlm_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
     # we instead use the Apex implementation.
     qk_norm = (
         multiacc_modules.TENorm
-        if is_te_min_version("1.9.0")
-        and config.normalization in ["LayerNorm", "RMSNorm"]
+        if is_te_min_version("1.9.0") and config.normalization in ["LayerNorm", "RMSNorm"]
         else multiacc_modules.LocalNorm
     )
 

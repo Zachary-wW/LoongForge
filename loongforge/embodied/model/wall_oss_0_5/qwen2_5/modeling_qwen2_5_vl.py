@@ -28,8 +28,9 @@
 # limitations under the License.
 
 """modeling_qwen2_5_vl module."""
+
 import math
-from typing import  Optional, Tuple
+from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -93,6 +94,7 @@ class Qwen25VLMLP(nn.Module):
     # E.g. 3420 -> 3456 (= 128 * 27), improving MFU from 34.8% to ~60%+.
     # Zero-padded weights don't affect forward output or gradient flow.
     """Qwen2 5 VLMLP."""
+
     _GEMM_ALIGN = 128
 
     def __init__(self, config, bias=False, use_selective_recompute=False):
@@ -103,16 +105,10 @@ class Qwen25VLMLP(nn.Module):
 
         # Pad intermediate_size to next multiple of _GEMM_ALIGN
         align = self._GEMM_ALIGN
-        self.padded_intermediate_size = (
-            (self.intermediate_size + align - 1) // align * align
-        )
+        self.padded_intermediate_size = (self.intermediate_size + align - 1) // align * align
 
-        self.gate_up_proj = nn.Linear(
-            self.hidden_size, 2 * self.padded_intermediate_size, bias=bias
-        )
-        self.down_proj = nn.Linear(
-            self.padded_intermediate_size, self.hidden_size, bias=bias
-        )
+        self.gate_up_proj = nn.Linear(self.hidden_size, 2 * self.padded_intermediate_size, bias=bias)
+        self.down_proj = nn.Linear(self.padded_intermediate_size, self.hidden_size, bias=bias)
 
         self.hidden_act = config.hidden_act
         self.act_fn = ACT2FN[config.hidden_act]
@@ -145,9 +141,7 @@ class Qwen25VLMLP(nn.Module):
             if key_b in state_dict and state_dict[key_b].shape[0] == 2 * orig:
                 b = state_dict[key_b]
                 gate_b, up_b = b.split([orig, orig])
-                state_dict[key_b] = torch.cat(
-                    [F.pad(gate_b, (0, pad)), F.pad(up_b, (0, pad))]
-                )
+                state_dict[key_b] = torch.cat([F.pad(gate_b, (0, pad)), F.pad(up_b, (0, pad))])
             # down_proj.weight: [hidden, orig] -> [hidden, padded]
             key_dw = prefix + "down_proj.weight"
             if key_dw in state_dict and state_dict[key_dw].shape[1] == orig:
@@ -207,15 +201,11 @@ class Qwen25VLMLP(nn.Module):
         # -----------------------------
         """Run the forward pass."""
         gate_up_out = self.gate_up_proj(hidden_state)
-        gate_out, up_out = gate_up_out.split(
-            [self.padded_intermediate_size, self.padded_intermediate_size], dim=-1
-        )
+        gate_out, up_out = gate_up_out.split([self.padded_intermediate_size, self.padded_intermediate_size], dim=-1)
 
         if self.use_selective_recompute:
             # checkpoint only activation, not GEMM
-            out = cp.checkpoint(
-                self._activation_chunk, gate_out, up_out, use_reentrant=False
-            )
+            out = cp.checkpoint(self._activation_chunk, gate_out, up_out, use_reentrant=False)
         else:
             out = self._activation_chunk(gate_out, up_out)
 
@@ -224,6 +214,7 @@ class Qwen25VLMLP(nn.Module):
 
 class Qwen25VisionPatchEmbed(nn.Module):
     """Qwen2 5 VisionPatchEmbed."""
+
     def __init__(
         self,
         patch_size: int = 14,
@@ -263,10 +254,7 @@ class Qwen25VisionPatchEmbed(nn.Module):
         weight = self.proj.weight.view(self.embed_dim, -1)
         out = hidden_states.view(
             -1,
-            self.in_channels
-            * self.temporal_patch_size
-            * self.patch_size
-            * self.patch_size,
+            self.in_channels * self.temporal_patch_size * self.patch_size * self.patch_size,
         )
         hidden_states = F.linear(out.to(target_dtype), weight)
         return hidden_states
@@ -274,6 +262,7 @@ class Qwen25VisionPatchEmbed(nn.Module):
 
 class Qwen25VisionRotaryEmbedding(nn.Module):
     """Qwen2 5 VisionRotaryEmbedding."""
+
     def __init__(self, dim: int, theta: float = 10000.0) -> None:
         """Initialize the instance."""
         super().__init__()
@@ -282,18 +271,15 @@ class Qwen25VisionRotaryEmbedding(nn.Module):
 
     def forward(self, seqlen: int) -> torch.Tensor:
         """Run the forward pass."""
-        seq = torch.arange(
-            seqlen, device=self.inv_freq.device, dtype=self.inv_freq.dtype
-        )
+        seq = torch.arange(seqlen, device=self.inv_freq.device, dtype=self.inv_freq.dtype)
         freqs = torch.outer(seq, self.inv_freq)
         return freqs
 
 
 class Qwen2RMSNorm(nn.Module):
     """Qwen2RMSNorm."""
-    def __init__(
-        self, hidden_size: int, eps: float = 1e-6, cond_dim: Optional[int] = None
-    ):
+
+    def __init__(self, hidden_size: int, eps: float = 1e-6, cond_dim: Optional[int] = None):
         """
         Qwen2RMSNorm with optional conditional input support, equivalent to T5LayerNorm
         """
@@ -332,9 +318,7 @@ class Qwen2RMSNorm(nn.Module):
 
         # Adaptive RMSNorm
         if cond.shape[-1] != self.cond_dim:
-            raise ValueError(
-                f"Expected cond dimension {self.cond_dim}, got {cond.shape[-1]}"
-            )
+            raise ValueError(f"Expected cond dimension {self.cond_dim}, got {cond.shape[-1]}")
 
         # Compute modulation parameters
         cond = cond.to(dtype=self.dense.weight.dtype)
@@ -345,9 +329,7 @@ class Qwen2RMSNorm(nn.Module):
         scale, shift, gate = torch.chunk(modulation, 3, dim=-1)
 
         # Apply adaptive normalization
-        normed_inputs = normed_inputs * (1 + scale.to(torch.float32)) + shift.to(
-            torch.float32
-        )
+        normed_inputs = normed_inputs * (1 + scale.to(torch.float32)) + shift.to(torch.float32)
 
         return normed_inputs.to(input_dtype), gate.to(input_dtype)
 
@@ -361,6 +343,7 @@ class Qwen2RMSNorm(nn.Module):
 
 class Qwen25VLPatchMerger(nn.Module):
     """Qwen2 5 VLPatchMerger."""
+
     def __init__(self, dim: int, context_dim: int, spatial_merge_size: int = 2) -> None:
         """Initialize the instance."""
         super().__init__()
@@ -392,6 +375,7 @@ def apply_rotary_pos_emb_flashatt(
 
 class Qwen25VLVisionFlashAttention2(nn.Module):
     """Qwen2 5 VLVisionFlashAttention2."""
+
     def __init__(self, config: Qwen25VLConfig, dim: int, num_heads: int = 16) -> None:
         """Initialize the instance."""
         super().__init__()
@@ -410,12 +394,7 @@ class Qwen25VLVisionFlashAttention2(nn.Module):
     ) -> torch.Tensor:
         """Run the forward pass."""
         seq_length = hidden_states.shape[0]
-        q, k, v = (
-            self.qkv(hidden_states)
-            .reshape(seq_length, 3, self.num_heads, -1)
-            .permute(1, 0, 2, 3)
-            .unbind(0)
-        )
+        q, k, v = self.qkv(hidden_states).reshape(seq_length, 3, self.num_heads, -1).permute(1, 0, 2, 3).unbind(0)
         if position_embeddings is None:
             logger.warning_once(
                 "The attention layers in this model are transitioning from computing the RoPE embeddings internally "
@@ -472,6 +451,7 @@ def apply_rotary_pos_emb_vision(
 
 class Qwen25VLVisionAttention(nn.Module):
     """Qwen2 5 VLVisionAttention."""
+
     def __init__(self, config: Qwen25VLConfig, dim: int, num_heads: int = 16) -> None:
         """Initialize the instance."""
         super().__init__()
@@ -490,12 +470,7 @@ class Qwen25VLVisionAttention(nn.Module):
     ) -> torch.Tensor:
         """Run the forward pass."""
         seq_length = hidden_states.shape[0]
-        q, k, v = (
-            self.qkv(hidden_states)
-            .reshape(seq_length, 3, self.num_heads, -1)
-            .permute(1, 0, 2, 3)
-            .unbind(0)
-        )
+        q, k, v = self.qkv(hidden_states).reshape(seq_length, 3, self.num_heads, -1).permute(1, 0, 2, 3).unbind(0)
         if position_embeddings is None:
             logger.warning_once(
                 "The attention layers in this model are transitioning from computing the RoPE embeddings internally "
@@ -528,9 +503,7 @@ class Qwen25VLVisionAttention(nn.Module):
         v = v.transpose(0, 1)
         attn_weights = torch.matmul(q, k.transpose(1, 2)) / math.sqrt(self.head_dim)
         attn_weights = attn_weights + attention_mask
-        attn_weights = nn.functional.softmax(
-            attn_weights, dim=-1, dtype=torch.float32
-        ).to(q.dtype)
+        attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(q.dtype)
         attn_output = torch.matmul(attn_weights, v)
         attn_output = attn_output.transpose(0, 1)
         attn_output = attn_output.reshape(seq_length, -1)
@@ -540,6 +513,7 @@ class Qwen25VLVisionAttention(nn.Module):
 
 class Qwen25VLVisionSdpaAttention(nn.Module):
     """Qwen2 5 VLVisionSdpaAttention."""
+
     def __init__(self, config: Qwen25VLConfig, dim: int, num_heads: int = 16) -> None:
         """Initialize the instance."""
         super().__init__()
@@ -557,12 +531,7 @@ class Qwen25VLVisionSdpaAttention(nn.Module):
     ) -> torch.Tensor:
         """Run the forward pass."""
         seq_length = hidden_states.shape[0]
-        q, k, v = (
-            self.qkv(hidden_states)
-            .reshape(seq_length, 3, self.num_heads, -1)
-            .permute(1, 0, 2, 3)
-            .unbind(0)
-        )
+        q, k, v = self.qkv(hidden_states).reshape(seq_length, 3, self.num_heads, -1).permute(1, 0, 2, 3).unbind(0)
         if position_embeddings is None:
             logger.warning_once(
                 "The attention layers in this model are transitioning from computing the RoPE embeddings internally "
@@ -577,9 +546,7 @@ class Qwen25VLVisionSdpaAttention(nn.Module):
             cos, sin = position_embeddings
         q, k = apply_rotary_pos_emb_vision(q, k, cos, sin)
 
-        attention_mask = torch.zeros(
-            [1, seq_length, seq_length], device=q.device, dtype=torch.bool
-        )
+        attention_mask = torch.zeros([1, seq_length, seq_length], device=q.device, dtype=torch.bool)
         for i in range(1, len(cu_seqlens)):
             attention_mask[
                 ...,
@@ -589,9 +556,7 @@ class Qwen25VLVisionSdpaAttention(nn.Module):
         q = q.transpose(0, 1)
         k = k.transpose(0, 1)
         v = v.transpose(0, 1)
-        attn_output = F.scaled_dot_product_attention(
-            q, k, v, attention_mask, dropout_p=0.0
-        )
+        attn_output = F.scaled_dot_product_attention(q, k, v, attention_mask, dropout_p=0.0)
         attn_output = attn_output.transpose(0, 1)
         attn_output = attn_output.reshape(seq_length, -1)
         attn_output = self.proj(attn_output)
@@ -607,6 +572,7 @@ QWEN2_5_VL_VISION_ATTENTION_CLASSES = {
 
 class Qwen25VLVisionBlock(nn.Module):
     """Qwen2 5 VLVisionBlock."""
+
     def __init__(
         self,
         config,
@@ -623,9 +589,7 @@ class Qwen25VLVisionBlock(nn.Module):
         self.attn = QWEN2_5_VL_VISION_ATTENTION_CLASSES[attn_implementation](
             config, config.hidden_size, num_heads=config.num_heads
         )
-        self.mlp = Qwen25VLMLP(
-            config, bias=True, use_selective_recompute=use_selective_recompute
-        )
+        self.mlp = Qwen25VLMLP(config, bias=True, use_selective_recompute=use_selective_recompute)
 
     # -----------------------------
     # selective checkpoint for norm
@@ -646,7 +610,6 @@ class Qwen25VLVisionBlock(nn.Module):
         rotary_pos_emb: Optional[torch.Tensor] = None,
         position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
     ) -> torch.Tensor:
-
         # ============================
         # 1) Norm1 with checkpoint
         # ============================
@@ -713,6 +676,7 @@ Qwen2_5_VL_START_DOCSTRING = r"""
 )
 class Qwen25VLPreTrainedModel(AttentionsSelectorMixin, PreTrainedModel):
     """Qwen2 5 VLPreTrainedModel."""
+
     config_class = Qwen25VLConfig
     base_model_prefix = "model"
     supports_gradient_checkpointing = True
@@ -738,12 +702,11 @@ class Qwen25VLPreTrainedModel(AttentionsSelectorMixin, PreTrainedModel):
 
 class Qwen25VisionTransformerPretrainedModel(Qwen25VLPreTrainedModel):
     """Qwen2 5 VisionTransformerPretrainedModel."""
+
     config_class = Qwen25VLVisionConfig
     _no_split_modules = ["Qwen25VLVisionBlock"]
 
-    def __init__(
-        self, config, use_selective_recompute=False, *inputs, **kwargs
-    ) -> None:
+    def __init__(self, config, use_selective_recompute=False, *inputs, **kwargs) -> None:
         """Initialize the instance."""
         super().__init__(config, *inputs, **kwargs)
         self.use_selective_recompute = use_selective_recompute
@@ -765,9 +728,7 @@ class Qwen25VisionTransformerPretrainedModel(Qwen25VLPreTrainedModel):
 
         self.blocks = nn.ModuleList(
             [
-                Qwen25VLVisionBlock(
-                    config, config._attn_implementation, use_selective_recompute
-                )
+                Qwen25VLVisionBlock(config, config._attn_implementation, use_selective_recompute)
                 for _ in range(config.depth)
             ]
         )
@@ -813,18 +774,14 @@ class Qwen25VisionTransformerPretrainedModel(Qwen25VLPreTrainedModel):
         window_index: list = []
         cu_window_seqlens: list = [0]
         window_index_id = 0
-        vit_merger_window_size = (
-            self.window_size // self.spatial_merge_size // self.patch_size
-        )
+        vit_merger_window_size = self.window_size // self.spatial_merge_size // self.patch_size
 
         for grid_t, grid_h, grid_w in grid_thw:
             llm_grid_h, llm_grid_w = (
                 grid_h // self.spatial_merge_size,
                 grid_w // self.spatial_merge_size,
             )
-            index = torch.arange(grid_t * llm_grid_h * llm_grid_w).reshape(
-                grid_t, llm_grid_h, llm_grid_w
-            )
+            index = torch.arange(grid_t * llm_grid_h * llm_grid_w).reshape(grid_t, llm_grid_h, llm_grid_w)
             pad_h = vit_merger_window_size - llm_grid_h % vit_merger_window_size
             pad_w = vit_merger_window_size - llm_grid_w % vit_merger_window_size
             num_windows_h = (llm_grid_h + pad_h) // vit_merger_window_size
@@ -847,9 +804,7 @@ class Qwen25VisionTransformerPretrainedModel(Qwen25VLPreTrainedModel):
             index_padded = index_padded.reshape(-1)
             index_new = index_padded[index_padded != -100]
             window_index.append(index_new + window_index_id)
-            cu_seqlens_tmp = (
-                seqlens.cumsum(0) * self.spatial_merge_unit + cu_window_seqlens[-1]
-            )
+            cu_seqlens_tmp = seqlens.cumsum(0) * self.spatial_merge_unit + cu_window_seqlens[-1]
             cu_window_seqlens.extend(cu_seqlens_tmp.tolist())
             window_index_id += (grid_t * llm_grid_h * llm_grid_w).item()
         window_index = torch.cat(window_index, dim=0)
@@ -889,14 +844,10 @@ class Qwen25VisionTransformerPretrainedModel(Qwen25VLPreTrainedModel):
         )
 
         seq_len, _ = hidden_states.size()
-        hidden_states = hidden_states.reshape(
-            seq_len // self.spatial_merge_unit, self.spatial_merge_unit, -1
-        )
+        hidden_states = hidden_states.reshape(seq_len // self.spatial_merge_unit, self.spatial_merge_unit, -1)
         hidden_states = hidden_states[window_index, :, :]
         hidden_states = hidden_states.reshape(seq_len, -1)
-        rotary_pos_emb = rotary_pos_emb.reshape(
-            seq_len // self.spatial_merge_unit, self.spatial_merge_unit, -1
-        )
+        rotary_pos_emb = rotary_pos_emb.reshape(seq_len // self.spatial_merge_unit, self.spatial_merge_unit, -1)
         rotary_pos_emb = rotary_pos_emb[window_index, :, :]
         rotary_pos_emb = rotary_pos_emb.reshape(seq_len, -1)
         emb = torch.cat((rotary_pos_emb, rotary_pos_emb), dim=-1)
@@ -920,9 +871,7 @@ class Qwen25VisionTransformerPretrainedModel(Qwen25VLPreTrainedModel):
         cu_seqlens = F.pad(cu_seqlens, (1, 0), value=0)
         if vision_grid_metadata is None:
             max_seqlen_full = (cu_seqlens[1:] - cu_seqlens[:-1]).max().item()
-            max_seqlen_window = (
-                (cu_window_seqlens[1:] - cu_window_seqlens[:-1]).max().item()
-            )
+            max_seqlen_window = (cu_window_seqlens[1:] - cu_window_seqlens[:-1]).max().item()
         else:
             max_seqlen_full = vision_grid_metadata.max_seqlen_full
             max_seqlen_window = vision_grid_metadata.max_seqlen_window
@@ -959,14 +908,13 @@ class Qwen25VisionTransformerPretrainedModel(Qwen25VLPreTrainedModel):
 
 class Qwen25VLRotaryEmbedding(nn.Module):
     """Qwen2 5 VLRotaryEmbedding."""
+
     def __init__(self, config: Qwen25VLConfig, device=None):
         """Initialize the instance."""
         super().__init__()
         # BC: "rope_type" was originally "type"
         if hasattr(config, "rope_scaling") and config.rope_scaling is not None:
-            self.rope_type = config.rope_scaling.get(
-                "rope_type", config.rope_scaling.get("type", "default")
-            )
+            self.rope_type = config.rope_scaling.get("rope_type", config.rope_scaling.get("type", "default"))
         else:
             self.rope_type = "default"
         self.max_seq_len_cached = config.max_position_embeddings
@@ -1000,13 +948,7 @@ class Qwen25VLRotaryEmbedding(nn.Module):
         dim = config.hidden_size // config.num_attention_heads
         attention_factor = 1.0
         inv_freq = 1.0 / (
-            base
-            ** (
-                torch.arange(0, dim, 2, dtype=torch.int64).to(
-                    device=device, dtype=torch.float
-                )
-                / dim
-            )
+            base ** (torch.arange(0, dim, 2, dtype=torch.int64).to(device=device, dtype=torch.float) / dim)
         )
         return inv_freq, attention_factor
 
@@ -1021,15 +963,10 @@ class Qwen25VLRotaryEmbedding(nn.Module):
             inv_freq, self.attention_scaling = self.rope_init_fn(
                 self.config, device, seq_len=seq_len, **self.rope_kwargs
             )
-            self.register_buffer(
-                "inv_freq", inv_freq, persistent=False
-            )  # TODO joao: may break with compilation
+            self.register_buffer("inv_freq", inv_freq, persistent=False)  # TODO joao: may break with compilation
             self.max_seq_len_cached = seq_len
 
-        if (
-            seq_len < self.original_max_seq_len
-            and self.max_seq_len_cached > self.original_max_seq_len
-        ):  # reset
+        if seq_len < self.original_max_seq_len and self.max_seq_len_cached > self.original_max_seq_len:  # reset
             self.register_buffer("inv_freq", self.original_inv_freq, persistent=False)
             self.max_seq_len_cached = self.original_max_seq_len
 
@@ -1041,25 +978,13 @@ class Qwen25VLRotaryEmbedding(nn.Module):
 
         # Core RoPE block. In contrast to other models, Qwen2_5_VL has different position ids for thw grids
         # So we expand the inv_freq to shape (3, ...)
-        inv_freq_expanded = (
-            self.inv_freq[None, None, :, None]
-            .float()
-            .expand(3, position_ids.shape[1], -1, 1)
-        )
-        position_ids_expanded = position_ids[
-            :, :, None, :
-        ].float()  # shape (3, bs, 1, positions)
+        inv_freq_expanded = self.inv_freq[None, None, :, None].float().expand(3, position_ids.shape[1], -1, 1)
+        position_ids_expanded = position_ids[:, :, None, :].float()  # shape (3, bs, 1, positions)
         # Force float32 (see https://github.com/huggingface/transformers/pull/29285)
         device_type = x.device.type
-        device_type = (
-            device_type
-            if isinstance(device_type, str) and device_type != "mps"
-            else "cpu"
-        )
+        device_type = device_type if isinstance(device_type, str) and device_type != "mps" else "cpu"
         with torch.autocast(device_type=device_type, enabled=False):
-            freqs = (
-                inv_freq_expanded.float() @ position_ids_expanded.float()
-            ).transpose(2, 3)
+            freqs = (inv_freq_expanded.float() @ position_ids_expanded.float()).transpose(2, 3)
             emb = torch.cat((freqs, freqs), dim=-1)
             cos = emb.cos()
             sin = emb.sin()
@@ -1073,15 +998,14 @@ class Qwen25VLRotaryEmbedding(nn.Module):
 
 class Qwen2MLP(nn.Module):
     """Qwen2MLP."""
+
     def __init__(self, config):
         """Initialize the instance."""
         super().__init__()
         self.config = config
         self.hidden_size = config.hidden_size
         self.intermediate_size = config.intermediate_size
-        self.gate_up_proj = nn.Linear(
-            self.hidden_size, 2 * self.intermediate_size, bias=False
-        )
+        self.gate_up_proj = nn.Linear(self.hidden_size, 2 * self.intermediate_size, bias=False)
         self.down_proj = nn.Linear(self.intermediate_size, self.hidden_size, bias=False)
         self.hidden_act = config.hidden_act
         self.act_fn = ACT2FN[config.hidden_act]
@@ -1089,9 +1013,7 @@ class Qwen2MLP(nn.Module):
     def forward(self, x):
         """Run the forward pass."""
         gate_up_out = self.gate_up_proj(x)
-        gate_out, up_out = gate_up_out.split(
-            [self.intermediate_size, self.intermediate_size], dim=-1
-        )
+        gate_out, up_out = gate_up_out.split([self.intermediate_size, self.intermediate_size], dim=-1)
         if self.hidden_act == "silu":
             act_out = swiglu(gate_out, up_out)
         else:
@@ -1134,12 +1056,8 @@ def apply_multimodal_rotary_pos_emb(q, k, cos, sin, mrope_section, unsqueeze_dim
         `tuple(torch.Tensor)` comprising of the query and key tensors rotated using the Rotary Position Embedding.
     """
     mrope_section = mrope_section * 2
-    cos = torch.cat(
-        [m[i % 3] for i, m in enumerate(cos.split(mrope_section, dim=-1))], dim=-1
-    ).unsqueeze(unsqueeze_dim)
-    sin = torch.cat(
-        [m[i % 3] for i, m in enumerate(sin.split(mrope_section, dim=-1))], dim=-1
-    ).unsqueeze(unsqueeze_dim)
+    cos = torch.cat([m[i % 3] for i, m in enumerate(cos.split(mrope_section, dim=-1))], dim=-1).unsqueeze(unsqueeze_dim)
+    sin = torch.cat([m[i % 3] for i, m in enumerate(sin.split(mrope_section, dim=-1))], dim=-1).unsqueeze(unsqueeze_dim)
 
     q_embed = (q * cos) + (rotate_half(q) * sin)
     k_embed = (k * cos) + (rotate_half(k) * sin)
@@ -1154,9 +1072,7 @@ def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
     batch, num_key_value_heads, slen, head_dim = hidden_states.shape
     if n_rep == 1:
         return hidden_states
-    hidden_states = hidden_states[:, :, None, :, :].expand(
-        batch, num_key_value_heads, n_rep, slen, head_dim
-    )
+    hidden_states = hidden_states[:, :, None, :, :].expand(batch, num_key_value_heads, n_rep, slen, head_dim)
     return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
 
 
@@ -1193,15 +1109,10 @@ class Qwen25VLAttention(nn.Module):
                 f" and `num_heads`: {self.num_heads})."
             )
 
-        qkv_dim = (
-            self.num_heads * self.head_dim
-            + 2 * self.num_key_value_heads * self.head_dim
-        )
+        qkv_dim = self.num_heads * self.head_dim + 2 * self.num_key_value_heads * self.head_dim
         self.qkv_proj = nn.Linear(self.hidden_size, qkv_dim, bias=True)
 
-        self.o_proj = nn.Linear(
-            self.num_heads * self.head_dim, self.hidden_size, bias=False
-        )
+        self.o_proj = nn.Linear(self.num_heads * self.head_dim, self.hidden_size, bias=False)
 
         self.rotary_emb = Qwen25VLRotaryEmbedding(config=config)
 
@@ -1214,9 +1125,7 @@ class Qwen25VLAttention(nn.Module):
         output_attentions: bool = False,
         use_cache: bool = False,
         cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[
-            Tuple[torch.Tensor, torch.Tensor]
-        ] = None,  # necessary, but kept here for BC
+        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
         **kwargs,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         """Run the forward pass."""
@@ -1224,16 +1133,10 @@ class Qwen25VLAttention(nn.Module):
 
         qkv = self.qkv_proj(hidden_states)  # [bsz, q_len, q_dim + 2 * kv_dim]
         kv_dim = self.num_key_value_heads * self.head_dim
-        q, k, v = torch.split(
-            qkv, [self.num_heads * self.head_dim, kv_dim, kv_dim], dim=-1
-        )
+        q, k, v = torch.split(qkv, [self.num_heads * self.head_dim, kv_dim, kv_dim], dim=-1)
         query_states = q.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-        key_states = k.view(
-            bsz, q_len, self.num_key_value_heads, self.head_dim
-        ).transpose(1, 2)
-        value_states = v.view(
-            bsz, q_len, self.num_key_value_heads, self.head_dim
-        ).transpose(1, 2)
+        key_states = k.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        value_states = v.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
         cos, sin = position_embeddings
         query_states, key_states = apply_multimodal_rotary_pos_emb(
@@ -1246,17 +1149,13 @@ class Qwen25VLAttention(nn.Module):
                 "cos": cos,
                 "cache_position": cache_position,
             }  # Specific to RoPE models
-            key_states, value_states = past_key_value.update(
-                key_states, value_states, self.layer_idx, cache_kwargs
-            )
+            key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
 
         # repeat k/v heads if n_kv_heads < n_heads
         key_states = repeat_kv(key_states, self.num_key_value_groups)
         value_states = repeat_kv(value_states, self.num_key_value_groups)
 
-        attn_weights = torch.matmul(
-            query_states, key_states.transpose(2, 3)
-        ) / math.sqrt(self.head_dim)
+        attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
 
         if attention_mask is not None:  # no matter the length, we just slice it
             causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
@@ -1265,17 +1164,11 @@ class Qwen25VLAttention(nn.Module):
         # Fix precision issues in Qwen2-VL float16 inference
         # Replace inf values with zeros in attention weights to prevent NaN propagation
         if query_states.dtype == torch.float16:
-            attn_weights = torch.where(
-                torch.isinf(attn_weights), torch.zeros_like(attn_weights), attn_weights
-            )
+            attn_weights = torch.where(torch.isinf(attn_weights), torch.zeros_like(attn_weights), attn_weights)
 
         # upcast attention to fp32
-        attn_weights = nn.functional.softmax(
-            attn_weights, dim=-1, dtype=torch.float32
-        ).to(query_states.dtype)
-        attn_weights = nn.functional.dropout(
-            attn_weights, p=self.attention_dropout, training=self.training
-        )
+        attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
+        attn_weights = nn.functional.dropout(attn_weights, p=self.attention_dropout, training=self.training)
         attn_output = torch.matmul(attn_weights, value_states)
 
         if attn_output.size() != (bsz, self.num_heads, q_len, self.head_dim):
@@ -1327,18 +1220,14 @@ class Qwen25VLFlashAttention2(Qwen25VLAttention):
         output_attentions: bool = False,
         use_cache: bool = False,
         cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[
-            Tuple[torch.Tensor, torch.Tensor]
-        ] = None,  # necessary, but kept here for BC
+        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
     ):
         """Run the forward pass."""
         bsz, q_len, _ = hidden_states.size()
 
         qkv = self.qkv_proj(hidden_states)  # [bsz, q_len, q_dim + 2 * kv_dim]
         kv_dim = self.num_key_value_heads * self.head_dim
-        q, k, v = torch.split(
-            qkv, [self.num_heads * self.head_dim, kv_dim, kv_dim], dim=-1
-        )
+        q, k, v = torch.split(qkv, [self.num_heads * self.head_dim, kv_dim, kv_dim], dim=-1)
 
         query_states = q.view(bsz, q_len, self.num_heads, self.head_dim)
         key_states = k.view(bsz, q_len, self.num_key_value_heads, self.head_dim)
@@ -1366,9 +1255,7 @@ class Qwen25VLFlashAttention2(Qwen25VLAttention):
                 self.layer_idx,
                 cache_kwargs,
             )
-            key_states, value_states = key_states.transpose(
-                1, 2
-            ), value_states.transpose(1, 2)
+            key_states, value_states = key_states.transpose(1, 2), value_states.transpose(1, 2)
 
         # repeat k/v heads if n_kv_heads < n_heads
         # key_states = repeat_kv(key_states, self.num_key_value_groups)
@@ -1418,14 +1305,8 @@ class Qwen25VLFlashAttention2(Qwen25VLAttention):
                 query_states = query_states.transpose(1, 2)
                 key_states = key_states.transpose(1, 2)
                 key_states = repeat_kv(key_states, self.num_key_value_groups)
-                scale = 1.0 / torch.sqrt(
-                    torch.tensor(
-                        self.head_dim, device=hidden_states.device, dtype=torch.float32
-                    )
-                )
-                attention_score = (
-                    torch.matmul(query_states, key_states.transpose(-2, -1)) * scale
-                )
+                scale = 1.0 / torch.sqrt(torch.tensor(self.head_dim, device=hidden_states.device, dtype=torch.float32))
+                attention_score = torch.matmul(query_states, key_states.transpose(-2, -1)) * scale
                 causal_mask_local = torch.tril(
                     torch.ones(
                         attention_score.size(-2),
@@ -1441,9 +1322,7 @@ class Qwen25VLFlashAttention2(Qwen25VLAttention):
                 )
                 if mask.dtype != attention_score.dtype:
                     mask = mask.to(dtype=attention_score.dtype)
-                attention_score = attention_score.masked_fill(
-                    ~(mask.bool()), float("-inf")
-                )
+                attention_score = attention_score.masked_fill(~(mask.bool()), float("-inf"))
                 attention_score = torch.softmax(attention_score, dim=-1)
                 attn_weights = attention_score[0].mean(0)
 
@@ -1467,9 +1346,7 @@ class Qwen25VLSdpaAttention(Qwen25VLAttention):
         output_attentions: bool = False,
         use_cache: bool = False,
         cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[
-            Tuple[torch.Tensor, torch.Tensor]
-        ] = None,  # necessary, but kept here for BC
+        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         """Run the forward pass."""
         if output_attentions:
@@ -1479,7 +1356,7 @@ class Qwen25VLSdpaAttention(Qwen25VLAttention):
                 "This attention module is using Qwen25VLSdpaAttention, but "
                 "`torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True`. Falling "
                 "back to the manual attention implementation, "
-                'but specifying the manual implementation will be required from Transformers version v5.0.0 onwards. '
+                "but specifying the manual implementation will be required from Transformers version v5.0.0 onwards. "
                 'This warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
             )
             return super().forward(
@@ -1497,16 +1374,10 @@ class Qwen25VLSdpaAttention(Qwen25VLAttention):
 
         qkv = self.qkv_proj(hidden_states)  # [bsz, q_len, q_dim + 2 * kv_dim]
         kv_dim = self.num_key_value_heads * self.head_dim
-        q, k, v = torch.split(
-            qkv, [self.num_heads * self.head_dim, kv_dim, kv_dim], dim=-1
-        )
+        q, k, v = torch.split(qkv, [self.num_heads * self.head_dim, kv_dim, kv_dim], dim=-1)
         query_states = q.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-        key_states = k.view(
-            bsz, q_len, self.num_key_value_heads, self.head_dim
-        ).transpose(1, 2)
-        value_states = v.view(
-            bsz, q_len, self.num_key_value_heads, self.head_dim
-        ).transpose(1, 2)
+        key_states = k.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        value_states = v.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
         cos, sin = position_embeddings
         query_states, key_states = apply_multimodal_rotary_pos_emb(
@@ -1520,9 +1391,7 @@ class Qwen25VLSdpaAttention(Qwen25VLAttention):
                 "cache_position": cache_position,
             }  # Specific to RoPE models
             if use_cache:
-                key_states, value_states = past_key_value.update(
-                    key_states, value_states, self.layer_idx, cache_kwargs
-                )
+                key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
             else:
                 # Compatible across transformers versions:
                 # v5.x: DynamicCache uses .layers[idx].keys/.values
@@ -1548,20 +1417,14 @@ class Qwen25VLSdpaAttention(Qwen25VLAttention):
             if len(attention_mask.shape) == 2:  # [batch_size, seq_len]
                 # Expand to causal mask format [batch_size, 1, seq_len, seq_len]
                 bsz, seq_len = attention_mask.shape
-                causal_mask = attention_mask.view(bsz, 1, 1, seq_len).expand(
-                    bsz, 1, seq_len, seq_len
-                )
+                causal_mask = attention_mask.view(bsz, 1, 1, seq_len).expand(bsz, 1, seq_len, seq_len)
             elif len(attention_mask.shape) == 3:  # [batch_size, seq_len, seq_len]
                 # Add the head dimension: [batch_size, 1, seq_len, seq_len]
                 causal_mask = attention_mask.unsqueeze(1)
-            elif (
-                len(attention_mask.shape) == 4
-            ):  # [batch_size, num_heads, seq_len, seq_len]
+            elif len(attention_mask.shape) == 4:  # [batch_size, num_heads, seq_len, seq_len]
                 causal_mask = attention_mask
             else:
-                raise ValueError(
-                    f"Unsupported attention_mask shape: {attention_mask.shape}"
-                )
+                raise ValueError(f"Unsupported attention_mask shape: {attention_mask.shape}")
 
             # Convert attention mask to bool
             causal_mask = causal_mask.to(torch.bool)

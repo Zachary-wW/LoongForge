@@ -112,11 +112,7 @@ class StringFormatter(Formatter):
             elif isinstance(slot, (dict, set)):
                 elements.append(slot)
             else:
-                raise RuntimeError(
-                    "Input must be string, set[str] or dict[str, str], got {}".format(
-                        type(slot)
-                    )
-                )
+                raise RuntimeError("Input must be string, set[str] or dict[str, str], got {}".format(type(slot)))
 
         return elements
 
@@ -165,10 +161,7 @@ class ChatTemplate:
         Returns multiple pairs of token ids representing prompts and responses respectively.
         """
         encoded_messages = self._encode(tokenizer, messages, system)
-        return [
-            (encoded_messages[i], encoded_messages[i + 1])
-            for i in range(0, len(encoded_messages), 2)
-        ]
+        return [(encoded_messages[i], encoded_messages[i + 1]) for i in range(0, len(encoded_messages), 2)]
 
     def encode_oneturn(
         self,
@@ -229,9 +222,7 @@ class ChatTemplate:
                 elements += self.format_separator.apply()
 
             if message["role"] == DataRoles.USER:
-                elements += self.format_user.apply(
-                    content=message["content"], idx=str(i // 2)
-                )
+                elements += self.format_user.apply(content=message["content"], idx=str(i // 2))
             elif message["role"] == DataRoles.ASSISTANT:
                 elements += self.format_assistant.apply(content=message["content"])
             else:
@@ -266,11 +257,7 @@ class ChatTemplate:
                     token_ids += [tokenizer.eos]
 
             else:
-                raise ValueError(
-                    "Input must be string, set[str] or dict[str, str], got {}".format(
-                        type(elem)
-                    )
-                )
+                raise ValueError("Input must be string, set[str] or dict[str, str], got {}".format(type(elem)))
 
         return token_ids
 
@@ -391,17 +378,12 @@ class HFChatTemplate(ChatTemplate):
             apply_chat_template = apply_chat_template.__func__
         apply_globals = getattr(apply_chat_template, "__globals__", {})
         deep_sort_dict = apply_globals.get("deep_sort_dict")
-        encode_tools_to_typescript_style = apply_globals.get(
-            "encode_tools_to_typescript_style"
-        )
+        encode_tools_to_typescript_style = apply_globals.get("encode_tools_to_typescript_style")
 
         if deep_sort_dict is not None:
             tools = deep_sort_dict(tools)
 
-        if (
-            "tools_ts_str" not in kwargs
-            and encode_tools_to_typescript_style is not None
-        ):
+        if "tools_ts_str" not in kwargs and encode_tools_to_typescript_style is not None:
             try:
                 kwargs["tools_ts_str"] = encode_tools_to_typescript_style(tools)
             except Exception as exc:
@@ -483,10 +465,7 @@ class HFChatTemplate(ChatTemplate):
         range_index = 0
 
         for token_start, token_end in offsets:
-            while (
-                range_index < len(generation_ranges)
-                and generation_ranges[range_index][1] <= token_start
-            ):
+            while range_index < len(generation_ranges) and generation_ranges[range_index][1] <= token_start:
                 range_index += 1
 
             if range_index >= len(generation_ranges):
@@ -516,10 +495,7 @@ class HFChatTemplate(ChatTemplate):
         generation_ranges: List[Tuple[int, int]],
     ) -> Optional[List[int]]:
         """Fallback mask builder that tokenizes generation/non-generation chunks."""
-        boundaries = sorted(
-            {0, len(text)}
-            | {boundary for span in generation_ranges for boundary in span}
-        )
+        boundaries = sorted({0, len(text)} | {boundary for span in generation_ranges for boundary in span})
         chunk_ids: List[int] = []
         chunk_mask: List[int] = []
 
@@ -527,8 +503,7 @@ class HFChatTemplate(ChatTemplate):
             chunk = text[start:end]
             token_ids = self._encode_text(hf_tokenizer, chunk)
             in_generation = any(
-                range_start <= start and end <= range_end
-                for range_start, range_end in generation_ranges
+                range_start <= start and end <= range_end for range_start, range_end in generation_ranges
             )
             chunk_ids.extend(token_ids)
             chunk_mask.extend([1 if in_generation else 0] * len(token_ids))
@@ -615,8 +590,7 @@ class HFChatTemplate(ChatTemplate):
         """Keep a prefix whose final token is inside assistant generation."""
         if len(input_ids) != len(assistant_masks):
             raise ValueError(
-                "assistant mask length must match input_ids length, got "
-                f"{len(assistant_masks)} vs {len(input_ids)}"
+                f"assistant mask length must match input_ids length, got {len(assistant_masks)} vs {len(input_ids)}"
             )
         if max_length is None or len(input_ids) <= max_length:
             return input_ids, assistant_masks
@@ -650,17 +624,13 @@ class HFChatTemplate(ChatTemplate):
         """Build labels and loss mask from the assistant-token mask."""
         if len(input_ids) != len(assistant_masks):
             raise ValueError(
-                "assistant mask length must match input_ids length, got "
-                f"{len(assistant_masks)} vs {len(input_ids)}"
+                f"assistant mask length must match input_ids length, got {len(assistant_masks)} vs {len(input_ids)}"
             )
 
         loss_mask = [1 if mask else 0 for mask in assistant_masks]
         if history_mask_loss:
             loss_mask = cls._mask_to_final_span(loss_mask)
-        labels = [
-            token_id if mask else ignore_index
-            for token_id, mask in zip(input_ids, loss_mask)
-        ]
+        labels = [token_id if mask else ignore_index for token_id, mask in zip(input_ids, loss_mask)]
         return labels, loss_mask
 
     def encode_openai(
@@ -730,9 +700,7 @@ class Llama2Template(ChatTemplate):
                 elements += self.format_separator.apply()
 
             if message["role"] == DataRoles.USER:
-                elements += self.format_user.apply(
-                    content=system_text + message["content"]
-                )
+                elements += self.format_user.apply(content=system_text + message["content"])
             elif message["role"] == DataRoles.ASSISTANT:
                 elements += self.format_assistant.apply(content=message["content"])
             else:
@@ -824,11 +792,7 @@ def get_support_templates() -> List[str]:
 
 def _read_builtin_chat_template(filename: str) -> str:
     """Read a packaged Jinja chat template."""
-    return (
-        resources.files("loongforge.data.chat_templates")
-        .joinpath(filename)
-        .read_text(encoding="utf-8")
-    )
+    return resources.files("loongforge.data.chat_templates").joinpath(filename).read_text(encoding="utf-8")
 
 
 _register_chat_template(
@@ -1029,22 +993,17 @@ _register_chat_template(
 
 _register_chat_template(
     name="alpaca",
-    format_user=StringFormatter(
-        slots=["### Instruction:\n{{content}}\n\n### Response:\n"]
-    ),
+    format_user=StringFormatter(slots=["### Instruction:\n{{content}}\n\n### Response:\n"]),
     format_separator=EmptyFormatter(slots=["\n\n"]),
     default_system=(
-        "Below is an instruction that describes a task. "
-        "Write a response that appropriately completes the request.\n\n"
+        "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n"
     ),
 )
 
 
 _register_chat_template(
     name="baichuan",
-    format_user=StringFormatter(
-        slots=[{"token": "<reserved_102>"}, "{{content}}", {"token": "<reserved_103>"}]
-    ),
+    format_user=StringFormatter(slots=[{"token": "<reserved_102>"}, "{{content}}", {"token": "<reserved_103>"}]),
     efficient_eos=True,
 )
 
@@ -1083,9 +1042,7 @@ _register_chat_template(
             )
         ]
     ),
-    format_system=StringFormatter(
-        slots=["<|start_header_id|>system<|end_header_id|>\n\n{{content}}<|eot_id|>"]
-    ),
+    format_system=StringFormatter(slots=["<|start_header_id|>system<|end_header_id|>\n\n{{content}}<|eot_id|>"]),
     format_prefix=EmptyFormatter(slots=[{"bos_token"}]),
     stop_words=["<|eot_id|>"],
     replace_eos=True,
@@ -1101,9 +1058,7 @@ _register_chat_template(
             )
         ]
     ),
-    format_system=StringFormatter(
-        slots=["<|start_header_id|>system<|end_header_id|>\n\n{{content}}<|eot_id|>"]
-    ),
+    format_system=StringFormatter(slots=["<|start_header_id|>system<|end_header_id|>\n\n{{content}}<|eot_id|>"]),
     format_prefix=EmptyFormatter(slots=[{"bos_token"}]),
     stop_words=["<|eot_id|>"],
     replace_eos=True,
@@ -1119,12 +1074,8 @@ _register_chat_template(
 
 _register_chat_template(
     name="qwen",
-    format_user=StringFormatter(
-        slots=["<|im_start|>user\n{{content}}<|im_end|>\n<|im_start|>assistant\n"]
-    ),
-    format_system=StringFormatter(
-        slots=["<|im_start|>system\n{{content}}<|im_end|>\n"]
-    ),
+    format_user=StringFormatter(slots=["<|im_start|>user\n{{content}}<|im_end|>\n<|im_start|>assistant\n"]),
+    format_system=StringFormatter(slots=["<|im_start|>system\n{{content}}<|im_end|>\n"]),
     format_separator=EmptyFormatter(slots=["\n"]),
     default_system="You are a helpful assistant.",
     stop_words=["<|im_end|>"],
@@ -1133,12 +1084,8 @@ _register_chat_template(
 
 _register_chat_template(
     name="qwen2-vl",
-    format_user=StringFormatter(
-        slots=["<|im_start|>user\n{{content}}<|im_end|>\n<|im_start|>assistant\n"]
-    ),
-    format_system=StringFormatter(
-        slots=["<|im_start|>system\n{{content}}<|im_end|>\n"]
-    ),
+    format_user=StringFormatter(slots=["<|im_start|>user\n{{content}}<|im_end|>\n<|im_start|>assistant\n"]),
+    format_system=StringFormatter(slots=["<|im_start|>system\n{{content}}<|im_end|>\n"]),
     format_separator=EmptyFormatter(slots=["\n"]),
     default_system="You are a helpful assistant.",
     stop_words=["<|im_end|>"],
@@ -1215,12 +1162,8 @@ _register_chat_template(
     format_user=StringFormatter(
         slots=["<|im_user|>user<|im_middle|>{{content}}<|im_end|><|im_assistant|>assistant<|im_middle|><think></think>"]
     ),
-    format_system=StringFormatter(
-        slots=["<|im_system|>system<|im_middle|>{{content}}<|im_end|>"]
-    ),
-    format_assistant=StringFormatter(
-        slots=["{{content}}<|im_end|>"]
-    ),
+    format_system=StringFormatter(slots=["<|im_system|>system<|im_middle|>{{content}}<|im_end|>"]),
+    format_assistant=StringFormatter(slots=["{{content}}<|im_end|>"]),
     format_separator=EmptyFormatter(slots=[""]),
     stop_words=["<|im_end|>"],
     replace_eos=True,
@@ -1238,12 +1181,8 @@ _register_chat_template(
     format_user=StringFormatter(
         slots=["<|im_user|>user<|im_middle|>{{content}}<|im_end|><|im_assistant|>assistant<|im_middle|><think>"]
     ),
-    format_system=StringFormatter(
-        slots=["<|im_system|>system<|im_middle|>{{content}}<|im_end|>"]
-    ),
-    format_assistant=StringFormatter(
-        slots=["{{content}}<|im_end|>"]
-    ),
+    format_system=StringFormatter(slots=["<|im_system|>system<|im_middle|>{{content}}<|im_end|>"]),
+    format_assistant=StringFormatter(slots=["{{content}}<|im_end|>"]),
     format_separator=EmptyFormatter(slots=[""]),
     stop_words=["<|im_end|>"],
     replace_eos=True,
@@ -1261,12 +1200,8 @@ _register_chat_template(
     format_user=StringFormatter(
         slots=["<|im_user|>user<|im_middle|>{{content}}<|im_end|><|im_assistant|>assistant<|im_middle|><think></think>"]
     ),
-    format_system=StringFormatter(
-        slots=["<|im_system|>system<|im_middle|>{{content}}<|im_end|>"]
-    ),
-    format_assistant=StringFormatter(
-        slots=["{{content}}<|im_end|>"]
-    ),
+    format_system=StringFormatter(slots=["<|im_system|>system<|im_middle|>{{content}}<|im_end|>"]),
+    format_assistant=StringFormatter(slots=["{{content}}<|im_end|>"]),
     format_separator=EmptyFormatter(slots=[""]),
     stop_words=["<|im_end|>"],
     replace_eos=True,
@@ -1283,12 +1218,8 @@ _register_chat_template(
     format_user=StringFormatter(
         slots=["<|im_user|>user<|im_middle|>{{content}}<|im_end|><|im_assistant|>assistant<|im_middle|><think>"]
     ),
-    format_system=StringFormatter(
-        slots=["<|im_system|>system<|im_middle|>{{content}}<|im_end|>"]
-    ),
-    format_assistant=StringFormatter(
-        slots=["{{content}}<|im_end|>"]
-    ),
+    format_system=StringFormatter(slots=["<|im_system|>system<|im_middle|>{{content}}<|im_end|>"]),
+    format_assistant=StringFormatter(slots=["{{content}}<|im_end|>"]),
     format_separator=EmptyFormatter(slots=[""]),
     stop_words=["<|im_end|>"],
     replace_eos=True,

@@ -47,10 +47,7 @@ class DummyVLADataset(Dataset):
         self.image_size = image_size
         self.num_cameras = num_cameras
 
-        logger.info(
-            f"DummyVLADataset: {num_samples} samples, "
-            f"action_dim={action_dim}, horizon={action_horizon}"
-        )
+        logger.info(f"DummyVLADataset: {num_samples} samples, action_dim={action_dim}, horizon={action_horizon}")
 
     def __len__(self) -> int:
         return self.num_samples
@@ -78,6 +75,7 @@ class DummyVLADataset(Dataset):
 # ═══════════════════════════════════════════════════════════════
 # Builder (called by data/__init__.py)
 # ═══════════════════════════════════════════════════════════════
+
 
 def build_dummy_dataset(model_cfg, data_cfg, training_args) -> Dataset:
     """Build dummy dataset from typed configs + CLI training_args."""

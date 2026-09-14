@@ -156,6 +156,7 @@ class QwenDoubleStreamAttention(nn.Module):
         img_freqs, txt_freqs = image_rotary_emb
 
         import os
+
         use_fused = getattr(self.config, "use_fused_qwen_image_rope", False) or (
             os.environ.get("QWEN_IMAGE_USE_FUSED_ROPE", "0") == "1"
         )
@@ -204,9 +205,7 @@ class QwenDoubleStreamAttention(nn.Module):
         txt_k = self.norm_added_k(txt_k)
 
         # RoPE (applies to Q/K only).
-        img_q, img_k, txt_q, txt_k = self._apply_rope(
-            img_q, img_k, txt_q, txt_k, image_rotary_emb
-        )
+        img_q, img_k, txt_q, txt_k = self._apply_rope(img_q, img_k, txt_q, txt_k, image_rotary_emb)
 
         # Joint [s_txt + s_img, b, np, hn].
         seq_txt = txt_q.shape[0]
@@ -359,30 +358,23 @@ class QwenImageLayer(TransformerLayer):
         """
         if timestep_mod is None:
             raise RuntimeError(
-                "QwenImageLayer.forward() requires timestep_mod. "
-                "Ensure QwenImageModel passes it to the decoder."
+                "QwenImageLayer.forward() requires timestep_mod. Ensure QwenImageModel passes it to the decoder."
             )
 
         image = hidden_states
         text = context
         temb = timestep_mod
 
-        img_mod_attn, img_mod_mlp = linear_out(
-            self.img_mod[1], self.img_mod[0](temb)
-        ).chunk(2, dim=-1)
+        img_mod_attn, img_mod_mlp = linear_out(self.img_mod[1], self.img_mod[0](temb)).chunk(2, dim=-1)
         # Text stream does not use zero_cond_t modulation split; take the first bank.
         if modulate_index is not None:
             temb_txt = torch.chunk(temb, 2, dim=0)[0]
         else:
             temb_txt = temb
-        txt_mod_attn, txt_mod_mlp = linear_out(
-            self.txt_mod[1], self.txt_mod[0](temb_txt)
-        ).chunk(2, dim=-1)
+        txt_mod_attn, txt_mod_mlp = linear_out(self.txt_mod[1], self.txt_mod[0](temb_txt)).chunk(2, dim=-1)
 
         # --- Attention block ---
-        img_modulated, img_gate = self._modulate(
-            self.img_norm1(image), img_mod_attn, modulate_index=modulate_index
-        )
+        img_modulated, img_gate = self._modulate(self.img_norm1(image), img_mod_attn, modulate_index=modulate_index)
         txt_modulated, txt_gate = self._modulate(self.txt_norm1(text), txt_mod_attn)
 
         img_attn_out, txt_attn_out = self.attn(
@@ -395,18 +387,12 @@ class QwenImageLayer(TransformerLayer):
         text = text + txt_gate * txt_attn_out
 
         # --- FFN block ---
-        img_modulated_2, img_gate_2 = self._modulate(
-            self.img_norm2(image), img_mod_mlp, modulate_index=modulate_index
-        )
+        img_modulated_2, img_gate_2 = self._modulate(self.img_norm2(image), img_mod_mlp, modulate_index=modulate_index)
         txt_modulated_2, txt_gate_2 = self._modulate(self.txt_norm2(text), txt_mod_mlp)
         image = image + img_gate_2 * self.img_mlp(img_modulated_2)
         text = text + txt_gate_2 * self.txt_mlp(txt_modulated_2)
 
-        image = make_viewless_tensor(
-            inp=image, requires_grad=image.requires_grad, keep_graph=True
-        )
-        text = make_viewless_tensor(
-            inp=text, requires_grad=text.requires_grad, keep_graph=True
-        )
+        image = make_viewless_tensor(inp=image, requires_grad=image.requires_grad, keep_graph=True)
+        text = make_viewless_tensor(inp=text, requires_grad=text.requires_grad, keep_graph=True)
         # Return (hidden_states, context) so TransformerBlock forwards both.
         return image, text

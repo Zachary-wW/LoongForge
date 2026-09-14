@@ -116,9 +116,7 @@ class TimestepEmbeddings(nn.Module):
         if diffusers_compatible_format:
             self.timestep_embedder = DiffusersCompatibleTimestepProj(dim_in, dim_out)
         else:
-            self.timestep_embedder = nn.Sequential(
-                nn.Linear(dim_in, dim_out), nn.SiLU(), nn.Linear(dim_out, dim_out)
-            )
+            self.timestep_embedder = nn.Sequential(nn.Linear(dim_in, dim_out), nn.SiLU(), nn.Linear(dim_out, dim_out))
         self.use_additional_t_cond = use_additional_t_cond
         if use_additional_t_cond:
             self.addition_t_embedding = nn.Embedding(2, dim_out)
@@ -245,9 +243,7 @@ class QwenFeedForward(nn.Module):
         row_linear_cls = row_linear_cls or linear_cls
         self.net = nn.ModuleList([])
         self.net.append(
-            ApproximateGELU(
-                dim, inner_dim, linear_cls=linear_cls, column_linear_cls=column_linear_cls, config=config
-            )
+            ApproximateGELU(dim, inner_dim, linear_cls=linear_cls, column_linear_cls=column_linear_cls, config=config)
         )
         self.net.append(nn.Dropout(dropout))
         if row_linear_cls is nn.Linear:

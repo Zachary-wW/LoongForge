@@ -51,8 +51,7 @@ def _ensure_env_loaded():
     if not os.path.exists(env_sh):
         return
     try:
-        out = subprocess.check_output(
-            ["bash", "-c", f'set -a; source "{env_sh}"; env -0'])
+        out = subprocess.check_output(["bash", "-c", f'set -a; source "{env_sh}"; env -0'])
     except (subprocess.CalledProcessError, OSError):
         return
     for chunk in out.split(b"\0"):
@@ -79,14 +78,14 @@ def _env_flag(name, default=False):
 _ensure_env_loaded()
 
 # Root directory for regression logs (override per run with --log_dir)
-DEFAULT_LOG_ROOT = os.environ.get(
-    "EMBODIED_LOG_ROOT", "/workspace/loongforge_embodied_ci/logs")
+DEFAULT_LOG_ROOT = os.environ.get("EMBODIED_LOG_ROOT", "/workspace/loongforge_embodied_ci/logs")
 
 
 def parse_args(available_models):
     parser = argparse.ArgumentParser(
         description="Embodied regression runner. All flags below also accept an environment-variable form "
-                    "(shown in each help string); CLI flags take precedence over env vars.")
+        "(shown in each help string); CLI flags take precedence over env vars."
+    )
 
     # --- Env-var defaults (mirror the historical shell-entry conventions) ---
     env_models = os.environ.get("model_names", "").split() or None
@@ -101,41 +100,75 @@ def parse_args(available_models):
     env_prepare = _env_flag("prepare")
     env_log_dir = os.environ.get("LOG_DIR") or None
 
-    parser.add_argument("--models", nargs="*", default=env_models,
-                        choices=available_models, metavar="MODEL",
-                        help="Names to regress (defined in config/scripts.yaml); "
-                             f"options: {', '.join(available_models)}; default is all. "
-                             "Env var: model_names (space-separated string).")
-    parser.add_argument("--chip", default=env_chip,
-                        help="Chip/baseline name; determines the baseline subdirectory "
-                             "metrics_baseline/<chip>/. Env var: chip. Required.")
-    parser.add_argument("--timeout", type=int, default=env_timeout,
-                        help="Per-script timeout (seconds). Env var: TIMEOUT.")
-    parser.add_argument("--accuracy_relative_tolerance", type=float, default=env_acc_tol,
-                        help="Env var: accuracy_relative_tolerance.")
-    parser.add_argument("--performance_relative_tolerance", type=float, default=env_perf_tol,
-                        help="Env var: performance_relative_tolerance.")
-    parser.add_argument("--check_loss_only", action="store_true", default=env_check_loss,
-                        help="Hard-check loss only for accuracy (grad_norm skipped). "
-                             "Default: off (both loss and grad_norm are hard-checked). "
-                             "Env var: check_loss_only=true.")
-    parser.add_argument("--auto_collect_baseline", action="store_true", default=env_auto_collect,
-                        help="Collect the current result as the baseline; do not compare. "
-                             "Env var: auto_collect_baseline.")
-    parser.add_argument("--dry_run", action="store_true", default=env_dry_run,
-                        help="Only print commands, do not run training. Env var: dry_run.")
-    parser.add_argument("--fail_fast", action="store_true", default=env_fail_fast,
-                        help="Abort the run as soon as any model fails (skip the remaining models). "
-                             "Env var: fail_fast.")
-    parser.add_argument("--prepare", action="store_true", default=env_prepare,
-                        help="Run config/prepare.sh before regressing. Env var: prepare.")
-    parser.add_argument("--log_dir", default=env_log_dir,
-                        help=f"Log/result output directory, default {DEFAULT_LOG_ROOT}/run_<ts>. "
-                             "Env var: LOG_DIR.")
-    parser.add_argument("--results_file", default=None,
-                        help="results.json output path, default <log_dir>/results.json")
-    parser.add_argument("--list_models", action="store_true",
-                        help="List available names and exit (does not require --chip)")
+    parser.add_argument(
+        "--models",
+        nargs="*",
+        default=env_models,
+        choices=available_models,
+        metavar="MODEL",
+        help="Names to regress (defined in config/scripts.yaml); "
+        f"options: {', '.join(available_models)}; default is all. "
+        "Env var: model_names (space-separated string).",
+    )
+    parser.add_argument(
+        "--chip",
+        default=env_chip,
+        help="Chip/baseline name; determines the baseline subdirectory "
+        "metrics_baseline/<chip>/. Env var: chip. Required.",
+    )
+    parser.add_argument(
+        "--timeout", type=int, default=env_timeout, help="Per-script timeout (seconds). Env var: TIMEOUT."
+    )
+    parser.add_argument(
+        "--accuracy_relative_tolerance", type=float, default=env_acc_tol, help="Env var: accuracy_relative_tolerance."
+    )
+    parser.add_argument(
+        "--performance_relative_tolerance",
+        type=float,
+        default=env_perf_tol,
+        help="Env var: performance_relative_tolerance.",
+    )
+    parser.add_argument(
+        "--check_loss_only",
+        action="store_true",
+        default=env_check_loss,
+        help="Hard-check loss only for accuracy (grad_norm skipped). "
+        "Default: off (both loss and grad_norm are hard-checked). "
+        "Env var: check_loss_only=true.",
+    )
+    parser.add_argument(
+        "--auto_collect_baseline",
+        action="store_true",
+        default=env_auto_collect,
+        help="Collect the current result as the baseline; do not compare. Env var: auto_collect_baseline.",
+    )
+    parser.add_argument(
+        "--dry_run",
+        action="store_true",
+        default=env_dry_run,
+        help="Only print commands, do not run training. Env var: dry_run.",
+    )
+    parser.add_argument(
+        "--fail_fast",
+        action="store_true",
+        default=env_fail_fast,
+        help="Abort the run as soon as any model fails (skip the remaining models). Env var: fail_fast.",
+    )
+    parser.add_argument(
+        "--prepare",
+        action="store_true",
+        default=env_prepare,
+        help="Run config/prepare.sh before regressing. Env var: prepare.",
+    )
+    parser.add_argument(
+        "--log_dir",
+        default=env_log_dir,
+        help=f"Log/result output directory, default {DEFAULT_LOG_ROOT}/run_<ts>. Env var: LOG_DIR.",
+    )
+    parser.add_argument("--results_file", default=None, help="results.json output path, default <log_dir>/results.json")
+    parser.add_argument(
+        "--list_models", action="store_true", help="List available names and exit (does not require --chip)"
+    )
     args = parser.parse_args()
 
     # --list_models is a pure query; skip the rest of the validation.
@@ -150,8 +183,8 @@ def parse_args(available_models):
         invalid = [m for m in args.models if m not in available_models]
         if invalid:
             parser.error(
-                f"unknown model(s) from model_names env var: {invalid}; "
-                f"available: {', '.join(available_models)}")
+                f"unknown model(s) from model_names env var: {invalid}; available: {', '.join(available_models)}"
+            )
 
     if args.chip is None:
         parser.error("--chip is required (or set the 'chip' environment variable)")
@@ -172,14 +205,11 @@ def main():
     # persist the whole run (preflight included) into <log_dir>/regression.log
     # alongside results.json instead of only writing to stdout.
     if not args.log_dir:
-        args.log_dir = os.path.join(
-            DEFAULT_LOG_ROOT, time.strftime("run_%Y%m%d_%H%M%S"))
+        args.log_dir = os.path.join(DEFAULT_LOG_ROOT, time.strftime("run_%Y%m%d_%H%M%S"))
     os.makedirs(args.log_dir, exist_ok=True)
 
     global logger
-    logger = create_logger(log_dir=args.log_dir,
-                           name="embodied_regression",
-                           logfile_name="regression.log")
+    logger = create_logger(log_dir=args.log_dir, name="embodied_regression", logfile_name="regression.log")
 
     if args.prepare:
         prepare_sh = os.path.join(EMBODIED_ROOT, "config", "prepare.sh")
@@ -190,8 +220,7 @@ def main():
                 logger.error(f"Preparation script failed (exit={rc}); aborting")
                 return 2
         else:
-            logger.warning(
-                f"--prepare requested but {prepare_sh} not found; skipping")
+            logger.warning(f"--prepare requested but {prepare_sh} not found; skipping")
 
     models = args.models if args.models else available
 
@@ -204,26 +233,31 @@ def main():
             if load_baseline(args.chip, m, BASELINE_KEY) is not None:
                 logger.warning(
                     f"[{m}] baseline already exists at {baseline_path(args.chip, m)}; "
-                    "--auto_collect_baseline will overwrite it")
+                    "--auto_collect_baseline will overwrite it"
+                )
     elif not args.dry_run:
-        missing = [(m, baseline_path(args.chip, m)) for m in models
-                   if load_baseline(args.chip, m, BASELINE_KEY) is None]
+        missing = [
+            (m, baseline_path(args.chip, m)) for m in models if load_baseline(args.chip, m, BASELINE_KEY) is None
+        ]
         if missing:
             logger.error(f"Missing baseline for chip={args.chip}:")
             for m, p in missing:
                 logger.error(f"  - {m} -> {p}")
             logger.error(
                 "Refusing to run. Either collect baselines first with "
-                "--auto_collect_baseline, or use --dry_run to only verify the pipeline.")
+                "--auto_collect_baseline, or use --dry_run to only verify the pipeline."
+            )
             return 2
 
     scripts_root = examples_dir(EMBODIED_ROOT)
     logger.info(f"Regression script directory: {scripts_root}")
     logger.info(f"Regression targets: {models}")
-    logger.info(f"Log directory: {args.log_dir}  chip={args.chip}  "
-                f"acc_tol={args.accuracy_relative_tolerance}  "
-                f"perf_tol={args.performance_relative_tolerance}  "
-                f"dry_run={args.dry_run}")
+    logger.info(
+        f"Log directory: {args.log_dir}  chip={args.chip}  "
+        f"acc_tol={args.accuracy_relative_tolerance}  "
+        f"perf_tol={args.performance_relative_tolerance}  "
+        f"dry_run={args.dry_run}"
+    )
 
     results = []
     for index, model_name in enumerate(models, 1):
@@ -232,14 +266,11 @@ def main():
         result = run_script(model_name, script_path, args, args.log_dir, logger)
         results.append(result)
         status = "PASS" if result["passed"] else "FAIL"
-        logger.info(f"[{index}/{len(models)}] {model_name} finished: {status} "
-                    f"({result['duration_sec']}s)")
+        logger.info(f"[{index}/{len(models)}] {model_name} finished: {status} ({result['duration_sec']}s)")
         if not result["passed"] and args.fail_fast:
             remaining = len(models) - index
             if remaining > 0:
-                logger.warning(
-                    f"--fail_fast: aborting run after {model_name} FAIL "
-                    f"({remaining} model(s) skipped)")
+                logger.warning(f"--fail_fast: aborting run after {model_name} FAIL ({remaining} model(s) skipped)")
             break
 
     results_file = args.results_file or os.path.join(args.log_dir, "results.json")
@@ -256,8 +287,7 @@ def main():
 
     failed = [r["model_name"] for r in results if not r["passed"]]
     total_run = len(results)
-    logger.info(f"Regression complete: ran {total_run}, failed {len(failed)}"
-                + (f" ({failed})" if failed else ""))
+    logger.info(f"Regression complete: ran {total_run}, failed {len(failed)}" + (f" ({failed})" if failed else ""))
     return 1 if failed else 0
 
 
@@ -271,5 +301,6 @@ if __name__ == "__main__":
             logger.exception("Executor exited abnormally")
         else:
             import traceback
+
             traceback.print_exc()
         sys.exit(2)

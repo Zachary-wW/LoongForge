@@ -84,27 +84,15 @@ def build_action_head_config(model_config: DreamZeroConfig) -> WANPolicyHeadConf
         prompt_emb_cache_max_entries=model_config.prompt_emb_cache_max_entries,
         precomputed_video_latents=precomputed_cache.video_latents.enabled,
         precomputed_video_latents_key=precomputed_cache.video_latents.batch_key,
-        precomputed_video_latents_layout=(
-            precomputed_cache.video_latents.layout or "bcthw"
-        ),
-        precomputed_video_latents_strict=(
-            precomputed_cache.video_latents.required
-        ),
-        precomputed_first_frame_latents=(
-            precomputed_cache.first_frame_latents.enabled
-        ),
-        precomputed_first_frame_latents_key=(
-            precomputed_cache.first_frame_latents.batch_key
-        ),
-        precomputed_first_frame_latents_strict=(
-            precomputed_cache.first_frame_latents.required
-        ),
+        precomputed_video_latents_layout=(precomputed_cache.video_latents.layout or "bcthw"),
+        precomputed_video_latents_strict=(precomputed_cache.video_latents.required),
+        precomputed_first_frame_latents=(precomputed_cache.first_frame_latents.enabled),
+        precomputed_first_frame_latents_key=(precomputed_cache.first_frame_latents.batch_key),
+        precomputed_first_frame_latents_strict=(precomputed_cache.first_frame_latents.required),
         precomputed_prompt_embs=precomputed_cache.prompt_embs.enabled,
         precomputed_prompt_embs_key=precomputed_cache.prompt_embs.batch_key,
         precomputed_prompt_embs_strict=precomputed_cache.prompt_embs.required,
-        skip_precomputed_pixel_preprocess=(
-            precomputed_cache.skip_pixel_preprocess
-        ),
+        skip_precomputed_pixel_preprocess=(precomputed_cache.skip_pixel_preprocess),
         precomputed_first_frame_only=precomputed_cache.first_frame_only,
         # Trainability
         tune_projector=model_config.tune_projector,
@@ -133,11 +121,7 @@ def _config_to_dreamzero(cfg: Any) -> DreamZeroConfig:
         raw = cfg
     else:
         values = vars(cfg)
-        raw = {
-            name: values[name]
-            for name in valid
-            if name in values
-        }
+        raw = {name: values[name] for name in valid if name in values}
     return DreamZeroConfig(**{k: v for k, v in raw.items() if k in valid})
 
 
@@ -300,9 +284,7 @@ class DreamZeroPolicy(PreTrainedPolicy):
                         rounded_numel += int(local.numel())
                         continue
 
-                    param.data.copy_(
-                        param.data.to(dtype=target_dtype).to(dtype=param.dtype)
-                    )
+                    param.data.copy_(param.data.to(dtype=target_dtype).to(dtype=param.dtype))
                     fallback_params += 1
                     fallback_numel += int(param.numel())
 
@@ -334,8 +316,7 @@ class DreamZeroPolicy(PreTrainedPolicy):
         if mode in {"fp16", "float16", "half"}:
             return torch.float16
         raise ValueError(
-            "DreamZeroConfig.fsdp_initial_param_rounding_dtype must be one of "
-            "null/bf16/bfloat16/fp16/float16"
+            "DreamZeroConfig.fsdp_initial_param_rounding_dtype must be one of null/bf16/bfloat16/fp16/float16"
         )
 
     @staticmethod
@@ -393,9 +374,7 @@ class DreamZeroPolicy(PreTrainedPolicy):
             cpu_burn,
         )
 
-    def forward(
-        self, batch: dict[str, Tensor], reduction: str = "mean"
-    ) -> tuple[Tensor, dict[str, Tensor]]:
+    def forward(self, batch: dict[str, Tensor], reduction: str = "mean") -> tuple[Tensor, dict[str, Tensor]]:
         """Run a training step.
 
         Args:
@@ -409,11 +388,7 @@ class DreamZeroPolicy(PreTrainedPolicy):
         for logging.
         """
         prepared_batch = self._prepare_action_input(batch)
-        action_input = (
-            prepared_batch
-            if isinstance(prepared_batch, BatchFeature)
-            else BatchFeature(data=prepared_batch)
-        )
+        action_input = prepared_batch if isinstance(prepared_batch, BatchFeature) else BatchFeature(data=prepared_batch)
         # WANPolicyHead expects a backbone_output positional arg; it is not
         # used in forward (DreamZero ActionHead is the entire policy). Pass
         # an empty BatchFeature to keep the abstract interface intact.

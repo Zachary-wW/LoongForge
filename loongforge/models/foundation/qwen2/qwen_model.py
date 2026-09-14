@@ -98,14 +98,11 @@ class DynamicRotaryEmbedding(RotaryEmbedding):
         self.max_position_embeddings = max_position_embeddings
         self.max_seq_len_cached = max_position_embeddings
 
-    def forward(
-        self, max_seq_len: int, offset: int = 0, packed_seq: bool = False
-    ) -> Tensor:
+    def forward(self, max_seq_len: int, offset: int = 0, packed_seq: bool = False) -> Tensor:
         """Forward pass of RoPE embedding"""
         if max_seq_len > self.max_position_embeddings:
             base = self.rotary_base * (
-                (self.scaling_factor * max_seq_len / self.max_position_embeddings)
-                - (self.scaling_factor - 1)
+                (self.scaling_factor * max_seq_len / self.max_position_embeddings) - (self.scaling_factor - 1)
             ) ** (self.dim / (self.dim - 2))
             self.inv_freq = 1.0 / (
                 base
@@ -130,13 +127,7 @@ class Qwen2VLRotaryEmbedding(torch.nn.Module):
     def __init__(self, dim, theta=1000000):
         super().__init__()
         self.inv_freq = 1.0 / (
-            theta
-            ** (
-                torch.arange(0, dim, 2, dtype=torch.int64)
-                .float()
-                .to(torch.cuda.current_device())
-                / dim
-            )
+            theta ** (torch.arange(0, dim, 2, dtype=torch.int64).float().to(torch.cuda.current_device()) / dim)
         )
 
     @torch.no_grad()
@@ -144,24 +135,16 @@ class Qwen2VLRotaryEmbedding(torch.nn.Module):
         """Returns the frequency"""
         # Core RoPE block. In contrast to other models, Qwen2_VL has different position ids for thw grids
         # So we expand the inv_freq to shape (3, ...)
-        inv_freq_expanded = (
-            self.inv_freq[None, None, :, None]
-            .float()
-            .expand(3, position_ids.shape[1], -1, 1)
-        )
-        position_ids_expanded = position_ids[
-            :, :, None, :
-        ].float()  # shape (3, bs, 1, positions)
+        inv_freq_expanded = self.inv_freq[None, None, :, None].float().expand(3, position_ids.shape[1], -1, 1)
+        position_ids_expanded = position_ids[:, :, None, :].float()  # shape (3, bs, 1, positions)
 
-        freqs = (inv_freq_expanded.float() @ position_ids_expanded.float()).transpose(
-            2, 3
-        )
+        freqs = (inv_freq_expanded.float() @ position_ids_expanded.float()).transpose(2, 3)
         emb = torch.cat((freqs, freqs), dim=-1)
 
         if parallel_state.get_context_parallel_world_size() > 1:
             emb = get_pos_emb_on_this_cp_rank(emb, 2, packed_seq)
 
-        return emb.transpose(0, 2).contiguous() # [3, bs, seq_len, dim] -> [seq_len, bs, 3, dim]
+        return emb.transpose(0, 2).contiguous()  # [3, bs, seq_len, dim] -> [seq_len, bs, 3, dim]
 
 
 class Qwen2Model(BaseGPTModel):
@@ -203,7 +186,6 @@ class Qwen2Model(BaseGPTModel):
         vp_stage: Optional[int] = None,
         **kwargs,
     ) -> None:
-
         if config.model_spec is None:
             model_spec = [
                 "loongforge.models.foundation.qwen2.qwen_layer_spec",
@@ -249,8 +231,7 @@ class Qwen2Model(BaseGPTModel):
             post_process=post_process,
             fp16_lm_cross_entropy=config.fp16_lm_cross_entropy,
             parallel_output=parallel_output,
-            share_embeddings_and_output_weights=(
-                not config.untie_embeddings_and_output_weights),
+            share_embeddings_and_output_weights=(not config.untie_embeddings_and_output_weights),
             position_embedding_type=config.position_embedding_type,
             language_embedding=language_embedding,
             rotary_dtype=rotary_dtype,
@@ -266,12 +247,10 @@ class Qwen2Model(BaseGPTModel):
             vp_stage=vp_stage,
         )
 
-        self.register_load_state_dict_post_hook(
-            _load_state_dict_hook_ignore_extra_state
-        )
-        if hasattr(config, 'freeze') and config.freeze:
+        self.register_load_state_dict_post_hook(_load_state_dict_hook_ignore_extra_state)
+        if hasattr(config, "freeze") and config.freeze:
             self.freeze()
-    
+
     def _preprocess(
         self,
         input_ids: Tensor,
@@ -292,9 +271,7 @@ class Qwen2Model(BaseGPTModel):
         # Decoder embedding.
         if decoder_input is None:
             if self.pre_process:
-                decoder_input = self.embedding(
-                    input_ids=input_ids, position_ids=position_ids
-                )
+                decoder_input = self.embedding(input_ids=input_ids, position_ids=position_ids)
             else:
                 # intermediate stage of pipeline
                 # decoder will get hidden_states from encoder.input_tensor
@@ -316,8 +293,7 @@ class Qwen2Model(BaseGPTModel):
             )
             rotary_pos_emb = self.rotary_pos_emb(
                 rotary_seq_len,
-                packed_seq=packed_seq_params is not None
-                and packed_seq_params.qkv_format == "thd",
+                packed_seq=packed_seq_params is not None and packed_seq_params.qkv_format == "thd",
             )
         else:
             rotary_pos_emb = self.rotary_pos_emb(
@@ -367,9 +343,7 @@ class Qwen2Model(BaseGPTModel):
             rotary_pos_emb=rotary_pos_emb,
         )
 
-        (decoder_input, rotary_pos_emb) = (
-            preproc_output[:2]
-        )
+        (decoder_input, rotary_pos_emb) = preproc_output[:2]
 
         # Run decoder.
         hidden_states = self.decoder(

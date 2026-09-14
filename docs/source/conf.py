@@ -1,10 +1,11 @@
 import os, sys
-sys.path.insert(0, os.path.abspath('../..')) 
+
+sys.path.insert(0, os.path.abspath("../.."))
 
 
-project = 'LoongForge'
-copyright = '2026, LoongForge'
-author = 'LoongForge'
+project = "LoongForge"
+copyright = "2026, LoongForge"
+author = "LoongForge"
 
 extensions = [
     "myst_parser",
@@ -14,10 +15,10 @@ extensions = [
     "sphinx.ext.autosummary",
 ]
 
-templates_path = ['_templates']
-exclude_patterns = ['zh', 'get_started/examples']
+templates_path = ["_templates"]
+exclude_patterns = ["zh", "get_started/examples"]
 
-language = 'en'
+language = "en"
 
 autosummary_generate = True
 autodoc_default_options = {
@@ -45,16 +46,15 @@ myst_enable_extensions = [
     "colon_fence",
 ]
 
-html_theme = 'sphinx_book_theme'
-html_title = 'LoongForge'
+html_theme = "sphinx_book_theme"
+html_title = "LoongForge"
 html_theme_options = {
     "repository_url": "https://github.com/baidu-baige/LoongForge",
     "use_repository_button": True,
 }
-html_static_path = ['_static']
+html_static_path = ["_static"]
 html_css_files = [
     "custom.css",
 ]
 html_show_sphinx = False
 html_show_copyright = True
-

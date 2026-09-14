@@ -20,12 +20,8 @@ def test_reducer_bucket_control_single_process():
     fd, init_file = tempfile.mkstemp(prefix="groot_n1_7_ddp_")
     os.close(fd)
     try:
-        dist.init_process_group(
-            "gloo", init_method=f"file://{init_file}", rank=0, world_size=1
-        )
-        model = DistributedDataParallel(torch.nn.Sequential(
-            torch.nn.Linear(4, 4), torch.nn.Linear(4, 2)
-        ))
+        dist.init_process_group("gloo", init_method=f"file://{init_file}", rank=0, world_size=1)
+        model = DistributedDataParallel(torch.nn.Sequential(torch.nn.Linear(4, 4), torch.nn.Linear(4, 2)))
         reducer = model.reducer
         initialize_buckets(reducer, [[0, 1], [2, 3]])
         buckets = get_buckets(reducer)

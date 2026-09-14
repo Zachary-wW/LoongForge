@@ -10,6 +10,7 @@ from loongforge.models.common.base_model_config import BaseModelConfig
 @dataclass
 class MimoConfig(BaseModelConfig):
     """config for mimo model"""
+
     num_layers: int
     hidden_size: int
     ffn_hidden_size: int

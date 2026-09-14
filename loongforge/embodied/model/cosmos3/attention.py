@@ -124,7 +124,6 @@ AttentionMaskType = BlockMask | SplitInfo
 _dotproduct_attention_cache = {}
 
 
-
 def two_way_attention(
     packed_query_states: FactoredSequencePack | JointSequencePack,
     packed_key_states: FactoredSequencePack | JointSequencePack,
@@ -143,7 +142,6 @@ def two_way_attention(
 
     use_dont_care_mask = causal_q_offsets is causal_k_offsets
 
-
     causal_res = attention(
         causal_q.unsqueeze(0),  # [1,N_und,heads,head_dim]
         causal_k.unsqueeze(0),  # [1,N_und,heads,head_dim]
@@ -154,7 +152,7 @@ def two_way_attention(
         max_seqlen_KV=packed_query_states["max_causal_len"],
         is_causal=True,
         causal_type=CausalType.DontCare if use_dont_care_mask else CausalType.TopLeft,
-        deterministic=torch.are_deterministic_algorithms_enabled()
+        deterministic=torch.are_deterministic_algorithms_enabled(),
     )  # [1,N_und,heads,head_dim]
 
     # [1,N_und,heads,head_dim] -> [N_und,heads,head_dim] -> [N_und,heads*head_dim]
@@ -168,7 +166,7 @@ def two_way_attention(
         cumulative_seqlen_KV=sample_offsets,
         max_seqlen_Q=packed_query_states["max_full_len"],
         max_seqlen_KV=packed_query_states["max_sample_len"],
-        deterministic=torch.are_deterministic_algorithms_enabled()
+        deterministic=torch.are_deterministic_algorithms_enabled(),
     )  # [1,N_full,heads,head_dim]
 
     # [1,N_full,heads,head_dim] -> [N_full,heads,head_dim] -> [N_full,heads*head_dim]
@@ -221,7 +219,6 @@ def three_way_attention(
 
     use_dont_care_mask = causal_q_offsets is causal_k_offsets
 
-
     causal_res = attention(
         causal_q.unsqueeze(0),  # [1,N_und,heads,head_dim]
         causal_k.unsqueeze(0),  # [1,N_und,heads,head_dim]
@@ -232,7 +229,7 @@ def three_way_attention(
         max_seqlen_KV=packed_query_states["max_causal_len"],
         is_causal=True,
         causal_type=CausalType.DontCare if use_dont_care_mask else CausalType.TopLeft,
-        deterministic=torch.are_deterministic_algorithms_enabled()
+        deterministic=torch.are_deterministic_algorithms_enabled(),
     )  # [1,N_und,heads,head_dim]
     # [1,N_und,heads,head_dim] -> [N_und,heads,head_dim] -> [N_und,heads*head_dim]
     causal_out = causal_res.squeeze(0).flatten(-2, -1)  # type: ignore  # [N_und,heads*head_dim]
@@ -248,7 +245,7 @@ def three_way_attention(
             max_seqlen_Q=packed_query_states["max_full_len"],
             max_seqlen_KV=packed_query_states["max_full_len"],
             return_lse=True,
-            deterministic=torch.are_deterministic_algorithms_enabled()
+            deterministic=torch.are_deterministic_algorithms_enabled(),
         )  # full_sa: [1,N_full,heads,head_dim], full_sa_lse: [1,N_full,heads]
     else:
         raise NotImplementedError("NATTEN multi_dimensional_attention_varlen is not supported")
@@ -262,7 +259,7 @@ def three_way_attention(
         max_seqlen_Q=packed_query_states["max_full_len"],
         max_seqlen_KV=packed_query_states["max_causal_len"],
         return_lse=True,
-        deterministic=torch.are_deterministic_algorithms_enabled()
+        deterministic=torch.are_deterministic_algorithms_enabled(),
     )  # full_ca: [1,N_full,heads,head_dim], full_ca_lse: [1,N_full,heads]
 
     assert full_sa.shape == full_ca.shape
@@ -353,18 +350,9 @@ def dispatch_attention(
             attention_meta=attention_mask,
         )
     elif isinstance(attention_mask, SplitInfo):
-        return two_way_attention(
-            packed_query_states,
-            packed_key_states,
-            packed_value_states
-        )
+        return two_way_attention(packed_query_states, packed_key_states, packed_value_states)
     else:
-        return block_flex_attention(
-            packed_query_states,
-            packed_key_states,
-            packed_value_states,
-            attention_mask
-        )
+        return block_flex_attention(packed_query_states, packed_key_states, packed_value_states, attention_mask)
 
 
 def build_packed_sequence(
@@ -478,8 +466,6 @@ def build_packed_sequence(
     input_pack.pop("split_lens", None)
     input_pack.pop("attn_modes", None)
     return input_pack, attention_meta, natten_metadata_list
-
-
 
 
 @torch.compiler.disable
@@ -646,4 +632,3 @@ def is_torch_compiling() -> bool:
 
 # Use the local attention function
 attention = flash2_attention
-

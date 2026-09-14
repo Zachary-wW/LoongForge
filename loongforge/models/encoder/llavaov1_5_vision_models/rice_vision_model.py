@@ -17,7 +17,8 @@ from loongforge.models.encoder.base_vision_models.base_vision_model import (
 
 
 class PatchEmbed(torch.nn.Module):
-    """" Patch Embedding """
+    """ " Patch Embedding"""
+
     def __init__(
         self,
         patch_size: int = 14,
@@ -30,21 +31,15 @@ class PatchEmbed(torch.nn.Module):
         self.embed_dim = embed_dim
 
         self.proj = torch.nn.Conv2d(
-            in_channels,
-            embed_dim,
-            kernel_size=(patch_size, patch_size),
-            stride=(patch_size, patch_size),
-            bias=False
+            in_channels, embed_dim, kernel_size=(patch_size, patch_size), stride=(patch_size, patch_size), bias=False
         )
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        """" Forward pass """
+        """ " Forward pass"""
         target_dtype = self.proj.weight.dtype
-        hidden_states = hidden_states.view(
-            -1, self.in_channels, self.patch_size, self.patch_size
-        )
+        hidden_states = hidden_states.view(-1, self.in_channels, self.patch_size, self.patch_size)
         hidden_states = self.proj(hidden_states.to(dtype=target_dtype)).view(-1, self.embed_dim)
-        
+
         return hidden_states
 
 
@@ -78,7 +73,7 @@ class RiceViTModel(BaseVisionModel):
         self.pre_layernorm = torch.nn.LayerNorm(config.hidden_size, eps=1e-4)
 
     def forward(self, x: torch.Tensor, image_grid_thw: torch.Tensor) -> torch.Tensor:
-        """ Forward of the vision model"""
+        """Forward of the vision model"""
         x = self.patch_embed(x)
 
         batch_size = image_grid_thw.size(0)
@@ -109,9 +104,7 @@ class RiceViTModel(BaseVisionModel):
         start_idx = 0
         for i in range(batch_size):
             new_rotary_pos_emb.append(class_pos_embs[i : i + 1])
-            new_rotary_pos_emb.append(
-                rotary_pos_emb[start_idx : start_idx + tokens_per_sample[i]]
-            )
+            new_rotary_pos_emb.append(rotary_pos_emb[start_idx : start_idx + tokens_per_sample[i]])
             start_idx += tokens_per_sample[i]
 
         rotary_pos_emb = torch.cat(new_rotary_pos_emb, dim=0)
@@ -120,7 +113,6 @@ class RiceViTModel(BaseVisionModel):
         cumulative_length = 0
         cu_seqlens.append(cumulative_length)  # Starts from 0
         for length in tokens_per_sample:
-
             cumulative_length += int(length + 1)
             cu_seqlens.append(cumulative_length)
 
@@ -143,7 +135,7 @@ class RiceViTModel(BaseVisionModel):
                     cu_seqlens_q=cu_seqlens,
                     cu_seqlens_kv=cu_seqlens,
                     max_seqlen_q=max_seqlen,
-                    max_seqlen_kv=max_seqlen
+                    max_seqlen_kv=max_seqlen,
                 )
                 for i in range(self.config.num_layers)
             ],

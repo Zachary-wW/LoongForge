@@ -96,11 +96,11 @@ class TransformerBlock(MegatronTransformerBlock):
         # state_dict conflicts.
         if self.config.enable_hyper_connections and self.has_final_layernorm_in_this_stage():
             # Delete parent's inline parameters
-            if hasattr(self, 'hc_head_fn'):
+            if hasattr(self, "hc_head_fn"):
                 del self.hc_head_fn
-            if hasattr(self, 'hc_head_base'):
+            if hasattr(self, "hc_head_base"):
                 del self.hc_head_base
-            if hasattr(self, 'hc_head_scale'):
+            if hasattr(self, "hc_head_scale"):
                 del self.hc_head_scale
             self.head_hyper_connection = HyperHead(self.config)
 
@@ -227,7 +227,7 @@ class TransformerBlock(MegatronTransformerBlock):
             # Forward pass.
             recompute_for_chunkpipe = False
             native_recompute = False
-            if self.config.recompute_granularity == 'full':
+            if self.config.recompute_granularity == "full":
                 native_recompute = True
             if self.config.enable_chunkpipe:
                 if self.config.sft_chunkpipe_mode:
@@ -254,30 +254,24 @@ class TransformerBlock(MegatronTransformerBlock):
                     **kwargs,
                 )
             else:
-                deepstack_visual_embeds = kwargs.pop('deepstack_visual_embeds', None)
-                visual_pos_masks = kwargs.pop('visual_pos_masks', None)
+                deepstack_visual_embeds = kwargs.pop("deepstack_visual_embeds", None)
+                visual_pos_masks = kwargs.pop("visual_pos_masks", None)
                 has_deepstack = self._check_inputs_parameters(deepstack_visual_embeds, visual_pos_masks)
-                
+
                 for l_no, layer in enumerate(self.layers):
                     # Get appropriate inner quantization context
                     if use_inner_quantization_context:
                         if self.config.fp8:
-                            inner_quantization_context = get_fp8_context(
-                                self.config, layer.layer_number - 1
-                            )
+                            inner_quantization_context = get_fp8_context(self.config, layer.layer_number - 1)
                         elif self.config.fp4:
-                            inner_quantization_context = get_fp4_context(
-                                self.config, layer.layer_number - 1
-                            )
+                            inner_quantization_context = get_fp4_context(self.config, layer.layer_number - 1)
                         else:
                             inner_quantization_context = nullcontext()
                     else:
                         inner_quantization_context = nullcontext()
 
                     if self.config.fine_grained_activation_offloading:
-                        fine_grained_offloading_set_last_layer(
-                            l_no == self.num_layers_per_pipeline_rank - 1
-                        )
+                        fine_grained_offloading_set_last_layer(l_no == self.num_layers_per_pipeline_rank - 1)
 
                     with self.offload_context, inner_quantization_context:
                         if isinstance(packed_seq_params, list) and len(packed_seq_params) > 0:
@@ -297,12 +291,9 @@ class TransformerBlock(MegatronTransformerBlock):
                             sequence_len_offset=sequence_len_offset,
                             **kwargs,
                         )
-                        
+
                         # vision deepstack features process
-                        if (
-                            has_deepstack and
-                            l_no in range(len(deepstack_visual_embeds))
-                        ):  
+                        if has_deepstack and l_no in range(len(deepstack_visual_embeds)):
                             hidden_states = self._deepstack_process(
                                 hidden_states,
                                 visual_pos_masks,
@@ -320,7 +311,7 @@ class TransformerBlock(MegatronTransformerBlock):
         mhc_multistream = None
         if self.config.enable_hyper_connections and self.has_final_layernorm_in_this_stage():
             # When MTP is enabled, save pre-contraction multi-stream for MTP input.
-            if getattr(self.config, 'mtp_num_layers', None) and self.config.mtp_num_layers > 0:
+            if getattr(self.config, "mtp_num_layers", None) and self.config.mtp_num_layers > 0:
                 mhc_multistream = hidden_states
             hidden_states = self.head_hyper_connection(hidden_states)  # [s, b, n*C] -> [s, b, C]
         # Final layer norm.
@@ -329,21 +320,18 @@ class TransformerBlock(MegatronTransformerBlock):
             # TENorm produces a "viewed" tensor. This will result in schedule.py's
             # deallocate_output_tensor() throwing an error, so a viewless tensor is
             # created to prevent this.
-            hidden_states = make_viewless_tensor(
-                inp=hidden_states, requires_grad=True, keep_graph=True
-            )
+            hidden_states = make_viewless_tensor(inp=hidden_states, requires_grad=True, keep_graph=True)
 
         # If this TransformerBlock is empty, input and output hidden states will be the same node
         # on the computational graph and will lead to unexpected errors in pipeline schedules.
         if not self.pre_process and len(self.layers) == 0 and not self.final_layernorm:
             hidden_states = hidden_states.clone()
 
-
         # When mHC + MTP, return both contracted [s,b,h] and pre-contraction [s,b,n*h]
         if mhc_multistream is not None:
             return hidden_states, mhc_multistream
         return hidden_states
-        
+
     def _checkpointed_forward(
         self,
         hidden_states: Tensor,
@@ -357,34 +345,30 @@ class TransformerBlock(MegatronTransformerBlock):
         **kwargs,
     ):
         """Forward method with activation checkpointing."""
-        deepstack_visual_embeds = kwargs.pop('deepstack_visual_embeds', None)
-        visual_pos_masks = kwargs.pop('visual_pos_masks', None)
+        deepstack_visual_embeds = kwargs.pop("deepstack_visual_embeds", None)
+        visual_pos_masks = kwargs.pop("visual_pos_masks", None)
         has_deepstack = self._check_inputs_parameters(deepstack_visual_embeds, visual_pos_masks)
-        if has_deepstack and (self.config.recompute_method == 'uniform'
-            and self.config.recompute_granularity == 'full'):
-            # If DeepStack is present and the uniform strategy is used, 
+        if has_deepstack and (
+            self.config.recompute_method == "uniform" and self.config.recompute_granularity == "full"
+        ):
+            # If DeepStack is present and the uniform strategy is used,
             # the value of recompute_num_layers must be set to 1; otherwise, DeepStack may be skipped
-            assert self._recompute_num_layers == 1, \
+            assert self._recompute_num_layers == 1, (
                 "If has_deepstack is true and recompute_method is set to uniform, recompute_num_layers must be 1."
+            )
 
         def custom(start: int, end: int):
-            def custom_forward(
-                hidden_states, attention_mask, context, context_mask, rotary_pos_emb, **_ignored
-            ):
+            def custom_forward(hidden_states, attention_mask, context, context_mask, rotary_pos_emb, **_ignored):
                 for index in range(start, end):
                     layer = self._get_layer(index)
 
                     # Get appropriate inner quantization context
                     if use_inner_quantization_context:
                         if self.config.fp8:
-                            inner_quantization_context = get_fp8_context(
-                                self.config, layer.layer_number - 1
-                            )
+                            inner_quantization_context = get_fp8_context(self.config, layer.layer_number - 1)
                         # TODO: check if fp4 is supported in this case
                         elif self.config.fp4:
-                            inner_quantization_context = get_fp4_context(
-                                self.config, layer.layer_number - 1
-                            )
+                            inner_quantization_context = get_fp4_context(self.config, layer.layer_number - 1)
                         else:
                             inner_quantization_context = nullcontext()
                     else:
@@ -427,6 +411,7 @@ class TransformerBlock(MegatronTransformerBlock):
                 # to forward_func (unlike te_checkpoint). Bind kwargs via functools.partial
                 # so V4 hash routing (input_ids) works under recompute when FP8 is off.
                 import functools as _ft
+
                 _bound = _ft.partial(forward_func, **kwargs) if kwargs else forward_func
                 return tensor_parallel.checkpoint(
                     _bound,
@@ -441,24 +426,17 @@ class TransformerBlock(MegatronTransformerBlock):
         if self.config.enable_chunkpipe:
             start_layer, end_layer = 0, self.num_layers_per_pipeline_rank
             for layer_idx in range(start_layer, end_layer):
-                hidden_states, context = checkpoint_handler(
-                    custom(layer_idx, layer_idx + 1)
-                )
+                hidden_states, context = checkpoint_handler(custom(layer_idx, layer_idx + 1))
             return hidden_states
 
-        if self.config.recompute_method == 'uniform':
+        if self.config.recompute_method == "uniform":
             # Uniformly divide the total number of Transformer layers and checkpoint
             # the input activation of each divided chunk.
             # A method to further reduce memory usage reducing checkpoints.
             layer_idx = 0
             while layer_idx < self.num_layers_per_pipeline_rank:
-                hidden_states, context = checkpoint_handler(
-                    custom(layer_idx, layer_idx + self._recompute_num_layers)
-                )
-                if (
-                    has_deepstack 
-                    and layer_idx in range(len(deepstack_visual_embeds))
-                ):  
+                hidden_states, context = checkpoint_handler(custom(layer_idx, layer_idx + self._recompute_num_layers))
+                if has_deepstack and layer_idx in range(len(deepstack_visual_embeds)):
                     hidden_states = self._deepstack_process(
                         hidden_states,
                         visual_pos_masks,
@@ -467,7 +445,7 @@ class TransformerBlock(MegatronTransformerBlock):
 
                 layer_idx += self._recompute_num_layers
 
-        elif self.config.recompute_method == 'block':
+        elif self.config.recompute_method == "block":
             # Checkpoint the input activation of only a set number of individual
             # Transformer layers and skip the rest.
             # A method fully use the device memory removing redundant re-computation.
@@ -488,10 +466,7 @@ class TransformerBlock(MegatronTransformerBlock):
                     hidden_states, context = custom(layer_idx, layer_idx + 1)(
                         hidden_states, attention_mask, context, context_mask, rotary_pos_emb, **kwargs
                     )
-                if (
-                    has_deepstack
-                    and layer_idx in range(len(deepstack_visual_embeds))
-                ):  
+                if has_deepstack and layer_idx in range(len(deepstack_visual_embeds)):
                     hidden_states = self._deepstack_process(
                         hidden_states,
                         visual_pos_masks,
@@ -512,7 +487,7 @@ class TransformerBlock(MegatronTransformerBlock):
         local_this = hidden_states[visual_pos_masks, :].clone() + visual_embeds
         hidden_states[visual_pos_masks, :] = local_this
         if self.config.sequence_parallel:
-            hidden_states = tensor_parallel.scatter_to_sequence_parallel_region(hidden_states)  
+            hidden_states = tensor_parallel.scatter_to_sequence_parallel_region(hidden_states)
         return hidden_states
 
     def _check_inputs_parameters(
@@ -529,7 +504,5 @@ class TransformerBlock(MegatronTransformerBlock):
         elif deepstack_visual_embeds is None and visual_pos_masks is None:
             has_deepstack = False
         else:
-            raise ValueError(
-                "deepstack_visual_embeds and visual_pos_masks must be provided together."
-            )
+            raise ValueError("deepstack_visual_embeds and visual_pos_masks must be provided together.")
         return has_deepstack

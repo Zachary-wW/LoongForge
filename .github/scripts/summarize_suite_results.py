@@ -81,9 +81,7 @@ def _render_model_row(result: dict[str, Any]) -> str:
         if first_key == last_key:
             loss_text = f"{first_key}: {first_value:.6g} → {last_value:.6g}"
         else:
-            loss_text = (
-                f"{first_key}: {first_value:.6g}; {last_key}: {last_value:.6g}"
-            )
+            loss_text = f"{first_key}: {first_value:.6g}; {last_key}: {last_value:.6g}"
     else:
         loss_text = "-"
 
@@ -125,9 +123,7 @@ def main() -> int:
     try:
         with open(args.results_file, encoding="utf-8") as handle:
             summary = json.load(handle)
-        if not isinstance(summary, dict) or not isinstance(
-            summary.get("results"), list
-        ):
+        if not isinstance(summary, dict) or not isinstance(summary.get("results"), list):
             raise ValueError("unexpected results.json structure")
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         # Report the parsing problem without failing the job; the check run

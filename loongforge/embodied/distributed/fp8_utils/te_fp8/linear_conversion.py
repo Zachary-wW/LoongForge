@@ -87,14 +87,9 @@ def convert_linear_to_te(
                 continue
             # Replace at the qualified path so ordinary attributes, ModuleList,
             # and ModuleDict descendants all preserve the model's public shape.
-            model.set_submodule(
-                module_key, _build_te_linear(te_linear_cls, linear, device)
-            )
+            model.set_submodule(module_key, _build_te_linear(te_linear_cls, linear, device))
             if type(model.get_submodule(module_key)) is nn.Linear:
-                raise RuntimeError(
-                    "FP8 conversion did not replace nn.Linear at "
-                    f"{module_key} with te.Linear."
-                )
+                raise RuntimeError(f"FP8 conversion did not replace nn.Linear at {module_key} with te.Linear.")
             converted_keys.append(module_key)
             converted += 1
 
@@ -133,8 +128,7 @@ def _build_te_linear(
     weight = linear.weight
     if weight.device.type == "meta":
         raise RuntimeError(
-            "FP8 conversion cannot copy weights off the meta device; "
-            "--fp8 and --init-on-meta are incompatible."
+            "FP8 conversion cannot copy weights off the meta device; --fp8 and --init-on-meta are incompatible."
         )
 
     te_linear = te_linear_cls(
@@ -165,7 +159,6 @@ def _import_te_linear():
         from transformer_engine.pytorch import Linear as TELinear
     except ImportError as exc:
         raise RuntimeError(
-            "--fp8 requires the TransformerEngine PyTorch extension "
-            "(transformer_engine.pytorch)."
+            "--fp8 requires the TransformerEngine PyTorch extension (transformer_engine.pytorch)."
         ) from exc
     return TELinear

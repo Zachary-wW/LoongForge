@@ -81,7 +81,7 @@ def get_torch_version():
     def get_torch_version_str():
         import torch
 
-        if hasattr(torch, '__version__'):
+        if hasattr(torch, "__version__"):
             return str(torch.__version__)
         else:
             return version("torch")
@@ -158,12 +158,12 @@ def convert_custom_pipeline_to_layout(
 ) -> str:
     """
     Convert custom-pipeline-layers format to pipeline-model-parallel-layout format.
-    
+
     Args:
         custom_pipeline_layers: Comma-separated string of decoder layer counts per PP stage.
                                 Example: "6,5,7,9" means 4 PP stages with 6,5,7,9 decoder layers.
                                 Cannot be used together with custom_virtual_pipeline_layers.
-        custom_virtual_pipeline_layers: Optional. Comma-separated string specifying exact layer 
+        custom_virtual_pipeline_layers: Optional. Comma-separated string specifying exact layer
                                        counts for each VPP stage. Format: all PP's VPP0, then all PP's VPP1.
                                        Example: "3,2,3,4,3,3,4,5" for PP=4, VPP=2
                                        Cannot be used together with custom_pipeline_layers.
@@ -171,7 +171,7 @@ def convert_custom_pipeline_to_layout(
                         If None, defaults to 1 (no virtual pipeline).
         mtp_num_layers: Number of MTP layers. If None, no MTP layers are added.
                         MTP layers are placed in the last stage with loss.
-    
+
     Returns:
         Layout string in pipeline-model-parallel-layout format.
     """
@@ -181,24 +181,24 @@ def convert_custom_pipeline_to_layout(
     splits = []
     # Determine PP size based on which parameter is provided
     if custom_virtual_pipeline_layers is not None:
-        if custom_virtual_pipeline_layers.find(',') != -1:
-            splits = [int(s) for s in custom_virtual_pipeline_layers.split(',') if s.strip()]
+        if custom_virtual_pipeline_layers.find(",") != -1:
+            splits = [int(s) for s in custom_virtual_pipeline_layers.split(",") if s.strip()]
         pp_size = len(splits) // vp_size
     elif custom_pipeline_layers is not None:
-        if custom_pipeline_layers.find(',') != -1:
-            splits = [int(s) for s in custom_pipeline_layers.split(',') if s.strip()]
+        if custom_pipeline_layers.find(",") != -1:
+            splits = [int(s) for s in custom_pipeline_layers.split(",") if s.strip()]
         pp_size = len(splits)
     else:
-        raise ValueError(
-            "One of custom_pipeline_layers or custom_virtual_pipeline_layers must be provided.")
+        raise ValueError("One of custom_pipeline_layers or custom_virtual_pipeline_layers must be provided.")
 
     # Symbol mapping
     from megatron.core.transformer.enums import LayerType
+
     symbols = {
-        LayerType.embedding: 'E',
-        LayerType.decoder: 't',
-        LayerType.mtp: 'm',
-        LayerType.loss: 'L',
+        LayerType.embedding: "E",
+        LayerType.decoder: "t",
+        LayerType.mtp: "m",
+        LayerType.loss: "L",
     }
 
     # Build layout for each PP rank and VPP rank
@@ -235,13 +235,12 @@ def convert_custom_pipeline_to_layout(
             # Last stage of last PP rank: add MTP (if applicable) and loss
             if pp_rank == pp_size - 1 and vp_rank == vp_size - 1:
                 if mtp_num_layers is not None and mtp_num_layers > 0:
-                    stage_layers.extend(
-                        [symbols[LayerType.mtp]] * mtp_num_layers)
+                    stage_layers.extend([symbols[LayerType.mtp]] * mtp_num_layers)
                 stage_layers.append(symbols[LayerType.loss])
 
-            layout_stages.append(''.join(stage_layers))
+            layout_stages.append("".join(stage_layers))
 
     # Join all stages with '|'
-    layout_str = '|'.join(layout_stages)
+    layout_str = "|".join(layout_stages)
 
     return layout_str

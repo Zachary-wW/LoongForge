@@ -16,12 +16,14 @@ Configuration is read from training args:
                                            with eager RNG between sub-graphs
                                            (bit-exact loss alignment).
 """
+
 from __future__ import annotations
 
 
 def _get_args():
     """Import and return training args."""
     from loongforge.utils import get_args
+
     return get_args()
 
 

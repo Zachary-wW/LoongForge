@@ -34,6 +34,4 @@ class DataConfig:
             if k in names:
                 setattr(self, k, v)
         if self.additional_special_tokens is not None:
-            self.additional_special_tokens = [
-                token.strip() for token in self.additional_special_tokens.split(",")
-            ]
+            self.additional_special_tokens = [token.strip() for token in self.additional_special_tokens.split(",")]

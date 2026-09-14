@@ -32,8 +32,7 @@ class _ColorFormatter(logging.Formatter):
         return msg
 
 
-def create_logger(log_dir=None, name="embodied_regression", logfile_name="regression.log",
-                  level=logging.INFO):
+def create_logger(log_dir=None, name="embodied_regression", logfile_name="regression.log", level=logging.INFO):
     """Return a console logger; when log_dir is given, also persist to log_dir/logfile_name."""
     logger = logging.getLogger(name)
     if logger.handlers:

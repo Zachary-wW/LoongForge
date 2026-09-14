@@ -65,14 +65,16 @@ def _compute_mamba_dim_info(wrapped_module: nn.Module) -> Dict[str, int]:
     }
 
 
-def _load_state_dict_hook_ignore_extra_state(module, state_dict, prefix, local_metadata, \
-                                             strict, missing_keys, unexpected_keys, error_msgs):
+def _load_state_dict_hook_ignore_extra_state(
+    module, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+):
     for old_key in list(state_dict.keys()):
-        if '.to_wrap.' in old_key or '.adapter.' in old_key:
+        if ".to_wrap." in old_key or ".adapter." in old_key:
             continue
-        new_key = re.sub(r'\.([^\.]+)$', r'.to_wrap.\1', old_key)
-        if new_key != old_key:          
+        new_key = re.sub(r"\.([^\.]+)$", r".to_wrap.\1", old_key)
+        if new_key != old_key:
             state_dict[new_key] = state_dict.pop(old_key)
+
 
 class AdapterWrapper(nn.Module):
     """Abstract base class for wrapping modules with adapters in Parameter-Efficient Fine-Tuning (PEFT).

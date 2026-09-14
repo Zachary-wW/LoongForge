@@ -37,6 +37,7 @@ class TrainTimeWeight:
 
 class TrainTimeSampler:
     """Samples training timesteps from a specified distribution."""
+
     _WAVER_MODE_S = 1.29
 
     def __init__(
@@ -76,6 +77,7 @@ class TrainTimeSampler:
 
 class RectifiedFlow:
     """Rectified flow for training diffusion models."""
+
     def __init__(
         self,
         velocity_field: Callable,
@@ -163,7 +165,7 @@ class RectifiedFlow:
 
     def get_timesteps_sigmas_from_shift(
         self,
-        t_raw,            # [B], from sample_train_time, in [0,1]
+        t_raw,  # [B], from sample_train_time, in [0,1]
         shift,
         max_timestep=1000,
         tensor_kwargs=None,

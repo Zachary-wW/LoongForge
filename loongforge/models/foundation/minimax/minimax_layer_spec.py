@@ -22,7 +22,7 @@ from megatron.core.transformer.transformer_block import (
 from megatron.core.transformer.transformer_layer import (
     TransformerLayer,
     get_transformer_layer_offset,
-    TransformerLayerSubmodules
+    TransformerLayerSubmodules,
 )
 
 from megatron.core.transformer.moe.experts import SequentialMLP, TEGroupedMLP
@@ -31,7 +31,6 @@ from megatron.core.transformer.moe.moe_layer import MoELayer, MoESubmodules
 from .attention import MinimaxSelfAttention, MinimaxSelfAttentionSubmodules
 from loongforge.models.dispatch import multiacc_modules
 from loongforge.utils import is_te_min_version
-
 
 
 def _get_minimax_layer_with_te_spec(
@@ -66,14 +65,11 @@ def _get_minimax_layer_with_te_spec(
             pre_mlp_layernorm=multiacc_modules.TENorm,
             mlp=mlp,
             mlp_bda=multiacc_modules.get_bias_dropout_add,
-        )
+        ),
     )
 
 
-def _get_mlp_module_spec(
-    num_experts: int=None,
-    moe_grouped_gemm: bool=False
-) -> ModuleSpec:
+def _get_mlp_module_spec(num_experts: int = None, moe_grouped_gemm: bool = False) -> ModuleSpec:
     """Helper function to get module spec for MLP/MoE"""
 
     if num_experts is None:
@@ -99,7 +95,6 @@ def _get_mlp_module_spec(
         linear_fc1 = multiacc_modules.TEColumnParallelLinear
         linear_fc2 = multiacc_modules.TERowParallelLinear
 
-
     return ModuleSpec(
         module=MoELayer,
         submodules=MoESubmodules(
@@ -115,7 +110,7 @@ def _get_mlp_module_spec(
 
 
 def get_minimax_decoder_block_and_mtp_spec(
-    config: TransformerConfig, 
+    config: TransformerConfig,
     vp_stage: int = None,
 ) -> Tuple[TransformerBlockSubmodules, Optional[ModuleSpec]]:
     """Get the minimax decoder block and multi-token prediction layer spec."""
@@ -132,7 +127,6 @@ def get_minimax_decoder_block_and_mtp_spec(
         qk_layernorm=config.qk_layernorm,
     )
 
-
     # Parse config.moe_layer_freq to determine the pattern of expert/dense layers.
     # 0 stands for dense layers, 1 stands for expert layers.
     # For integer N: Creates a pattern with one expert layer every N layers.
@@ -143,10 +137,7 @@ def get_minimax_decoder_block_and_mtp_spec(
         config.moe_layer_freq = list(config.moe_layer_freq)
 
     if isinstance(config.moe_layer_freq, int):
-        moe_layer_pattern = [
-            1 if (i % config.moe_layer_freq == 0) else 0
-            for i in range(config.num_layers)
-        ]
+        moe_layer_pattern = [1 if (i % config.moe_layer_freq == 0) else 0 for i in range(config.num_layers)]
     elif isinstance(config.moe_layer_freq, list):
         moe_layer_pattern = config.moe_layer_freq
         assert len(moe_layer_pattern) == config.num_layers, (
@@ -155,9 +146,7 @@ def get_minimax_decoder_block_and_mtp_spec(
             f"current moe layer pattern: {config.moe_layer_freq}"
         )
     else:
-        raise ValueError(
-            f"Invalid moe_layer_freq: {type(config.moe_layer_freq)}, {config.moe_layer_freq}"
-        )
+        raise ValueError(f"Invalid moe_layer_freq: {type(config.moe_layer_freq)}, {config.moe_layer_freq}")
 
     # Create the layer specs for the model.
     layer_specs = []
@@ -182,23 +171,23 @@ def get_minimax_decoder_block_and_mtp_spec(
     # Block spec.
     block_spec = TransformerBlockSubmodules(
         layer_specs=local_layer_specs,
-        layer_norm=multiacc_modules.TENorm, # TODO: Whether the Local Norm should be compatible
+        layer_norm=multiacc_modules.TENorm,  # TODO: Whether the Local Norm should be compatible
     )
 
     # MTP spec
     if config.mtp_num_layers is not None:
-        if hasattr(block_spec, 'layer_specs') and len(block_spec.layer_specs) == 0:
-                # Get the decoder layer spec explicitly if no decoder layer in the last stage,
-                # Only happens with block spec (TransformerBlockSubmodules) when using MoE.
-                transformer_layer_spec_for_mtp = _get_minimax_layer_with_te_spec(
-                    num_experts=config.num_moe_experts,
-                    moe_grouped_gemm=config.moe_grouped_gemm,
-                    qk_layernorm=config.qk_layernorm,
-                )
+        if hasattr(block_spec, "layer_specs") and len(block_spec.layer_specs) == 0:
+            # Get the decoder layer spec explicitly if no decoder layer in the last stage,
+            # Only happens with block spec (TransformerBlockSubmodules) when using MoE.
+            transformer_layer_spec_for_mtp = _get_minimax_layer_with_te_spec(
+                num_experts=config.num_moe_experts,
+                moe_grouped_gemm=config.moe_grouped_gemm,
+                qk_layernorm=config.qk_layernorm,
+            )
         else:
             transformer_layer_spec_for_mtp = block_spec
-        
-        # TODO: use get_gpt_mtp_block_spec or not? 
+
+        # TODO: use get_gpt_mtp_block_spec or not?
         mtp_block_spec = get_gpt_mtp_block_spec(
             config, transformer_layer_spec_for_mtp, use_transformer_engine=use_te, vp_stage=vp_stage
         )

@@ -83,10 +83,7 @@ def _all_gather_variable_dim(
     padded = _pad_dim(x, dim, max_size)
     gathered = [torch.empty_like(padded) for _ in range(world_size)]
     dist.all_gather(gathered, padded, group=group)
-    pieces = [
-        _slice_dim(tensor, dim, 0, size)
-        for tensor, size in zip(gathered, sizes, strict=True)
-    ]
+    pieces = [_slice_dim(tensor, dim, 0, size) for tensor, size in zip(gathered, sizes, strict=True)]
     return torch.cat(pieces, dim=dim).contiguous(), sizes
 
 
@@ -125,10 +122,7 @@ def _all_to_all_4d_list(
     scatter_dim = _normalize_dim(scatter_dim, x.dim())
     gather_dim = _normalize_dim(gather_dim, x.dim())
     input_list = [
-        chunk.contiguous()
-        for chunk in torch.split(
-            x, _split_sizes(x.shape[scatter_dim], world_size), dim=scatter_dim
-        )
+        chunk.contiguous() for chunk in torch.split(x, _split_sizes(x.shape[scatter_dim], world_size), dim=scatter_dim)
     ]
     if scatter_dim == 2 and gather_dim == 1:
         peer_seq_sizes = _all_gather_int(x.shape[1], group, x.device)
@@ -139,10 +133,7 @@ def _all_to_all_4d_list(
             output_list.append(torch.empty(shape, dtype=x.dtype, device=x.device))
     elif scatter_dim == 1 and gather_dim == 2:
         local_shape = list(input_list[rank].shape)
-        output_list = [
-            torch.empty(local_shape, dtype=x.dtype, device=x.device)
-            for _ in range(world_size)
-        ]
+        output_list = [torch.empty(local_shape, dtype=x.dtype, device=x.device) for _ in range(world_size)]
     else:
         raise ValueError(f"Unsupported DreamZero 4D all-to-all swap: {scatter_dim}->{gather_dim}")
     dist.all_to_all(output_list, input_list, group=group)
@@ -169,33 +160,17 @@ def _single_all_to_all_4d(
 
     if scatter_dim == 2 and gather_dim == 1:
         heads_per_rank = heads // world_size
-        input_t = (
-            x.reshape(bsz, seq, world_size, heads_per_rank, head_dim)
-            .permute(2, 0, 1, 3, 4)
-            .contiguous()
-        )
+        input_t = x.reshape(bsz, seq, world_size, heads_per_rank, head_dim).permute(2, 0, 1, 3, 4).contiguous()
         output_t = torch.empty_like(input_t)
         dist.all_to_all_single(output_t, input_t, group=group)
-        return (
-            output_t.permute(1, 0, 2, 3, 4)
-            .reshape(bsz, seq * world_size, heads_per_rank, head_dim)
-            .contiguous()
-        )
+        return output_t.permute(1, 0, 2, 3, 4).reshape(bsz, seq * world_size, heads_per_rank, head_dim).contiguous()
 
     if scatter_dim == 1 and gather_dim == 2:
         seq_per_rank = seq // world_size
-        input_t = (
-            x.reshape(bsz, world_size, seq_per_rank, heads, head_dim)
-            .permute(1, 0, 2, 3, 4)
-            .contiguous()
-        )
+        input_t = x.reshape(bsz, world_size, seq_per_rank, heads, head_dim).permute(1, 0, 2, 3, 4).contiguous()
         output_t = torch.empty_like(input_t)
         dist.all_to_all_single(output_t, input_t, group=group)
-        return (
-            output_t.permute(1, 2, 0, 3, 4)
-            .reshape(bsz, seq_per_rank, heads * world_size, head_dim)
-            .contiguous()
-        )
+        return output_t.permute(1, 2, 0, 3, 4).reshape(bsz, seq_per_rank, heads * world_size, head_dim).contiguous()
 
     raise ValueError(f"Unsupported DreamZero 4D all-to-all swap: {scatter_dim}->{gather_dim}")
 
@@ -239,9 +214,7 @@ class DreamZeroSeqAllToAll4D(torch.autograd.Function):
             ctx.single_all_to_all = single_all_to_all
             return x
         _check_4d_all_to_all_input(x, scatter_dim, gather_dim, world_size)
-        use_single = single_all_to_all and _can_use_single_all_to_all_4d(
-            x, scatter_dim, gather_dim, group, world_size
-        )
+        use_single = single_all_to_all and _can_use_single_all_to_all_4d(x, scatter_dim, gather_dim, group, world_size)
         ctx.group = group
         ctx.scatter_dim = scatter_dim
         ctx.gather_dim = gather_dim

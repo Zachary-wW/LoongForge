@@ -184,9 +184,7 @@ def main(arguments: list[str]) -> int:
         paths = []
     try:
         documents = (
-            changed_markdown_files(repo, changed_since)
-            if changed_since is not None
-            else markdown_files(repo, paths)
+            changed_markdown_files(repo, changed_since) if changed_since is not None else markdown_files(repo, paths)
         )
     except ValueError as exc:
         print(f"doc-links: {exc}", file=sys.stderr)
@@ -196,19 +194,13 @@ def main(arguments: list[str]) -> int:
 
     if not findings:
         roots = " / ".join(ROOTS)
-        print(
-            f"doc-links: {scanned} markdown file(s) scanned, no broken {roots} references"
-        )
+        print(f"doc-links: {scanned} markdown file(s) scanned, no broken {roots} references")
         return 0
 
-    print(
-        f"doc-links: {len(findings)} broken reference(s) in {scanned} markdown file(s)\n"
-    )
+    print(f"doc-links: {len(findings)} broken reference(s) in {scanned} markdown file(s)\n")
     for document, line_number, raw in findings:
         print(f"  {document}:{line_number}: {raw}")
-    print(
-        "\nThe referenced path does not exist. Update the reference, or restore the file it points to."
-    )
+    print("\nThe referenced path does not exist. Update the reference, or restore the file it points to.")
     return 1
 
 

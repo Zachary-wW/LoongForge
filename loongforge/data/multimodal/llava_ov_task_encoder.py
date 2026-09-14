@@ -14,7 +14,8 @@ import numpy as np
 import torch
 from megatron.energon import CaptioningSample, VQASample
 from importlib.metadata import version
-if version('megatron-energon') < "7.0.0":
+
+if version("megatron-energon") < "7.0.0":
     from megatron.energon.flavors.webdataset import VideoData as AVData
 else:
     from megatron.energon.flavors.webdataset import AVData
@@ -98,9 +99,7 @@ class LLavaOv15TaskEncoder(VLMTaskEncoder):
         super().__init__(args=args)
         if args.training_phase in ["sft"]:
             self.chat_template = get_chat_template()
-        self.processor = AutoProcessor.from_pretrained(
-            self.args.hf_tokenizer_path, trust_remote_code=True
-        )
+        self.processor = AutoProcessor.from_pretrained(self.args.hf_tokenizer_path, trust_remote_code=True)
 
         if args.image_resolution:
             setattr(self.processor, "image_resolution", args.image_resolution)
@@ -119,23 +118,17 @@ class LLavaOv15TaskEncoder(VLMTaskEncoder):
         """Encode pretrain sample in Qwen2VL style."""
         if self.args.training_phase == constants.TrainingPhase.PRETRAIN:
             if self.args.add_question_in_pretrain:
-                text = (sample.context + sample.answers).replace(
-                    "<image>", IMAGE_TOKEN_WITH_TAGS
-                )
+                text = (sample.context + sample.answers).replace("<image>", IMAGE_TOKEN_WITH_TAGS)
             else:
                 text = IMAGE_TOKEN_WITH_TAGS + sample.answers
             text = text + self.tokenizer.tokenizer.eos_token
-            input_ids, target, imgs, image_grid_thw, attn_mask = self._process(
-                sample.image, text
-            )
+            input_ids, target, imgs, image_grid_thw, attn_mask = self._process(sample.image, text)
         elif self.args.training_phase == constants.TrainingPhase.SFT:
-
             if len(sample.answers) < 1:
                 raise ValueError("sample.answers < 1!")
 
             # Add image resize check for PIL.Image
             if sample.image is not None:
-
                 img_arr = np.array(sample.image)
                 if np.sum(img_arr) == 0:
                     raise ValueError("Image pixels are all zero!")
@@ -182,29 +175,21 @@ class LLavaOv15TaskEncoder(VLMTaskEncoder):
             ).replace("<image>", IMAGE_TOKEN_WITH_TAGS)
             if text[-1] == "\n":
                 text = text[:-1]
-            input_ids, _, imgs, image_grid_thw, attn_mask = self._process(
-                sample.image, text, add_special_tokens=False
-            )
+            input_ids, _, imgs, image_grid_thw, attn_mask = self._process(sample.image, text, add_special_tokens=False)
             target = torch.ones_like(input_ids) * IGNORE_INDEX
             answers = self.tokenizer.tokenize(sample.answers, add_special_tokens=False)
             target[-len(answers) - 1 : -1] = torch.tensor(answers)
             target[-1] = input_ids[-1]
             # print(target[-1])
         else:
-            raise NotImplementedError(
-                f"Unknown training phase {self.args.training_phase}"
-            )
+            raise NotImplementedError(f"Unknown training phase {self.args.training_phase}")
 
         num_tiles = [len(image_grid_thw)]
 
         if self.args.enable_discard_sample:
-            assert (
-                len(input_ids) <= self.args.seq_length
-            ), f"{sample.__key__} input length {len(input_ids)}"
+            assert len(input_ids) <= self.args.seq_length, f"{sample.__key__} input length {len(input_ids)}"
         else:
-            assert (
-                image_grid_thw.prod() / 4 <= self.args.seq_length
-            ), f"{sample.__key__} grid_thw: {image_grid_thw}"
+            assert image_grid_thw.prod() / 4 <= self.args.seq_length, f"{sample.__key__} grid_thw: {image_grid_thw}"
 
         return VLMTaskSample(
             __key__=sample.__key__,
@@ -224,9 +209,7 @@ class LLavaOv15TaskEncoder(VLMTaskEncoder):
     def build_train_datasets(
         self,
         *,
-        datasets: List[
-            Tuple[BaseCoreDatasetFactory[T_sample], Union[float, int, None]]
-        ],
+        datasets: List[Tuple[BaseCoreDatasetFactory[T_sample], Union[float, int, None]]],
         worker_config: WorkerConfig,
         batch_size: Optional[int],
         batch_drop_last: bool = False,
@@ -247,10 +230,7 @@ class LLavaOv15TaskEncoder(VLMTaskEncoder):
         rotation_lengths = [len(dataset) for dataset, _ in datasets]
         for i in range(1, len(rotation_lengths)):
             rotation_lengths[i] += rotation_lengths[i - 1]
-        worker_rotation_offsets = [
-            rotation_length % global_workers
-            for rotation_length in [0] + rotation_lengths[:-1]
-        ]
+        worker_rotation_offsets = [rotation_length % global_workers for rotation_length in [0] + rotation_lengths[:-1]]
 
         if repeat:
             inner_datasets = [
@@ -261,35 +241,29 @@ class LLavaOv15TaskEncoder(VLMTaskEncoder):
                     ),
                     1.0 if weight is None else float(weight),
                 )
-                for (dataset, weight), worker_rotation_offset in zip(
-                    datasets, worker_rotation_offsets
-                )
+                for (dataset, weight), worker_rotation_offset in zip(datasets, worker_rotation_offsets)
             ]
         else:
             assert blend_mode in (
                 DatasetBlendMode.NONE,
                 DatasetBlendMode.SAMPLE_REPETITIONS,
-            ) and all(
-                isinstance(repetitions, int) for _dataset, repetitions in datasets
-            ), "If repeat is False, the datasets must be repeated with integer weights."
+            ) and all(isinstance(repetitions, int) for _dataset, repetitions in datasets), (
+                "If repeat is False, the datasets must be repeated with integer weights."
+            )
             inner_datasets = [
                 (
                     (
                         dataset.build(worker_rotation_offset=worker_rotation_offset)
                         if repetition is None or repetition == 1
                         else RepeatDataset(
-                            dataset.build(
-                                worker_rotation_offset=worker_rotation_offset
-                            ),
+                            dataset.build(worker_rotation_offset=worker_rotation_offset),
                             repeats=int(repetition),
                             worker_config=worker_config,
                         )
                     ),
                     len(dataset) * (1 if repetition is None else int(repetition)),
                 )
-                for (dataset, repetition), worker_rotation_offset in zip(
-                    datasets, worker_rotation_offsets
-                )
+                for (dataset, repetition), worker_rotation_offset in zip(datasets, worker_rotation_offsets)
             ]
 
         if len(inner_datasets) > 1:
@@ -313,10 +287,7 @@ class LLavaOv15TaskEncoder(VLMTaskEncoder):
         dataset = self.build_encode_sample(dataset, worker_config=worker_config)
 
         # Insert pool sorting before entering BatchDataset
-        if (
-            getattr(self.args, "length_sort_pool_size", 0)
-            and self.args.length_sort_pool_size > 0
-        ):
+        if getattr(self.args, "length_sort_pool_size", 0) and self.args.length_sort_pool_size > 0:
             dataset = LengthPoolSortDataset(
                 dataset,
                 pool_size=self.args.length_sort_pool_size,
@@ -338,7 +309,5 @@ class LLavaOv15TaskEncoder(VLMTaskEncoder):
                 worker_config=worker_config,
             )
         if worker_config.should_log(level=1):
-            dataset = LogSampleDataset(
-                dataset, mode="train", worker_config=worker_config
-            )
+            dataset = LogSampleDataset(dataset, mode="train", worker_config=worker_config)
         return dataset

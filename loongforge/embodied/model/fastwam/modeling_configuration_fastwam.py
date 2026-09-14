@@ -48,7 +48,7 @@ class FastWAMModelConfig:
 
     # ── Identity ──────────────────────────────────────────────────────────────
     model_type: str = "fastwam"
-    variant: str = "joint"          # base | uncond | joint | idm
+    variant: str = "joint"  # base | uncond | joint | idm
 
     # ── Model IDs ─────────────────────────────────────────────────────────────
     model_id: str = "Wan-AI/Wan2.2-TI2V-5B"
@@ -65,9 +65,7 @@ class FastWAMModelConfig:
     load_text_encoder: bool = False
     mot_checkpoint_mixed_attn: bool = True
     skip_dit_load_from_pretrain: bool = False
-    action_dit_pretrained_path: str | None = (
-        "checkpoints/ActionDiT_linear_interp_Wan22_alphascale_1024hdim.pt"
-    )
+    action_dit_pretrained_path: str | None = "checkpoints/ActionDiT_linear_interp_Wan22_alphascale_1024hdim.pt"
     redirect_common_files: bool = True
     dtype: str = "bfloat16"
 
@@ -82,46 +80,72 @@ class FastWAMModelConfig:
     compile_dynamic: bool = False
 
     # ── Nested architecture configs (fixed for Wan2.2-5B, not in YAML) ────────
-    video_dit_config: dict[str, Any] = field(default_factory=lambda: {
-        "has_image_input": False,
-        "patch_size": [1, 2, 2],
-        "in_dim": 48, "out_dim": 48,
-        "hidden_dim": 3072, "ffn_dim": 14336,
-        "freq_dim": 256, "text_dim": 4096,
-        "num_heads": 24, "attn_head_dim": 128, "num_layers": 30,
-        "eps": 1.0e-6, "seperated_timestep": True,
-        "require_clip_embedding": False, "require_vae_embedding": False,
-        "fuse_vae_embedding_in_latents": True,
-        "use_gradient_checkpointing": True,
-        "video_attention_mask_mode": "first_frame_causal",
-        "action_conditioned": False,
-        "action_dim": 7,
-        "action_group_causal_mask_mode": "group_diagonal",
-    })
-    action_dit_config: dict[str, Any] = field(default_factory=lambda: {
-        "action_dim": 7,
-        "hidden_dim": 1024, "ffn_dim": 4096,
-        "num_heads": 24, "attn_head_dim": 128, "num_layers": 30,
-        "text_dim": 4096, "freq_dim": 256, "eps": 1.0e-6,
-        "use_gradient_checkpointing": True,
-    })
-    video_scheduler: dict[str, Any] = field(default_factory=lambda: {
-        "train_shift": 5.0, "infer_shift": 5.0, "num_train_timesteps": 1000,
-    })
-    action_scheduler: dict[str, Any] = field(default_factory=lambda: {
-        "train_shift": 5.0, "infer_shift": 5.0, "num_train_timesteps": 1000,
-    })
-    loss: dict[str, Any] = field(default_factory=lambda: {
-        "lambda_video": 1.0, "lambda_action": 1.0,
-    })
+    video_dit_config: dict[str, Any] = field(
+        default_factory=lambda: {
+            "has_image_input": False,
+            "patch_size": [1, 2, 2],
+            "in_dim": 48,
+            "out_dim": 48,
+            "hidden_dim": 3072,
+            "ffn_dim": 14336,
+            "freq_dim": 256,
+            "text_dim": 4096,
+            "num_heads": 24,
+            "attn_head_dim": 128,
+            "num_layers": 30,
+            "eps": 1.0e-6,
+            "seperated_timestep": True,
+            "require_clip_embedding": False,
+            "require_vae_embedding": False,
+            "fuse_vae_embedding_in_latents": True,
+            "use_gradient_checkpointing": True,
+            "video_attention_mask_mode": "first_frame_causal",
+            "action_conditioned": False,
+            "action_dim": 7,
+            "action_group_causal_mask_mode": "group_diagonal",
+        }
+    )
+    action_dit_config: dict[str, Any] = field(
+        default_factory=lambda: {
+            "action_dim": 7,
+            "hidden_dim": 1024,
+            "ffn_dim": 4096,
+            "num_heads": 24,
+            "attn_head_dim": 128,
+            "num_layers": 30,
+            "text_dim": 4096,
+            "freq_dim": 256,
+            "eps": 1.0e-6,
+            "use_gradient_checkpointing": True,
+        }
+    )
+    video_scheduler: dict[str, Any] = field(
+        default_factory=lambda: {
+            "train_shift": 5.0,
+            "infer_shift": 5.0,
+            "num_train_timesteps": 1000,
+        }
+    )
+    action_scheduler: dict[str, Any] = field(
+        default_factory=lambda: {
+            "train_shift": 5.0,
+            "infer_shift": 5.0,
+            "num_train_timesteps": 1000,
+        }
+    )
+    loss: dict[str, Any] = field(
+        default_factory=lambda: {
+            "lambda_video": 1.0,
+            "lambda_action": 1.0,
+        }
+    )
 
     def __post_init__(self) -> None:
         # ── Validate variant ──────────────────────────────────────────────────
         valid_variants = {"base", "uncond", "joint", "idm"}
         if self.variant not in valid_variants:
             raise ValueError(
-                f"FastWAMModelConfig.variant must be one of {sorted(valid_variants)}, "
-                f"got {self.variant!r}"
+                f"FastWAMModelConfig.variant must be one of {sorted(valid_variants)}, got {self.variant!r}"
             )
 
         # ── Validate mot_compile_blocks ───────────────────────────────────────
@@ -149,9 +173,7 @@ class FastWAMModelConfig:
         required = {"train_shift", "infer_shift", "num_train_timesteps"}
         missing = required - set(self.action_scheduler.keys())
         if missing:
-            raise ValueError(
-                f"action_scheduler missing required keys: {sorted(missing)}"
-            )
+            raise ValueError(f"action_scheduler missing required keys: {sorted(missing)}")
 
         # ── Sync mot_checkpoint_mixed_attn → nested dit configs ───────────────
         # frozen=True prevents direct assignment; use object.__setattr__ on the

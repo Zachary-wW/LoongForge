@@ -41,15 +41,9 @@ def _link_weight_map(
         if filter_prefix is not None:
             keys = [key for key in weight_map if weight_map[key] == shard_name]
             with safe_open(str(source_shard), framework="pt", device="cpu") as shard:
-                tensors = {
-                    key: shard.get_tensor(key)
-                    for key in keys
-                    if key.startswith(filter_prefix)
-                }
+                tensors = {key: shard.get_tensor(key) for key in keys if key.startswith(filter_prefix)}
             if not tensors:
-                raise ValueError(
-                    f"No {filter_prefix!r} tensors found in Kimi shard {source_shard}"
-                )
+                raise ValueError(f"No {filter_prefix!r} tensors found in Kimi shard {source_shard}")
             save_file(tensors, str(destination))
         elif materialize:
             shutil.copyfile(source_shard, destination)
@@ -58,34 +52,23 @@ def _link_weight_map(
     return {key: output_names[shard] for key, shard in weight_map.items()}
 
 
-def compose(
-    glm_hf: Path, kimi_hf: Path, output: Path, materialize: bool = False
-) -> None:
+def compose(glm_hf: Path, kimi_hf: Path, output: Path, materialize: bool = False) -> None:
     """Create an atomic HF checkpoint composition."""
     if output.exists():
         raise FileExistsError(f"Output already exists: {output}")
     output.parent.mkdir(parents=True, exist_ok=True)
 
     glm_map = _load_weight_map(glm_hf)
-    kimi_map = {
-        key: shard
-        for key, shard in _load_weight_map(kimi_hf).items()
-        if key.startswith(KIMI_PREFIX)
-    }
+    kimi_map = {key: shard for key, shard in _load_weight_map(kimi_hf).items() if key.startswith(KIMI_PREFIX)}
     if not kimi_map:
         raise KeyError("Kimi checkpoint is missing vision_tower tensors")
     conflict = set(glm_map).intersection(kimi_map)
     if conflict:
-        raise ValueError(
-            "Tensor name conflict between GLM and Kimi checkpoints: "
-            f"{sorted(conflict)[:8]}"
-        )
+        raise ValueError(f"Tensor name conflict between GLM and Kimi checkpoints: {sorted(conflict)[:8]}")
 
     temp_path = Path(tempfile.mkdtemp(prefix=f".{output.name}.", dir=output.parent))
     try:
-        composed_map = _link_weight_map(
-            glm_map, glm_hf, temp_path, "glm", materialize=materialize
-        )
+        composed_map = _link_weight_map(glm_map, glm_hf, temp_path, "glm", materialize=materialize)
         composed_map.update(
             _link_weight_map(
                 kimi_map,
@@ -95,10 +78,7 @@ def compose(
                 filter_prefix=KIMI_PREFIX,
             )
         )
-        total_size = sum(
-            (temp_path / shard_name).stat().st_size
-            for shard_name in set(composed_map.values())
-        )
+        total_size = sum((temp_path / shard_name).stat().st_size for shard_name in set(composed_map.values()))
         index = {"metadata": {"total_size": total_size}, "weight_map": composed_map}
         (temp_path / "model.safetensors.index.json").write_text(
             json.dumps(index, indent=2, sort_keys=True) + "\n", encoding="utf-8"

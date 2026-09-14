@@ -46,6 +46,7 @@ class MiniCPMV46TEDuplicatedLinear(TELinear):
         kwargs["skip_weight_param_allocation"] = False
         super().__init__(input_size, output_size, **kwargs)
 
+
 def get_minicpm_v_4_6_vision_layer_spec(config) -> ModuleSpec:
     """Build MiniCPM ViT blocks with the standard Megatron/TE backend."""
     del config

@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Download utils """
+"""Download utils"""
 
 import base64
 import datetime
@@ -86,9 +86,7 @@ def get_filename(url=None):
     return image_filname
 
 
-def get_downloadable(
-    url, download_dir=RAW_VIDEO_DIR, save_to_disk=False, retry=0, retry_interval=3
-):
+def get_downloadable(url, download_dir=RAW_VIDEO_DIR, save_to_disk=False, retry=0, retry_interval=3):
     """download video and store it in the disk
 
     return downloaded **path** if save_to_disk is set to true
@@ -107,9 +105,7 @@ def get_downloadable(
     return downloaded_path
 
 
-def get_downloadable_image(
-    download_path, need_exif_info, retry_max_time=0, retry_interval=3
-):
+def get_downloadable_image(download_path, need_exif_info, retry_max_time=0, retry_interval=3):
     """
     Get downloadable with exif info and image processing
     """
@@ -125,9 +121,7 @@ def get_downloadable_image(
 
     def has_transparent_background(img):
         """has_transparent_background"""
-        if img.mode in ("RGBA", "LA") or (
-            img.mode == "P" and "transparency" in img.info
-        ):
+        if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
             # Check for any pixel with alpha channel less than 255 (fully opaque)
             alpha = img.convert("RGBA").split()[-1]
             if alpha.getextrema()[0] < 255:
@@ -152,7 +146,7 @@ def get_downloadable_image(
         """
         Convert image from I;16 mode to L mode
         """
-        # Since the point function in I mode only supports addition, subtraction, and 
+        # Since the point function in I mode only supports addition, subtraction, and
         # multiplication, the following * (1 / 256) cannot be changed to division.
         return img.point(lambda i: i * (1 / 256)).convert("L")
 
@@ -213,6 +207,7 @@ def get_hashable(to_be_hashed):
         return to_be_hashed.encode("utf-8")
     else:
         raise ValueError(f"not support type: {type(to_be_hashed)}")
+
 
 def image_info_2_hash(img_one):
     """

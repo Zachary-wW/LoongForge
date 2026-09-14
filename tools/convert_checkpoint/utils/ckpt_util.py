@@ -53,8 +53,9 @@ def merge_transformers_sharded_states(path, num_checkpoints):
         state_dict.update(current_chunk)
     return state_dict
 
+
 def load_huggingface_checkpoint(load_path):
-    """ load ckpt """
+    """load ckpt"""
     state_dict = {}
     sub_dirs = [x for x in os.listdir(load_path) if x.endswith("safetensors")]
     if len(sub_dirs) == 1:
@@ -68,7 +69,7 @@ def load_huggingface_checkpoint(load_path):
 
 
 def save_huggingface_checkpoint(state_dict, save_path):
-    """ save ckpt """
+    """save ckpt"""
     os.makedirs(save_path, exist_ok=True)
     checkpoint_path = os.path.join(save_path, "model.safetensors")
 
@@ -94,10 +95,10 @@ def save_huggingface_checkpoint(state_dict, save_path):
 
 
 def load_megatron_checkpoint(load_path):
-    """ load ckpt """
+    """load ckpt"""
     state_dict = []
     sub_dirs = sorted([x for x in os.listdir(load_path) if x.startswith("mp_rank")])
-    last_dir = sub_dirs[-1].split('_')
+    last_dir = sub_dirs[-1].split("_")
     if len(last_dir) == 4:
         tp = int(last_dir[-2]) + 1
         pp = int(last_dir[-1]) + 1
@@ -105,19 +106,19 @@ def load_megatron_checkpoint(load_path):
             state_dict.append([])
             for t in range(tp):
                 checkpoint_name = f"mp_rank_{t:02d}_{p:03d}/model_optim_rng.pt"
-                ckpt = torch.load(os.path.join(load_path, checkpoint_name), map_location='cpu', weights_only=False)
+                ckpt = torch.load(os.path.join(load_path, checkpoint_name), map_location="cpu", weights_only=False)
                 state_dict[p].append(ckpt)
         return state_dict
     else:
         for t in range(len(sub_dirs)):
             checkpoint_name = f"mp_rank_{t:02d}/model_optim_rng.pt"
-            ckpt = torch.load(os.path.join(load_path, checkpoint_name), map_location='cpu', weights_only=False)
+            ckpt = torch.load(os.path.join(load_path, checkpoint_name), map_location="cpu", weights_only=False)
             state_dict.append(ckpt)
         return state_dict
 
 
 def save_megatron_checkpoint(state_dict, save_path):
-    """ save ckpt """
+    """save ckpt"""
     if isinstance(state_dict[0], list):
         for p in range(len(state_dict)):
             for t in range(len(state_dict[p])):
@@ -133,6 +134,7 @@ def save_megatron_checkpoint(state_dict, save_path):
             checkpoint_path = os.path.join(save_path, sub_dir_name, "model_optim_rng.pt")
             torch.save(state_dict[t], checkpoint_path)
             print(f"Saving Megatron shard to: {checkpoint_path}")
+
 
 _MP3D_DIR_RE = re.compile(r"^mp_rank_(\d+)_(\d+)_(\d+)$")
 _MP2D_DIR_RE = re.compile(r"^mp_rank_(\d+)_(\d+)$")
@@ -211,13 +213,11 @@ def load_megatron_checkpoint_tp_pp_ep(load_path: str):
             for e in e_vals:
                 sub_dir = dir_map_3d.get((t, p, e))
                 if sub_dir is None:
-                    raise FileNotFoundError(
-                        f"Missing shard directory for (tp={t}, pp={p}, ep={e}) under {load_path}"
-                    )
+                    raise FileNotFoundError(f"Missing shard directory for (tp={t}, pp={p}, ep={e}) under {load_path}")
                 checkpoint_path = os.path.join(load_path, sub_dir, _SHARD_FILE)
                 if not os.path.isfile(checkpoint_path):
                     raise FileNotFoundError(f"Shard file not found: {checkpoint_path}")
-                ckpt = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
+                ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
                 tp_list.append(ckpt)
             pp_list.append(tp_list)
         state_dict.append(pp_list)
@@ -264,7 +264,6 @@ def save_megatron_checkpoint_tp_pp_ep(state_dict, save_path: str, pad_tp: int = 
                 checkpoint_path = os.path.join(full_dir, _SHARD_FILE)
                 torch.save(ckpt, checkpoint_path)
                 print(f"Saving Megatron shard to: {checkpoint_path}")
-
 
 
 def _scan_mp_dirs_2d(load_path: str):
@@ -326,15 +325,13 @@ def load_megatron_checkpoint_tp_ep(load_path: str):
         for e in e_vals:
             sub_dir = dir_map_2d.get((t, e))
             if sub_dir is None:
-                raise FileNotFoundError(
-                    f"Missing shard directory for (tp={t}, ep={e}) under {load_path}"
-                )
+                raise FileNotFoundError(f"Missing shard directory for (tp={t}, ep={e}) under {load_path}")
             checkpoint_path = os.path.join(load_path, sub_dir, _SHARD_FILE)
             if not os.path.isfile(checkpoint_path):
                 raise FileNotFoundError(f"Shard file not found: {checkpoint_path}")
-            
+
             print(f"Loading checkpoint from: {checkpoint_path}")
-            ckpt = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
+            ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
             tp_list.append(ckpt)
         state_dict.append(tp_list)
 

@@ -101,18 +101,16 @@ class ActionTransform(BaseTransform):
                 if D < self.max_action_dim:
                     value = F.pad(value, (0, self.max_action_dim - D))
                 elif D > self.max_action_dim:
-                    value = value[..., :self.max_action_dim]
+                    value = value[..., : self.max_action_dim]
 
             # Pad/truncate action horizon
             if self.action_horizon is not None and self.padding_strategy != "none":
                 T = value.shape[0]
                 if T > self.action_horizon:
-                    value = value[:self.action_horizon]
+                    value = value[: self.action_horizon]
                 elif T < self.action_horizon:
                     if self.padding_strategy == "zero":
-                        pad = torch.zeros(
-                            self.action_horizon - T, value.shape[-1], dtype=value.dtype
-                        )
+                        pad = torch.zeros(self.action_horizon - T, value.shape[-1], dtype=value.dtype)
                     elif self.padding_strategy == "repeat_last":
                         pad = value[-1:].expand(self.action_horizon - T, -1)
                     value = torch.cat([value, pad], dim=0)

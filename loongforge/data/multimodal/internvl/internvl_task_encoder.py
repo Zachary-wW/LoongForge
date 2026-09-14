@@ -21,10 +21,13 @@ from ..base.task_encoder import (
 from .internvl_preprocess import InternvlPreprocess, IGNORE_TOKEN_ID, IGNORE_INDEX
 
 from importlib.metadata import version as _energon_version
+
 try:
     _ENERGON_NEEDS_SUBFLAVOR = _energon_version("megatron-energon") < "7.0.0"
 except Exception:
     _ENERGON_NEEDS_SUBFLAVOR = False
+
+
 @dataclass
 class MixQATaskSample(BaseTaskSample):
     """Dataclass to store a single unbatched sample."""
@@ -66,7 +69,6 @@ class InternVLTaskEncoder(BaseTaskEncoder):
         self.strict_mode = args.strict_mode
         self.max_item_length = args.max_packed_tokens if self.strict_mode else 0
 
-
     def encode_multi_mix_qa(self, sample: MultiMixQASample) -> MixQATaskSample:
         """Encode multi_mix_qa sample."""
         # Convert standardized messages (role/content) back to internvl's expected format (from/value)
@@ -74,16 +76,13 @@ class InternVLTaskEncoder(BaseTaskEncoder):
         texts = []
         if sample.system is not None:
             texts.append({"from": "system", "value": sample.system})
-        texts += [
-            {"from": _role_map.get(msg["role"], msg["role"]), "value": msg["content"]}
-            for msg in sample.messages
-        ]
+        texts += [{"from": _role_map.get(msg["role"], msg["role"]), "value": msg["content"]} for msg in sample.messages]
         data_item = {"texts": texts}
         # text + images
         if sample.image is not None:
-            assert (
-                sample.video is None
-            ), "Mixed video and image content is not currently supported: sample text:{sample.texts}"
+            assert sample.video is None, (
+                "Mixed video and image content is not currently supported: sample text:{sample.texts}"
+            )
             data_item["image"] = sample.image
             ret = self.preproc.multi_image_get_item(data_item)
         # text + videos
@@ -113,9 +112,7 @@ class InternVLTaskEncoder(BaseTaskEncoder):
 
     @override
     @stateless
-    def pack_selected_samples(
-        self, samples: List[MixQATaskSample]
-    ) -> MixQATaskPackedSample:
+    def pack_selected_samples(self, samples: List[MixQATaskSample]) -> MixQATaskPackedSample:
         """Pack selected samples into one big sample."""
         packing_seq_len = self.seq_length
         packed_tokens = []
@@ -142,11 +139,7 @@ class InternVLTaskEncoder(BaseTaskEncoder):
                 max_length = sample_len
 
             if current_length + sample_len > packing_seq_len:
-                raise ValueError(
-                    _format_packed_sample_overflow_error(
-                        samples, packing_seq_len, current_length, sample
-                    )
-                )
+                raise ValueError(_format_packed_sample_overflow_error(samples, packing_seq_len, current_length, sample))
 
             # Add the sample's tokens and labels
             packed_tokens.append(sample.tokens)
@@ -177,13 +170,9 @@ class InternVLTaskEncoder(BaseTaskEncoder):
             data_index=packed_data_index,
             input_ids=packed_tokens,
             labels=packed_labels,
-            len2weight=partial(
-                self.preproc.len2weight, loss_reduction=self.loss_reduction
-            ),
+            len2weight=partial(self.preproc.len2weight, loss_reduction=self.loss_reduction),
         )
-        curr_loss_weight = torch.where(
-            packed_labels == IGNORE_TOKEN_ID, 0, curr_loss_weight
-        )
+        curr_loss_weight = torch.where(packed_labels == IGNORE_TOKEN_ID, 0, curr_loss_weight)
 
         sample_kwargs = {
             "__key__": ",".join([s.__key__ for s in samples]),
@@ -206,9 +195,7 @@ class InternVLTaskEncoder(BaseTaskEncoder):
         return MixQATaskPackedSample(**sample_kwargs)
 
     @override
-    def batch(
-        self, samples: List[Union[MixQATaskSample, MixQATaskPackedSample]]
-    ) -> MixQATaskBatchPackedSample:
+    def batch(self, samples: List[Union[MixQATaskSample, MixQATaskPackedSample]]) -> MixQATaskBatchPackedSample:
         """Batch samples together"""
         batch_lens = [feat.tokens.shape for feat in samples]
         max_item_length = self.max_item_length or max(batch_lens)[0]
@@ -239,16 +226,12 @@ class InternVLTaskEncoder(BaseTaskEncoder):
             if isinstance(samples[0], MixQATaskSample):
                 feat["attention_mask"] = feat["tokens"].ne(pad_id)
             else:  # pack
-                assert (
-                    feat["cu_lengths"] is not None
-                ), f'pack mask error: {feat["cu_lengths"]}'
+                assert feat["cu_lengths"] is not None, f"pack mask error: {feat['cu_lengths']}"
                 feat["attn_mask"] = feat["cu_lengths"]
 
             if "position_ids" in feat:
                 temp_position_ids = torch.LongTensor([pad_id] * max_item_length)
-                temp_position_ids[: feat["position_ids"].shape[0]] = feat[
-                    "position_ids"
-                ]
+                temp_position_ids[: feat["position_ids"].shape[0]] = feat["position_ids"]
                 feat["position_ids"] = temp_position_ids
 
             if "loss_weight" in feat and feat["loss_weight"] is not None:
@@ -269,11 +252,7 @@ class InternVLTaskEncoder(BaseTaskEncoder):
         # Special handling for labels.
         # Ensure that tensor is created with the correct type
         if "label" in first and first["label"] is not None:
-            label = (
-                first["label"].item()
-                if isinstance(first["label"], torch.Tensor)
-                else first["label"]
-            )
+            label = first["label"].item() if isinstance(first["label"], torch.Tensor) else first["label"]
             dtype = torch.long if isinstance(label, int) else torch.float
             batch.labels = torch.tensor([f["label"] for f in features], dtype=dtype)
 
@@ -287,8 +266,6 @@ class InternVLTaskEncoder(BaseTaskEncoder):
 
         # ['pixel_values', 'image_flags']
         batch.imgs = torch.stack([tensor for f in features for tensor in f["imgs"]])
-        batch.image_flags = torch.stack(
-            [tensor for f in features for tensor in f["image_flags"]]
-        )
+        batch.image_flags = torch.stack([tensor for f in features for tensor in f["image_flags"]])
 
         return batch

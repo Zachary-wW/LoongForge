@@ -217,12 +217,8 @@ def _build_dreamzero_transforms(
             tokenizer_path=tokenizer_path,
             precomputed_video_latents=precomputed_cache_config.video_latents.enabled,
             precomputed_video_latents_key=precomputed_cache_config.video_latents.batch_key,
-            precomputed_first_frame_latents=(
-                precomputed_cache_config.first_frame_latents.enabled
-            ),
-            precomputed_first_frame_latents_key=(
-                precomputed_cache_config.first_frame_latents.batch_key
-            ),
+            precomputed_first_frame_latents=(precomputed_cache_config.first_frame_latents.enabled),
+            precomputed_first_frame_latents_key=(precomputed_cache_config.first_frame_latents.batch_key),
         ),
     ]
     return ComposedModalityTransform(transforms=pipeline)
@@ -265,11 +261,7 @@ def build_dreamzero_sampler(
     sampler_type = str(sampler_type or "distributed").strip().lower()
     require_full_language_chunks = bool(data_cfg.require_full_language_chunks)
     sampler_worker_batching = str(data_cfg.sampler_worker_batching or "none").strip().lower()
-    sampler_num_workers = (
-        num_workers
-        if data_cfg.sampler_num_workers is None
-        else int(data_cfg.sampler_num_workers)
-    )
+    sampler_num_workers = num_workers if data_cfg.sampler_num_workers is None else int(data_cfg.sampler_num_workers)
 
     if sampler_type == "global_batch_shard":
         sampler = GlobalBatchShardSampler(
@@ -283,8 +275,7 @@ def build_dreamzero_sampler(
         )
         if rank == 0:
             logger.info(
-                "[dreamzero-data] using global batch-shard sampler "
-                "seed=%s micro_batch=%s replicas=%s dataset_len=%s",
+                "[dreamzero-data] using global batch-shard sampler seed=%s micro_batch=%s replicas=%s dataset_len=%s",
                 sampler_seed,
                 batch_size,
                 replicas,
@@ -321,8 +312,7 @@ def build_dreamzero_sampler(
             return sampler, False
         return None, True
     raise ValueError(
-        "Unknown DreamZero sampler_type="
-        f"{sampler_type!r}; expected distributed, sharded, or global_batch_shard"
+        f"Unknown DreamZero sampler_type={sampler_type!r}; expected distributed, sharded, or global_batch_shard"
     )
 
 
@@ -340,9 +330,7 @@ def build_dreamzero_dataset(model_cfg, data_cfg, training_args):
 
     embodiment_tag = data_cfg.embodiment_tag
     if embodiment_tag not in EMBODIMENT_BUILDERS:
-        raise ValueError(
-            f"unknown embodiment_tag={embodiment_tag!r}; supported: {sorted(EMBODIMENT_BUILDERS)}"
-        )
+        raise ValueError(f"unknown embodiment_tag={embodiment_tag!r}; supported: {sorted(EMBODIMENT_BUILDERS)}")
 
     language_chunk_sampling = bool(data_cfg.language_chunk_sampling)
     modality_video_frames = 25 if language_chunk_sampling else int(model_cfg.num_frames)
@@ -397,9 +385,7 @@ def build_dreamzero_dataset(model_cfg, data_cfg, training_args):
     run_seed = int(training_args.seed or 0)
     use_mixture_dataset = bool(data_cfg.use_mixture_dataset)
     mixture_sampling_seed_cfg = data_cfg.mixture_sampling_seed
-    mixture_sampling_seed = (
-        run_seed if mixture_sampling_seed_cfg is None else int(mixture_sampling_seed_cfg)
-    )
+    mixture_sampling_seed = run_seed if mixture_sampling_seed_cfg is None else int(mixture_sampling_seed_cfg)
     if use_mixture_dataset:
         train_dataset = DreamZeroLeRobotMixtureDataset(
             data_mixture=[(base_dataset, 1.0)],

@@ -56,18 +56,22 @@ _NumRealMicroBatchesPerDecoderDP = 1
 _NumEncodeRounds = 1
 _ModelSize = 1
 
+
 def get_model_size():
     """Return the model parallel size."""
     return _ModelSize
+
 
 def get_num_micro_batches_per_decoder_dp():
     """Return the number of micro-batches per decoder DP group
     and the number of encode rounds."""
     return _NumMicroBatchesPerDecoderDP, _NumEncodeRounds
 
+
 def get_num_real_micro_batches_per_decoder_dp():
     """Return the number of real (non-mock) micro-batches per decoder DP group."""
     return _NumRealMicroBatchesPerDecoderDP
+
 
 def is_mock_microbatch(microbatch_index: int) -> bool:
     """Return True if the given microbatch index corresponds to a mock (padding) microbatch."""
@@ -78,20 +82,22 @@ def get_encoder_dp_size(name):
     """
     Get the data parallel size of the encoder.
     """
-    if name == 'image_encoder':
+    if name == "image_encoder":
         return _ImageEncoderDataParallelSize
-    elif name == 'video_encoder':
+    elif name == "video_encoder":
         return _VideoEncoderDataParallelSize
-    elif name == 'audio_encoder':
+    elif name == "audio_encoder":
         return _AudioEncoderDataParallelSize
     else:
-        raise ValueError(f'Unknown encoder type: {name}')
+        raise ValueError(f"Unknown encoder type: {name}")
+
 
 def destroy_model_parallel_group():
     """Set the groups to none."""
     for k, v in vars((mpu)).items():
-        if k.startswith('_') and not k.startswith('__') and not inspect.isfunction(v):
+        if k.startswith("_") and not k.startswith("__") and not inspect.isfunction(v):
             setattr(mpu, k, None)
+
 
 def change_parallel_state(module_name):
     """
@@ -112,32 +118,33 @@ def change_parallel_state(module_name):
             target_globals[k] = v
     _CurrentParallelStateModel = module_name
 
+
 def save_parallel_state(module_name):
     """
     Save the current parallel state of the model
     """
     state_snapshot = {
-        k: v for k, v in vars((mpu)).items()
-        if k.startswith('_') and not k.startswith('__') and not inspect.isfunction(v)
+        k: v
+        for k, v in vars((mpu)).items()
+        if k.startswith("_") and not k.startswith("__") and not inspect.isfunction(v)
     }
-    
+
     # The gloo communication groups of image_encoder, video_encoder, and audio_encoder
     # are kept consistent with text_decoder.
-    if module_name in ['image_encoder', 'video_encoder', 'audio_encoder']:
-        for k in ["_DATA_PARALLEL_GROUP_GLOO", 
-            "_EXPERT_DATA_PARALLEL_GROUP_GLOO", 
+    if module_name in ["image_encoder", "video_encoder", "audio_encoder"]:
+        for k in [
+            "_DATA_PARALLEL_GROUP_GLOO",
+            "_EXPERT_DATA_PARALLEL_GROUP_GLOO",
             "_INTRA_PARTIAL_EXPERT_DATA_PARALLEL_GROUP_GLOO",
             "_DATA_PARALLEL_GROUP_WITH_CP_GLOO",
-            "_INTRA_PARTIAL_DATA_PARALLEL_GROUP_WITH_CP_GLOO"]:
-                state_snapshot[k] = _ParallelStatesDict["text_decoder"][k]
+            "_INTRA_PARTIAL_DATA_PARALLEL_GROUP_WITH_CP_GLOO",
+        ]:
+            state_snapshot[k] = _ParallelStatesDict["text_decoder"][k]
 
     _ParallelStatesDict.setdefault(module_name, {}).update(state_snapshot)
 
-def create_parallel_state(
-        module_name, 
-        tp_size=0, 
-        enable_encoder_hetero_dp=False,
-        enable_full_hetero_dp=False):
+
+def create_parallel_state(module_name, tp_size=0, enable_encoder_hetero_dp=False, enable_full_hetero_dp=False):
     """
     Create the parallel state of the model and save it
     """
@@ -170,8 +177,10 @@ def create_parallel_state(
         expert_model_parallel_size=1,
         nccl_communicator_config_path=None,
         distributed_timeout_minutes=30,
-        order="tp-cp-ep-dp-pp")
+        order="tp-cp-ep-dp-pp",
+    )
     save_parallel_state(module_name)
+
 
 logger = logging.getLogger(__name__)
 
@@ -211,15 +220,11 @@ def initialize_loongforge_megatron(
 
     # init rerun state
     def state_save_func():
-        return {
-            "rng_tracker_states": tensor_parallel.get_cuda_rng_tracker().get_states()
-        }
+        return {"rng_tracker_states": tensor_parallel.get_cuda_rng_tracker().get_states()}
 
     def state_restore_func(state_dict):
         if state_dict["rng_tracker_states"]:
-            tensor_parallel.get_cuda_rng_tracker().set_states(
-                state_dict["rng_tracker_states"]
-            )
+            tensor_parallel.get_cuda_rng_tracker().set_states(state_dict["rng_tracker_states"])
 
     initialize_rerun_state_machine(
         state_save_func=state_save_func,
@@ -237,6 +242,7 @@ def initialize_loongforge_megatron(
         """torch.distributed initialization"""
 
         from .parser import parse_args_from_config
+
         # set model config from args and hydra config (must be before _initialize_distributed,
         # because get_embedding_ranks may depend on get_model_config())
         parse_args_from_config(args)
@@ -244,7 +250,7 @@ def initialize_loongforge_megatron(
         # Pytorch distributed.
         _initialize_distributed(get_embedding_ranks, get_position_embedding_ranks, store)
 
-        save_parallel_state('text_decoder')
+        save_parallel_state("text_decoder")
         global _DecoderTensorParallelSize
         _DecoderTensorParallelSize = mpu.get_tensor_model_parallel_world_size()
 
@@ -256,9 +262,7 @@ def initialize_loongforge_megatron(
             world_size: int = torch.distributed.get_world_size()
             global _ModelSize
             _ModelSize = (
-                args.tensor_model_parallel_size 
-                * args.pipeline_model_parallel_size 
-                * args.context_parallel_size
+                args.tensor_model_parallel_size * args.pipeline_model_parallel_size * args.context_parallel_size
             )
             if world_size % _ModelSize != 0:
                 raise RuntimeError(f"world_size ({world_size}) is not divisible by {_ModelSize}")
@@ -266,8 +270,7 @@ def initialize_loongforge_megatron(
             global _NumMicroBatchesPerDecoderDP, _NumRealMicroBatchesPerDecoderDP, _NumEncodeRounds
             _NumRealMicroBatchesPerDecoderDP = args.global_batch_size // data_parallel_size
             assert _NumRealMicroBatchesPerDecoderDP >= 1, (
-                f"_NumRealMicroBatchesPerDecoderDP ({_NumRealMicroBatchesPerDecoderDP}) "
-                f"must be at least 1"
+                f"_NumRealMicroBatchesPerDecoderDP ({_NumRealMicroBatchesPerDecoderDP}) must be at least 1"
             )
             if _NumRealMicroBatchesPerDecoderDP < _ModelSize:
                 _NumMicroBatchesPerDecoderDP = _ModelSize
@@ -281,30 +284,31 @@ def initialize_loongforge_megatron(
 
         model_config = get_model_config()
         from megatron.training import print_rank_0
+
         print_rank_0(f"model_config: {model_config}")
         if hasattr(model_config, "image_encoder") and model_config.image_encoder is not None:
             create_parallel_state(
-                'image_encoder', 
-                model_config.image_encoder.tensor_model_parallel_size, 
+                "image_encoder",
+                model_config.image_encoder.tensor_model_parallel_size,
                 args.enable_encoder_hetero_dp,
-                args.enable_full_hetero_dp
+                args.enable_full_hetero_dp,
             )
         if hasattr(model_config, "video_encoder") and model_config.video_encoder is not None:
             create_parallel_state(
-                'video_encoder', 
-                model_config.video_encoder.tensor_model_parallel_size, 
+                "video_encoder",
+                model_config.video_encoder.tensor_model_parallel_size,
                 args.enable_encoder_hetero_dp,
-                args.enable_full_hetero_dp
+                args.enable_full_hetero_dp,
             )
         if hasattr(model_config, "audio_encoder") and model_config.audio_encoder is not None:
             create_parallel_state(
-                'audio_encoder', 
-                model_config.audio_encoder.tensor_model_parallel_size, 
+                "audio_encoder",
+                model_config.audio_encoder.tensor_model_parallel_size,
                 args.enable_encoder_hetero_dp,
-                args.enable_full_hetero_dp
+                args.enable_full_hetero_dp,
             )
 
-        change_parallel_state('text_decoder')
+        change_parallel_state("text_decoder")
 
         # Random seeds for reproducibility.
         if args.rank == 0:

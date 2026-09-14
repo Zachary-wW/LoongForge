@@ -35,9 +35,7 @@ class RerunDataIterator(_OrigRerunDataIterator):
         self._iterator = iterable if hasattr(iterable, "__iter__") else iter(iterable)
 
     def __iter__(self) -> "RerunDataIterator":
-        self._iterator = (
-            self.iterable if hasattr(self.iterable, "__iter__") else iter(self.iterable)
-        )
+        self._iterator = self.iterable if hasattr(self.iterable, "__iter__") else iter(self.iterable)
         self.saved_microbatches = []
         self.replaying = False
         self.replay_pos = 0
@@ -45,9 +43,7 @@ class RerunDataIterator(_OrigRerunDataIterator):
 
     def __next__(self) -> Any:
         if self.replaying:
-            assert (
-                len(self.saved_microbatches) > self.replay_pos
-            ), "No more batches to replay"
+            assert len(self.saved_microbatches) > self.replay_pos, "No more batches to replay"
             n = self.saved_microbatches[self.replay_pos]
             self.replay_pos += 1
             return n

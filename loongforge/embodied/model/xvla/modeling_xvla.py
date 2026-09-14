@@ -48,6 +48,7 @@ class XVLA(PreTrainedModel):
       • SoftPromptedTransformer (temporal/action head)
       • Action space (pre/post-processing + loss)
     """
+
     config_class = XVLAConfig
     base_model_prefix = "xvla"
     supports_gradient_checkpointing = True
@@ -107,9 +108,9 @@ class XVLA(PreTrainedModel):
     # ============================= Florence2 encoder =============================
     def forward_vlm(
         self,
-        input_ids: torch.LongTensor,        # [B, L]
-        pixel_values: torch.FloatTensor,    # [B, V, C, H, W]
-        image_mask: torch.Tensor,           # [B, V] (bool or 0/1)
+        input_ids: torch.LongTensor,  # [B, L]
+        pixel_values: torch.FloatTensor,  # [B, V, C, H, W]
+        image_mask: torch.Tensor,  # [B, V] (bool or 0/1)
     ) -> Dict[str, torch.Tensor]:
         """
         Encode text + multi-view images via Florence2 encoder.
@@ -118,20 +119,20 @@ class XVLA(PreTrainedModel):
           { "vlm_features": [B, T_enc, D], "aux_visual_inputs": [B, (V-1)*N, D] }
         """
         B, V = pixel_values.shape[:2]
-        flat_mask = image_mask.view(-1).to(torch.bool)         # [B*V]
-        flat_images = pixel_values.flatten(0, 1)                # [B*V, C, H, W]
+        flat_mask = image_mask.view(-1).to(torch.bool)  # [B*V]
+        flat_images = pixel_values.flatten(0, 1)  # [B*V, C, H, W]
 
-        all_feats = self.vlm._encode_image(flat_images)         # [B*V, N, D]
+        all_feats = self.vlm._encode_image(flat_images)  # [B*V, N, D]
         N, D = all_feats.shape[1:]
-        image_features = torch.where(
-            flat_mask.view(-1, 1, 1), all_feats, all_feats.new_zeros(())
-        ).view(B, V, N, D)                                       # [B, V, N, D]
+        image_features = torch.where(flat_mask.view(-1, 1, 1), all_feats, all_feats.new_zeros(())).view(
+            B, V, N, D
+        )  # [B, V, N, D]
 
         inputs_embeds = self.vlm.get_input_embeddings()(input_ids)  # [B, L, D]
 
         merged_embeds, _attention_mask = self.vlm._merge_input_ids_with_image_features(
             image_features[:, 0],  # first view: [B, N, D]
-            inputs_embeds,         # [B, L, D]
+            inputs_embeds,  # [B, L, D]
         )
         # ``_merge_input_ids_with_image_features`` constructs the mask with
         # ``torch.ones(...)`` for both image and prefix tokens, so it is
@@ -170,8 +171,7 @@ class XVLA(PreTrainedModel):
         enc = self.forward_vlm(input_ids, image_input, image_mask)
 
         B = input_ids.shape[0]
-        t = (torch.rand(1, device=input_ids.device)
-             + torch.arange(B, device=input_ids.device) / B) % (1 - 1e-5)
+        t = (torch.rand(1, device=input_ids.device) + torch.arange(B, device=input_ids.device) / B) % (1 - 1e-5)
 
         action_noisy = torch.randn_like(action) * t.view(-1, 1, 1) + action * (1 - t).view(-1, 1, 1)
 
@@ -306,9 +306,7 @@ class XVLAPolicy(torch.nn.Module):
 
         image_mask = batch.get("image_mask")
         if image_mask is None:
-            image_mask = torch.ones(
-                image_input.shape[:2], dtype=torch.bool, device=device
-            )
+            image_mask = torch.ones(image_input.shape[:2], dtype=torch.bool, device=device)
         else:
             image_mask = image_mask.to(device).bool()
 
@@ -457,9 +455,7 @@ class XVLAPolicy(torch.nn.Module):
         if not isinstance(instructions, (list, tuple)):
             instructions = [instructions]
         if len(instructions) != B:
-            raise ValueError(
-                f"predict_action: got {B} image samples but {len(instructions)} instructions."
-            )
+            raise ValueError(f"predict_action: got {B} image samples but {len(instructions)} instructions.")
 
         image_tf = self._get_image_transform()
         pil_batch = [[image_tf._to_pil(im) for im in views] for views in images]
@@ -467,9 +463,7 @@ class XVLAPolicy(torch.nn.Module):
         image_input = encoded["image_input"].to(device)
         image_mask = encoded["image_mask"].to(device)
 
-        tok = self._get_tokenize_transform().encode_language_batch(
-            [str(t) for t in instructions]
-        )
+        tok = self._get_tokenize_transform().encode_language_batch([str(t) for t in instructions])
         input_ids = tok["input_ids"].to(device)
 
         dim_proprio = int(self.model.action_space.dim_proprio)
@@ -482,9 +476,7 @@ class XVLAPolicy(torch.nn.Module):
             if state.dim() == 1:
                 state = state.unsqueeze(0)
             if state.shape[0] != B:
-                raise ValueError(
-                    f"predict_action: state batch {state.shape[0]} != images batch {B}."
-                )
+                raise ValueError(f"predict_action: state batch {state.shape[0]} != images batch {B}.")
             cur = state.shape[-1]
             if cur < dim_proprio:
                 state = torch.nn.functional.pad(state, (0, dim_proprio - cur))
@@ -542,23 +534,18 @@ class XVLAPolicy(torch.nn.Module):
         path = Path(pretrained_path)
         # Remember the checkpoint directory so lazily-built processors
         # (tokenizer / image_processor) can be loaded from it later.
-        self._processor_path = str(path.parent if path.is_file() else path) \
-            if self._processor_path is None else self._processor_path
+        self._processor_path = (
+            str(path.parent if path.is_file() else path) if self._processor_path is None else self._processor_path
+        )
         safetensors_file = path / "model.safetensors" if path.is_dir() else path
         load_kwargs = {"device": str(device)} if device is not None else {}
         state_dict = load_file(str(safetensors_file), **load_kwargs)
 
         # Align checkpoint keys with this policy's "model." wrapper prefix.
         own_keys = set(self.state_dict().keys())
-        needs_prefix = any(
-            (not k.startswith("model.")) and (f"model.{k}" in own_keys)
-            for k in state_dict
-        )
+        needs_prefix = any((not k.startswith("model.")) and (f"model.{k}" in own_keys) for k in state_dict)
         if needs_prefix:
-            state_dict = {
-                (k if k.startswith("model.") else f"model.{k}"): v
-                for k, v in state_dict.items()
-            }
+            state_dict = {(k if k.startswith("model.") else f"model.{k}"): v for k, v in state_dict.items()}
 
         # Florence2 shares one embedding table across `model.shared` and the
         # encoder's `embed_tokens` (see Florence2LanguageModel._tie_weights).

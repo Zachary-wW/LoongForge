@@ -46,12 +46,14 @@ def register_factory(model_type: str):
     Returns:
         Class decorator that registers the decorated class and returns it unchanged.
     """
+
     def decorator(cls):
         """Register cls into MODEL_FACTORY_REGISTRY and MODEL_CONFIG_REGISTRY."""
         MODEL_FACTORY_REGISTRY[model_type] = cls
         if hasattr(cls, "model_config_cls"):
             MODEL_CONFIG_REGISTRY[model_type] = cls.model_config_cls
         return cls
+
     return decorator
 
 
@@ -98,6 +100,7 @@ def build_model_config(model_type: str, raw_model_dict: Dict[str, Any]) -> Any:
         )
     config_cls = MODEL_CONFIG_REGISTRY[model_type]
     import dataclasses
+
     known_fields = {f.name for f in dataclasses.fields(config_cls)}
     filtered = {k: v for k, v in raw_model_dict.items() if k in known_fields}
     merged = OmegaConf.merge(OmegaConf.structured(config_cls), filtered)
@@ -124,10 +127,7 @@ def build_model_spec(
 
     model_type = server_args.model_type
     if model_type not in MODEL_FACTORY_REGISTRY:
-        raise SystemExit(
-            f"Unsupported model_type: {model_type!r}. "
-            f"Registered: {sorted(MODEL_FACTORY_REGISTRY.keys())}"
-        )
+        raise SystemExit(f"Unsupported model_type: {model_type!r}. Registered: {sorted(MODEL_FACTORY_REGISTRY.keys())}")
 
     model_cfg = build_model_config(model_type, raw_model_dict)
     factory_cls = MODEL_FACTORY_REGISTRY[model_type]

@@ -102,8 +102,7 @@ def parse_jsonl(jsonl_file):
                 record["elapsed_time_ms"] = raw["step_time"] * 1000.0
             for key, value in raw.items():
                 # Exclude bool (in Python bool is a subclass of int, and float(True)=1.0 would pollute the metrics)
-                if key in _JSONL_SKIP or not isinstance(value, (int, float)) \
-                        or isinstance(value, bool):
+                if key in _JSONL_SKIP or not isinstance(value, (int, float)) or isinstance(value, bool):
                     continue
                 record[_JSONL_KEY_MAP.get(key, key)] = float(value)
             records[record["iteration"]] = record

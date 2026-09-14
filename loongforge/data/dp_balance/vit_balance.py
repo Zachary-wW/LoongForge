@@ -55,21 +55,17 @@ def dp_balance_vit_encoder(vit_module, pixel_values, image_grid_thw):
     dp_size = dp_group.size()
 
     vit_hidden_size = pixel_values.shape[1]
-    vit_input_lengths = (
-        image_grid_thw[:, 0] * image_grid_thw[:, 1] * image_grid_thw[:, 2]
-    ).tolist()
+    vit_input_lengths = (image_grid_thw[:, 0] * image_grid_thw[:, 1] * image_grid_thw[:, 2]).tolist()
     split_vit_input = pixel_values.split(vit_input_lengths, dim=0)
-    global_vit_lengths, local_vit_index, tensor_src_dp_rank = (
-        gather_sample_info_across_dp(
-            torch.tensor(vit_input_lengths, dtype=torch.int, device=pixel_values.device)
-        )
+    global_vit_lengths, local_vit_index, tensor_src_dp_rank = gather_sample_info_across_dp(
+        torch.tensor(vit_input_lengths, dtype=torch.int, device=pixel_values.device)
     )
 
     vit_dp_reorder_plan, _ = solve_sample_dp_reorder_plan(
         global_vit_lengths,
         local_vit_index,
         tensor_src_dp_rank,
-        cost_fn=lambda l: l ** 2,
+        cost_fn=lambda l: l**2,
         pack_len_ratio=get_args().dp_balance_max_len_ratio_vit,
         cross_micro_batch_balance=False,
         caller="ViT",
@@ -97,9 +93,7 @@ def dp_balance_vit_encoder(vit_module, pixel_values, image_grid_thw):
     reordered_image_grid_thw = torch.cat(reordered_image_grid_thw, dim=0)
 
     # vit forward
-    pixel_embeds, window_index, deepstack_pixel_embeds = vit_module(
-        pixel_values, reordered_image_grid_thw
-    )
+    pixel_embeds, window_index, deepstack_pixel_embeds = vit_module(pixel_values, reordered_image_grid_thw)
     args = get_args()
     if args.enable_encoder_hetero_dp or args.enable_full_hetero_dp:
         change_parallel_state("image_encoder")
@@ -110,9 +104,7 @@ def dp_balance_vit_encoder(vit_module, pixel_values, image_grid_thw):
     if pixel_embeds.numel() == 0:
         return pixel_embeds, window_index, deepstack_pixel_embeds
     pixel_embeds_lengths = (
-        reordered_image_grid_thw[:, 0]
-        * reordered_image_grid_thw[:, 1]
-        * reordered_image_grid_thw[:, 2]
+        reordered_image_grid_thw[:, 0] * reordered_image_grid_thw[:, 1] * reordered_image_grid_thw[:, 2]
     ).tolist()
     reverse_reorder_plan = get_reverse_reorder_plan(vit_dp_reorder_plan, dp_size)
     split_pixel_embeds = pixel_embeds.split(pixel_embeds_lengths, dim=0)
@@ -126,19 +118,13 @@ def dp_balance_vit_encoder(vit_module, pixel_values, image_grid_thw):
     # reorder deepstack_pixel_embeds
     if len(deepstack_pixel_embeds) != 0:
         reordered_thw_merged = reordered_image_grid_thw.clone()
-        reordered_thw_merged[:, 1:] = (
-            reordered_thw_merged[:, 1:] // vit_module.spatial_merge_size
-        )
+        reordered_thw_merged[:, 1:] = reordered_thw_merged[:, 1:] // vit_module.spatial_merge_size
         deepstack_feature_lengths = (
-            reordered_thw_merged[:, 0]
-            * reordered_thw_merged[:, 1]
-            * reordered_thw_merged[:, 2]
+            reordered_thw_merged[:, 0] * reordered_thw_merged[:, 1] * reordered_thw_merged[:, 2]
         ).tolist()
 
         for i, deepstack_feature in enumerate(deepstack_pixel_embeds):
-            deepstack_feature_split = deepstack_feature.split(
-                deepstack_feature_lengths, dim=0
-            )
+            deepstack_feature_split = deepstack_feature.split(deepstack_feature_lengths, dim=0)
 
             deepstack_feature_split = redistribute_tensors(
                 deepstack_feature_split,

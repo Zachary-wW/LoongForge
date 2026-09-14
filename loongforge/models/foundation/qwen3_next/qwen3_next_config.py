@@ -12,6 +12,7 @@ from loongforge.models.common.base_model_config import BaseModelConfig
 @dataclass
 class Qwen3NextConfig(BaseModelConfig):
     """config for qwen model"""
+
     num_layers: int
     hidden_size: int
     ffn_hidden_size: int

@@ -32,6 +32,7 @@ class WallOss05Batch(dict):
 
     def to(self, device: torch.device) -> "WallOss05Batch":
         """To."""
+
         def move(value):
             """Move."""
             if isinstance(value, torch.Tensor):
@@ -211,9 +212,7 @@ class WallOss05Preprocessor(BasePreprocessor):
             return_tensors="pt",
             max_length=self.data_cfg.max_length,
             norm_state=(
-                additional_inputs["proprioception"]
-                if self.model_cfg.use_state_string_representation
-                else None
+                additional_inputs["proprioception"] if self.model_cfg.use_state_string_representation else None
             ),
             agent_pos_mask=additional_inputs.get("agent_pos_mask"),
             state_bins=self.data_cfg.state_bins,
@@ -221,15 +220,11 @@ class WallOss05Preprocessor(BasePreprocessor):
 
         action_token_id = self.processor.tokenizer.convert_tokens_to_ids("<|action|>")
         additional_inputs["moe_token_types"] = inputs.input_ids == action_token_id
-        additional_inputs["moe_group_counts"] = compute_moe_group_counts(
-            additional_inputs["moe_token_types"]
-        )
+        additional_inputs["moe_group_counts"] = compute_moe_group_counts(additional_inputs["moe_token_types"])
         for name in ("image_grid_thw", "video_grid_thw"):
             grid_thw = inputs.get(name)
             additional_inputs[f"{name}_cpu"] = (
-                tuple(tuple(int(v) for v in row) for row in grid_thw.tolist())
-                if grid_thw is not None
-                else None
+                tuple(tuple(int(v) for v in row) for row in grid_thw.tolist()) if grid_thw is not None else None
             )
         batch = WallOss05Batch(inputs)
         batch.update(additional_inputs)

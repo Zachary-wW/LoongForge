@@ -14,7 +14,7 @@ from convert_checkpoint.arguments import parse_args
 
 class McoreConfig(AbstractConfig):
     """
-        McoreConfig
+    McoreConfig
     """
 
     def __init__(self):
@@ -23,7 +23,7 @@ class McoreConfig(AbstractConfig):
     @staticmethod
     def convert_from_common(c_config):
         """
-            return mcore config converted from common config 
+        return mcore config converted from common config
         """
         config = McoreConfig()
         args = parse_args()
@@ -41,7 +41,7 @@ class McoreConfig(AbstractConfig):
         return config
 
     def load(self, load_path):
-        """ load config """
+        """load config"""
         if load_path is None:
             return
         else:
@@ -67,18 +67,17 @@ class McoreConfig(AbstractConfig):
         self.data = vars(rank0_state_dict["args"])
 
     def save(self, save_path):
-        """ save config """
+        """save config"""
 
         release_dir = os.path.join(save_path, "release")
         os.makedirs(release_dir, exist_ok=True)
 
         tp = self.get("tensor_model_parallel_size")
         pp = self.get("pipeline_model_parallel_size")
-        pbar = tqdm(range(tp*pp), desc='Saving Megatron-LM Config')
+        pbar = tqdm(range(tp * pp), desc="Saving Megatron-LM Config")
         for p in range(pp):
             for t in range(tp):
-                sub_dir_name = f"mp_rank_{t:02d}" if pp == 1 \
-                        else f"mp_rank_{t:02d}_{p:03d}"
+                sub_dir_name = f"mp_rank_{t:02d}" if pp == 1 else f"mp_rank_{t:02d}_{p:03d}"
                 checkpoint_name = os.listdir(os.path.join(release_dir, sub_dir_name))[0]
                 checkpoint_path = os.path.join(release_dir, sub_dir_name, checkpoint_name)
                 tp_state_dict = torch.load(checkpoint_path, map_location="cpu", weights_only=False)

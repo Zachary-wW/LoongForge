@@ -65,18 +65,13 @@ class KimiTaskEncoder(VLMTaskEncoder):
         super().__init__(args)
 
         # Initialize chat_template for SFT phase
-        if args.training_phase in ['sft']:
+        if args.training_phase in ["sft"]:
             self.chat_template = get_chat_template()
 
         # Get merge_kernel_size from processor config, default to [2, 2]
         merge_kernel_size = 2  # default
-        if (
-            hasattr(self.processor, "media_processor")
-            and self.processor.media_processor is not None
-        ):
-            media_proc_cfg = getattr(
-                self.processor.media_processor, "media_proc_cfg", {}
-            )
+        if hasattr(self.processor, "media_processor") and self.processor.media_processor is not None:
+            media_proc_cfg = getattr(self.processor.media_processor, "media_proc_cfg", {})
             if isinstance(media_proc_cfg, dict):
                 merge_kernel_size = media_proc_cfg.get("merge_kernel_size", 2)
             else:
@@ -138,8 +133,7 @@ class KimiTaskEncoder(VLMTaskEncoder):
                     visual_tokens += self._compute_image_tokens_from_grid_thw(thw)
             if visual_tokens > self.args.seq_length:
                 logging.warning(
-                    "discard sample %s: visual tokens %s > seq_length %s "
-                    "(video_grid_thw=%s, image_grid_thw=%s)",
+                    "discard sample %s: visual tokens %s > seq_length %s (video_grid_thw=%s, image_grid_thw=%s)",
                     sample.__key__,
                     visual_tokens,
                     self.args.seq_length,
@@ -227,18 +221,14 @@ class KimiTaskEncoder(VLMTaskEncoder):
         Returns:
             Expanded input_ids, target, and attn_mask tensors
         """
-        media_begin_id, media_end_id, media_content_id, media_pad_id = (
-            self._get_vision_token_ids()
-        )
+        media_begin_id, media_end_id, media_content_id, media_pad_id = self._get_vision_token_ids()
 
         # Handle case where grid_thws is 1D (single image)
         if grid_thws.dim() == 1:
             grid_thws = grid_thws.unsqueeze(0)
 
         # Compute feature lengths for each image
-        feature_lengths = [
-            self._compute_image_tokens_from_grid_thw(thw) for thw in grid_thws
-        ]
+        feature_lengths = [self._compute_image_tokens_from_grid_thw(thw) for thw in grid_thws]
 
         input_ids_list = input_ids.tolist()
         # HF multimodal plugins may already emit one token per visual feature.
@@ -265,9 +255,7 @@ class KimiTaskEncoder(VLMTaskEncoder):
                     # Add num_tokens copies of media_content_id
                     new_input_ids.extend([media_content_id] * num_tokens)
                     new_target.extend([IGNORE_INDEX] * num_tokens)
-                    new_attn_mask.extend(
-                        [False] * num_tokens
-                    )  # Not masked for attention
+                    new_attn_mask.extend([False] * num_tokens)  # Not masked for attention
                     image_idx += 1
                 else:
                     # No more images, keep original token
@@ -324,9 +312,7 @@ class KimiTaskEncoder(VLMTaskEncoder):
             pixel = [inputs["pixel_values"]]
 
         target = input_ids.clone()
-        media_begin_id, media_end_id, media_content_id, media_pad_id = (
-            self._get_vision_token_ids()
-        )
+        media_begin_id, media_end_id, media_content_id, media_pad_id = self._get_vision_token_ids()
         target[target == media_begin_id] = IGNORE_INDEX
         target[target == media_end_id] = IGNORE_INDEX
         target[target == media_content_id] = IGNORE_INDEX
@@ -430,12 +416,8 @@ class KimiTaskEncoder(VLMTaskEncoder):
             )
             return input_ids, target, attn_mask, imgs, image_grid_thw
 
-        text = self._build_kimi_chat_text(
-            context, answer, has_image=(image is not None)
-        )
-        input_ids, target, imgs, image_grid_thw, attn_mask = self._process(
-            image, text
-        )
+        text = self._build_kimi_chat_text(context, answer, has_image=(image is not None))
+        input_ids, target, imgs, image_grid_thw, attn_mask = self._process(image, text)
 
         target = self._mask_user_turns_in_target(input_ids, target)
 
@@ -443,18 +425,12 @@ class KimiTaskEncoder(VLMTaskEncoder):
 
     def encode_captioning(self, sample: CaptioningSample) -> BaseTaskSample:
         """Encode a captioning sample for a Kimi multimodal model."""
-        assert (
-            self.args.training_phase == constants.TrainingPhase.PRETRAIN
-        ), "Only support PRETRAIN phase"
+        assert self.args.training_phase == constants.TrainingPhase.PRETRAIN, "Only support PRETRAIN phase"
 
         # Format: <|media_begin|>image<|media_content|><|media_pad|><|media_end|>{caption}<eos>
-        text = (
-            IMAGE_TOKEN_WITH_TAGS + sample.caption + self.tokenizer.tokenizer.eos_token
-        )
+        text = IMAGE_TOKEN_WITH_TAGS + sample.caption + self.tokenizer.tokenizer.eos_token
 
-        input_ids, target, imgs, image_grid_thw, attn_mask = self._process(
-            sample.image, text
-        )
+        input_ids, target, imgs, image_grid_thw, attn_mask = self._process(sample.image, text)
         num_tiles = [len(image_grid_thw)] if image_grid_thw is not None else [0]
 
         if self._gate_overlong(
@@ -480,23 +456,17 @@ class KimiTaskEncoder(VLMTaskEncoder):
         if self.args.training_phase == constants.TrainingPhase.PRETRAIN:
             if self.args.add_question_in_pretrain:
                 # Replace <image> placeholder with Kimi format
-                text = (sample.context + sample.answers).replace(
-                    "<image>", IMAGE_TOKEN_WITH_TAGS
-                )
+                text = (sample.context + sample.answers).replace("<image>", IMAGE_TOKEN_WITH_TAGS)
             else:
                 text = IMAGE_TOKEN_WITH_TAGS + sample.answers
             text = text + self.tokenizer.tokenizer.eos_token
-            input_ids, target, imgs, image_grid_thw, attn_mask = self._process(
-                sample.image, text
-            )
+            input_ids, target, imgs, image_grid_thw, attn_mask = self._process(sample.image, text)
         elif self.args.training_phase == constants.TrainingPhase.SFT:
             input_ids, target, attn_mask, imgs, image_grid_thw = self.process_sft_vqa(
                 sample.context, sample.answers, sample.image
             )
         else:
-            raise NotImplementedError(
-                f"Unknown training phase {self.args.training_phase}"
-            )
+            raise NotImplementedError(f"Unknown training phase {self.args.training_phase}")
 
         num_tiles = [len(image_grid_thw)] if image_grid_thw is not None else [0]
 
@@ -518,9 +488,7 @@ class KimiTaskEncoder(VLMTaskEncoder):
             total_len=len(input_ids),
         )
 
-    def process_sft_qa(
-        self, messages: list, system: str, raw_video: list, raw_image: list, tools=None
-    ):
+    def process_sft_qa(self, messages: list, system: str, raw_video: list, raw_image: list, tools=None):
         """Process multi-turn conversation data for Kimi SFT.
 
         Args:
@@ -624,9 +592,7 @@ class KimiTaskEncoder(VLMTaskEncoder):
             elif sample.image is not None:
                 num_tiles = [len(image_grid_thw)] if image_grid_thw is not None else []
         else:
-            raise NotImplementedError(
-                f"Unknown training phase {self.args.training_phase}"
-            )
+            raise NotImplementedError(f"Unknown training phase {self.args.training_phase}")
 
         if self._gate_overlong(
             sample,
@@ -668,9 +634,7 @@ class KimiTaskEncoder(VLMTaskEncoder):
                 tools=getattr(sample, "tools", None),
             )
         else:
-            raise NotImplementedError(
-                f"Unknown training phase {self.args.training_phase}"
-            )
+            raise NotImplementedError(f"Unknown training phase {self.args.training_phase}")
 
         if self._gate_overlong(
             sample,
@@ -702,9 +666,7 @@ class KimiTaskEncoder(VLMTaskEncoder):
         and returns ``None``).
         """
         if self.args.training_phase != constants.TrainingPhase.SFT:
-            raise NotImplementedError(
-                f"encode_chat_mix only supports SFT, got {self.args.training_phase}"
-            )
+            raise NotImplementedError(f"encode_chat_mix only supports SFT, got {self.args.training_phase}")
 
         (
             input_ids,

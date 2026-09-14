@@ -33,8 +33,8 @@ def omni_model_provider(
 ) -> OmniCombinationModel:
     """
     Construct and return an Omni combination model instance.
-    
-    This function builds a multimodal combination model based on provided parameters 
+
+    This function builds a multimodal combination model based on provided parameters
     and global args configuration. Model configuration is obtained from args.model_name,
     with support for parallel processing and pre/post-processing options.
 
@@ -59,7 +59,7 @@ def omni_model_provider(
     if args.enable_full_hetero_dp:
         # encoder only resides in the first VPP chunk (model[0]); when VPP is
         # disabled vp_stage is None, which also satisfies the condition.
-        add_encoder = (vp_stage is None or vp_stage == 0)
+        add_encoder = vp_stage is None or vp_stage == 0
     else:
         add_encoder = mpu.is_pipeline_first_stage(ignore_virtual=False, vp_stage=vp_stage)
 

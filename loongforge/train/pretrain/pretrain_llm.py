@@ -57,14 +57,15 @@ def get_batch(data_iterator, vp_stage: Optional[int] = None):
     """Generate a batch."""
     # TODO: this is pretty hacky, find a better way
     if not is_first_or_last_pipeline_stage(vp_stage) and (
-    (not mtp_on_this_rank(config=get_model_config(), ignore_virtual=False, vp_stage=vp_stage))):
+        not mtp_on_this_rank(config=get_model_config(), ignore_virtual=False, vp_stage=vp_stage)
+    ):
         return None, None, None, None, None
 
     # get batches based on the TP rank you are on
     batch = get_batch_on_this_tp_rank(
         data_iterator,
-        mtp_on_this_rank=mtp_on_this_rank(config=get_model_config(), ignore_virtual=False, vp_stage=vp_stage)
-        )
+        mtp_on_this_rank=mtp_on_this_rank(config=get_model_config(), ignore_virtual=False, vp_stage=vp_stage),
+    )
 
     # slice batch along sequence dimension for context parallelism
     batch = get_batch_on_this_cp_rank(batch)
@@ -129,7 +130,7 @@ def loss_func(loss_mask: torch.Tensor, output_tensor: torch.Tensor):
     num_tokens = loss_mask.sum().clone().detach().to(torch.int)
     reporting_loss = torch.cat([loss.clone().detach().view(1), num_tokens.view(1)])
 
-    return (loss, num_tokens, {'lm loss': reporting_loss})
+    return (loss, num_tokens, {"lm loss": reporting_loss})
 
 
 def forward_step(data_iterator, model, return_schedule_plan: bool = False):
@@ -161,19 +162,24 @@ def forward_step(data_iterator, model, return_schedule_plan: bool = False):
 
     extra_block_kwargs = None
     if next_batch is not None:
-        extra_block_kwargs = {'next_batch': next_batch}
+        extra_block_kwargs = {"next_batch": next_batch}
 
     with stimer:
         if return_schedule_plan:
-            assert args.overlap_moe_expert_parallel_comm, \
+            assert args.overlap_moe_expert_parallel_comm, (
                 "overlap_moe_expert_parallel_comm must be enabled to return the schedule plan"
+            )
             schedule_plan = model.build_schedule_plan(
                 tokens, position_ids, attention_mask, labels=labels, loss_mask=loss_mask
             )
             return schedule_plan, partial(loss_func, loss_mask)
         else:
             output_tensor = model(
-                tokens, position_ids, attention_mask, labels=labels, loss_mask=loss_mask,
+                tokens,
+                position_ids,
+                attention_mask,
+                labels=labels,
+                loss_mask=loss_mask,
                 extra_block_kwargs=extra_block_kwargs,
             )
 
@@ -193,7 +199,6 @@ def train_valid_test_datasets_provider(train_val_test_num_samples, vp_stage=None
             is_first_or_last_pipeline_stage(vp_stage)
             or mtp_on_this_rank(config=get_model_config(), ignore_virtual=False, vp_stage=vp_stage)
         ) and parallel_state.get_tensor_model_parallel_rank() == 0
-
 
     config = GPTDatasetConfig(
         random_seed=args.seed,
@@ -215,10 +220,8 @@ def train_valid_test_datasets_provider(train_val_test_num_samples, vp_stage=None
         create_attention_mask=args.create_attention_mask_in_dataloader,
     )
 
-    print_rank_0(
-        f"> building train, validation, and test datasets for {args.model_name} ..."
-    )
-    
+    print_rank_0(f"> building train, validation, and test datasets for {args.model_name} ...")
+
     is_dataset_built = partial(_is_dataset_built_on_rank, vp_stage=vp_stage)
 
     train_ds, valid_ds, test_ds = BlendedMegatronDatasetBuilder(
@@ -232,6 +235,7 @@ def train_valid_test_datasets_provider(train_val_test_num_samples, vp_stage=None
 
     return train_ds, valid_ds, test_ds
 
+
 def get_embedding_ranks(pp_ranks: List[int]):
     """Get the embedding ranks."""
     embedding_ranks = [pp_ranks[0]]
@@ -244,6 +248,7 @@ def get_embedding_ranks(pp_ranks: List[int]):
     embedding_ranks = list(set(embedding_ranks))
     embedding_ranks = sorted(embedding_ranks)
     return embedding_ranks
+
 
 @register_model_trainer(
     model_family=constants.LanguageModelFamilies.names(),

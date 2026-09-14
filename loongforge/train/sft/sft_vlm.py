@@ -11,9 +11,7 @@ from megatron.core.utils import StragglerDetector
 from typing import List
 from megatron.core.transformer.multi_token_prediction import get_mtp_ranks
 
-from loongforge.utils import (
-    constants
-)
+from loongforge.utils import constants
 from loongforge.models.omni_models.omni_model_provider import (
     omni_model_provider,
 )
@@ -25,6 +23,7 @@ from loongforge.train.trainer_builder import register_model_trainer
 from loongforge.utils import constants, get_args, get_model_config
 
 stimer = StragglerDetector()
+
 
 def get_embedding_ranks(pp_ranks: List[int]):
     """Get the embedding ranks."""
@@ -39,11 +38,14 @@ def get_embedding_ranks(pp_ranks: List[int]):
     embedding_ranks = sorted(embedding_ranks)
     return embedding_ranks
 
-@register_model_trainer(model_family=constants.VisionLanguageModelFamilies.names(),
-                        training_phase=constants.TrainingPhase.SFT)
+
+@register_model_trainer(
+    model_family=constants.VisionLanguageModelFamilies.names(), training_phase=constants.TrainingPhase.SFT
+)
 def default_pretrain_trainer(train_args):
     """build trainer"""
     from loongforge.train.pretrain import pretrain_vlm
+
     trainer = MegatronTrainer(
         train_args=train_args,
         train_valid_test_dataset_provider=pretrain_vlm.train_valid_test_dataset_provider,

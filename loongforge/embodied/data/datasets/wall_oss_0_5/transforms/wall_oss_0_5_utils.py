@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class NormStats:
     """NormStats."""
+
     min: torch.Tensor
     max: torch.Tensor
     delta: torch.Tensor
@@ -158,7 +159,7 @@ def process_grounding_points(
                         max(0, min(999.999, (x2 / orig_width) * 1000)),
                         max(0, min(999.999, (y2 / orig_height) * 1000)),
                     ]
-            return f'<point>[{", ".join(map(str, coords))}]</point>'
+            return f"<point>[{', '.join(map(str, coords))}]</point>"
         except (ValueError, TypeError):
             return match.group(0)
 

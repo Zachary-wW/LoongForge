@@ -73,9 +73,7 @@ class _MinMaxStats:
         """x -> [-1, 1] via (x - min) / (max - min) * 2 - 1."""
         x = np.asarray(x, dtype=np.float32).reshape(1, -1)
         if x.shape[1] != self.vmin.size:
-            raise ValueError(
-                f"min/max normalize: input dim {x.shape[1]} != stats dim {self.vmin.size}"
-            )
+            raise ValueError(f"min/max normalize: input dim {x.shape[1]} != stats dim {self.vmin.size}")
         span = self.vmax - self.vmin
         span = np.where(span == 0.0, 1.0, span)
         return ((x - self.vmin) / span * 2.0 - 1.0).astype(np.float32)
@@ -106,9 +104,7 @@ class _ZScoreStats:
         """x -> (x - mean) / (std + 1e-8)."""
         x = np.asarray(x, dtype=np.float32).reshape(1, -1)
         if x.shape[1] != self.mean.size:
-            raise ValueError(
-                f"z-score normalize: input dim {x.shape[1]} != stats dim {self.mean.size}"
-            )
+            raise ValueError(f"z-score normalize: input dim {x.shape[1]} != stats dim {self.mean.size}")
         return ((x - self.mean) / (self.std + self.std_reg)).astype(np.float32)
 
     def unnormalize(self, x: np.ndarray) -> np.ndarray:
@@ -275,13 +271,9 @@ class FastWAMPolicy(nn.Module):
         the model contract (eval passes raw observations only).
         """
         if action_infer_mode not in {"first_frame", "idm"}:
-            raise ValueError(
-                f"action_infer_mode must be 'first_frame' or 'idm', got {action_infer_mode!r}"
-            )
+            raise ValueError(f"action_infer_mode must be 'first_frame' or 'idm', got {action_infer_mode!r}")
         if camera_layout not in {"horizontal2", "robotwin_t"}:
-            raise ValueError(
-                f"camera_layout must be 'horizontal2' or 'robotwin_t', got {camera_layout!r}"
-            )
+            raise ValueError(f"camera_layout must be 'horizontal2' or 'robotwin_t', got {camera_layout!r}")
         self._eval_action_infer_mode = action_infer_mode
         self._eval_noise_seed = noise_seed
         self._eval_noise_dump_path = None if noise_dump_path is None else Path(noise_dump_path)
@@ -356,25 +348,17 @@ class FastWAMPolicy(nn.Module):
         views = images[0]
         if self._eval_camera_layout == "horizontal2":
             if len(views) != 2:
-                raise ValueError(
-                    f"horizontal2 layout expects [agent, wrist], got {len(views)} views"
-                )
+                raise ValueError(f"horizontal2 layout expects [agent, wrist], got {len(views)} views")
             size = self._eval_input_size
             agent = _center_crop_resize(np.asarray(views[0]), size, size)
             wrist = _center_crop_resize(np.asarray(views[1]), size, size)
             rgb = np.concatenate([agent, wrist], axis=1)
         else:  # robotwin_t
             if len(views) != 3:
-                raise ValueError(
-                    f"robotwin_t layout expects [head, left, right], got {len(views)} views"
-                )
-            rgb = _build_robotwin_t_image(
-                [np.asarray(v) for v in views]
-            )
+                raise ValueError(f"robotwin_t layout expects [head, left, right], got {len(views)} views")
+            rgb = _build_robotwin_t_image([np.asarray(v) for v in views])
         input_image = (
-            torch.from_numpy(rgb).permute(2, 0, 1).unsqueeze(0).to(
-                device=self.core.device, dtype=self.core.torch_dtype
-            )
+            torch.from_numpy(rgb).permute(2, 0, 1).unsqueeze(0).to(device=self.core.device, dtype=self.core.torch_dtype)
             / 255.0
             * 2.0
             - 1.0

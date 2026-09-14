@@ -65,7 +65,8 @@ class XVLATokenizerCore:
         """Lazy-load the tokenizer on first access."""
         if self._tokenizer is None:
             tokenizer = AutoTokenizer.from_pretrained(
-                self.tokenizer_path, trust_remote_code=True, local_files_only=True)
+                self.tokenizer_path, trust_remote_code=True, local_files_only=True
+            )
 
             # Ensure a pad token exists (BART/Florence2 may lack one by default)
             if tokenizer.pad_token is None:
@@ -80,9 +81,7 @@ class XVLATokenizerCore:
             self._tokenizer = tokenizer
         return self._tokenizer
 
-    def encode_language_batch(
-        self, instructions: List[str]
-    ) -> Dict[str, torch.Tensor]:
+    def encode_language_batch(self, instructions: List[str]) -> Dict[str, torch.Tensor]:
         """Tokenize a batch of instructions; returns ``{"input_ids": [B, L]}``."""
         inputs = self.tokenizer(
             instructions,
@@ -170,8 +169,7 @@ class XVLAImageProcessorCore:
 
         if V_exist < self.num_views:
             processed = torch.cat(
-                [processed,
-                 processed.new_zeros(self.num_views - V_exist, *processed.shape[1:])],
+                [processed, processed.new_zeros(self.num_views - V_exist, *processed.shape[1:])],
                 dim=0,
             )
 
@@ -180,9 +178,7 @@ class XVLAImageProcessorCore:
 
         return {"image_input": processed, "image_mask": image_mask}
 
-    def encode_image_batch(
-        self, batch_pil_images: List[List]
-    ) -> Dict[str, torch.Tensor]:
+    def encode_image_batch(self, batch_pil_images: List[List]) -> Dict[str, torch.Tensor]:
         """Encode a batch of per-sample PIL image lists; returns batched tensors.
 
         Returns:

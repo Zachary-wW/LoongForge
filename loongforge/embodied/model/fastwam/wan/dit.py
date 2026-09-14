@@ -31,7 +31,6 @@ from loongforge.embodied.model.fastwam.utils.gradient import gradient_checkpoint
 logger = logging.getLogger(__name__)
 
 
-
 def flash_attention(
     q: torch.Tensor,
     k: torch.Tensor,
@@ -295,9 +294,7 @@ def make_rmsnorm(dim: int, eps: float, impl: str) -> nn.Module:
         return WanRMSNorm(dim, eps=eps)
     if impl == "te":
         return TERMSNorm(dim, eps=eps)
-    raise ValueError(
-        f"Unknown RMSNorm implementation {impl!r}; expected one of ['wan', 'te']."
-    )
+    raise ValueError(f"Unknown RMSNorm implementation {impl!r}; expected one of ['wan', 'te'].")
 
 
 class AttentionModule(nn.Module):
@@ -471,7 +468,7 @@ class MLP(torch.nn.Module):
             nn.Linear(in_dim, in_dim),
             nn.GELU(),
             nn.Linear(in_dim, out_dim),
-            nn.LayerNorm(out_dim)
+            nn.LayerNorm(out_dim),
         )
         self.has_pos_emb = has_pos_emb
         if has_pos_emb:
@@ -572,21 +569,14 @@ class WanVideoDiT(torch.nn.Module):
 
         self.patch_embedding = nn.Conv3d(in_dim, hidden_dim, kernel_size=patch_size, stride=patch_size)
         self.text_embedding = nn.Sequential(
-            nn.Linear(text_dim, hidden_dim),
-            nn.GELU(approximate="tanh"),
-            nn.Linear(hidden_dim, hidden_dim)
+            nn.Linear(text_dim, hidden_dim), nn.GELU(approximate="tanh"), nn.Linear(hidden_dim, hidden_dim)
         )
         self.time_embedding = nn.Sequential(
-            nn.Linear(freq_dim, hidden_dim),
-            nn.SiLU(),
-            nn.Linear(hidden_dim, hidden_dim)
+            nn.Linear(freq_dim, hidden_dim), nn.SiLU(), nn.Linear(hidden_dim, hidden_dim)
         )
         self.time_projection = nn.Sequential(nn.SiLU(), nn.Linear(hidden_dim, hidden_dim * 6))
         self.blocks = nn.ModuleList(
-            [
-                DiTBlock(hidden_dim, attn_head_dim, num_heads, ffn_dim, eps, rmsnorm_impl)
-                for _ in range(num_layers)
-            ]
+            [DiTBlock(hidden_dim, attn_head_dim, num_heads, ffn_dim, eps, rmsnorm_impl) for _ in range(num_layers)]
         )
         self.head = Head(hidden_dim, out_dim, patch_size, eps)
         self.freqs = precompute_freqs_cis_3d(attn_head_dim)
@@ -643,7 +633,7 @@ class WanVideoDiT(torch.nn.Module):
         if timestep.ndim != 1:
             raise ValueError(f"`timestep` must be 1D [B] or [1], got shape {tuple(timestep.shape)}")
         if self.action_conditioned:
-            allow_text_only_single_frame = (num_latent_frames == 1 and action is None)
+            allow_text_only_single_frame = num_latent_frames == 1 and action is None
             if not allow_text_only_single_frame:
                 assert action is not None, "Action input is required for action-conditioned model."
                 if action.ndim != 3:
@@ -680,14 +670,10 @@ class WanVideoDiT(torch.nn.Module):
                 x = x.expand(context.shape[0], -1, -1, -1, -1)
                 batch_size = context.shape[0]
             else:
-                raise ValueError(
-                    f"Batch mismatch between latents and context: {batch_size} vs {context.shape[0]}."
-                )
+                raise ValueError(f"Batch mismatch between latents and context: {batch_size} vs {context.shape[0]}.")
 
         if timestep.shape[0] not in (1, batch_size):
-            raise ValueError(
-                f"`timestep` length must be 1 or batch_size({batch_size}), got {timestep.shape[0]}"
-            )
+            raise ValueError(f"`timestep` length must be 1 or batch_size({batch_size}), got {timestep.shape[0]}")
         if timestep.shape[0] == 1 and batch_size > 1:
             assert not self.training, "During training, timestep length must match batch_size."
             timestep = timestep.expand(batch_size)
@@ -715,9 +701,7 @@ class WanVideoDiT(torch.nn.Module):
                     f"got {video_seq_len} and {video_tokens_per_frame}"
                 )
             num_video_frames = video_seq_len // video_tokens_per_frame
-            frame_causal = torch.tril(
-                torch.ones((num_video_frames, num_video_frames), dtype=torch.bool, device=device)
-            )
+            frame_causal = torch.tril(torch.ones((num_video_frames, num_video_frames), dtype=torch.bool, device=device))
             return frame_causal.repeat_interleave(video_tokens_per_frame, dim=0).repeat_interleave(
                 video_tokens_per_frame, dim=1
             )
@@ -837,14 +821,18 @@ class WanVideoDiT(torch.nn.Module):
 
         x_tokens = rearrange(x, "b c f h w -> b (f h w) c").contiguous()
 
-        freqs = torch.cat(
-            [
-                self.freqs[0][:f].view(f, 1, 1, -1).expand(f, h, w, -1),
-                self.freqs[1][:h].view(1, h, 1, -1).expand(f, h, w, -1),
-                self.freqs[2][:w].view(1, 1, w, -1).expand(f, h, w, -1),
-            ],
-            dim=-1,
-        ).reshape(f * h * w, 1, -1).to(x_tokens.device)
+        freqs = (
+            torch.cat(
+                [
+                    self.freqs[0][:f].view(f, 1, 1, -1).expand(f, h, w, -1),
+                    self.freqs[1][:h].view(1, h, 1, -1).expand(f, h, w, -1),
+                    self.freqs[2][:w].view(1, 1, w, -1).expand(f, h, w, -1),
+                ],
+                dim=-1,
+            )
+            .reshape(f * h * w, 1, -1)
+            .to(x_tokens.device)
+        )
         freqs = prepare_rope_freqs(freqs)
 
         return {
@@ -891,11 +879,15 @@ class WanVideoDiT(torch.nn.Module):
         t_mod = pre_state["t_mod"]
         freqs = pre_state["freqs"]
         context_attn_mask = pre_state["context_mask"]
-        self_attn_mask = self.build_video_to_video_mask(
-            video_seq_len=x_tokens.shape[1],
-            video_tokens_per_frame=int(pre_state["meta"]["tokens_per_frame"]),
-            device=x_tokens.device,
-        ) if self.video_attention_mask_mode != "bidirectional" else None
+        self_attn_mask = (
+            self.build_video_to_video_mask(
+                video_seq_len=x_tokens.shape[1],
+                video_tokens_per_frame=int(pre_state["meta"]["tokens_per_frame"]),
+                device=x_tokens.device,
+            )
+            if self.video_attention_mask_mode != "bidirectional"
+            else None
+        )
 
         for block in self.blocks:
             if self.use_gradient_checkpointing:

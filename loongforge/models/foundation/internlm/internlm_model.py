@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """internlm model"""
+
 from typing import Optional
 
 import torch
@@ -54,7 +55,7 @@ class DynamicRotaryEmbedding(RotaryEmbedding):
             use_cpu_initialization=use_cpu_initialization,
             cp_group=cp_group,
         )
-        
+
         self.dim = kv_channels
         self.rotary_base = rotary_base
         self.scaling_factor = rope_scaling_factor
@@ -63,14 +64,11 @@ class DynamicRotaryEmbedding(RotaryEmbedding):
         self.max_position_embeddings = max_position_embeddings
         self.max_seq_len_cached = max_position_embeddings
 
-    def forward(
-        self, max_seq_len: int, offset: int = 0, packed_seq: bool = False
-    ) -> Tensor:
+    def forward(self, max_seq_len: int, offset: int = 0, packed_seq: bool = False) -> Tensor:
         """Forward pass of RoPE embedding"""
         if max_seq_len > self.max_position_embeddings:
             base = self.rotary_base * (
-                (self.scaling_factor * max_seq_len / self.max_position_embeddings)
-                - (self.scaling_factor - 1)
+                (self.scaling_factor * max_seq_len / self.max_position_embeddings) - (self.scaling_factor - 1)
             ) ** (self.dim / (self.dim - 2))
             self.inv_freq = 1.0 / (
                 base
@@ -128,7 +126,6 @@ class InternLMModel(BaseGPTModel):
         vp_stage: Optional[int] = None,
         **kwargs,
     ) -> None:
-
         if config.model_spec is None:
             model_spec = [
                 "loongforge.models.foundation.internlm.internlm_layer_spec",
@@ -138,10 +135,7 @@ class InternLMModel(BaseGPTModel):
             model_spec = config.model_spec
         transformer_layer_spec = import_module(model_spec, config)
         rotary_pos_emb = None
-        if (
-            config.position_embedding_type == "rope"
-            and not config.multi_latent_attention
-        ):
+        if config.position_embedding_type == "rope" and not config.multi_latent_attention:
             rotary_pos_emb = DynamicRotaryEmbedding(
                 kv_channels=config.kv_channels,
                 rotary_percent=config.rotary_percent,
@@ -154,7 +148,7 @@ class InternLMModel(BaseGPTModel):
                 use_cpu_initialization=config.use_cpu_initialization,
                 cp_group=pg_collection.cp if pg_collection else None,
             )
-        
+
         super().__init__(
             config=config,
             transformer_layer_spec=transformer_layer_spec,
@@ -180,7 +174,7 @@ class InternLMModel(BaseGPTModel):
             vp_stage=vp_stage,
         )
 
-        if hasattr(config, 'freeze') and config.freeze:
+        if hasattr(config, "freeze") and config.freeze:
             self.freeze()
 
     def forward(
@@ -208,7 +202,7 @@ class InternLMModel(BaseGPTModel):
             runtime_gather_output (bool): Gather output at runtime. Default None means
                 `parallel_output` arg in the constructor will be used.
         """
-        
+
         return super().forward(
             input_ids=input_ids,
             position_ids=position_ids,

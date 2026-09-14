@@ -81,10 +81,7 @@ def _allow_dense_flash_attention(
             return False
         return True
 
-    warnings.warn(
-        f"Unsupported flash_attention_dense_policy={policy!r}; "
-        "disabling dense FlashAttention for this call."
-    )
+    warnings.warn(f"Unsupported flash_attention_dense_policy={policy!r}; disabling dense FlashAttention for this call.")
     return False
 
 
@@ -194,10 +191,12 @@ def _gpu_supports_flash_attention():
 
 
 def _sdpa_attention_fallback(
-    q, k, v,
+    q,
+    k,
+    v,
     q_lens=None,
     k_lens=None,
-    dropout_p=0.,
+    dropout_p=0.0,
     softmax_scale=None,
     q_scale=None,
     causal=False,
@@ -206,8 +205,8 @@ def _sdpa_attention_fallback(
     """PyTorch SDPA fallback for GPUs that don't support FlashAttention (e.g. pre-Ampere)."""
     if q_lens is not None or k_lens is not None:
         warnings.warn(
-            'Padding mask is disabled when using scaled_dot_product_attention on this GPU. '
-            'It can have a slight impact on quality.'
+            "Padding mask is disabled when using scaled_dot_product_attention on this GPU. "
+            "It can have a slight impact on quality."
         )
     q = q.transpose(1, 2).to(dtype)
     k = k.transpose(1, 2).to(dtype)
@@ -228,7 +227,7 @@ def flash_attention(
     v: torch.Tensor,
     q_lens: Optional[torch.Tensor] = None,
     k_lens: Optional[torch.Tensor] = None,
-    dropout_p: float = 0.,
+    dropout_p: float = 0.0,
     softmax_scale: Optional[float] = None,
     q_scale: Optional[float] = None,
     causal: bool = False,
@@ -268,12 +267,14 @@ def flash_attention(
 
     half_dtypes = (torch.float16, torch.bfloat16)
     assert dtype in half_dtypes
-    assert q.device.type == 'cuda' and q.size(-1) <= 256
+    assert q.device.type == "cuda" and q.size(-1) <= 256
 
     # Use PyTorch SDPA on pre-Ampere GPUs (FlashAttention requires Ampere or newer)
     if not _gpu_supports_flash_attention():
         return _sdpa_attention_fallback(
-            q, k, v,
+            q,
+            k,
+            v,
             q_lens=q_lens,
             k_lens=k_lens,
             dropout_p=dropout_p,
@@ -362,9 +363,7 @@ def flash_attention(
         q = q * q_scale
 
     if version == 3 and not FLASH_ATTN_3_AVAILABLE:
-        warnings.warn(
-            'Flash attention 3 is not available, use flash attention 2 instead.'
-        )
+        warnings.warn("Flash attention 3 is not available, use flash attention 2 instead.")
     if cu_seqlens_q is None:
         zeros = torch.zeros([1], dtype=torch.int32, device=q.device)
         cu_seqlens_q = torch.cat([zeros, q_lens]).cumsum(0).to(torch.int32)
@@ -385,7 +384,8 @@ def flash_attention(
             max_seqlen_k=lk,
             softmax_scale=softmax_scale,
             causal=causal,
-            deterministic=deterministic)[0].unflatten(0, (b, lq))
+            deterministic=deterministic,
+        )[0].unflatten(0, (b, lq))
     elif FLASH_ATTN_2_AVAILABLE:
         x = flash_attn.flash_attn_varlen_func(
             q=q,
@@ -399,7 +399,8 @@ def flash_attention(
             softmax_scale=softmax_scale,
             causal=causal,
             window_size=window_size,
-            deterministic=deterministic).unflatten(0, (b, lq))
+            deterministic=deterministic,
+        ).unflatten(0, (b, lq))
     else:
         raise ValueError(f"Invalid version: {version}")
 
@@ -414,7 +415,7 @@ class AttentionModule(torch.nn.Module):
         self,
         num_heads: int,
         head_dim: int,
-        dropout_p: float = 0.,
+        dropout_p: float = 0.0,
         softmax_scale: Optional[float] = None,
         q_scale: Optional[float] = None,
         causal: bool = False,
@@ -441,6 +442,7 @@ class AttentionModule(torch.nn.Module):
         self.backend = backend
 
         if backend == "torch":
+
             def _torch_impl(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
                 out_dtype = q.dtype
                 q = q.transpose(1, 2).to(dtype)
@@ -448,7 +450,9 @@ class AttentionModule(torch.nn.Module):
                 v = v.transpose(1, 2).to(dtype)
 
                 out = torch.nn.functional.scaled_dot_product_attention(
-                    q, k, v,
+                    q,
+                    k,
+                    v,
                     attn_mask=None,
                     is_causal=causal,
                     dropout_p=dropout_p,
@@ -457,9 +461,11 @@ class AttentionModule(torch.nn.Module):
 
                 out = out.transpose(1, 2).contiguous()
                 return out.to(out_dtype)
+
             self.attn_func = _torch_impl
 
-        elif  backend == "torch_onnx":
+        elif backend == "torch_onnx":
+
             def _torch_onnx_impl(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
                 out_dtype = q.dtype
                 # use torch.nn.functional.scaled_dot_product_attention for tensorrt export
@@ -476,7 +482,9 @@ class AttentionModule(torch.nn.Module):
                     v = v.repeat(q.shape[0], 1, 1, 1)
 
                 out = torch.nn.functional.scaled_dot_product_attention(
-                    q, k, v,
+                    q,
+                    k,
+                    v,
                     attn_mask=None,
                     is_causal=causal,
                     dropout_p=dropout_p,
@@ -486,6 +494,7 @@ class AttentionModule(torch.nn.Module):
                 # Transpose back to (b, s, n, d) format.
                 out = out.transpose(1, 2).contiguous()
                 return out.to(out_dtype)
+
             self.attn_func = _torch_onnx_impl
 
         elif backend == "TE" and TRANSFORMER_ENGINE_AVAILABLE:
@@ -515,16 +524,24 @@ class AttentionModule(torch.nn.Module):
                     key_layer=k.to(dtype),
                     value_layer=v.to(dtype),
                 ).to(out_dtype)
+
             self.attn_func = _te_impl
 
         elif backend == "FA2" or backend == "FA3":
+
             def _flash_attn_impl(
-                q: torch.Tensor, k: torch.Tensor, v: torch.Tensor,
-                q_lens: Optional[torch.Tensor], k_lens: Optional[torch.Tensor],
+                q: torch.Tensor,
+                k: torch.Tensor,
+                v: torch.Tensor,
+                q_lens: Optional[torch.Tensor],
+                k_lens: Optional[torch.Tensor],
             ) -> torch.Tensor:
                 return flash_attention(
-                    q=q, k=k, v=v,
-                    q_lens=q_lens, k_lens=k_lens,
+                    q=q,
+                    k=k,
+                    v=v,
+                    q_lens=q_lens,
+                    k_lens=k_lens,
                     dropout_p=dropout_p,
                     softmax_scale=softmax_scale,
                     q_scale=q_scale,
@@ -539,6 +556,7 @@ class AttentionModule(torch.nn.Module):
                     cache_fa_lens=cache_fa_lens,
                     cache_fa_lens_clone=cache_fa_lens_clone,
                 )
+
             self.attn_func = _flash_attn_impl
 
         else:
@@ -554,14 +572,14 @@ class AttentionModule(torch.nn.Module):
     ):
         """Run attention with the selected backend over ``q``, ``k`` and ``v``."""
         if (
-            self.backend == "torch" or
-            self.backend == "torch_onnx" or
-            (self.backend == "TE" and TRANSFORMER_ENGINE_AVAILABLE)
+            self.backend == "torch"
+            or self.backend == "torch_onnx"
+            or (self.backend == "TE" and TRANSFORMER_ENGINE_AVAILABLE)
         ):
             if q_lens is not None or k_lens is not None:
                 warnings.warn(
-                    'Padding mask is disabled when using scaled_dot_product_attention. '
-                    'It can have a significant impact on performance.'
+                    "Padding mask is disabled when using scaled_dot_product_attention. "
+                    "It can have a significant impact on performance."
                 )
             return self.attn_func(q, k, v)  # type: ignore[call-arg]
         else:

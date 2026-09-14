@@ -77,9 +77,7 @@ class _MultiDtypeZeroOptimizer(torch.optim.Optimizer):
     def step(self, closure=None):
         """Copy model gradients to FP32 masters, step, then sync updated weights back."""
         if closure is not None:
-            raise NotImplementedError(
-                "_MultiDtypeZeroOptimizer does not support closure-based optimizers."
-            )
+            raise NotImplementedError("_MultiDtypeZeroOptimizer does not support closure-based optimizers.")
         for opt in self._optimizers:
             opt.step()
         return None
@@ -91,9 +89,7 @@ class _MultiDtypeZeroOptimizer(torch.optim.Optimizer):
     def load_state_dict(self, state_dict):
         """Restore each child optimizer from the corresponding state_dict, then refresh param_groups."""
         if len(state_dict) != len(self._optimizers):
-            raise ValueError(
-                f"Expected {len(self._optimizers)} optimizer state dicts, got {len(state_dict)}."
-            )
+            raise ValueError(f"Expected {len(self._optimizers)} optimizer state dicts, got {len(state_dict)}.")
         for opt, opt_state_dict in zip(self._optimizers, state_dict):
             opt.load_state_dict(opt_state_dict)
         self._refresh_public_optimizer_state()
@@ -186,9 +182,7 @@ class _FP32MasterOptimizerAdapter(torch.optim.Optimizer):
     def step(self, closure=None):
         """Apply one optimizer step after copying model gradients to FP32 master weights."""
         if closure is not None:
-            raise NotImplementedError(
-                "_FP32MasterOptimizerAdapter does not support closure-based optimizers."
-            )
+            raise NotImplementedError("_FP32MasterOptimizerAdapter does not support closure-based optimizers.")
 
         for param, master in self._owned_pairs:
             if param.grad is None:
@@ -223,19 +217,14 @@ class _FP32MasterOptimizerAdapter(torch.optim.Optimizer):
         """Return rank-local optimizer state, including fp32 master weights."""
         return {
             "optimizer": self._optimizer.state_dict(),
-            "master_params": [
-                master.detach() for _, master in self._owned_pairs
-            ],
+            "master_params": [master.detach() for _, master in self._owned_pairs],
         }
 
     def load_local_checkpoint_state_dict(self, state_dict):
         """Restore rank-local optimizer state and fp32 master weights."""
         master_params = state_dict["master_params"]
         if len(master_params) != len(self._owned_pairs):
-            raise ValueError(
-                f"Expected {len(self._owned_pairs)} fp32 master parameters, "
-                f"got {len(master_params)}."
-            )
+            raise ValueError(f"Expected {len(self._owned_pairs)} fp32 master parameters, got {len(master_params)}.")
 
         self._optimizer.load_state_dict(state_dict["optimizer"])
         with torch.no_grad():
@@ -348,9 +337,7 @@ def build_optimizer(model: nn.Module, training_args) -> torch.optim.Optimizer:
             if len(param_dtypes) > 1:
                 # Mixed dtype: split param groups by dtype, one ZeRO optimizer per dtype
                 # (mirrors the pattern in mixed_precision_train.py)
-                logger.info(
-                    f"Mixed dtype params {param_dtypes}: using per-dtype ZeroRedundancyOptimizer"
-                )
+                logger.info(f"Mixed dtype params {param_dtypes}: using per-dtype ZeroRedundancyOptimizer")
                 dtype_groups = _split_param_groups_by_dtype(groups)
                 opts = [
                     ZeroRedundancyOptimizer(
@@ -386,10 +373,7 @@ def _as_param_list(params) -> list[nn.Parameter]:
     if isinstance(params, torch.Tensor):
         return [params]
     if isinstance(params, set):
-        raise TypeError(
-            "optimizer parameters need to be organized in ordered collections, "
-            "but got a set."
-        )
+        raise TypeError("optimizer parameters need to be organized in ordered collections, but got a set.")
     return list(params)
 
 
@@ -399,10 +383,7 @@ def _normalize_param_groups(params) -> list[dict]:
         raise ValueError("optimizer got an empty parameter list")
     if not isinstance(param_groups[0], dict):
         return [{"params": param_groups}]
-    return [
-        {**group, "params": _as_param_list(group["params"])}
-        for group in param_groups
-    ]
+    return [{**group, "params": _as_param_list(group["params"])} for group in param_groups]
 
 
 def _split_param_groups_by_dtype(groups: list[dict]) -> dict[torch.dtype, list[dict]]:

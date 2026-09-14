@@ -95,37 +95,34 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
 
     @register_to_config
     def __init__(
-            self,
-            num_train_timesteps: int = 1000,
-            solver_order: int = 2,
-            prediction_type: str = "flow_prediction",
-            shift: Optional[float] = 1.0,
-            use_dynamic_shifting=False,
-            thresholding: bool = False,
-            dynamic_thresholding_ratio: float = 0.995,
-            sample_max_value: float = 1.0,
-            predict_x0: bool = True,
-            solver_type: str = "bh2",
-            lower_order_final: bool = True,
-            disable_corrector: List[int] = [],
-            solver_p: SchedulerMixin = None,
-            timestep_spacing: str = "linspace",
-            steps_offset: int = 0,
-            final_sigmas_type: Optional[str] = "zero",  # "zero", "sigma_min"
+        self,
+        num_train_timesteps: int = 1000,
+        solver_order: int = 2,
+        prediction_type: str = "flow_prediction",
+        shift: Optional[float] = 1.0,
+        use_dynamic_shifting=False,
+        thresholding: bool = False,
+        dynamic_thresholding_ratio: float = 0.995,
+        sample_max_value: float = 1.0,
+        predict_x0: bool = True,
+        solver_type: str = "bh2",
+        lower_order_final: bool = True,
+        disable_corrector: List[int] = [],
+        solver_p: SchedulerMixin = None,
+        timestep_spacing: str = "linspace",
+        steps_offset: int = 0,
+        final_sigmas_type: Optional[str] = "zero",  # "zero", "sigma_min"
     ):
-
         if solver_type not in ["bh1", "bh2"]:
             if solver_type in ["midpoint", "heun", "logrho"]:
                 self.register_to_config(solver_type="bh2")
             else:
-                raise NotImplementedError(
-                    f"{solver_type} is not implemented for {self.__class__}")
+                raise NotImplementedError(f"{solver_type} is not implemented for {self.__class__}")
 
         self.predict_x0 = predict_x0
         # setable values
         self.num_inference_steps = None
-        alphas = np.linspace(1, 1 / num_train_timesteps,
-                             num_train_timesteps)[::-1].copy()
+        alphas = np.linspace(1, 1 / num_train_timesteps, num_train_timesteps)[::-1].copy()
         sigmas = 1.0 - alphas
         # NOTE: keep the initial sigma buffer on CPU; ``set_timesteps(device=...)``
         # moves the active buffers to the run device.
@@ -169,9 +166,7 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
         self.num_inference_steps = num_inference_steps
 
         if self.config.use_dynamic_shifting and mu is None:
-            raise ValueError(
-                " you have to pass a value for `mu` when `use_dynamic_shifting` is set to be `True`"
-            )
+            raise ValueError(" you have to pass a value for `mu` when `use_dynamic_shifting` is set to be `True`")
 
         if sigmas is None:
             sigmas = np.linspace(
@@ -191,7 +186,7 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
             sigmas = shift * sigmas / (1 + (shift - 1) * sigmas)
 
         if self.config.final_sigmas_type == "sigma_min":
-            sigma_last = ((1 - self.alphas_cumprod[0]) / self.alphas_cumprod[0])**0.5
+            sigma_last = ((1 - self.alphas_cumprod[0]) / self.alphas_cumprod[0]) ** 0.5
         elif self.config.final_sigmas_type == "zero":
             sigma_last = 0
         else:
@@ -226,24 +221,19 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
         batch_size, channels, *remaining_dims = sample.shape
 
         if dtype not in (torch.float32, torch.float64):
-            sample = sample.float(
-            )  # upcast for quantile calculation, and clamp not implemented for cpu half
+            sample = sample.float()  # upcast for quantile calculation, and clamp not implemented for cpu half
 
         # Flatten sample for doing quantile calculation along each image
         sample = sample.reshape(batch_size, channels * np.prod(remaining_dims))
 
         abs_sample = sample.abs()  # "a certain percentile absolute pixel value"
 
-        s = torch.quantile(
-            abs_sample, self.config.dynamic_thresholding_ratio, dim=1)
+        s = torch.quantile(abs_sample, self.config.dynamic_thresholding_ratio, dim=1)
         s = torch.clamp(
             s, min=1, max=self.config.sample_max_value
         )  # When clamped to min=1, equivalent to standard clipping to [-1, 1]
-        s = s.unsqueeze(
-            1)  # (batch_size, 1) because clamp will broadcast along dim=0
-        sample = torch.clamp(
-            sample, -s, s
-        ) / s  # "we threshold xt0 to the range [-s, s] and then divide by s"
+        s = s.unsqueeze(1)  # (batch_size, 1) because clamp will broadcast along dim=0
+        sample = torch.clamp(sample, -s, s) / s  # "we threshold xt0 to the range [-s, s] and then divide by s"
 
         sample = sample.reshape(batch_size, channels, *remaining_dims)
         sample = sample.to(dtype)
@@ -260,7 +250,7 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
 
     # Copied from diffusers.schedulers.scheduling_flow_match_euler_discrete.set_timesteps
     def time_shift(self, mu: float, sigma: float, t: torch.Tensor):
-        return math.exp(mu) / (math.exp(mu) + (1 / t - 1)**sigma)
+        return math.exp(mu) / (math.exp(mu) + (1 / t - 1) ** sigma)
 
     def convert_model_output(
         self,
@@ -588,11 +578,7 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
                 "Number of inference steps is 'None', you need to run 'set_timesteps' after creating the scheduler"
             )
 
-        use_corrector = (
-            step_index > 0 and
-            step_index - 1 not in self.disable_corrector and
-            self.last_sample is not None
-        )
+        use_corrector = step_index > 0 and step_index - 1 not in self.disable_corrector and self.last_sample is not None
 
         model_output_convert = self.convert_model_output(
             model_output=model_output,
@@ -648,8 +634,7 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
 
         return SchedulerOutput(prev_sample=prev_sample)
 
-    def scale_model_input(self, sample: torch.Tensor, *args,
-                          **kwargs) -> torch.Tensor:
+    def scale_model_input(self, sample: torch.Tensor, *args, **kwargs) -> torch.Tensor:
         """
         Ensures interchangeability with schedulers that need to scale the denoising model input depending on the
         current timestep.
@@ -672,23 +657,17 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
         timesteps: torch.IntTensor,
     ) -> torch.Tensor:
         # Make sure sigmas and timesteps have the same device and dtype as original_samples
-        sigmas = self.sigmas.to(
-            device=original_samples.device, dtype=original_samples.dtype)
+        sigmas = self.sigmas.to(device=original_samples.device, dtype=original_samples.dtype)
         if original_samples.device.type == "mps" and torch.is_floating_point(timesteps):
             # mps does not support float64
-            schedule_timesteps = self.timesteps.to(
-                original_samples.device, dtype=torch.float32)
-            timesteps = timesteps.to(
-                original_samples.device, dtype=torch.float32)
+            schedule_timesteps = self.timesteps.to(original_samples.device, dtype=torch.float32)
+            timesteps = timesteps.to(original_samples.device, dtype=torch.float32)
         else:
             schedule_timesteps = self.timesteps.to(original_samples.device)
             timesteps = timesteps.to(original_samples.device)
 
         # begin_index is None when the scheduler is used for training or pipeline does not implement set_begin_index
-        step_indices = [
-            self.index_for_timestep(t, schedule_timesteps)
-            for t in timesteps
-        ]
+        step_indices = [self.index_for_timestep(t, schedule_timesteps) for t in timesteps]
 
         sigma = sigmas[step_indices].flatten()
         while len(sigma.shape) < len(original_samples.shape):

@@ -39,6 +39,7 @@ class TransformerLayerErnie(TransformerLayer):
     Transformer layer takes input with size [s, b, h] and returns an
     output of the same size.
     """
+
     def __init__(
         self,
         config: TransformerConfig,
@@ -48,9 +49,14 @@ class TransformerLayerErnie(TransformerLayer):
         pg_collection: Optional[ProcessGroupCollection] = None,
         vp_stage: Optional[int] = None,
     ):
-        super().__init__(config=config, submodules=submodules,
-            layer_number=layer_number, hidden_dropout=hidden_dropout,
-            pg_collection=pg_collection, vp_stage=vp_stage )
+        super().__init__(
+            config=config,
+            submodules=submodules,
+            layer_number=layer_number,
+            hidden_dropout=hidden_dropout,
+            pg_collection=pg_collection,
+            vp_stage=vp_stage,
+        )
 
         # [Module 8: MLP block]
         additional_mlp_kwargs = {}
@@ -68,14 +74,10 @@ class TransformerLayerErnie(TransformerLayer):
             if submodules.mlp.module in (MoELayer, GroupedMLP, TEGroupedMLP, SequentialMLP, ErnieMoeLayer):
                 additional_mlp_kwargs["pg_collection"] = pg_collection
             elif submodules.mlp.module in (ErnieMLP, MLP):
-                assert hasattr(
-                    pg_collection, 'tp'
-                ), 'TP process group is required for MLP in TransformerLayer'
+                assert hasattr(pg_collection, "tp"), "TP process group is required for MLP in TransformerLayer"
                 additional_mlp_kwargs["tp_group"] = pg_collection.tp
             elif TEFusedMLP is not None and submodules.mlp.module == TEFusedMLP:
-                assert hasattr(
-                    pg_collection, 'tp'
-                ), 'TP process group is required for TEFusedMLP in TransformerLayer'
+                assert hasattr(pg_collection, "tp"), "TP process group is required for TEFusedMLP in TransformerLayer"
                 additional_mlp_kwargs["tp_group"] = pg_collection.tp
             else:
                 log_single_rank(
@@ -85,7 +87,7 @@ class TransformerLayerErnie(TransformerLayer):
                 )
 
         self.mlp = build_module(submodules.mlp, config=self.config, **additional_mlp_kwargs)
-        if hasattr(self.mlp, 'set_layer_number'):
+        if hasattr(self.mlp, "set_layer_number"):
             self.mlp.set_layer_number(self.layer_number)
 
         # [Module 9: BiasDropoutFusion]
@@ -99,12 +101,9 @@ class TransformerLayerErnie(TransformerLayer):
         self.a2a_overlap_post_attn_recompute = False
         self.a2a_overlap_mlp_recompute = False
 
-        if self.config.recompute_granularity == 'selective':
+        if self.config.recompute_granularity == "selective":
             if "layernorm" in self.config.recompute_modules:
-                if (
-                    not isinstance(self.input_layernorm, IdentityOp)
-                    and self.config.cuda_graph_impl == "none"
-                ):
+                if not isinstance(self.input_layernorm, IdentityOp) and self.config.cuda_graph_impl == "none":
                     self.recompute_input_layernorm = True
                     if self.config.fp8:
                         self.self_attention.set_for_recompute_input_layernorm()
@@ -212,6 +211,7 @@ class TransformerLayerErnie(TransformerLayer):
         )
         # ernie_add_at_here
         vision_mask = ~context_mask
+
         def ernie_mlp(pre_mlp_layernorm_output, vision_mask=None):
             if isinstance(self.mlp, ErnieMLP):
                 mlp_output_with_bias = self.mlp(pre_mlp_layernorm_output)
@@ -230,7 +230,7 @@ class TransformerLayerErnie(TransformerLayer):
                     tensor_parallel.random.get_cuda_rng_tracker,
                     self.pg_collection.tp,
                     pre_mlp_layernorm_output,
-                    vision_mask
+                    vision_mask,
                 )
             else:
                 mlp_output_with_bias = tensor_parallel.checkpoint(
@@ -242,7 +242,7 @@ class TransformerLayerErnie(TransformerLayer):
             chunks = pre_mlp_layernorm_output.chunk(num_chunks, dim=0)
 
             # Compute outputs for each chunk
-                    # MLP, pass masks to mlp
+            # MLP, pass masks to mlp
 
             outputs = [ernie_mlp(chunk, vision_mask) for chunk in chunks]
 
@@ -258,9 +258,7 @@ class TransformerLayerErnie(TransformerLayer):
         if self.recompute_pre_mlp_layernorm:
             # discard the output of the pre-mlp layernorm and register the recompute
             # as a gradient hook of mlp_output_with_bias[0]
-            self.pre_mlp_norm_checkpoint.discard_output_and_register_recompute(
-                mlp_output_with_bias[0]
-            )
+            self.pre_mlp_norm_checkpoint.discard_output_and_register_recompute(mlp_output_with_bias[0])
         nvtx_range_pop(suffix="mlp")
 
         # TODO: could we move `bias_dropout_add_exec_handler` itself
@@ -275,15 +273,13 @@ class TransformerLayerErnie(TransformerLayer):
             (hidden_states,) = fine_grained_offloading_group_commit(
                 hidden_states, name="mlp_norm", forced_released_tensors=[residual]
             )
-            
+
         # Jit compiled function creates 'view' tensor. This tensor
         # potentially gets saved in the MPU checkpoint function context,
         # which rejects view tensors. While making a viewless tensor here
         # won't result in memory savings (like the data loader, or
         # p2p_communication), it serves to document the origin of this
         # 'view' tensor.
-        output = make_viewless_tensor(
-            inp=hidden_states, requires_grad=hidden_states.requires_grad, keep_graph=True
-        )
+        output = make_viewless_tensor(inp=hidden_states, requires_grad=hidden_states.requires_grad, keep_graph=True)
 
         return output

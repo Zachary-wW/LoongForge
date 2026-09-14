@@ -52,13 +52,9 @@ class FlashSelfAttention(MegatronModule):
 
         self.config: TransformerConfig = config
 
-        assert (
-            self.config.context_parallel_size == 1
-        ), "Context parallelism is only supported by TEDotProductAttention!"
+        assert self.config.context_parallel_size == 1, "Context parallelism is only supported by TEDotProductAttention!"
 
-        assert (
-            self.config.window_size is None
-        ), "Sliding Window Attention is only supported by TEDotProductAttention!"
+        assert self.config.window_size is None, "Sliding Window Attention is only supported by TEDotProductAttention!"
 
         # TODO(changtao02): directly mock flash_attn_varlen-func to enable this assertation
         # assert HAVE_FLASH_ATTN is True,
@@ -73,20 +69,12 @@ class FlashSelfAttention(MegatronModule):
         # Per attention head and per partition values.
         world_size = parallel_state.get_tensor_model_parallel_world_size()
         self.hidden_size_per_partition = divide(projection_size, world_size)
-        self.hidden_size_per_attention_head = divide(
-            projection_size, config.num_attention_heads
-        )
-        self.num_attention_heads_per_partition = divide(
-            self.config.num_attention_heads, world_size
-        )
+        self.hidden_size_per_attention_head = divide(projection_size, config.num_attention_heads)
+        self.num_attention_heads_per_partition = divide(self.config.num_attention_heads, world_size)
 
         self.causal = True
         self.softmax_scale = 1.0 / math.sqrt(self.hidden_size_per_attention_head)
-        self.dropout_p = (
-            self.config.attention_dropout
-            if attention_dropout is None
-            else attention_dropout
-        )
+        self.dropout_p = self.config.attention_dropout if attention_dropout is None else attention_dropout
         self.nheads = self.num_attention_heads_per_partition
 
     def forward(
@@ -103,20 +91,15 @@ class FlashSelfAttention(MegatronModule):
             q, k, v: The tensor containing the query, key, and value. (B, S, H, D)
         """
         assert packed_seq_params is None, (
-            "Packed sequence is not supported by DotProductAttention."
-            "Please use TEDotProductAttention instead."
+            "Packed sequence is not supported by DotProductAttention.Please use TEDotProductAttention instead."
         )
-        assert all(
-            (i.dtype in [torch.float16, torch.bfloat16] for i in (query, key, value))
-        )
+        assert all((i.dtype in [torch.float16, torch.bfloat16] for i in (query, key, value)))
         assert all((i.is_cuda for i in (query, key, value)))
 
         batch_size, seqlen_q = query.shape[0], query.shape[1]
         seqlen_k = key.shape[1]
 
-        query, key, value = [
-            rearrange(x, "b s ... -> (b s) ...") for x in [query, key, value]
-        ]
+        query, key, value = [rearrange(x, "b s ... -> (b s) ...") for x in [query, key, value]]
         cu_seqlens_q = torch.arange(
             0,
             (batch_size + 1) * seqlen_q,

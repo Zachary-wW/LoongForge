@@ -17,11 +17,7 @@ def _load_functions(relative_path, names, namespace=None):
     """Load selected pure-Python functions without importing the GPU stack."""
     path = REPO_ROOT / relative_path
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    functions = [
-        node
-        for node in tree.body
-        if isinstance(node, ast.FunctionDef) and node.name in names
-    ]
+    functions = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in names]
     assert {function.name for function in functions} == set(names)
 
     namespace = {} if namespace is None else namespace
@@ -92,9 +88,7 @@ def test_get_train_dataset_forwards_read_order_kwargs(data_path, expected_path):
             get_data_parallel_group=lambda: "dp-group",
         ),
         "get_args": lambda: args,
-        "get_blend_from_list": Mock(
-            return_value=(["dataset-a", "dataset-b"], [0.25, 0.75])
-        ),
+        "get_blend_from_list": Mock(return_value=(["dataset-a", "dataset-b"], [0.25, 0.75])),
         "create_metadataset_yaml": Mock(return_value="/tmp/metadataset.yaml"),
         "print_error_handler": object(),
         "print_rank_0": Mock(),
@@ -111,7 +105,7 @@ def test_get_train_dataset_forwards_read_order_kwargs(data_path, expected_path):
 
     assert namespace["get_train_dataset"]("task-encoder") == "train-dataset"
     get_train_dataset.assert_called_once()
-    path, = get_train_dataset.call_args.args
+    (path,) = get_train_dataset.call_args.args
     kwargs = get_train_dataset.call_args.kwargs
     assert path == expected_path
     assert kwargs["shuffle_buffer_size"] == 4096

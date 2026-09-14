@@ -46,9 +46,7 @@ def qwen3_vl_fused_text_rms_norm_forward(
     extension = _extension()
     squared = extension.qwen3_vl_fused_text_rms_norm_square(hidden_states)
     variance = squared.mean(-1, keepdim=True)
-    return extension.qwen3_vl_fused_text_rms_norm_finish(
-        hidden_states, variance, weight, epsilon
-    )
+    return extension.qwen3_vl_fused_text_rms_norm_finish(hidden_states, variance, weight, epsilon)
 
 
 def qwen3_vl_fused_text_silu_mul_forward(

@@ -77,6 +77,7 @@ def generate_multi_dim_varlen_parameters(*args, **kwargs):
     """Generate multi-dimensional variable length parameters."""
     raise NotImplementedError("NATTEN generate_multi_dim_varlen_parameters is not available")
 
+
 MAX_CAUSAL_LEN_IMAGE_BATCH = 0
 MAX_FULL_LEN_IMAGE_BATCH = 0
 MAX_CAUSAL_LEN_VIDEO_BATCH = 0
@@ -875,7 +876,6 @@ def _pack_action_tokens(
     packed_seq.action.sequence_indexes.extend(action_indexes)
     packed_seq.action.token_shapes.append((action_split_len,))
     packed_seq.action.tokens.append(input_action_tokens)
-
 
     condition_set = {idx for idx in condition_frame_indexes_action if 0 <= idx < action_split_len}
     assert isinstance(packed_seq.action.condition_mask, list)
@@ -2024,8 +2024,7 @@ def _validate_single_dim_params(params: Mapping, layer_idx: int, num_dims: int |
             or any(not isinstance(x, float) for x in window_size_float)
         ):
             raise ValueError(
-                f"window_size_float must be a float tuple of size 1, 2, or 3, "
-                f"got window_size_float={window_size_float}"
+                f"window_size_float must be a float tuple of size 1, 2, or 3, got window_size_float={window_size_float}"
             )
         window_size_float = tuple(k for k in window_size_float)
 
@@ -2165,7 +2164,6 @@ def generate_natten_metadata(
             this list during model.forward, and ideally using the iteration counter from the loop
             over layers (nn.ModuleList).
     """
-
 
     if token_shapes is None or len(token_shapes) < 1:
         raise ValueError("'token_shapes' is required for 'three_way' attention.")

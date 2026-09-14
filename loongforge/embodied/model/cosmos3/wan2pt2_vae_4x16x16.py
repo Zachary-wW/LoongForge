@@ -8,6 +8,7 @@
 # Copyright 2024-2025 The Alibaba Wan Team Authors. All rights reserved.
 
 """Module for wan2pt2_vae_4x16x16."""
+
 import os
 import time
 from collections.abc import Callable, Generator, Mapping, Sequence
@@ -21,6 +22,7 @@ from einops import rearrange
 import logging
 
 import torch.distributed as dist
+
 if dist.is_available():
     from torch.distributed import get_process_group_ranks
     from torch.distributed.distributed_c10d import _get_default_group
@@ -252,6 +254,7 @@ class CausalConv3d(nn.Conv3d):
 
 class RMSNorm(nn.Module):
     """RMSNorm."""
+
     def __init__(self, dim, channel_first=True, images=True, bias=False):
         """__init__."""
         super().__init__()
@@ -270,6 +273,7 @@ class RMSNorm(nn.Module):
 
 class Upsample(nn.Upsample):
     """Upsample."""
+
     def forward(self, x):
         """
         Fix bfloat16 support for nearest neighbor interpolation.
@@ -279,6 +283,7 @@ class Upsample(nn.Upsample):
 
 class Resample(nn.Module):
     """Resample."""
+
     def __init__(self, dim, mode):
         """__init__."""
         assert mode in (
@@ -387,6 +392,7 @@ class Resample(nn.Module):
 
 class ResidualBlock(nn.Module):
     """ResidualBlock."""
+
     def __init__(self, in_dim, out_dim, dropout=0.0):
         """__init__."""
         super().__init__()
@@ -511,6 +517,7 @@ def unpatchify(x, patch_size):  # x: [B,C*p^2,H,W] or [B,C*p^2,T,H,W] -> [B,C,H*
 
 class AvgDown3D(nn.Module):
     """AvgDown3D."""
+
     def __init__(
         self,
         in_channels,
@@ -569,6 +576,7 @@ class AvgDown3D(nn.Module):
 
 class DupUp3D(nn.Module):
     """DupUp3D."""
+
     def __init__(
         self,
         in_channels: int,
@@ -618,6 +626,7 @@ class DupUp3D(nn.Module):
 
 class DownResidualBlock(nn.Module):
     """DownResidualBlock."""
+
     def __init__(self, in_dim, out_dim, dropout, mult, temperal_downsample=False, down_flag=False):
         """__init__."""
         super().__init__()
@@ -658,6 +667,7 @@ class DownResidualBlock(nn.Module):
 
 class UpResidualBlock(nn.Module):
     """UpResidualBlock."""
+
     def __init__(self, in_dim, out_dim, dropout, mult, temperal_upsample=False, up_flag=False):
         """__init__."""
         super().__init__()
@@ -699,6 +709,7 @@ class UpResidualBlock(nn.Module):
 
 class Encoder3d(nn.Module):
     """Encoder3d."""
+
     def __init__(
         self,
         dim=128,
@@ -763,7 +774,6 @@ class Encoder3d(nn.Module):
         )
 
     def forward(self, x, feat_cache=None):  # x: [B,12,T,H//2,W//2] -> [B,z_dim,T//4,H//16,W//16]
-
         """forward."""
         feat_idx = [0]
 
@@ -771,7 +781,7 @@ class Encoder3d(nn.Module):
             x = _update_cache_and_apply(x, self.conv1, feat_cache, feat_idx)  # [B,dim,T,H//2,W//2]
         else:
             x = self.conv1(x)  # [B,dim,T,H//2,W//2]
-        
+
         # downsamples
         for layer in self.downsamples:
             if feat_cache is not None:
@@ -779,7 +789,7 @@ class Encoder3d(nn.Module):
             else:
                 x = layer(x)
         # x: [B,dim*dim_mult[-1],T//4,H//16,W//16]
-        
+
         # middle
         for layer in self.middle:
             if isinstance(layer, ResidualBlock) and feat_cache is not None:
@@ -787,19 +797,20 @@ class Encoder3d(nn.Module):
             else:
                 x = layer(x)
         # x: [B,dim*dim_mult[-1],T//4,H//16,W//16]
-        
+
         # head
         for layer in self.head:
             if isinstance(layer, CausalConv3d) and feat_cache is not None:
                 x = _update_cache_and_apply(x, layer, feat_cache, feat_idx)
             else:
                 x = layer(x)
-        
+
         return x  # [B,z_dim,T//4,H//16,W//16]
 
 
 class Decoder3d(nn.Module):
     """Decoder3d."""
+
     def __init__(
         self,
         dim=128,
@@ -901,6 +912,7 @@ def count_conv3d(model: nn.Module) -> int:
 
 class WanVAEModule(nn.Module):
     """WanVAEModule."""
+
     def __init__(
         self,
         dim=160,
@@ -1233,13 +1245,14 @@ def _video_vae(
 
 class WanVAE:
     """WanVAE."""
+
     def __init__(
         self,
         z_dim=48,
         vae_pth="",
         object_store_credential_path_pretrained="",
         dtype=torch.bfloat16,
-        device='cuda',
+        device="cuda",
         is_amp=True,
         temporal_window: int | Mapping[str, int] = 4,
         encode_exact_durations: list[int] | None = None,
@@ -1501,8 +1514,9 @@ def _collect_warmup_shapes(
     return all_shapes
 
 
-class Wan2pt2VAEInterface():
+class Wan2pt2VAEInterface:
     """Wan2pt2VAEInterface."""
+
     def __init__(
         self,
         bucket_name: str = "",

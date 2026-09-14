@@ -12,9 +12,7 @@ import yaml
 
 def parse_args() -> argparse.Namespace:
     """Parse common command-line arguments."""
-    parser = argparse.ArgumentParser(
-        description="WDS-native offline packing"
-    )
+    parser = argparse.ArgumentParser(description="WDS-native offline packing")
     parser.add_argument(
         "--config",
         type=str,
@@ -34,9 +32,7 @@ def get_cfg(yaml_path: Union[str, Path]) -> Dict:
         with yaml_path.open("r", encoding="utf-8") as f:
             cfg = yaml.safe_load(f)
         if not isinstance(cfg, dict):
-            raise ValueError(
-                f"Invalid configuration format, expected a dictionary: {yaml_path}"
-            )
+            raise ValueError(f"Invalid configuration format, expected a dictionary: {yaml_path}")
         return cfg
     except yaml.YAMLError as e:
         raise ValueError(f"Failed to parse YAML file: {yaml_path}\nError: {e}")

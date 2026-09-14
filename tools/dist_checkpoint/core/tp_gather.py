@@ -7,10 +7,18 @@ TPGather module: Gather state_dicts from all TP ranks to TP rank 0
 This module collects state_dicts from all tensor parallel ranks within
 the same pipeline stage and returns them as a list to TP rank 0.
 """
+
 import os
 from typing import Dict, List, Optional
 
-from tools.convert_checkpoint.common.common_checkpoint import EXTRA_DATA, LAYER_PREFIX, MOE_EXPERT, MOE_GROUPED_GEMM_EXPERT, MTP_LAYER_PREFIX, MTP_NAME_PREFIX_FOR_LAYER
+from tools.convert_checkpoint.common.common_checkpoint import (
+    EXTRA_DATA,
+    LAYER_PREFIX,
+    MOE_EXPERT,
+    MOE_GROUPED_GEMM_EXPERT,
+    MTP_LAYER_PREFIX,
+    MTP_NAME_PREFIX_FOR_LAYER,
+)
 import torch
 import torch.distributed as dist
 
@@ -18,11 +26,13 @@ import torch.distributed as dist
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 if project_root not in os.sys.path:
     import sys
+
     sys.path.insert(0, project_root)
 
 try:
     from megatron.core import parallel_state
     from megatron.training import print_rank_0
+
     MEGATRON_AVAILABLE = True
 except ImportError:
     MEGATRON_AVAILABLE = False
@@ -61,15 +71,11 @@ class TPGather:
             - parallel_state must be initialized via TopoSharder first
         """
         if not MEGATRON_AVAILABLE:
-            raise ImportError(
-                "megatron.core is not available. "
-                "Please install Megatron-LM to use TPGather."
-            )
+            raise ImportError("megatron.core is not available. Please install Megatron-LM to use TPGather.")
 
         if not parallel_state.model_parallel_is_initialized():
             raise RuntimeError(
-                "parallel_state is not initialized. "
-                "Please initialize TopoSharder before creating TPGather."
+                "parallel_state is not initialized. Please initialize TopoSharder before creating TPGather."
             )
 
         self.topo_sharder = topo_sharder
@@ -104,7 +110,7 @@ class TPGather:
         return tensor.element_size() * tensor.numel()
 
     def gather_state_dicts_balanced(self, state_dict: Dict[str, torch.Tensor], layer_prefix_list, ranks, rank_groups):
-        """ Split state_dict by key prefix and assign to ranks round-robin
+        """Split state_dict by key prefix and assign to ranks round-robin
         Args:
             state_dict: Dictionary with key->tensor
             layer_prefix_list: List of layer prefixes
@@ -148,7 +154,7 @@ class TPGather:
                     break
 
             # Check if cur_rank is in the target_rank_group
-            should_assign = (target_rank_group is not None and cur_rank in target_rank_group)
+            should_assign = target_rank_group is not None and cur_rank in target_rank_group
 
             for key in group:
                 result[key] = rank_id if should_assign else None
@@ -156,8 +162,7 @@ class TPGather:
         return result
 
     def split_state_dict_by_moe(
-        self,
-        state_dict: Dict[str, torch.Tensor]
+        self, state_dict: Dict[str, torch.Tensor]
     ) -> tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         """
         Split state_dict into moe_state_dict and dense_state_dict based on moe_prefix.
@@ -188,10 +193,7 @@ class TPGather:
 
         return moe_state_dict, dense_state_dict
 
-    def gather_state_dicts(
-        self,
-        state_dict: Dict[str, torch.Tensor]
-    ) -> Optional[List[Dict[str, torch.Tensor]]]:
+    def gather_state_dicts(self, state_dict: Dict[str, torch.Tensor]) -> Optional[List[Dict[str, torch.Tensor]]]:
         """
         Gather state_dicts from all TP ranks to TP rank 0 using NCCL backend.
         Uses per-tensor gather with immediate CPU offload to minimize GPU memory usage.
@@ -223,10 +225,12 @@ class TPGather:
 
         # Process tensors one by one to ranks
         dense_key_tp_dict = self.gather_state_dicts_balanced(
-            dense_state_dict, self.dense_prefix, dense_ranks_for_tp, dense_rank_groups_for_tp)
+            dense_state_dict, self.dense_prefix, dense_ranks_for_tp, dense_rank_groups_for_tp
+        )
         if len(moe_state_dict) > 0:
             moe_key_tp_dict = self.gather_state_dicts_balanced(
-                moe_state_dict, self.moe_prefix, moe_ranks_for_etp, moe_rank_groups_for_etp)
+                moe_state_dict, self.moe_prefix, moe_ranks_for_etp, moe_rank_groups_for_etp
+            )
 
         for key in dense_local_keys:
             tensor = dense_state_dict[key]
@@ -309,7 +313,11 @@ class TPGather:
 
         result = []
         if MOE_GROUPED_GEMM_EXPERT in name_map:
-            expert_tag = name_map[MOE_GROUPED_GEMM_EXPERT] if name_prefix is None else f"{name_prefix}.{name_map[MOE_GROUPED_GEMM_EXPERT]}"
+            expert_tag = (
+                name_map[MOE_GROUPED_GEMM_EXPERT]
+                if name_prefix is None
+                else f"{name_prefix}.{name_map[MOE_GROUPED_GEMM_EXPERT]}"
+            )
             result.append(f"{base_prefix}{expert_tag}.")
         if MOE_EXPERT in name_map:
             expert_tag = name_map[MOE_EXPERT] if name_prefix is None else f"{name_prefix}.{name_map[MOE_EXPERT]}"
@@ -351,17 +359,17 @@ class TPGather:
         for group_rank in range(group_size):
             group_start = group_rank * ranks_in_group
             group_end = group_start + ranks_in_group
-            group = pp_group[group_start: group_end]
+            group = pp_group[group_start:group_end]
             tp_group_count = ranks_in_group // self.tp_size
-            if self.ep_size is None: 
+            if self.ep_size is None:
                 for tp_group_rank in range(tp_group_count):
                     tp_group_start = tp_group_rank * self.tp_size
                     tp_group_end = tp_group_start + self.tp_size
-                    tp_group = group[tp_group_start: tp_group_end]
+                    tp_group = group[tp_group_start:tp_group_end]
                     dense_ranks_for_tp.extend(tp_group)
                     dense_rank_groups_for_tp[f"{pp_rank}_{group_rank}_{tp_group_rank}"] = tp_group
             else:
-                tp_group = group[0: self.tp_size]
+                tp_group = group[0 : self.tp_size]
                 dense_ranks_for_tp.extend(tp_group)
                 dense_rank_groups_for_tp[f"{pp_rank}_{group_rank}_0"] = tp_group
 
@@ -370,11 +378,11 @@ class TPGather:
                 for ep_group_rank in range(ep_group_count):
                     ep_group_start = ep_group_rank * ep_group_size
                     ep_group_end = ep_group_start + ep_group_size
-                    ep_group = group[ep_group_start: ep_group_end]
+                    ep_group = group[ep_group_start:ep_group_end]
 
                     ep_start = ep_rank * etp_size
                     ep_end = ep_start + etp_size
-                    ep_ranks = ep_group[ep_start: ep_end]
+                    ep_ranks = ep_group[ep_start:ep_end]
                     moe_ranks_for_etp.extend(ep_ranks)
                     moe_rank_groups_for_etp[f"{pp_rank}_{group_rank}_{ep_group_rank}_{ep_rank}"] = ep_ranks
 

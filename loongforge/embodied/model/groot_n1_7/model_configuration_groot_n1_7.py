@@ -100,16 +100,8 @@ class GrootN1d7Config:
         elif isinstance(cfg, dict):
             items = dict(cfg)
         else:
-            items = {
-                key: getattr(cfg, key)
-                for key in cls.__dataclass_fields__
-                if hasattr(cfg, key)
-            }
-        values = {
-            key: value
-            for key, value in items.items()
-            if key in cls.__dataclass_fields__ and key != "_target_"
-        }
+            items = {key: getattr(cfg, key) for key in cls.__dataclass_fields__ if hasattr(cfg, key)}
+        values = {key: value for key, value in items.items() if key in cls.__dataclass_fields__ and key != "_target_"}
         return cls(**values)
 
     def __post_init__(self) -> None:

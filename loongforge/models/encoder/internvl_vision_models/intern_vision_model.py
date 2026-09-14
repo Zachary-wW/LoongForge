@@ -27,7 +27,7 @@ from loongforge.models.utils import import_module
 
 
 class InternVisionEmbeddings(nn.Module):
-    """ InternVisionEmbeddings """
+    """InternVisionEmbeddings"""
 
     def __init__(self, config: InternVisionConfig):
         super().__init__()
@@ -36,28 +36,39 @@ class InternVisionEmbeddings(nn.Module):
         self.image_size = config.image_size
         self.patch_size = config.patch_size
 
-        self.class_embedding = nn.Parameter(torch.randn(1, 1, self.embed_dim), )
+        self.class_embedding = nn.Parameter(
+            torch.randn(1, 1, self.embed_dim),
+        )
 
-        self.patch_embedding = nn.Conv2d(in_channels=3,
-                                         out_channels=self.embed_dim,
-                                         kernel_size=self.patch_size,
-                                         stride=self.patch_size,
-                                         dtype=torch.bfloat16)
+        self.patch_embedding = nn.Conv2d(
+            in_channels=3,
+            out_channels=self.embed_dim,
+            kernel_size=self.patch_size,
+            stride=self.patch_size,
+            dtype=torch.bfloat16,
+        )
 
-        self.num_patches = (self.image_size // self.patch_size)**2
+        self.num_patches = (self.image_size // self.patch_size) ** 2
         self.num_positions = self.num_patches + 1
         self.position_embedding = nn.Parameter(torch.randn(1, self.num_positions, self.embed_dim))
 
     def _get_pos_embed(self, pos_embed, H, W):
         target_dtype = pos_embed.dtype
-        pos_embed = pos_embed.float().reshape(1, self.image_size // self.patch_size, self.image_size // self.patch_size,
-                                              -1).permute(0, 3, 1, 2)
-        pos_embed = F.interpolate(pos_embed, size=(H, W), mode='bicubic', align_corners=False). \
-            reshape(1, -1, H * W).permute(0, 2, 1).to(target_dtype)
+        pos_embed = (
+            pos_embed.float()
+            .reshape(1, self.image_size // self.patch_size, self.image_size // self.patch_size, -1)
+            .permute(0, 3, 1, 2)
+        )
+        pos_embed = (
+            F.interpolate(pos_embed, size=(H, W), mode="bicubic", align_corners=False)
+            .reshape(1, -1, H * W)
+            .permute(0, 2, 1)
+            .to(target_dtype)
+        )
         return pos_embed
 
     def forward(self, pixel_values: torch.FloatTensor) -> torch.Tensor:
-        """ forward """
+        """forward"""
         # Force convert all inputs to bfloat16 at the very beginning
         target_dtype = torch.bfloat16
         pixel_values = pixel_values.to(target_dtype)
@@ -67,12 +78,14 @@ class InternVisionEmbeddings(nn.Module):
         patch_embeds = patch_embeds.flatten(2).transpose(1, 2)  # [b s h]
         class_embeds = self.class_embedding.expand(batch_size, 1, -1).to(target_dtype)
         embeddings = torch.cat([class_embeds, patch_embeds], dim=1)
-        if self.config.model_type == 'intern_vit_300m':
+        if self.config.model_type == "intern_vit_300m":
             position_embedding = torch.cat(
                 [
                     self.position_embedding[:, :1, :],
-                    self._get_pos_embed(self.position_embedding[:, 1:, :], height, width)
-                ], dim=1)
+                    self._get_pos_embed(self.position_embedding[:, 1:, :], height, width),
+                ],
+                dim=1,
+            )
         else:
             position_embedding = self.position_embedding
         embeddings = embeddings + position_embedding.to(target_dtype)
@@ -128,7 +141,7 @@ class InternVisionModel(BaseMegatronVisionModule):
         self.ps_version = self.config.ps_version
         # self.img_context_token_id = img_context_token_id
         self.downsample_ratio = self.config.downsample_ratio
-        if hasattr(config, 'freeze') and config.freeze:
+        if hasattr(config, "freeze") and config.freeze:
             self.freeze()
 
     def set_input_tensor(self, input_tensor: torch.Tensor) -> None:
@@ -140,7 +153,7 @@ class InternVisionModel(BaseMegatronVisionModule):
         self.encoder.set_input_tensor(input_tensor)
 
     def pixel_shuffle(self, x, scale_factor=0.5):
-        """ pixel shuffle """
+        """pixel shuffle"""
         n, w, h, c = x.size()
         # N, W, H, C --> N, W, H * scale, C // scale
         x = x.view(n, w, int(h * scale_factor), int(c / scale_factor))
@@ -148,9 +161,11 @@ class InternVisionModel(BaseMegatronVisionModule):
         x = x.permute(0, 2, 1, 3).contiguous()
         # N, H * scale, W, C // scale --> N, H * scale, W * scale, C // (scale ** 2)
         x = x.view(n, int(h * scale_factor), int(w * scale_factor), int(c / (scale_factor * scale_factor)))
-        if self.ps_version == 'v1':
-            warnings.warn("In ps_version 'v1', the height and width have not been swapped back, "
-                          'which results in a transposed image.')
+        if self.ps_version == "v1":
+            warnings.warn(
+                "In ps_version 'v1', the height and width have not been swapped back, "
+                "which results in a transposed image."
+            )
         else:
             x = x.permute(0, 2, 1, 3).contiguous()
         return x
@@ -188,7 +203,7 @@ class InternVisionModel(BaseMegatronVisionModule):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         if pixel_values is None and pixel_embeds is None:
-            raise ValueError('You have to specify pixel_values or pixel_embeds')
+            raise ValueError("You have to specify pixel_values or pixel_embeds")
 
         if pixel_embeds is not None:
             hidden_states = pixel_embeds.to(torch.bfloat16)
@@ -196,7 +211,7 @@ class InternVisionModel(BaseMegatronVisionModule):
             if len(pixel_values.shape) == 4:
                 hidden_states = self.embeddings(pixel_values.to(torch.bfloat16))
             else:
-                raise ValueError(f'wrong pixel_values size: {pixel_values.shape}')
+                raise ValueError(f"wrong pixel_values size: {pixel_values.shape}")
 
         # contiguous() call required as `permute` can sparsify the tensor and this breaks pipelining
         if not self.config.sequence_parallel:
@@ -224,7 +239,7 @@ class InternVisionModel(BaseMegatronVisionModule):
         # TODO add support for return intermediate hidden states
         # if not return_dict:
         #     return (last_hidden_state, pooled_output, None)
-        
+
         return output, None, []
 
         # TODO add support for return intermediate hidden states
@@ -239,14 +254,14 @@ class InternVisionModel(BaseMegatronVisionModule):
         # )
 
     def resize_pos_embeddings(self, old_size, new_size, patch_size):
-        """ resize position embeddings """
+        """resize position embeddings"""
         pos_emb = self.embeddings.position_embedding
         _, num_positions, embed_dim = pos_emb.shape
         cls_emb = pos_emb[:, :1, :]
         pos_emb = pos_emb[:, 1:, :].reshape(1, old_size // patch_size, old_size // patch_size, -1).permute(0, 3, 1, 2)
-        pos_emb = F.interpolate(pos_emb.float(), size=new_size // patch_size, mode='bicubic', align_corners=False)
+        pos_emb = F.interpolate(pos_emb.float(), size=new_size // patch_size, mode="bicubic", align_corners=False)
         pos_emb = pos_emb.to(cls_emb.dtype).reshape(1, embed_dim, -1).permute(0, 2, 1)
         pos_emb = torch.cat([cls_emb, pos_emb], dim=1)
         self.embeddings.position_embedding = nn.Parameter(pos_emb)
         self.embeddings.image_size = new_size
-        logging.info('Resized position embeddings from {} to {}'.format(old_size, new_size))
+        logging.info("Resized position embeddings from {} to {}".format(old_size, new_size))

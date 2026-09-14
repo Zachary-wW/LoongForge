@@ -144,14 +144,18 @@ def test_vision_rope_rejects_odd_head_dimension():
 # Extended RMSNorm tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
-@pytest.mark.parametrize("rows,hidden", [
-    (1, 64),        # single row
-    (512, 3584),    # Qwen3-7B inference shape
-    (4096, 4096),   # large training batch
-    (1, 1),         # degenerate: 1 element
-    (3, 128),       # hidden not a power-of-2 multiple of warpSize
-])
+@pytest.mark.parametrize(
+    "rows,hidden",
+    [
+        (1, 64),  # single row
+        (512, 3584),  # Qwen3-7B inference shape
+        (4096, 4096),  # large training batch
+        (1, 1),  # degenerate: 1 element
+        (3, 128),  # hidden not a power-of-2 multiple of warpSize
+    ],
+)
 def test_rms_norm_fused_matches_reference(dtype, rows, hidden):
     """Fused single-pass RMSNorm must match the PyTorch fp32 reference."""
     gen = torch.Generator(device="cuda").manual_seed(rows * hidden)
@@ -168,11 +172,14 @@ def test_rms_norm_fused_matches_reference(dtype, rows, hidden):
 
 
 @pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
-@pytest.mark.parametrize("rows,hidden", [
-    (9, 16),
-    (512, 3584),
-    (4096, 4096),
-])
+@pytest.mark.parametrize(
+    "rows,hidden",
+    [
+        (9, 16),
+        (512, 3584),
+        (4096, 4096),
+    ],
+)
 def test_rms_norm_fused_agrees_with_3step(dtype, rows, hidden):
     """Fused kernel must produce numerically near-identical results to the old 3-step chain.
 
@@ -249,13 +256,17 @@ def test_rms_norm_fused_epsilon_sensitivity(epsilon):
 # Extended Text RoPE tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
-@pytest.mark.parametrize("batch,q_heads,k_heads,seq,head_dim", [
-    (1, 1, 1, 1, 8),      # minimal
-    (1, 32, 8, 2048, 128), # Qwen3-7B inference: GQA 32/8, long seq
-    (4, 8, 2, 512, 64),    # GQA ratio 4
-    (2, 16, 16, 64, 32),   # MHA (equal heads)
-])
+@pytest.mark.parametrize(
+    "batch,q_heads,k_heads,seq,head_dim",
+    [
+        (1, 1, 1, 1, 8),  # minimal
+        (1, 32, 8, 2048, 128),  # Qwen3-7B inference: GQA 32/8, long seq
+        (4, 8, 2, 512, 64),  # GQA ratio 4
+        (2, 16, 16, 64, 32),  # MHA (equal heads)
+    ],
+)
 def test_text_rope_extended(dtype, batch, q_heads, k_heads, seq, head_dim):
     gen = torch.Generator(device="cuda").manual_seed(batch + q_heads + seq)
     q = torch.randn(batch, q_heads, seq, head_dim, device="cuda", dtype=dtype, generator=gen)
@@ -289,13 +300,17 @@ def test_text_rope_output_dtype_preserved():
 # Extended SiLU-mul tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
-@pytest.mark.parametrize("shape", [
-    (1, 1, 32),           # minimal
-    (4, 512, 14336),      # Qwen3-7B FFN dim
-    (2, 128, 4096),       # medium
-    (1, 1, 65537),        # non-power-of-2
-])
+@pytest.mark.parametrize(
+    "shape",
+    [
+        (1, 1, 32),  # minimal
+        (4, 512, 14336),  # Qwen3-7B FFN dim
+        (2, 128, 4096),  # medium
+        (1, 1, 65537),  # non-power-of-2
+    ],
+)
 def test_silu_mul_extended(dtype, shape):
     gen = torch.Generator(device="cuda").manual_seed(sum(shape))
     gate = torch.randn(*shape, device="cuda", dtype=dtype, generator=gen)
@@ -332,12 +347,16 @@ def test_silu_mul_up_zero():
 # Extended vision RoPE tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
-@pytest.mark.parametrize("seq,heads,head_dim", [
-    (1, 1, 8),
-    (256, 16, 64),
-    (1024, 8, 128),
-])
+@pytest.mark.parametrize(
+    "seq,heads,head_dim",
+    [
+        (1, 1, 8),
+        (256, 16, 64),
+        (1024, 8, 128),
+    ],
+)
 def test_vision_rope_extended(dtype, seq, heads, head_dim):
     gen = torch.Generator(device="cuda").manual_seed(seq)
     query = torch.randn(seq, heads, head_dim, device="cuda", dtype=dtype, generator=gen)

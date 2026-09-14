@@ -35,10 +35,7 @@ class FastWAMKeyMappingTransform(BaseTransform):
 
     def apply(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Apply key mapping and preprocessing to a single sample."""
-        image_keys = sorted(
-            k for k in data
-            if k.startswith("observation.images.") and not k.endswith("_is_pad")
-        )
+        image_keys = sorted(k for k in data if k.startswith("observation.images.") and not k.endswith("_is_pad"))
         images = [data[key].float() for key in image_keys]
 
         action = data.get("action")
@@ -58,8 +55,9 @@ class FastWAMKeyMappingTransform(BaseTransform):
             #   2. horizontal concat → [T, C, image_size, image_size*n_cam]
             #   3. normalize(0.5, 0.5) → [-1, 1]
             resized = [
-                TF.resize(img, [self.image_size, self.image_size],
-                          interpolation=TF.InterpolationMode.BILINEAR, antialias=True)
+                TF.resize(
+                    img, [self.image_size, self.image_size], interpolation=TF.InterpolationMode.BILINEAR, antialias=True
+                )
                 for img in images
             ]  # each [T, C, image_size, image_size]
             video = torch.cat(resized, dim=-1)  # [T, C, image_size, image_size*n_cam]
@@ -91,38 +89,34 @@ def build_fastwam_transforms(ctx: TransformBuilderContext):
 
     # Action normalization: matches bak pipeline.py step 2.
     # ActionTransform(apply_to=["action"], action_horizon=32, normalization_mode=q99)
-    action_stats = (
-        convert_stats(ctx.dataset_stats.get("action"))
-        if ctx.dataset_stats
-        else None
-    )
+    action_stats = convert_stats(ctx.dataset_stats.get("action")) if ctx.dataset_stats else None
     action_horizon = getattr(ctx.model_cfg, "action_horizon", None)
     max_action_dim = getattr(ctx.model_cfg, "max_action_dim", None)
-    transforms.append(ActionTransform(
-        apply_to=["action"],
-        action_horizon=action_horizon,
-        max_action_dim=max_action_dim,
-        normalization_mode=normalization_mode,
-        statistics=action_stats,
-        padding_strategy=ctx.data_cfg.action_padding_strategy,
-    ))
+    transforms.append(
+        ActionTransform(
+            apply_to=["action"],
+            action_horizon=action_horizon,
+            max_action_dim=max_action_dim,
+            normalization_mode=normalization_mode,
+            statistics=action_stats,
+            padding_strategy=ctx.data_cfg.action_padding_strategy,
+        )
+    )
 
     # Proprio normalization: normalize observation.state to match BCTrainer pipeline.
     # bak pipeline.py applies ActionTransform(apply_to=["observation.state"], normalization_mode=q99)
     # before FastWAMKeyMappingTransform reads it as `proprio`.
-    proprio_stats = (
-        convert_stats(ctx.dataset_stats.get("observation.state"))
-        if ctx.dataset_stats
-        else None
+    proprio_stats = convert_stats(ctx.dataset_stats.get("observation.state")) if ctx.dataset_stats else None
+    transforms.append(
+        ActionTransform(
+            apply_to=["observation.state"],
+            action_horizon=None,
+            max_action_dim=None,
+            normalization_mode=normalization_mode,
+            statistics=proprio_stats,
+            padding_strategy="none",
+        )
     )
-    transforms.append(ActionTransform(
-        apply_to=["observation.state"],
-        action_horizon=None,
-        max_action_dim=None,
-        normalization_mode=normalization_mode,
-        statistics=proprio_stats,
-        padding_strategy="none",
-    ))
 
     transforms.append(FastWAMKeyMappingTransform(image_size=ctx.data_cfg.image_size))
     return transforms

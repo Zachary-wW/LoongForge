@@ -13,6 +13,7 @@ class WanConfig(BaseModelStditConfig):
 
     The fields need to be consistent with the definitions in args
     """
+
     latent_in_channels: int
     latent_out_channels: int
     latent_patch_size: tuple

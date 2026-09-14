@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Moon Vision (Kimi-K2.5) layer spec."""
+
 from dataclasses import dataclass
 from typing import Union
 import torch
@@ -32,6 +33,7 @@ from loongforge.models.encoder.qwen3_vl_vision_models.rope_utils import apply_ro
 @dataclass
 class AdapterSubmodules:
     """Adapter sub-modules."""
+
     layernorm: Union[ModuleSpec, type] = None
     linear_fc1: Union[ModuleSpec, type] = None
     linear_fc2: Union[ModuleSpec, type] = None
@@ -83,9 +85,7 @@ def get_moon_vision_model_layer_with_te_spec(config: TransformerConfig) -> Modul
 def get_adapeter_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
     """Use this spec for an implementation using transformer, local or multi-accel engine."""
     return AdapterSubmodules(
-        layernorm=(
-            TENorm if config.normalization in ["LayerNorm", "RMSNorm"] else LocalNorm
-        ),
+        layernorm=(TENorm if config.normalization in ["LayerNorm", "RMSNorm"] else LocalNorm),
         linear_fc1=TELinear,
         linear_fc2=TELinear,
     )

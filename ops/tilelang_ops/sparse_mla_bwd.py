@@ -1,11 +1,13 @@
 """sparse mla backward"""
+
 # ruff: noqa
 import tilelang
 from tilelang import language as T
 import torch
 from index import prepare_token_indices
 from utils import assert_tensors_similar
- 
+
+
 @tilelang.jit(out_idx=[-1])
 def preprocess(
     S,
@@ -21,7 +23,7 @@ def preprocess(
     assert accum_dtype == T.float32
     # S = T.symbolic("S")
     shape = [S, H, D]
- 
+
     @T.prim_func
     def preprocess_kernel(
         O: T.Tensor(shape, dtype),
@@ -41,9 +43,10 @@ def preprocess(
                     acc[i, j] += o[i, j] * do[i, j]
             T.reduce_sum(acc, delta, 1)
             T.copy(delta, Delta[by * block_ND : (by + 1) * block_ND, bx])
- 
+
     return preprocess_kernel
- 
+
+
 @tilelang.jit(out_idx=[-1])
 def postprocess(
     S_kv,
@@ -60,6 +63,7 @@ def postprocess(
     assert accum_dtype == T.float32
     # S_kv = T.symbolic("S_kv")
     dkv_shape = [S_kv, kv_group, D + D_tail]
+
     @T.prim_func
     def postprocess_kernel(
         dKV: T.Tensor(dkv_shape, accum_dtype),
@@ -70,9 +74,10 @@ def postprocess(
                 dKV[bx * block_N : (bx + 1) * block_N, by, :],
                 dKV_out[bx * block_N : (bx + 1) * block_N, by, :],
             )
- 
+
     return postprocess_kernel
- 
+
+
 @tilelang.jit(
     out_idx=[-2],
     pass_configs={
@@ -104,14 +109,14 @@ def bwd(
     assert dtype == T.bfloat16
     assert accum_dtype == T.float32
     assert indices_dtype == T.int32
- 
+
     if sm_scale is None:
         sm_scale = (D + D_tail) ** (-0.5)
- 
+
     B_plus_one = T.symbolic("B_plus_one")
     S = T.symbolic("S")
     S_kv = T.symbolic("S_kv")
- 
+
     H_kv = H // kv_group
     q_shape = [S, H, D + D_tail]
     k_shape = [S_kv, kv_group, D + D_tail]
@@ -124,14 +129,14 @@ def bwd(
     assert indices_dtype == T.int32
     assert dtype == T.bfloat16
     assert accum_dtype == T.float32
- 
+
     H = H_kv
     padded_H = max(tilelang.math.next_power_of_2(H_kv), 16)
     BS = block_size
     NS = tilelang.cdiv(topk, block_size)
- 
+
     split_store = 2
- 
+
     @T.prim_func
     def sparse_mla_bwd_kernel(
         Q: T.Tensor(q_shape, dtype),
@@ -176,8 +181,9 @@ def bwd(
             for i_i in T.Pipelined(NS, num_stages=num_stages):
                 # Check which indices are valid
                 for bi_i in T.Parallel(BS):
-                    mask[bi_i] = (Indices[b_s_i, bz, i_i * BS + bi_i] <= max_kv_i) & \
-                        (Indices[b_s_i, bz, i_i * BS + bi_i] != -1)
+                    mask[bi_i] = (Indices[b_s_i, bz, i_i * BS + bi_i] <= max_kv_i) & (
+                        Indices[b_s_i, bz, i_i * BS + bi_i] != -1
+                    )
                 # Compute attention scores
                 for h_i, bi_i in T.Parallel(padded_H, BS):
                     acc_p[h_i, bi_i] = T.if_then_else(mask[bi_i], 0, -T.infinity(acc_p.dtype))
@@ -187,25 +193,41 @@ def bwd(
                 for bi_i, d_i in T.Parallel(BS, D_tail):
                     KV_tail_shared[bi_i, d_i] = KV[bos + Indices[b_s_i, bz, i_i * BS + bi_i], bz, D + d_i]
                 T.gemm(Q_shared, KV_shared, acc_p, transpose_B=True, policy=T.GemmWarpPolicy.FullCol, wg_wait=0)
-                T.gemm(Q_tail_shared, KV_tail_shared, acc_p, transpose_B=True, \
-                    policy=T.GemmWarpPolicy.FullCol, wg_wait=0)
+                T.gemm(
+                    Q_tail_shared, KV_tail_shared, acc_p, transpose_B=True, policy=T.GemmWarpPolicy.FullCol, wg_wait=0
+                )
                 for h_i, bi_i in T.Parallel(padded_H, BS):
                     acc_p[h_i, bi_i] = T.exp(acc_p[h_i, bi_i] * sm_scale - Lse[b_s_i, bz * padded_H + h_i])
                 T.copy(acc_p, P_shared_cast)
-                T.gemm(dO_shared, KV_shared, acc_dp, transpose_B=True, \
-                    policy=T.GemmWarpPolicy.FullCol, clear_accum=True)
+                T.gemm(
+                    dO_shared, KV_shared, acc_dp, transpose_B=True, policy=T.GemmWarpPolicy.FullCol, clear_accum=True
+                )
                 for h_i, bi_i in T.Parallel(padded_H, BS):
-                    acc_dp[h_i, bi_i] = acc_p[h_i, bi_i] * (acc_dp[h_i, bi_i] - \
-                        Delta[bos + s_i, bz * padded_H + h_i]) * sm_scale
+                    acc_dp[h_i, bi_i] = (
+                        acc_p[h_i, bi_i] * (acc_dp[h_i, bi_i] - Delta[bos + s_i, bz * padded_H + h_i]) * sm_scale
+                    )
                 T.copy(acc_dp, dP_shared_cast)
                 T.gemm(dP_shared_cast, KV_shared, acc_dq, policy=T.GemmWarpPolicy.FullCol, wg_wait=-1)
                 T.gemm(dP_shared_cast, KV_tail_shared, acc_dq_tail, policy=T.GemmWarpPolicy.FullCol, wg_wait=-1)
-                T.gemm(dP_shared_cast, Q_shared, acc_dkv, transpose_A=True, \
-                    policy=T.GemmWarpPolicy.FullCol, clear_accum=True, wg_wait=-1)
+                T.gemm(
+                    dP_shared_cast,
+                    Q_shared,
+                    acc_dkv,
+                    transpose_A=True,
+                    policy=T.GemmWarpPolicy.FullCol,
+                    clear_accum=True,
+                    wg_wait=-1,
+                )
                 T.gemm(P_shared_cast, dO_shared, acc_dkv, transpose_A=True, policy=T.GemmWarpPolicy.FullCol, wg_wait=-1)
                 T.clear(acc_dkv_tail)
-                T.gemm(dP_shared_cast, Q_tail_shared, acc_dkv_tail, \
-                    transpose_A=True, policy=T.GemmWarpPolicy.FullCol, wg_wait=0)
+                T.gemm(
+                    dP_shared_cast,
+                    Q_tail_shared,
+                    acc_dkv_tail,
+                    transpose_A=True,
+                    policy=T.GemmWarpPolicy.FullCol,
+                    wg_wait=0,
+                )
                 for s in range(split_store):
                     for bi_i, d_i in T.Parallel(BS // split_store, D):
                         # if bi_i < BS // split_store:
@@ -227,24 +249,27 @@ def bwd(
             # Store the accumulated dQ
             T.copy(acc_dq, Q_shared)
             T.copy(acc_dq_tail, Q_tail_shared)
-            T.copy(Q_shared, dQ[b_s_i, bz * padded_H : (bz + 1) * padded_H, :D]) 
+            T.copy(Q_shared, dQ[b_s_i, bz * padded_H : (bz + 1) * padded_H, :D])
             T.copy(Q_tail_shared, dQ[b_s_i, bz * padded_H : (bz + 1) * padded_H, D:])
+
     return sparse_mla_bwd_kernel
- 
-def sparse_mla_bwd(q, kv, o, do, indices, lse, offsets, chunk_offset, sm_scale=None, is_casual=True, \
-    return_kernel=False, delta=None):
+
+
+def sparse_mla_bwd(
+    q, kv, o, do, indices, lse, offsets, chunk_offset, sm_scale=None, is_casual=True, return_kernel=False, delta=None
+):
     """sparse mla backward api."""
     assert q.is_contiguous()
     assert kv.is_contiguous()
     assert indices.is_contiguous()
     assert lse.is_contiguous()
- 
+
     q = q.view(q.shape)
     kv = kv.view(kv.shape)
     indices = indices.view(indices.shape)
     o = o.view(o.shape)
     do = do.view(do.shape)
- 
+
     S, H, dim_plus_tail_dim = q.shape
     S_kv, kv_group, _ = kv.shape
     assert kv.shape[-1] == dim_plus_tail_dim
@@ -255,7 +280,7 @@ def sparse_mla_bwd(q, kv, o, do, indices, lse, offsets, chunk_offset, sm_scale=N
     topk = indices.shape[-1]
     assert indices.shape == (S, kv_group, topk)
     assert lse.shape == (S, H)
- 
+
     token_indices = prepare_token_indices(offsets)
     # Get kernels
     preprocess_kernel = preprocess(S, H, D)
@@ -266,12 +291,12 @@ def sparse_mla_bwd(q, kv, o, do, indices, lse, offsets, chunk_offset, sm_scale=N
     else:
         bwd_kernel = bwd(S, S_kv, H, D, D_tail, topk, kv_group, sm_scale, is_casual)
     postprocess_kernel = postprocess(S_kv, D, D_tail, kv_group)
-    
+
     # print(bwd_kernel.get_kernel_source())
     if delta is None:
         delta = preprocess_kernel(o, do)
     dkv = torch.zeros_like(kv, dtype=torch.float32)
- 
+
     if H == 128:
         # Process first half of heads (0 to H_half)
         dq_first = bwd_kernel(
@@ -284,7 +309,7 @@ def sparse_mla_bwd(q, kv, o, do, indices, lse, offsets, chunk_offset, sm_scale=N
             offsets,
             token_indices,
             torch.tensor([int(chunk_offset)], dtype=torch.int32, device="cuda"),
-            dkv
+            dkv,
         )
         # Process second half of heads (H_half to H)
         dq_second = bwd_kernel(
@@ -297,19 +322,31 @@ def sparse_mla_bwd(q, kv, o, do, indices, lse, offsets, chunk_offset, sm_scale=N
             offsets,
             token_indices,
             torch.tensor([int(chunk_offset)], dtype=torch.int32, device="cuda"),
-            dkv
+            dkv,
         )
         # Concatenate dq from both halves
         dq = torch.cat([dq_first, dq_second], dim=1)
     else:
-        dq = bwd_kernel(q, kv, do, indices, lse, delta, offsets, token_indices, torch.tensor([int(chunk_offset)], \
-            dtype=torch.int32, device="cuda"), dkv)
+        dq = bwd_kernel(
+            q,
+            kv,
+            do,
+            indices,
+            lse,
+            delta,
+            offsets,
+            token_indices,
+            torch.tensor([int(chunk_offset)], dtype=torch.int32, device="cuda"),
+            dkv,
+        )
     dkv = postprocess_kernel(dkv)
     return dq, dkv
- 
+
+
 def ref_sparse_mla_bwd_interface(q, kv, o, do, indices, lse, offsets, chunk_offset, sm_scale=None, is_casual=True):
     """sparse mla backward reference."""
     from sparse_mla_fwd import ref_sparse_mla_fwd_interface
+
     q = q.detach().clone()
     kv = kv.detach().clone()
     q.requires_grad = True
@@ -317,16 +354,28 @@ def ref_sparse_mla_bwd_interface(q, kv, o, do, indices, lse, offsets, chunk_offs
     o = ref_sparse_mla_fwd_interface(q, kv, indices, offsets, chunk_offset, sm_scale, is_casual)
     o.backward(do)
     return q.grad, kv.grad
- 
-def test_sparse_mla_bwd(B=1, S=4096, SKV=8192, H=64, HKV=1, DQKV=576, DV=512, chunk_offset=0, topk=2048, \
-    dtype=torch.bfloat16, check_correctness=True):
+
+
+def test_sparse_mla_bwd(
+    B=1,
+    S=4096,
+    SKV=8192,
+    H=64,
+    HKV=1,
+    DQKV=576,
+    DV=512,
+    chunk_offset=0,
+    topk=2048,
+    dtype=torch.bfloat16,
+    check_correctness=True,
+):
     """test sparse mla backward."""
     # Prepare data
     q = torch.randn((S, H, DQKV), dtype=dtype, device="cuda").requires_grad_(True)
     kv = torch.randn((SKV, HKV, DQKV), dtype=dtype, device="cuda").requires_grad_(True)
     do = torch.randn((S, H, DV), dtype=dtype, device="cuda")
     offsets = torch.tensor([0, S], dtype=torch.int32, device="cuda")
- 
+
     indices = torch.full((S, HKV, topk), SKV, dtype=torch.int32, device="cuda")
     for i in range(offsets.shape[0] - 1):
         seq_len = (offsets[i + 1] - offsets[i]).item()
@@ -338,9 +387,9 @@ def test_sparse_mla_bwd(B=1, S=4096, SKV=8192, H=64, HKV=1, DQKV=576, DV=512, ch
                 indices[t, h, : len(i_i)] = i_i
     # Forward
     from sparse_mla_fwd import sparse_mla_fwd_interface
- 
+
     tl_out, tl_lse = sparse_mla_fwd_interface(q, kv, indices, offsets, chunk_offset)
- 
+
     tl_dq, tl_dkv = sparse_mla_bwd(q, kv, tl_out, do, indices, tl_lse, offsets, chunk_offset)
     ref_dq, ref_dkv = ref_sparse_mla_bwd_interface(q, kv, None, do, indices, None, offsets, chunk_offset)
     if check_correctness:
@@ -357,16 +406,28 @@ def test_sparse_mla_bwd(B=1, S=4096, SKV=8192, H=64, HKV=1, DQKV=576, DV=512, ch
         ]
     )
     from tilelang.profiler import do_bench
- 
+
     def fn():
         """return sparse mla backward."""
         return sparse_mla_bwd(q, kv, tl_out, do, indices, tl_lse, offsets, chunk_offset)
- 
+
     ms = do_bench(fn, rep=100, warmup=250)
     print(f"Average time: {ms:.3f} ms")
     print(f"bwd io bandwidth = ", (B * S * max(DQKV * 2, DQKV + DV) * topk * 2) / (ms * 1e-3) / 1e12)
     print(f"bwd tflops = ", per_token_flop * S / (ms * 1e-3) / 1e12)
- 
+
+
 if __name__ == "__main__":
-    test_sparse_mla_bwd(B=1, S=2048, SKV=8192, H=64, HKV=1, DQKV=512 + 64, DV=512, chunk_offset=1024, topk=512, \
-                        dtype=torch.bfloat16, check_correctness=True)
+    test_sparse_mla_bwd(
+        B=1,
+        S=2048,
+        SKV=8192,
+        H=64,
+        HKV=1,
+        DQKV=512 + 64,
+        DV=512,
+        chunk_offset=1024,
+        topk=512,
+        dtype=torch.bfloat16,
+        check_correctness=True,
+    )

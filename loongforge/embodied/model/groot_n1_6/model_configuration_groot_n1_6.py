@@ -124,14 +124,9 @@ class GrootN1d6ModelConfig:
             items = dict(cfg)
         else:
             raise TypeError(
-                "GrootN1d6ModelConfig.from_config expects a typed "
-                "GrootN1d6ModelConfig or a mapping object."
+                "GrootN1d6ModelConfig.from_config expects a typed GrootN1d6ModelConfig or a mapping object."
             )
-        values = {
-            key: value
-            for key, value in items.items()
-            if key in cls.__dataclass_fields__ and key != "_target_"
-        }
+        values = {key: value for key, value in items.items() if key in cls.__dataclass_fields__ and key != "_target_"}
         return cls(**values)
 
     def __post_init__(self) -> None:
@@ -151,6 +146,4 @@ class GrootN1d6ModelConfig:
                 object.__setattr__(self, "vlm_tokenizer_path", _DEFAULT_EAGLE_ASSETS)
 
         if self.tune_top_llm_layers < 0:
-            raise ValueError(
-                f"tune_top_llm_layers ({self.tune_top_llm_layers}) must be non-negative"
-            )
+            raise ValueError(f"tune_top_llm_layers ({self.tune_top_llm_layers}) must be non-negative")

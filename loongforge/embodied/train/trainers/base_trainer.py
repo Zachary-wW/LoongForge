@@ -239,10 +239,7 @@ class BaseTrainer(ABC):
                 ):
                     self.model.load_pretrained(training_args.pretrained_checkpoint, device=self.ctx.device)
 
-        with log_stage(
-            "optimizer",
-            start_msg="building optimizer", end_msg="optimizer built in {elapsed}"
-        ):
+        with log_stage("optimizer", start_msg="building optimizer", end_msg="optimizer built in {elapsed}"):
             # 8. Optimizer + Scheduler (after wrapping; FSDP use_orig_params=True)
             self.optimizer = self._build_optimizer()
             self.lr_scheduler = self._build_scheduler()
@@ -258,7 +255,11 @@ class BaseTrainer(ABC):
                 end_msg="optimizer/scheduler/RNG state restored in {elapsed}",
             ):
                 saved_epoch, dataloader_state, rng_per_rank = resume_training_state(
-                    self.model, self.optimizer, self.lr_scheduler, latest_path, self.ctx,
+                    self.model,
+                    self.optimizer,
+                    self.lr_scheduler,
+                    latest_path,
+                    self.ctx,
                     restore_rng=False,
                 )
                 # Trust the epoch from training_state.pt over resume_meta.json
@@ -304,15 +305,11 @@ class BaseTrainer(ABC):
         self._on_after_data_iterators_initialized()
 
         while self.completed_steps < self.train_iters:
-
             prof.step(self.completed_steps)
             # Detailed per-stage timing is enabled only on the step that will be
             # logged, so the cuda.synchronize() inside the timers does not slow
             # down steady-state training.
-            enable_detail = (
-                detail_log_interval > 0
-                and (self.completed_steps + 1) % detail_log_interval == 0
-            )
+            enable_detail = detail_log_interval > 0 and (self.completed_steps + 1) % detail_log_interval == 0
             self._stage_timers.set_enabled(enable_detail)
 
             t0 = time.perf_counter()
@@ -339,8 +336,7 @@ class BaseTrainer(ABC):
                 for key in list(log_dict.keys()):
                     if "loss" in key:
                         log_dict[key] = self.ctx.all_reduce_mean(log_dict[key])
-            elif (self.ctx.rank in loss_log_ranks
-                  and self.completed_steps % log_interval == 0):
+            elif self.ctx.rank in loss_log_ranks and self.completed_steps % log_interval == 0:
                 self._log_local_loss(log_dict)
 
             # ── Metrics ──
@@ -349,10 +345,14 @@ class BaseTrainer(ABC):
             global_batch_size = local_batch_size * self.ctx.world_size
             consumed_samples = self.completed_steps * global_batch_size
             metrics = self.logger.collect_metrics(
-                log_dict, step_time,
-                self.completed_steps, self.lr_scheduler,
+                log_dict,
+                step_time,
+                self.completed_steps,
+                self.lr_scheduler,
                 consumed_samples,
-                self.model, local_batch_size, grad_norm,
+                self.model,
+                local_batch_size,
+                grad_norm,
             )
             metrics["nan_iterations"] = self.nan_iterations
             metrics["skipped_iterations"] = self.skipped_iterations
@@ -368,16 +368,18 @@ class BaseTrainer(ABC):
             # ── Logging ──
             if self.completed_steps % log_interval == 0:
                 self.logger.log_metrics(
-                    metrics, self.completed_steps, self.train_iters,
-                    training_args.per_device_batch_size, self.ctx.world_size, self.ctx.is_distributed,
+                    metrics,
+                    self.completed_steps,
+                    self.train_iters,
+                    training_args.per_device_batch_size,
+                    self.ctx.world_size,
+                    self.ctx.is_distributed,
                     gradient_accumulation_steps=training_args.gradient_accumulation_steps,
                 )
 
             # ── Per-stage timing log (all ranks call; rank 0 emits) ──
             if enable_detail:
-                self.logger.log_stage_times(
-                    self._stage_timers, self.ctx, log_level=training_args.timing_log_level
-                )
+                self.logger.log_stage_times(self._stage_timers, self.ctx, log_level=training_args.timing_log_level)
                 self._stage_timers.reset()
 
             # ── Checkpoint ──
@@ -397,13 +399,8 @@ class BaseTrainer(ABC):
         sets non-rank-0 loggers to WARNING level, which would filter
         ``logger.info``.
         """
-        loss_str = " ".join(
-            f"{k}={v:.6f}" for k, v in log_dict.items()
-            if "loss" in k and isinstance(v, (int, float))
-        )
-        logger.warning(
-            "[rank %d][step %d] %s", self.ctx.rank, self.completed_steps, loss_str
-        )
+        loss_str = " ".join(f"{k}={v:.6f}" for k, v in log_dict.items() if "loss" in k and isinstance(v, (int, float)))
+        logger.warning("[rank %d][step %d] %s", self.ctx.rank, self.completed_steps, loss_str)
 
     # ═══════════════════════════════════════════════
     # Training loop — Layer 2 (one optimizer step, shared)
@@ -505,7 +502,7 @@ class BaseTrainer(ABC):
     # ═══════════════════════════════════════════════
     # Abstract methods — subclass must implement
     # ═══════════════════════════════════════════════
-    
+
     @abstractmethod
     def _build_model(self) -> nn.Module:
         """Build model from self.model_cfg. Return unwrapped model."""
@@ -541,10 +538,9 @@ class BaseTrainer(ABC):
         ...
 
     @abstractmethod
-    def _backward_loss(self, loss: torch.Tensor,
-                       log_loss_dict: Dict[str, torch.Tensor],
-                       log_dict: Dict[str, float],
-                       grad_accum: int) -> None:
+    def _backward_loss(
+        self, loss: torch.Tensor, log_loss_dict: Dict[str, torch.Tensor], log_dict: Dict[str, float], grad_accum: int
+    ) -> None:
         """Scale + spike-guard + backward, accumulating losses into log_dict.
 
         ``loss`` is the single scalar to backpropagate. ``log_loss_dict`` holds

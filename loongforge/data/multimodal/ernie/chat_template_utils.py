@@ -44,18 +44,10 @@ def apply_chat_training_template(
     """
 
     # used special tokens
-    image_start_token = tokenizer.special_tokens_map.get(
-        "image_start_token", SFT_IMAGE_START_TOKEN
-    )
-    image_end_token = tokenizer.special_tokens_map.get(
-        "image_end_token", SFT_IMAGE_END_TOKEN
-    )
-    video_start_token = tokenizer.special_tokens_map.get(
-        "video_start_token", SFT_VIDEO_START_TOKEN
-    )
-    video_end_token = tokenizer.special_tokens_map.get(
-        "video_end_token", SFT_VIDEO_END_TOKEN
-    )
+    image_start_token = tokenizer.special_tokens_map.get("image_start_token", SFT_IMAGE_START_TOKEN)
+    image_end_token = tokenizer.special_tokens_map.get("image_end_token", SFT_IMAGE_END_TOKEN)
+    video_start_token = tokenizer.special_tokens_map.get("video_start_token", SFT_VIDEO_START_TOKEN)
+    video_end_token = tokenizer.special_tokens_map.get("video_end_token", SFT_VIDEO_END_TOKEN)
     cls_token = tokenizer.special_tokens_map.get("cls_token", "<mask:0>")
     sep_token = tokenizer.special_tokens_map.get("sep_token", "<|endofprompt|>")
     all_item_list = data["all_item_list"]
@@ -68,17 +60,13 @@ def apply_chat_training_template(
     for item_id, item in enumerate(all_item_list):
         # append cls token
         if item_id == 0:
-            new_text_info.append(
-                {"text": cls_token, "tag": "mask", "text_type": "special_token"}
-            )
+            new_text_info.append({"text": cls_token, "tag": "mask", "text_type": "special_token"})
             if "tools" in data and data["tools"]:
                 new_text_info.append({"text": "\n<tool_list>\n", "tag": "mask"})
                 if isinstance(data["tools"], str):
                     new_text_info.append({"text": data["tools"], "tag": "mask"})
                 else:
-                    new_text_info.append(
-                        {"text": json.dumps(data["tools"]), "tag": "mask"}
-                    )
+                    new_text_info.append({"text": json.dumps(data["tools"]), "tag": "mask"})
                 new_text_info.append({"text": "\n</tool_list>\n", "tag": "mask"})
             if is_system:
                 pass
@@ -103,9 +91,7 @@ def apply_chat_training_template(
                 ):
                     new_text_info.append({"text": "\n<tool_output>\n", "tag": "mask"})
                 for image_item_idx, image_item in enumerate(sub_item):
-                    is_video = (
-                        False  # indicator of whether the current image is a video frame
-                    )
+                    is_video = False  # indicator of whether the current image is a video frame
 
                     # check if it is video and insert video end if it is a new video
                     if image_item.get("image_type", "image") == "video":
@@ -114,9 +100,7 @@ def apply_chat_training_template(
                     # pic id
                     if use_pic_id:
                         if not is_video:
-                            new_text_info.append(
-                                {"text": f"Picture {pic_id}:", "tag": "mask"}
-                            )
+                            new_text_info.append({"text": f"Picture {pic_id}:", "tag": "mask"})
                             pic_id += 1
 
                     # image start token
@@ -137,9 +121,7 @@ def apply_chat_training_template(
                             "image_type": "image" if not is_video else "video",
                         }
                     else:
-                        downloaded_path = get_downloadable(
-                            image_item["image_url"], save_to_disk=save_to_disk
-                        )
+                        downloaded_path = get_downloadable(image_item["image_url"], save_to_disk=save_to_disk)
                         if isinstance(downloaded_path, bytes):
                             img = io.BytesIO(downloaded_path)
                             img = Image.open(img)
@@ -182,15 +164,9 @@ def apply_chat_training_template(
                         ## assistant - content
                         if "</think>" in sub_item["text"]:
                             reasoning_content = (
-                                sub_item["text"]
-                                .split("</think>")[0]
-                                .rstrip("\n")
-                                .split("<think>")[-1]
-                                .lstrip("\n")
+                                sub_item["text"].split("</think>")[0].rstrip("\n").split("<think>")[-1].lstrip("\n")
                             )
-                            content = (
-                                sub_item["text"].split("</think>")[-1].lstrip("\n")
-                            )
+                            content = sub_item["text"].split("</think>")[-1].lstrip("\n")
                         else:
                             reasoning_content = ""
                             content = sub_item["text"]
@@ -203,19 +179,13 @@ def apply_chat_training_template(
                                     "tag": sub_item["tag"],
                                 }
                             )
-                            new_text_info.append(
-                                {"text": "\n</think>\n\n", "tag": sub_item["tag"]}
-                            )
+                            new_text_info.append({"text": "\n</think>\n\n", "tag": sub_item["tag"]})
                         else:
                             new_text_info.append({"text": "\n<think>\n", "tag": "mask"})
-                            new_text_info.append(
-                                {"text": "\n</think>\n\n", "tag": "mask"}
-                            )
+                            new_text_info.append({"text": "\n</think>\n\n", "tag": "mask"})
 
                         if len(content) > 0:
-                            new_text_info.append(
-                                {"text": content, "tag": sub_item["tag"]}
-                            )
+                            new_text_info.append({"text": content, "tag": sub_item["tag"]})
 
                         ## assistant - tool calls
                         tool_calls = None
@@ -224,16 +194,11 @@ def apply_chat_training_template(
                         if tool_calls:
                             if isinstance(tool_calls, str):
                                 tool_calls = json.loads(tool_calls)
-                            if not isinstance(
-                                tool_calls, list
-                            ):  # parallel function call
+                            if not isinstance(tool_calls, list):  # parallel function call
                                 tool_calls = [tool_calls]
 
                             for tool_call in tool_calls:
-                                if (
-                                    "type" in tool_call
-                                    and tool_call["type"] == "function"
-                                ):
+                                if "type" in tool_call and tool_call["type"] == "function":
                                     tool_call = tool_call["function"]
                                 new_text_info.append(
                                     {
@@ -241,12 +206,8 @@ def apply_chat_training_template(
                                         "tag": sub_item["tag"],
                                     }
                                 )
-                                new_text_info.append(
-                                    {"text": tool_call["name"], "tag": sub_item["tag"]}
-                                )
-                                new_text_info.append(
-                                    {"text": '", "arguments": ', "tag": sub_item["tag"]}
-                                )
+                                new_text_info.append({"text": tool_call["name"], "tag": sub_item["tag"]})
+                                new_text_info.append({"text": '", "arguments": ', "tag": sub_item["tag"]})
                                 if isinstance(tool_call["arguments"], str):
                                     new_text_info.append(
                                         {
@@ -278,16 +239,10 @@ def apply_chat_training_template(
                             else:
                                 sub_item["text"] = json.dumps(sub_item["text"])
                             # If the previous one is not an image / video
-                            if sub_item_idx - 1 > 0 and not isinstance(
-                                item[sub_item_idx - 1], list
-                            ):
-                                new_text_info.append(
-                                    {"text": "\n<tool_output>\n", "tag": "mask"}
-                                )
+                            if sub_item_idx - 1 > 0 and not isinstance(item[sub_item_idx - 1], list):
+                                new_text_info.append({"text": "\n<tool_output>\n", "tag": "mask"})
                             new_text_info.append(sub_item)
-                            new_text_info.append(
-                                {"text": "\n</tool_output>\n", "tag": "mask"}
-                            )
+                            new_text_info.append({"text": "\n</tool_output>\n", "tag": "mask"})
                         else:
                             new_text_info.append(sub_item)
                 else:
@@ -302,19 +257,13 @@ def apply_chat_training_template(
             if not is_training and item_id == len(all_item_list) - 1:
                 pass
             else:
-                new_text_info.append(
-                    {"text": sep_token, "tag": "no_mask", "text_type": "special_token"}
-                )
+                new_text_info.append({"text": sep_token, "tag": "no_mask", "text_type": "special_token"})
                 if label == 0:
                     new_text_info[-1]["tag"] = "mask"
     video_start_cnt = len([1 for i in new_text_info if i["text"] == video_start_token])
     video_end_cnt = len([1 for i in new_text_info if i["text"] == video_end_token])
     image_start_cnt = len([1 for i in new_text_info if i["text"] == image_start_token])
     image_end_cnt = len([1 for i in new_text_info if i["text"] == image_end_token])
-    assert (
-        video_start_cnt == video_end_cnt
-    ), f"video_start_cnt: {video_start_cnt}, video_end_cnt: {video_end_cnt}"
-    assert (
-        image_start_cnt == image_end_cnt
-    ), f"image_start_cnt: {image_start_cnt}, image_end_cnt: {image_end_cnt}"
+    assert video_start_cnt == video_end_cnt, f"video_start_cnt: {video_start_cnt}, video_end_cnt: {video_end_cnt}"
+    assert image_start_cnt == image_end_cnt, f"image_start_cnt: {image_start_cnt}, image_end_cnt: {image_end_cnt}"
     return {"text_info": new_text_info, "image_info": new_image_info}

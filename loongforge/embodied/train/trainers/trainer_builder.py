@@ -29,16 +29,10 @@ def build_model_trainer(training_args, model_cfg, data_cfg):
     trainer_type = training_args.trainer_type
 
     if not trainer_type:
-        raise ValueError(
-            "--trainer-type is required. "
-            f"Available: {list(_TRAINER_CLASSES.keys())}"
-        )
+        raise ValueError(f"--trainer-type is required. Available: {list(_TRAINER_CLASSES.keys())}")
 
     trainer_cls = _TRAINER_CLASSES.get(trainer_type)
     if trainer_cls is None:
-        raise ValueError(
-            f"Unknown --trainer-type '{trainer_type}'. "
-            f"Available: {list(_TRAINER_CLASSES.keys())}"
-        )
+        raise ValueError(f"Unknown --trainer-type '{trainer_type}'. Available: {list(_TRAINER_CLASSES.keys())}")
 
     return trainer_cls(training_args, model_cfg, data_cfg)

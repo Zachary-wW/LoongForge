@@ -97,9 +97,7 @@ class StateDiscretizationTransform(BaseTransform):
         # Format the prompt with task description and discretized state
         cleaned_text = task.strip().replace("_", " ").replace("\n", " ")
         state_str = " ".join(map(str, discretized))
-        data[self.apply_to[0]] = self.prompt_template.format(
-            task=cleaned_text, state=state_str
-        )
+        data[self.apply_to[0]] = self.prompt_template.format(task=cleaned_text, state=state_str)
 
         return data
 
@@ -146,11 +144,7 @@ class Pi05CollateImagesTransform(BaseTransform):
                 img = torch.zeros(3, self.image_size, self.image_size) - 1.0
             images_list.append(img)
             # Mask is True only when view exists and config enables it
-            mask_val = (
-                has_view
-                and view_idx < len(self.image_mask)
-                and self.image_mask[view_idx]
-            )
+            mask_val = has_view and view_idx < len(self.image_mask) and self.image_mask[view_idx]
             img_masks.append(mask_val)
 
         data["images_list"] = images_list
@@ -207,18 +201,14 @@ class Pi05TokenizeTransform(BaseTransform):
         if self._tokenizer is None:
             path = self.tokenizer_path or os.environ.get("TOKENIZER_PATH", "")
             if not path:
-                raise ValueError(
-                    "Tokenizer path not set. Pass tokenizer_path or set TOKENIZER_PATH env."
-                )
+                raise ValueError("Tokenizer path not set. Pass tokenizer_path or set TOKENIZER_PATH env.")
             self._tokenizer = AutoTokenizer.from_pretrained(path)
         return self._tokenizer
 
     def apply(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Tokenize the prompt string into padded input_ids and attention_mask tensors."""
         prompt = data[self.prompt_key]
-        tok_out = tokenize_prompts(
-            [prompt], self.tokenizer, max_length=self.max_token_len
-        )
+        tok_out = tokenize_prompts([prompt], self.tokenizer, max_length=self.max_token_len)
         data["input_ids"] = tok_out["input_ids"].squeeze(0)
         data["attention_mask"] = tok_out["attention_mask"].squeeze(0).bool()
         return data

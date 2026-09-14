@@ -72,9 +72,7 @@ def load_dataset_split(config: dict[str, Any], split: str | None):
 def get_dataset_samples(dataset_name: str, num_samples: int) -> list[str]:
     """Download ``num_samples`` calibration texts from a registered dataset."""
     if dataset_name not in DATASET_CONFIGS:
-        raise SystemExit(
-            f"Unsupported dataset {dataset_name}; supported: {sorted(DATASET_CONFIGS)}"
-        )
+        raise SystemExit(f"Unsupported dataset {dataset_name}; supported: {sorted(DATASET_CONFIGS)}")
 
     dataset_config = DATASET_CONFIGS[dataset_name]
     config = dataset_config["config"].copy()
@@ -113,10 +111,7 @@ def write_samples(dataset_arg: str, size_arg: str, output: Path) -> None:
         for dataset_name, num_samples in parse_dataset_plan(dataset_arg, size_arg):
             samples = get_dataset_samples(dataset_name, num_samples)
             if len(samples) < num_samples:
-                raise SystemExit(
-                    f"Downloaded too few samples for {dataset_name}: "
-                    f"{len(samples)} < {num_samples}"
-                )
+                raise SystemExit(f"Downloaded too few samples for {dataset_name}: {len(samples)} < {num_samples}")
             for idx, text in enumerate(samples):
                 f.write(
                     json.dumps(

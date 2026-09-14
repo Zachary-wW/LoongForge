@@ -35,18 +35,18 @@ from io import BytesIO
 from typing import Any, Literal
 
 import cv2
+
 try:
     import lmdb
 except ImportError:
+
     class _MissingLmdb:
         """Stub for lmdb when the package is not installed."""
 
         @staticmethod
         def open(*args, **kwargs):  # noqa: A003
             """Raise RuntimeError since lmdb is not installed."""
-            raise RuntimeError(
-                "lmdb is not installed. It is only required for LMDB-backed Eagle images."
-            )
+            raise RuntimeError("lmdb is not installed. It is only required for LMDB-backed Eagle images.")
 
     lmdb = _MissingLmdb()
 import numpy as np
@@ -227,9 +227,7 @@ def fetch_image(ele: dict[str, str | Image.Image], size_factor: int = IMAGE_FACT
     else:
         image_obj = Image.open(image)
     if image_obj is None:
-        raise ValueError(
-            f"Unrecognized image input, support local path, http url, base64 and PIL.Image, got {image}"
-        )
+        raise ValueError(f"Unrecognized image input, support local path, http url, base64 and PIL.Image, got {image}")
     image = to_rgb(image_obj)
     # if 'scale_factor' in ele:
     #     scale_factor = ele['scale_factor']
@@ -341,10 +339,10 @@ def _read_video_pyav(
     ele: dict,
 ) -> (torch.Tensor, float, list):
     """read video using pyav and return also per-frame timestamps.
-    
+
     Args:
         ele: dictionary containing video metadata and parameters
-        
+
     Returns:
         tuple of (video tensor, sample fps, timestamps list)
     """
@@ -437,9 +435,7 @@ def fetch_video(
         try:
             video, sample_fps, timestamps = VIDEO_READER_BACKENDS[video_reader_backend](ele)
         except Exception as e:
-            logger.warning(
-                f"video_reader_backend {video_reader_backend} error, use torchvision as default, msg: {e}"
-            )
+            logger.warning(f"video_reader_backend {video_reader_backend} error, use torchvision as default, msg: {e}")
             video, sample_fps, timestamps = VIDEO_READER_BACKENDS["torchvision"](ele)
 
         nframes, _, height, width = video.shape
@@ -481,10 +477,7 @@ def fetch_video(
         process_info.pop("type", None)
         process_info.pop("video", None)
         images = [
-            fetch_image(
-                {"image": video_element, **process_info}, 
-                size_factor=image_factor
-            )
+            fetch_image({"image": video_element, **process_info}, size_factor=image_factor)
             for video_element in ele["video"]
         ]
         nframes = adjust_by_factor(len(images), FRAME_FACTOR, method="ceil")
@@ -501,6 +494,7 @@ class Eagle3VLProcessorKwargs(ProcessingKwargs, total=False):
     """
     see processing_utils.ProcessingKwargs documentation for usage.
     """
+
     _defaults = {
         "text_kwargs": {
             "padding": False,
@@ -581,9 +575,7 @@ class Eagle3VLProcessor(ProcessorMixin):
             self.auto_map = kwargs["auto_map"]
         super().__init__(image_processor, tokenizer, chat_template=chat_template)
 
-    def replace_media_placeholder(
-        self, text, image_list, video_list, timestamps_list, fps_list, **output_kwargs
-    ):
+    def replace_media_placeholder(self, text, image_list, video_list, timestamps_list, fps_list, **output_kwargs):
         """Replace media placeholders in text and collect processed vision tensors."""
         num_of_images_in_this_sample = 0
         num_of_videos_in_this_sample = 0
@@ -615,8 +607,7 @@ class Eagle3VLProcessor(ProcessorMixin):
                 }
                 if media_type == "image":
                     image_inputs = self.image_processor(
-                        images=[image_list[idx_in_list]], videos=None, 
-                        **output_kwargs["images_kwargs"]
+                        images=[image_list[idx_in_list]], videos=None, **output_kwargs["images_kwargs"]
                     )
                     image_height, image_width = image_inputs["image_sizes"][0]
                     assert image_height <= IMAGE_MAX_SIZE and image_width <= IMAGE_MAX_SIZE, (
@@ -632,8 +623,7 @@ class Eagle3VLProcessor(ProcessorMixin):
 
                 elif media_type == "video":
                     video_inputs = self.image_processor(
-                        images=None, videos=video_list[idx_in_list], 
-                        **output_kwargs["videos_kwargs"]
+                        images=None, videos=video_list[idx_in_list], **output_kwargs["videos_kwargs"]
                     )
                     N, C, image_height, image_width = video_inputs["pixel_values"].shape  # noqa: N806
                     image_tokens = image_height * image_width // self.pixels_per_token
@@ -656,14 +646,18 @@ class Eagle3VLProcessor(ProcessorMixin):
                             f"{len(frame_timestamps)} != {len(num_of_tokens_list)}"
                         )
                         special_placeholder = [
-                            (f"Frame {i + 1} sample at {frame_timestamps[i]:.2f}s: "
-                             f"{self.image_start_token}{self.image_token * num_of_tokens}{self.image_end_token}")
+                            (
+                                f"Frame {i + 1} sample at {frame_timestamps[i]:.2f}s: "
+                                f"{self.image_start_token}{self.image_token * num_of_tokens}{self.image_end_token}"
+                            )
                             for i, num_of_tokens in enumerate(num_of_tokens_list)
                         ]
                     else:
                         special_placeholder = [
-                            (f"Frame {i + 1}: {self.image_start_token}"
-                             f"{self.image_token * num_of_tokens}{self.image_end_token}")
+                            (
+                                f"Frame {i + 1}: {self.image_start_token}"
+                                f"{self.image_token * num_of_tokens}{self.image_end_token}"
+                            )
                             for i, num_of_tokens in enumerate(num_of_tokens_list)
                         ]
 
@@ -673,11 +667,7 @@ class Eagle3VLProcessor(ProcessorMixin):
                             + "".join(special_placeholder)
                         )
                     else:
-                        special_placeholder = (
-                            f"The {idx_mapper[idx_in_list]} video: " + "".join(
-                                special_placeholder
-                            )
-                        )
+                        special_placeholder = f"The {idx_mapper[idx_in_list]} video: " + "".join(special_placeholder)
                     unified_frame_list.append(video_inputs)
                     num_of_videos_in_this_sample += 1
                 else:
@@ -689,10 +679,7 @@ class Eagle3VLProcessor(ProcessorMixin):
         text = replace_in_text(text)
         if len(unified_frame_list) > 0:
             pixel_values = [frame["pixel_values"] for frame in unified_frame_list]
-            image_sizes = torch.cat(
-                [frame["image_sizes"] for frame in unified_frame_list], 
-                dim=0
-            )
+            image_sizes = torch.cat([frame["image_sizes"] for frame in unified_frame_list], dim=0)
         else:
             pixel_values = []
             image_sizes = []
@@ -863,9 +850,7 @@ class Eagle3VLProcessor(ProcessorMixin):
             if "image" in vision_info or "image_url" in vision_info:
                 image_inputs.append(fetch_image(vision_info))
             elif "video" in vision_info:
-                video_input, video_sample_fps, video_timestamps = fetch_video(
-                    vision_info, return_video_sample_fps=True
-                )
+                video_input, video_sample_fps, video_timestamps = fetch_video(vision_info, return_video_sample_fps=True)
                 video_sample_fps_list.append(video_sample_fps)
                 video_inputs.append(video_input)
                 video_timestamps_list.append(video_timestamps)
@@ -1017,9 +1002,7 @@ class Eagle3VLProcessor(ProcessorMixin):
         if "auto_map" in processor_dict:
             del processor_dict["auto_map"]
 
-        unused_kwargs = cls.validate_init_kwargs(
-            processor_config=processor_dict, valid_kwargs=cls.valid_kwargs
-        )
+        unused_kwargs = cls.validate_init_kwargs(processor_config=processor_dict, valid_kwargs=cls.valid_kwargs)
         processor = cls(*args, **processor_dict)
 
         # Update processor with kwargs if needed

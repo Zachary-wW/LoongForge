@@ -66,7 +66,6 @@ def _cyclic_iter(iter):
             yield x
 
 
-
 def _bind_chunkpipe_queue_iter(base_iter, step_g_queue, composite_queue):
     """Bind this iterator's ChunkPipe queues before yielding each batch."""
     args = get_args()
@@ -78,26 +77,20 @@ def _bind_chunkpipe_queue_iter(base_iter, step_g_queue, composite_queue):
         yield batch
 
 
-def build_sft_data_collator(
-    cls: Type[DataCollatorForSupervisedDataset], **kwargs
-) -> DataCollatorForSupervisedDataset:
+def build_sft_data_collator(cls: Type[DataCollatorForSupervisedDataset], **kwargs) -> DataCollatorForSupervisedDataset:
     """build data collator for sft"""
     args = get_args()
     tokenizer = get_tokenizer()
 
-    assert isinstance(
-        tokenizer, AutoTokenizerFromHF
-    ), f"Only support HFTokenizer for sft, but got {args.tokenizer_type}."
+    assert isinstance(tokenizer, AutoTokenizerFromHF), (
+        f"Only support HFTokenizer for sft, but got {args.tokenizer_type}."
+    )
 
     pad_to_multiple_of = 1
     # When using sequence parallel, sequence will further be split by TP size
     # When using context parallel, sequence is split by CP size as well
-    pad_to_multiple_of *= (
-        args.tensor_model_parallel_size if args.sequence_parallel else 1
-    )
-    pad_to_multiple_of *= (
-        (2 * args.context_parallel_size) if args.context_parallel_size > 1 else 1
-    )
+    pad_to_multiple_of *= args.tensor_model_parallel_size if args.sequence_parallel else 1
+    pad_to_multiple_of *= (2 * args.context_parallel_size) if args.context_parallel_size > 1 else 1
 
     # https://github.com/NVIDIA/TransformerEngine/blob/v2.4/transformer_engine/pytorch/utils.py#L425
     # https://github.com/NVIDIA/TransformerEngine/blob/main/transformer_engine/common/gemm/cublaslt_gemm.cu#L151
@@ -105,11 +98,7 @@ def build_sft_data_collator(
     if args.enable_chunkpipe and getattr(args, "sft_chunkpipe_mode", False):
         pad_to_multiple_of = args.chunksize
 
-    padding = (
-        PaddingStrategy.LONGEST
-        if args.variable_seq_lengths
-        else PaddingStrategy.MAX_LENGTH
-    )
+    padding = PaddingStrategy.LONGEST if args.variable_seq_lengths else PaddingStrategy.MAX_LENGTH
 
     # When chunkpipe is enabled, all base chunks are already padded to chunksize.
     # If SFT chunkpipe + MTP is enabled, the collator temporarily strips bridge
@@ -272,7 +261,6 @@ def build_savable_dataloader_iter(dataloader, preprocessor=None):
         # rely on it to find the correct checkpoint directory. Instead, scan for
         # the latest checkpoint iteration that contains a dataloader state file.
         if dl_load is not None:
-
             dp_rank = mpu.get_data_parallel_rank()
             restored = False
 
@@ -316,6 +304,7 @@ def build_savable_dataloader_iter(dataloader, preprocessor=None):
             if not restored:
                 print_rank_0("No dataloader state found to restore, starting from scratch")
     else:
+
         def _preprocess_iter(dl_iter):
             for batch in dl_iter:
                 if preprocessor is not None:
@@ -326,6 +315,7 @@ def build_savable_dataloader_iter(dataloader, preprocessor=None):
         train_iter = _preprocess_iter(_cyclic_iter(dataloader))
 
     return train_iter
+
 
 class ChunkPipeGroupBatchSampler:
     """Batch sampler that shuffles chunk groups while preserving intra-group order
@@ -554,9 +544,7 @@ class ChunkPipeGroupBatchSampler:
                 for d in range(D):
                     gid = queue_k.popleft()
                     grp = self.groups[gid]
-                    quotient_slots_per_rank[d].append(
-                        Slot(chunks=list(grp), components=[len(grp)])
-                    )
+                    quotient_slots_per_rank[d].append(Slot(chunks=list(grp), components=[len(grp)]))
 
             if r == 0:
                 for d in range(D):
@@ -566,10 +554,10 @@ class ChunkPipeGroupBatchSampler:
             # 2. Residual decision.
             # must_synth: N_k < D (q==0) means fewer sequences of chunk size-k than DP ranks.
             # Without synthesis, all sequences of chunk size-k would be dropped; synthesize to avoid it.
-            must_synth = (q == 0)
+            must_synth = q == 0
             # threshold_synth: if the residual count exceeds half of all size-k slots
             # (i.e., more than half of the groups would be dropped without synthesis), trigger synthesis.
-            threshold_synth = (r / (q * D + r) > 0.5)
+            threshold_synth = r / (q * D + r) > 0.5
 
             if not (must_synth or threshold_synth):
                 # Drop r residuals (don't return to pool — already labeled as
@@ -582,8 +570,7 @@ class ChunkPipeGroupBatchSampler:
 
             # 3. Synthesize (D - r) virtual slots of total length k each.
             target = D - r
-            synth_slots, consumed = self._greedy_pack(pool, k, target,
-                                                      exclude_size=k)
+            synth_slots, consumed = self._greedy_pack(pool, k, target, exclude_size=k)
             if len(synth_slots) < target:
                 # All-or-nothing rollback: return ingredients to pool, drop
                 # the r real residuals as well. Quotient slots are kept.
@@ -596,7 +583,9 @@ class ChunkPipeGroupBatchSampler:
                         "short-sequence pool insufficient to synthesize "
                         "%d virtual slots (got %d). Consider adding more "
                         "data or reducing data_parallel_size.",
-                        k, target, len(synth_slots),
+                        k,
+                        target,
+                        len(synth_slots),
                     )
                 for d in range(D):
                     buckets[d].extend(quotient_slots_per_rank[d])
@@ -609,9 +598,7 @@ class ChunkPipeGroupBatchSampler:
             real_residuals = [queue_k.popleft() for _ in range(r)]
             for d in range(r):
                 grp = self.groups[real_residuals[d]]
-                quotient_slots_per_rank[d].append(
-                    Slot(chunks=list(grp), components=[len(grp)])
-                )
+                quotient_slots_per_rank[d].append(Slot(chunks=list(grp), components=[len(grp)]))
             for i, comp_gids in enumerate(synth_slots):
                 d = r + i
                 chunks = []
@@ -620,9 +607,7 @@ class ChunkPipeGroupBatchSampler:
                     grp = self.groups[cgid]
                     chunks.extend(grp)
                     components.append(len(grp))
-                quotient_slots_per_rank[d].append(
-                    Slot(chunks=chunks, components=components)
-                )
+                quotient_slots_per_rank[d].append(Slot(chunks=chunks, components=components))
             for d in range(D):
                 buckets[d].extend(quotient_slots_per_rank[d])
 
@@ -795,8 +780,7 @@ class ChunkPipeGroupBatchSampler:
             f"Suggestion: add more data into dataset or reduce --global-batch-size."
         )
         g_total_per_step = [
-            sum(step_gs_per_rank[r][s] for r in range(self.data_parallel_size))
-            for s in range(aligned_count)
+            sum(step_gs_per_rank[r][s] for r in range(self.data_parallel_size)) for s in range(aligned_count)
         ]
         return (
             my_steps[:aligned_count],
@@ -845,10 +829,13 @@ class ChunkPipeGroupBatchSampler:
         # to fill remaining capacity. Within-step order of slots does not
         # affect training correctness (gradients are accumulated across all
         # chunks in the step).
-        multi_slots = deque(sorted(
-            (s for s in rank_slots if len(s.chunks) > 1),
-            key=lambda s: len(s.chunks), reverse=True,
-        ))
+        multi_slots = deque(
+            sorted(
+                (s for s in rank_slots if len(s.chunks) > 1),
+                key=lambda s: len(s.chunks),
+                reverse=True,
+            )
+        )
         single_slots = deque(s for s in rank_slots if len(s.chunks) == 1)
 
         steps = []
@@ -955,7 +942,7 @@ class ChunkPipeGroupBatchSampler:
                 for _ in range(slot_k):
                     chunk_to_components.append(slot_components)
             for mb_start in range(0, len(step), self.micro_batch_size):
-                batch = step[mb_start:mb_start + self.micro_batch_size]
+                batch = step[mb_start : mb_start + self.micro_batch_size]
                 self._step_g_queue.append(G_total)
                 # First chunk in this micro-batch maps to its slot's
                 # components. Under chunkpipe SFT micro_batch_size is
@@ -1002,9 +989,7 @@ def _build_cylic_iterator(
     else:
         # build distribued sampler for non-streaming dataset
         if args.enable_chunkpipe:
-            num_microbatches = args.global_batch_size // (
-                args.micro_batch_size * mpu.get_data_parallel_world_size()
-            )
+            num_microbatches = args.global_batch_size // (args.micro_batch_size * mpu.get_data_parallel_world_size())
             _batch_sampler = ChunkPipeGroupBatchSampler(
                 dataset,
                 total_samples=len(dataset),
@@ -1018,14 +1003,14 @@ def _build_cylic_iterator(
             )
         else:
             _batch_sampler = MegatronPretrainingRandomSampler(
-            dataset,
-            total_samples=len(dataset),
-            consumed_samples=consumed_samples,  # not support for streaming now!
-            micro_batch_size=args.micro_batch_size,
-            data_parallel_rank=mpu.get_data_parallel_rank(),
-            data_parallel_size=mpu.get_data_parallel_world_size(),
-            data_sharding=args.data_sharding,
-        )
+                dataset,
+                total_samples=len(dataset),
+                consumed_samples=consumed_samples,  # not support for streaming now!
+                micro_batch_size=args.micro_batch_size,
+                data_parallel_rank=mpu.get_data_parallel_rank(),
+                data_parallel_size=mpu.get_data_parallel_world_size(),
+                data_sharding=args.data_sharding,
+            )
 
         _dataloader_kwargs = dict(
             batch_sampler=_batch_sampler,
@@ -1063,12 +1048,8 @@ def build_sft_cyclic_iterators(
 ):
     """build data iterators for sft"""
     args = get_args()
-    train_iter = _build_cylic_iterator(
-        train_ds, args.consumed_train_samples, data_collator
-    )
-    valid_iter = _build_cylic_iterator(
-        valid_ds, 0 if args.skip_train else args.consumed_valid_samples, data_collator
-    )
+    train_iter = _build_cylic_iterator(train_ds, args.consumed_train_samples, data_collator)
+    valid_iter = _build_cylic_iterator(valid_ds, 0 if args.skip_train else args.consumed_valid_samples, data_collator)
     test_iter = _build_cylic_iterator(test_ds, 0, data_collator)
     return train_iter, valid_iter, test_iter
 
@@ -1113,6 +1094,7 @@ def build_full_hetero_encoder_data_iterator(
     )
     from loongforge.data.encoder_strided_sampler import PrefetchIterator
     from loongforge.train.initialize import get_num_micro_batches_per_decoder_dp
+
     _, encoder_rounds = get_num_micro_batches_per_decoder_dp()
     prefetch_count = tp_size * encoder_rounds
     return PrefetchIterator(iter(_cyclic_iter(dataloader)), prefetch_count=prefetch_count)
@@ -1207,17 +1189,13 @@ def get_batch_on_this_tp_rank(data_iterator):
         required_keys.append("group_total_tokens")
 
     if args.pipeline_model_parallel_size == 1:
-        required_keys += ["input_ids", "labels"] + (
-            ["loss_mask"] if not args.eod_mask_loss else []
-        )
+        required_keys += ["input_ids", "labels"] + (["loss_mask"] if not args.eod_mask_loss else [])
 
     elif mpu.is_pipeline_first_stage():
         required_keys.append("input_ids")
 
     elif mpu.is_pipeline_last_stage():
-        required_keys += ["input_ids", "labels"] + (
-            ["loss_mask"] if not args.eod_mask_loss else []
-        )
+        required_keys += ["input_ids", "labels"] + (["loss_mask"] if not args.eod_mask_loss else [])
 
     data_b = tensor_parallel.broadcast_data(required_keys, data, torch.int64)
 
@@ -1237,19 +1215,14 @@ def get_batch_on_this_tp_rank(data_iterator):
     if tokens_full is not None:
         if sft_chunkpipe_mtp:
             expected_length = base_length + args.mtp_num_layers
-            assert tokens_full.dim() == 2, (
-                f"SFT chunkpipe MTP expects 2D tokens, got shape "
-                f"{tuple(tokens_full.shape)}."
-            )
+            assert tokens_full.dim() == 2, f"SFT chunkpipe MTP expects 2D tokens, got shape {tuple(tokens_full.shape)}."
             assert tokens_full.size(1) == expected_length, (
-                f"SFT chunkpipe MTP expects physical sequence length "
-                f"{expected_length}, got {tokens_full.size(1)}."
+                f"SFT chunkpipe MTP expects physical sequence length {expected_length}, got {tokens_full.size(1)}."
             )
             mtp_tokens = tokens_full
             tokens = tokens_full[:, :base_length]
             assert tokens.size(1) == base_length, (
-                f"SFT chunkpipe main tokens must have base length "
-                f"{base_length}, got {tokens.size(1)}."
+                f"SFT chunkpipe main tokens must have base length {base_length}, got {tokens.size(1)}."
             )
             mtp_position_ids = _get_position_ids(mtp_tokens)
         position_ids = _get_position_ids(tokens)
@@ -1262,7 +1235,7 @@ def get_batch_on_this_tp_rank(data_iterator):
     mtp_labels = None
     if labels_full is not None:
         if sft_chunkpipe_mtp:
-            mtp_labels = labels_full[:, :base_length + args.mtp_num_layers]
+            mtp_labels = labels_full[:, : base_length + args.mtp_num_layers]
             labels = labels_full[:, :base_length]
         elif not args.enable_chunkpipe:
             # Shift labels for next-token prediction; chunkpipe data is already pre-shifted
@@ -1277,7 +1250,7 @@ def get_batch_on_this_tp_rank(data_iterator):
     mtp_loss_mask = None
     if loss_mask_full is not None:
         if sft_chunkpipe_mtp:
-            mtp_loss_mask = loss_mask_full[:, :base_length + args.mtp_num_layers]
+            mtp_loss_mask = loss_mask_full[:, : base_length + args.mtp_num_layers]
             loss_mask = loss_mask_full[:, :base_length]
         elif not args.enable_chunkpipe:
             # pp last && not eod_mask_loss; chunkpipe data is already pre-shifted
@@ -1379,9 +1352,7 @@ def get_batch_on_this_tp_rank(data_iterator):
                     device=torch.cuda.current_device(),
                 )
             else:
-                comp_tensor = torch.zeros(
-                    n_comp, dtype=torch.long, device=torch.cuda.current_device()
-                )
+                comp_tensor = torch.zeros(n_comp, dtype=torch.long, device=torch.cuda.current_device())
             torch.distributed.broadcast(
                 comp_tensor,
                 mpu.get_tensor_model_parallel_src_rank(),
@@ -1402,51 +1373,44 @@ def get_batch_on_this_cp_rank(batch: Dict[str, Any]):
     """
     cp_size = parallel_state.get_context_parallel_world_size()
     if cp_size > 1:
-        packed_seq_params = batch.get('packed_seq_params', None)
+        packed_seq_params = batch.get("packed_seq_params", None)
         cp_rank = parallel_state.get_context_parallel_rank()
         # DSv4 CSA consumes a contiguous CP row partition (rank r owns global
         # rows [r * l_local, (r + 1) * l_local)), matching the Megatron-LM
         # cp_partition_mode='contiguous' contract. All other models keep TE's
         # zigzag (load-balanced) THD layout.
         model_config = get_model_config()
-        cp_partition_mode = (
-            'contiguous'
-            if getattr(model_config, 'csa_compress_ratios', None) is not None
-            else 'zigzag'
-        )
+        cp_partition_mode = "contiguous" if getattr(model_config, "csa_compress_ratios", None) is not None else "zigzag"
         if packed_seq_params is not None:
             packed_seq_params.cp_partition_mode = cp_partition_mode
         for key, val in batch.items():
             if val is not None:
-                if key == 'packed_seq_params':
+                if key == "packed_seq_params":
                     batch[key] = val
                     continue
-                if key == 'composite_component_sizes':
+                if key == "composite_component_sizes":
                     # Plain Python list, not a sequence-dim tensor — leave
                     # untouched so the SFT scheduler can read it on every CP
                     # rank without slicing.
                     continue
-          
-                seq_dim = 1 if key != 'attention_mask' else 2
-                if packed_seq_params is not None and packed_seq_params.qkv_format == 'thd':
-                    if cp_partition_mode == 'contiguous':
+
+                seq_dim = 1 if key != "attention_mask" else 2
+                if packed_seq_params is not None and packed_seq_params.qkv_format == "thd":
+                    if cp_partition_mode == "contiguous":
                         total_tokens = val.shape[seq_dim]
                         assert total_tokens % cp_size == 0, (
                             f"Contiguous CP slicing requires total_tokens="
                             f"{total_tokens} to be divisible by cp_size={cp_size}."
                         )
                         local_rows = total_tokens // cp_size
-                        batch[key] = val.narrow(
-                            seq_dim, cp_rank * local_rows, local_rows
-                        ).contiguous()
+                        batch[key] = val.narrow(seq_dim, cp_rank * local_rows, local_rows).contiguous()
                         continue
-                    #assert get_accelerator_backend() == "NvidiaGpu", "Only NvidiaGPU supports packed_seq_params."
+                    # assert get_accelerator_backend() == "NvidiaGpu", "Only NvidiaGPU supports packed_seq_params."
                     import transformer_engine_torch as tex
+
                     # assume cu_seqlens_q == cu_seqlens_kv
                     cu_seqlens_q = packed_seq_params.cu_seqlens_q
-                    seq_idx_val = tex.thd_get_partitioned_indices(
-                        cu_seqlens_q, val.shape[seq_dim], cp_size, cp_rank
-                    )
+                    seq_idx_val = tex.thd_get_partitioned_indices(cu_seqlens_q, val.shape[seq_dim], cp_size, cp_rank)
                     batch[key] = val.index_select(seq_dim, seq_idx_val)
                 else:
                     val = val.view(
@@ -1455,9 +1419,9 @@ def get_batch_on_this_cp_rank(batch: Dict[str, Any]):
                         val.shape[seq_dim] // (2 * cp_size),
                         *val.shape[(seq_dim + 1) :],
                     )
-                    index = torch.tensor(
-                        [cp_rank, (2 * cp_size - cp_rank - 1)], device="cpu", pin_memory=True
-                    ).cuda(non_blocking=True)
+                    index = torch.tensor([cp_rank, (2 * cp_size - cp_rank - 1)], device="cpu", pin_memory=True).cuda(
+                        non_blocking=True
+                    )
                     val = val.index_select(seq_dim, index)
                     val = val.view(*val.shape[0:seq_dim], -1, *val.shape[(seq_dim + 2) :])
                     batch[key] = val

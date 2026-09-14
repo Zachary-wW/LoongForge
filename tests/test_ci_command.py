@@ -17,9 +17,7 @@ SPEC.loader.exec_module(ci_command)
 
 
 def test_embodied_suite_selects_image_build():
-    request = ci_command.parse_command(
-        "/ok-to-test --suite embodied --model pi05_ddp --build-image"
-    )
+    request = ci_command.parse_command("/ok-to-test --suite embodied --model pi05_ddp --build-image")
 
     assert request.suite == "embodied"
     assert request.models == ["pi05_ddp"]

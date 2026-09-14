@@ -18,9 +18,7 @@ def normalize_kimi_k3_state_dict(state_dict: dict, c_config) -> None:
     target = module.get("_target_") or ""
     if module.get("model_type") != "kimi_k3" and not target.endswith("KimiK3Config"):
         return
-    num_heads = int(
-        module.get("kimi_linear_num_heads", module.get("num_attention_heads", 0))
-    )
+    num_heads = int(module.get("kimi_linear_num_heads", module.get("num_attention_heads", 0)))
     num_experts = int(module.get("num_experts", 0))
     if num_heads <= 0:
         raise ValueError("Kimi K3 conversion requires kimi_linear_num_heads > 0")

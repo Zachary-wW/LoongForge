@@ -66,10 +66,10 @@ def hf_key_to_mcore(key):
     """Map a HuggingFace key to the QwenImageModel key."""
     for prefix in ("pipe.dit.", "dit.", "model.diffusion_model.", "model."):
         if key.startswith(prefix):
-            key = key[len(prefix):]
+            key = key[len(prefix) :]
             break
     if key.startswith("transformer_blocks."):
-        rest = key[len("transformer_blocks."):]
+        rest = key[len("transformer_blocks.") :]
         idx, _, tail = rest.partition(".")
         key = f"decoder.layers.{idx}.{tail}"
     return key

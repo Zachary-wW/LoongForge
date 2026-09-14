@@ -211,8 +211,7 @@ class Gr00tN1d7ActionHead(nn.Module):
             state = state.unsqueeze(1)
         if state.shape[1] != self.config.state_history_length:
             raise ValueError(
-                f"state history length mismatch: got {state.shape[1]}, "
-                f"expected {self.config.state_history_length}"
+                f"state history length mismatch: got {state.shape[1]}, expected {self.config.state_history_length}"
             )
         state = state.view(state.shape[0], 1, -1)
 
@@ -220,10 +219,7 @@ class Gr00tN1d7ActionHead(nn.Module):
         if self.training and self.state_dropout_prob > 0:
             split_dropout = self._split_state_dropout_buf
             if split_dropout is None:
-                do_dropout = (
-                    torch.rand(state_features.shape[0], device=state_features.device)
-                    < self.state_dropout_prob
-                )
+                do_dropout = torch.rand(state_features.shape[0], device=state_features.device) < self.state_dropout_prob
             else:
                 _ = torch.rand(state_features.shape[0], device=state_features.device)
                 do_dropout = split_dropout
@@ -358,9 +354,7 @@ class Gr00tN1d7(nn.Module):
                     return value.to(self.device, dtype=dtype)
                 return value.to(self.device)
             if isinstance(value, dict):
-                return {
-                    key: to_device_with_dtype(item, dtype) for key, item in value.items()
-                }
+                return {key: to_device_with_dtype(item, dtype) for key, item in value.items()}
             if isinstance(value, (list, tuple)):
                 converted = [to_device_with_dtype(item, dtype) for item in value]
                 return type(value)(converted)
@@ -370,17 +364,9 @@ class Gr00tN1d7(nn.Module):
         action_dict = action_inputs.data if isinstance(action_inputs, BatchFeature) else action_inputs
         return (
             BatchFeature(
-                data={
-                    key: to_device_with_dtype(value, backbone_dtype)
-                    for key, value in backbone_dict.items()
-                }
+                data={key: to_device_with_dtype(value, backbone_dtype) for key, value in backbone_dict.items()}
             ),
-            BatchFeature(
-                data={
-                    key: to_device_with_dtype(value, action_dtype)
-                    for key, value in action_dict.items()
-                }
-            ),
+            BatchFeature(data={key: to_device_with_dtype(value, action_dtype) for key, value in action_dict.items()}),
         )
 
     def forward(self, inputs: dict) -> BatchFeature:
@@ -431,9 +417,7 @@ class GrootN1d7Policy(nn.Module):
         self.raw_state_dim = max(meta["end"] for meta in self.modality_meta["state"].values())
         self.model_action_horizon = int(config.action_horizon)
         self.action_horizon = len(self.modality_config["action"].delta_indices)
-        self.action_dim = int(
-            max(meta["end"] for meta in self.modality_meta["action"].values())
-        )
+        self.action_dim = int(max(meta["end"] for meta in self.modality_meta["action"].values()))
         self._predict_action_initialized = False
         self._predict_action_validation_zero_state = False
         self._predict_action_use_bf16 = bool(config.use_bf16)
@@ -483,8 +467,7 @@ class GrootN1d7Policy(nn.Module):
                 batch_inputs = batch.to_model_inputs()
             except AttributeError as exc:
                 raise TypeError(
-                    "GrootN1d7Policy.forward expects a batch with to_model_inputs(), "
-                    f"got {type(batch).__name__}"
+                    f"GrootN1d7Policy.forward expects a batch with to_model_inputs(), got {type(batch).__name__}"
                 ) from exc
             outputs = self.model(batch_inputs)
         loss = outputs.get("loss", None)
@@ -601,9 +584,7 @@ class GrootN1d7Policy(nn.Module):
         self.raw_state_dim = max(meta["end"] for meta in self.modality_meta["state"].values())
         self.action_horizon = len(self.modality_config["action"].delta_indices)
         self.model_action_horizon = int(self.config.action_horizon)
-        self.action_dim = int(
-            max(meta["end"] for meta in self.modality_meta["action"].values())
-        )
+        self.action_dim = int(max(meta["end"] for meta in self.modality_meta["action"].values()))
         self._predict_action_validation_zero_state = bool(validation_zero_state)
         self._predict_action_use_bf16 = bool(self.config.use_bf16 if use_bf16 is None else use_bf16)
         self._predict_action_statistics = self._coerce_statistics(checkpoint_statistics)
@@ -616,9 +597,7 @@ class GrootN1d7Policy(nn.Module):
         # state_encoder and the actions returned by unapply_action.
         self._predict_action_use_percentiles = bool(pk.get("use_percentiles", False))
         self._predict_action_clip_outliers = bool(pk.get("clip_outliers", True))
-        self._predict_action_default_processor = self._build_state_action_processor(
-            self._predict_action_statistics
-        )
+        self._predict_action_default_processor = self._build_state_action_processor(self._predict_action_statistics)
         self.collator = Gr00tN1d7DataCollator(
             model_name=self.config.model_name,
             model_type=self.config.backbone_model_type,
@@ -718,9 +697,7 @@ class GrootN1d7Policy(nn.Module):
             # already bf16 (GROOT_ALLOW_TRAINABLE_PARAM_BF16=1 in the factory),
             # so running without autocast keeps every intermediate bf16.
             if self._predict_action_use_bf16 and device.type == "cuda":
-                backbone_output["backbone_features"] = backbone_output["backbone_features"].to(
-                    torch.bfloat16
-                )
+                backbone_output["backbone_features"] = backbone_output["backbone_features"].to(torch.bfloat16)
             backbone_output = action_head.process_backbone_output(backbone_output)
             vl_embeds = backbone_output.backbone_features
             batch_size = vl_embeds.shape[0]
@@ -752,10 +729,7 @@ class GrootN1d7Policy(nn.Module):
             dt = 1.0 / float(action_head.num_inference_timesteps)
 
             for step in range(action_head.num_inference_timesteps):
-                timestep = int(
-                    (step / float(action_head.num_inference_timesteps))
-                    * action_head.num_timestep_buckets
-                )
+                timestep = int((step / float(action_head.num_inference_timesteps)) * action_head.num_timestep_buckets)
                 timesteps = torch.full(
                     (batch_size,),
                     timestep,
@@ -821,7 +795,6 @@ class GrootN1d7Policy(nn.Module):
             packed = packed[..., :max_state_dim]
         return packed
 
-
     def _decode_action_batch(
         self,
         processor: StateActionProcessor,
@@ -837,9 +810,7 @@ class GrootN1d7Policy(nn.Module):
                 self.embodiment_tag,
                 state=state_dict,
             )
-            decoded_samples.append(
-                np.concatenate([np.asarray(decoded_dict[key]) for key in self.action_keys], axis=-1)
-            )
+            decoded_samples.append(np.concatenate([np.asarray(decoded_dict[key]) for key in self.action_keys], axis=-1))
         return np.stack(decoded_samples, axis=0)
 
     def _split_action_chunk(
@@ -951,17 +922,13 @@ class GrootN1d7Policy(nn.Module):
                             raise ValueError("GR00T-N1.7 image samples must not be empty")
                         samples.append(list(sample))
                     else:
-                        raise TypeError(
-                            f"Unsupported GR00T-N1.7 image sample type: {type(sample).__name__}"
-                        )
+                        raise TypeError(f"Unsupported GR00T-N1.7 image sample type: {type(sample).__name__}")
         else:
             raise TypeError(f"Unsupported GR00T-N1.7 images type: {type(images).__name__}")
 
         return [[_to_pil_image(image) for image in sample] for sample in samples]
 
-    def _apply_eval_image_transform(
-        self, image_batch: list[list[Image.Image]]
-    ) -> list[list[Image.Image]]:
+    def _apply_eval_image_transform(self, image_batch: list[list[Image.Image]]) -> list[list[Image.Image]]:
         """Apply the official crop/resize pipeline so callers only need to
         supply the env's native camera image (matching training-time
         ``GrootN1d7FeatureTransform._build_vlm_content``, which applies the
@@ -970,10 +937,7 @@ class GrootN1d7Policy(nn.Module):
         if transform is None:
             return image_batch
         transformed = [
-            [
-                Image.fromarray(transform(image=np.asarray(image.convert("RGB")))["image"])
-                for image in sample
-            ]
+            [Image.fromarray(transform(image=np.asarray(image.convert("RGB")))["image"]) for image in sample]
             for sample in image_batch
         ]
         self._log_eval_image_transform_once(image_batch, transformed)
@@ -997,11 +961,7 @@ class GrootN1d7Policy(nn.Module):
             return
         # The server warmup feeds an all-zero dummy image; logging that would burn
         # the one-shot on a frame that proves nothing. Wait for a real observation.
-        if all(
-            not np.asarray(raw.convert("RGB")).any()
-            for sample in before
-            for raw in sample
-        ):
+        if all(not np.asarray(raw.convert("RGB")).any() for sample in before for raw in sample):
             return
         self._predict_action_image_debug_logged = True
         for sample_idx, (raw_sample, out_sample) in enumerate(zip(before, after, strict=True)):
@@ -1073,9 +1033,7 @@ class GrootN1d7Policy(nn.Module):
         if self.embodiment_tag in statistics:
             embodiment_stats = statistics[self.embodiment_tag]
             if not {"state", "action"}.issubset(embodiment_stats):
-                raise ValueError(
-                    f"Statistics for {self.embodiment_tag!r} must include 'state' and 'action'."
-                )
+                raise ValueError(f"Statistics for {self.embodiment_tag!r} must include 'state' and 'action'.")
             return {self.embodiment_tag: embodiment_stats}
 
         if "observation.state" in statistics and "action" in statistics:
@@ -1248,6 +1206,7 @@ def _formalize_language(instruction: Any) -> str:
 
 def _is_image_like(value: Any) -> bool:
     return isinstance(value, (Image.Image, np.ndarray, torch.Tensor))
+
 
 def _to_pil_image(image: Any) -> Image.Image:
     if isinstance(image, Image.Image):

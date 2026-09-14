@@ -51,10 +51,7 @@ def candidate_action_state_files(path: Path | str) -> dict[str, list[Path]]:
             continue
         with index_path.open("r") as f:
             weight_map = json.load(f).get("weight_map", {})
-        return {
-            key: [root / weight_map[key]] if key in weight_map else []
-            for key in ACTION_STATE_SOURCE_KEYS
-        }
+        return {key: [root / weight_map[key]] if key in weight_map else [] for key in ACTION_STATE_SOURCE_KEYS}
 
     files = sorted(root.glob("*.safetensors"))
     if not files:

@@ -137,8 +137,7 @@ class LoRA(PEFT, ModuleMatcher):
                 if hasattr(module.weight.data, "_local_tensor") or (
                     HAVE_BNB
                     and getattr(module, "quant_state", None) is not None
-                    and module.quant_state.__class__
-                    == bitsandbytes.functional.QuantState
+                    and module.quant_state.__class__ == bitsandbytes.functional.QuantState
                 ):
                     lora_cls = patch_linear_module
                 elif module.__class__ == te.Linear:
@@ -219,11 +218,7 @@ class VLMLoRA(LoRA):
 
         model = unwrap_model(model)[0]
 
-        if (
-            self.apply_to_foundation
-            and hasattr(model, "foundation_model")
-            and model.foundation_model is not None
-        ):
+        if self.apply_to_foundation and hasattr(model, "foundation_model") and model.foundation_model is not None:
             modules_to_freeze.append(model.foundation_model)
 
         if (
@@ -318,9 +313,7 @@ class LoRAMerge(PEFT):
 
         if not isinstance(module, LoRALinear):
             return module
-        logging.info(
-            f"merging {(prefix if prefix else '') + '.' + (name if name else '')}"
-        )
+        logging.info(f"merging {(prefix if prefix else '') + '.' + (name if name else '')}")
 
         if hasattr(module.to_wrap, "weight"):
             base_device = module.to_wrap.weight.device

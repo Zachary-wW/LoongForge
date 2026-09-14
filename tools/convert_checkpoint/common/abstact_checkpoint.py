@@ -8,9 +8,9 @@ from abc import ABC, abstractmethod
 
 class AbstractCheckpoint(ABC):
     """
-       AbstractCheckpoint 
+    AbstractCheckpoint
     """
-    
+
     def __init__(self, c_config):
         self.c_config = c_config
 
@@ -18,21 +18,19 @@ class AbstractCheckpoint(ABC):
     @abstractmethod
     def convert_from_common(*args, **kwargs):
         """
-            return checkpoints converted from common checkpoint 
+        return checkpoints converted from common checkpoint
         """
         raise NotImplementedError()
-    
+
     @abstractmethod
     def convert_to_common(self, *args, **kwargs):
         """
-            convert checkpoints to common checkpoint 
+        convert checkpoints to common checkpoint
         """
         raise NotImplementedError()
 
     def save(self, ckpt_path):
         """
-            save checkpoint
+        save checkpoint
         """
         raise NotImplementedError()
-          
-    

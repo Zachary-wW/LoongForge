@@ -19,7 +19,7 @@ from megatron.core.utils import make_viewless_tensor
 
 
 class LayerScale(nn.Module):
-    """ LayerScale """
+    """LayerScale"""
 
     def __init__(self, embed_dim, initializer_factor=1.0, inplace=False):
         super().__init__()
@@ -27,7 +27,7 @@ class LayerScale(nn.Module):
         self.weight = nn.Parameter(initializer_factor * torch.ones(embed_dim))
 
     def forward(self, x):
-        """ forward """
+        """forward"""
         return x.mul_(self.weight) if self.inplace else x * self.weight
 
 
@@ -42,6 +42,7 @@ class TransformerLayerInternVisionSubmodules(TransformerLayerSubmodules):
         moe_mlp (Union[ModuleSpec, type], optional): Specification or type of the MLP module for MoE.
             Defaults to IdentityOp.
     """
+
     post_attention_layerscale: nn.Parameter = LayerScale
     post_mlp_layerscale: nn.Parameter = LayerScale
 
@@ -63,28 +64,28 @@ class TransformerLayerIntern(TransformerLayer):
     ):
         """
             Initializes the TransformerLayer module.
-        
+
         Args:
             config (TransformerConfig): The configuration of the model.
             submodules (TransformerLayerDeepSeekSubmodules): The submodules of the model.
             layer_number (int, optional): The number of the current layer. Defaults to 1.
             hidden_dropout (float, optional): The dropout probability for the hidden state. Defaults to None.
             **kwargs (dict, optional): Additional keyword arguments passed to the parent class. Defaults to {}.
-        
+
         Raises:
             ValueError: If the `submodules` argument is not a valid type.
         """
-        super(TransformerLayerIntern, self).__init__(config=config,
-                                                     submodules=submodules,
-                                                     layer_number=layer_number,
-                                                     hidden_dropout=hidden_dropout,
-                                                     **kwargs)
+        super(TransformerLayerIntern, self).__init__(
+            config=config, submodules=submodules, layer_number=layer_number, hidden_dropout=hidden_dropout, **kwargs
+        )
 
-        self.post_attention_layerscale = build_module(submodules.post_attention_layerscale, config.hidden_size,
-                                                      config.initializer_factor)
+        self.post_attention_layerscale = build_module(
+            submodules.post_attention_layerscale, config.hidden_size, config.initializer_factor
+        )
 
-        self.post_mlp_layerscale = build_module(submodules.post_mlp_layerscale, config.hidden_size,
-                                                config.initializer_factor)
+        self.post_mlp_layerscale = build_module(
+            submodules.post_mlp_layerscale, config.hidden_size, config.initializer_factor
+        )
 
     def forward(
         self,
@@ -101,16 +102,14 @@ class TransformerLayerIntern(TransformerLayer):
         sequence_len_offset=None,
         **kwargs,
     ):
-        """ intern vit transforemr layer forward """
+        """intern vit transforemr layer forward"""
         # hidden_states: [s, b, h]
         # Residual connection.
         residual = hidden_states
         # Optional Input Layer norm
         if self.recompute_input_layernorm:
             self.input_layernorm_checkpoint = tensor_parallel.CheckpointWithoutOutput()
-            input_layernorm_output = self.input_layernorm_checkpoint.checkpoint(
-                self.input_layernorm, hidden_states
-            )
+            input_layernorm_output = self.input_layernorm_checkpoint.checkpoint(self.input_layernorm, hidden_states)
         else:
             input_layernorm_output = self.input_layernorm(hidden_states)
 
@@ -130,12 +129,14 @@ class TransformerLayerIntern(TransformerLayer):
         if self.recompute_input_layernorm:
             # discard the output of the input layernorm and register the recompute
             # as a gradient hook of attention_output_with_bias[0]
-            self.input_layernorm_checkpoint.discard_output_and_register_recompute(
-                attention_output
-            )
+            self.input_layernorm_checkpoint.discard_output_and_register_recompute(attention_output)
 
-        attention_output_with_bias = self.post_attention_layerscale((
-            attention_output + attention_bias) if attention_bias is not None else attention_output), None
+        attention_output_with_bias = (
+            self.post_attention_layerscale(
+                (attention_output + attention_bias) if attention_bias is not None else attention_output
+            ),
+            None,
+        )
 
         # TODO: could we move `bias_dropout_add_exec_handler` itself
         # inside the module provided in the `bias_dropout_add_spec` module?
@@ -174,9 +175,7 @@ class TransformerLayerIntern(TransformerLayer):
         # Optional Layer norm post the cross-attention.
         if self.recompute_pre_mlp_layernorm:
             self.pre_mlp_norm_checkpoint = tensor_parallel.CheckpointWithoutOutput()
-            pre_mlp_layernorm_output = self.pre_mlp_norm_checkpoint.checkpoint(
-                self.pre_mlp_layernorm, hidden_states
-            )
+            pre_mlp_layernorm_output = self.pre_mlp_norm_checkpoint.checkpoint(self.pre_mlp_layernorm, hidden_states)
         else:
             pre_mlp_layernorm_output = self.pre_mlp_layernorm(hidden_states)
 
@@ -186,12 +185,12 @@ class TransformerLayerIntern(TransformerLayer):
         if self.recompute_pre_mlp_layernorm:
             # discard the output of the pre-mlp layernorm and register the recompute
             # as a gradient hook of mlp_output_with_bias[0]
-            self.pre_mlp_norm_checkpoint.discard_output_and_register_recompute(
-                mlp_output
-            )
+            self.pre_mlp_norm_checkpoint.discard_output_and_register_recompute(mlp_output)
 
-        mlp_output_with_bias = self.post_mlp_layerscale((mlp_output +
-                                                         mlp_bias) if mlp_bias is not None else mlp_output), None
+        mlp_output_with_bias = (
+            self.post_mlp_layerscale((mlp_output + mlp_bias) if mlp_bias is not None else mlp_output),
+            None,
+        )
 
         # TODO: could we move `bias_dropout_add_exec_handler` itself
         # inside the module provided in the `bias_dropout_add_spec` module?
@@ -206,9 +205,7 @@ class TransformerLayerIntern(TransformerLayer):
         # won't result in memory savings (like the data loader, or
         # p2p_communication), it serves to document the origin of this
         # 'view' tensor.
-        output = make_viewless_tensor(
-            inp=hidden_states, requires_grad=hidden_states.requires_grad, keep_graph=True
-        )
+        output = make_viewless_tensor(inp=hidden_states, requires_grad=hidden_states.requires_grad, keep_graph=True)
 
         # CUDA graph requires returned values to be Tensors
         if self.config.external_cuda_graph and self.training:

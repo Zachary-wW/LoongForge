@@ -31,10 +31,10 @@ class Cosmos3Batch:
     fps_values: List[float]
 
     # Action SFT extensions (populated by Cosmos3ActionTransform).
-    actions: Optional[List[torch.Tensor]] = None              # per-sample [T, max_action_dim]
-    raw_action_dims: Optional[List[torch.Tensor]] = None      # per-sample scalar long tensor
-    action_domain_ids: Optional[List[torch.Tensor]] = None    # per-sample scalar long tensor
-    idle_frames: Optional[List[torch.Tensor]] = None          # per-sample scalar long tensor
+    actions: Optional[List[torch.Tensor]] = None  # per-sample [T, max_action_dim]
+    raw_action_dims: Optional[List[torch.Tensor]] = None  # per-sample scalar long tensor
+    action_domain_ids: Optional[List[torch.Tensor]] = None  # per-sample scalar long tensor
+    idle_frames: Optional[List[torch.Tensor]] = None  # per-sample scalar long tensor
     dataset_indices: Optional[List[torch.Tensor]] = None
     episode_indices: Optional[List[torch.Tensor]] = None
     start_frames: Optional[List[torch.Tensor]] = None
@@ -192,16 +192,17 @@ class Cosmos3Preprocessor(BasePreprocessor):
         # deferred, everything from the jitter onwards runs in DeferredVideoTail.
         video_pipeline = None
         if data_cfg is not None and (
-            getattr(data_cfg, "use_image_augmentation", False)
-            and getattr(data_cfg, "colorjitter_on_gpu", False)
+            getattr(data_cfg, "use_image_augmentation", False) and getattr(data_cfg, "colorjitter_on_gpu", False)
         ):
             video_pipeline = DeferredVideoTail()
         return cls(video_pipeline=video_pipeline)
 
     def __call__(self, examples: List[Dict[str, Any]]) -> Cosmos3Batch:
         """Apply transform to each sample and collate into batch."""
-        has_action = all("action" in s and s.get("sequence_plan") is not None
-                         and getattr(s["sequence_plan"], "has_action", False) for s in examples)
+        has_action = all(
+            "action" in s and s.get("sequence_plan") is not None and getattr(s["sequence_plan"], "has_action", False)
+            for s in examples
+        )
         actions = [s["action"] for s in examples] if has_action else None
         raw_action_dims = [s["raw_action_dim"] for s in examples] if has_action else None
         action_domain_ids = [s["domain_id"] for s in examples] if has_action else None

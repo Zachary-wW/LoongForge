@@ -29,7 +29,7 @@ Public surface (used by action_head_tf.py / inference):
 import torch
 
 
-class FlowMatchScheduler():
+class FlowMatchScheduler:
     def __init__(
         self,
         num_inference_steps=100,

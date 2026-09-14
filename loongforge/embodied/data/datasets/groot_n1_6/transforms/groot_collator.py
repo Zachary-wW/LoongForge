@@ -52,9 +52,7 @@ class GrootN1d6PreparedBatch(PreparedBatch):
 
 def _vlm_tokenizer_path(model_cfg: Any) -> str:
     return (
-        os.environ.get("EAGLE_LOCAL_PATH")
-        or model_cfg.vlm_tokenizer_path
-        or "aravindhs-NV/eagle3-processor-groot-n1d6"
+        os.environ.get("EAGLE_LOCAL_PATH") or model_cfg.vlm_tokenizer_path or "aravindhs-NV/eagle3-processor-groot-n1d6"
     )
 
 

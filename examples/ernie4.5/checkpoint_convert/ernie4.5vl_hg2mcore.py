@@ -30,6 +30,7 @@ Notes:
                         Length must equal --pp.
                         When --pp 1 this argument can be omitted (defaults to 0).
 """
+
 import os
 import re
 import argparse
@@ -45,12 +46,14 @@ from safetensors.torch import load_file
 # Weight-mapping primitives
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class TransformOp:
     """One HF-key → MCore-key mapping entry."""
+
     src_name: str
     dst_name: str
-    forward_fn: Callable  = None   # filled by WeightMapping
+    forward_fn: Callable = None  # filled by WeightMapping
 
 
 class WeightMapping:
@@ -68,6 +71,7 @@ class WeightMapping:
 # ---------------------------------------------------------------------------
 # Per-tensor transform functions
 # ---------------------------------------------------------------------------
+
 
 def copy_fn(ops: List[TransformOp], hf_sd: dict, expected_shape=None) -> torch.Tensor:
     """Direct copy, with optional transpose/reshape when shapes mismatch."""
@@ -110,18 +114,18 @@ def merge_qkv_lm_fn(ops: List[TransformOp], hf_sd: dict, expected_shape=None) ->
     """
     assert len(ops) == 3, f"Expected 3 ops (q/k/v), got {len(ops)}"
     q_name, k_name, v_name = [op.src_name for op in ops]
-    q = hf_sd[q_name]   # [num_q_heads * head_dim, hidden]
-    k = hf_sd[k_name]   # [num_kv_heads * head_dim, hidden]
-    v = hf_sd[v_name]   # [num_kv_heads * head_dim, hidden]
+    q = hf_sd[q_name]  # [num_q_heads * head_dim, hidden]
+    k = hf_sd[k_name]  # [num_kv_heads * head_dim, hidden]
+    v = hf_sd[v_name]  # [num_kv_heads * head_dim, hidden]
 
     num_kv_heads = 4
-    num_q_per_kv = 5    # GQA ratio: 20 Q heads / 4 KV heads
+    num_q_per_kv = 5  # GQA ratio: 20 Q heads / 4 KV heads
     head_dim = 128
-    hidden   = q.shape[-1]  # 2560
+    hidden = q.shape[-1]  # 2560
 
     q = q.reshape(num_kv_heads, num_q_per_kv, head_dim, hidden)
-    k = k.reshape(num_kv_heads, 1,            head_dim, hidden)
-    v = v.reshape(num_kv_heads, 1,            head_dim, hidden)
+    k = k.reshape(num_kv_heads, 1, head_dim, hidden)
+    v = v.reshape(num_kv_heads, 1, head_dim, hidden)
     # interleave: [kv_groups, q+k+v, head_dim, hidden] → flatten first two dims
     qkv = torch.cat([q, k, v], dim=1).reshape(-1, hidden)  # [(q+k+v)*heads, hidden]
     return qkv.contiguous()
@@ -133,11 +137,11 @@ def reorder_vit_qkv_weight(ops, hf_sd, expected_shape=None):
     ERNIE-4.5-VL ViT config: embed_dim=1280, num_heads=16, head_dim=80
     """
     num_heads = 16
-    head_dim  = 80
+    head_dim = 80
     embed_dim = 1280
 
-    w = hf_sd[ops[0].src_name]                              # [3*1280, 1280]
-    w = w.reshape(3, num_heads, head_dim, embed_dim)        # [3, H, D, E]
+    w = hf_sd[ops[0].src_name]  # [3*1280, 1280]
+    w = w.reshape(3, num_heads, head_dim, embed_dim)  # [3, H, D, E]
     w = w.permute(1, 0, 2, 3).reshape(3 * embed_dim, embed_dim)
     return w.contiguous()
 
@@ -145,11 +149,11 @@ def reorder_vit_qkv_weight(ops, hf_sd, expected_shape=None):
 def reorder_vit_qkv_bias(ops, hf_sd, expected_shape=None):
     """ViT QKV bias: [Q_all, K_all, V_all] → interleaved [q0,k0,v0, ...]"""
     num_heads = 16
-    head_dim  = 80
+    head_dim = 80
     embed_dim = 1280
 
-    b = hf_sd[ops[0].src_name]                              # [3*1280]
-    b = b.reshape(3, num_heads, head_dim)                   # [3, H, D]
+    b = hf_sd[ops[0].src_name]  # [3*1280]
+    b = b.reshape(3, num_heads, head_dim)  # [3, H, D]
     b = b.permute(1, 0, 2).reshape(3 * embed_dim)
     return b.contiguous()
 
@@ -158,15 +162,15 @@ def reorder_vit_qkv_bias(ops, hf_sd, expected_shape=None):
 # Weight-map builders
 # ---------------------------------------------------------------------------
 
+
 def build_vision_mapping(args) -> WeightMapping:
     """Vision encoder (ViT) + resampler weight mapping."""
     m = WeightMapping(forward_fn=copy_fn)
 
     # --- patch embedding & final layernorm ---
-    m.add("vision_model.patch_embed.proj.weight",
-          "encoder_model.image_encoder.patch_embed.proj.weight")
+    m.add("vision_model.patch_embed.proj.weight", "encoder_model.image_encoder.patch_embed.proj.weight")
     m.add("vision_model.ln.weight", "encoder_model.image_encoder.ln.weight")
-    m.add("vision_model.ln.bias",   "encoder_model.image_encoder.ln.bias")
+    m.add("vision_model.ln.bias", "encoder_model.image_encoder.ln.bias")
 
     # --- ViT transformer layers ---
     for i in range(args.num_vit_layers):
@@ -174,35 +178,40 @@ def build_vision_mapping(args) -> WeightMapping:
         mc = f"encoder_model.image_encoder.decoder.layers.{i}"
 
         m.add(f"{hg}.norm1.weight", f"{mc}.input_layernorm.weight")
-        m.add(f"{hg}.norm1.bias",   f"{mc}.input_layernorm.bias")
+        m.add(f"{hg}.norm1.bias", f"{mc}.input_layernorm.bias")
 
-        m.add(f"{hg}.attn.qkv.weight", f"{mc}.self_attention.linear_qkv.weight",
-              forward_fn=reorder_vit_qkv_weight)
-        m.add(f"{hg}.attn.qkv.bias",   f"{mc}.self_attention.linear_qkv.bias",
-              forward_fn=reorder_vit_qkv_bias)
+        m.add(f"{hg}.attn.qkv.weight", f"{mc}.self_attention.linear_qkv.weight", forward_fn=reorder_vit_qkv_weight)
+        m.add(f"{hg}.attn.qkv.bias", f"{mc}.self_attention.linear_qkv.bias", forward_fn=reorder_vit_qkv_bias)
 
         m.add(f"{hg}.attn.proj.weight", f"{mc}.self_attention.linear_proj.weight")
-        m.add(f"{hg}.attn.proj.bias",   f"{mc}.self_attention.linear_proj.bias")
+        m.add(f"{hg}.attn.proj.bias", f"{mc}.self_attention.linear_proj.bias")
 
         m.add(f"{hg}.norm2.weight", f"{mc}.pre_mlp_layernorm.weight")
-        m.add(f"{hg}.norm2.bias",   f"{mc}.pre_mlp_layernorm.bias")
+        m.add(f"{hg}.norm2.bias", f"{mc}.pre_mlp_layernorm.bias")
 
         m.add(f"{hg}.mlp.fc1.weight", f"{mc}.mlp.linear_fc1.weight")
-        m.add(f"{hg}.mlp.fc1.bias",   f"{mc}.mlp.linear_fc1.bias")
+        m.add(f"{hg}.mlp.fc1.bias", f"{mc}.mlp.linear_fc1.bias")
         m.add(f"{hg}.mlp.fc2.weight", f"{mc}.mlp.linear_fc2.weight")
-        m.add(f"{hg}.mlp.fc2.bias",   f"{mc}.mlp.linear_fc2.bias")
+        m.add(f"{hg}.mlp.fc2.bias", f"{mc}.mlp.linear_fc2.bias")
 
     # --- resampler ---
     hg_base = "model.resampler_model"
     mc_base = "encoder_model.image_encoder.resampler"
     for suffix in [
-        ".mlp.bias", ".mlp.weight",
-        ".spatial_linear.0.bias",   ".spatial_linear.0.weight",
-        ".spatial_linear.2.bias",   ".spatial_linear.2.weight",
-        ".spatial_linear.3.bias",   ".spatial_linear.3.weight",
-        ".temporal_linear.0.bias",  ".temporal_linear.0.weight",
-        ".temporal_linear.2.bias",  ".temporal_linear.2.weight",
-        ".temporal_linear.3.bias",  ".temporal_linear.3.weight",
+        ".mlp.bias",
+        ".mlp.weight",
+        ".spatial_linear.0.bias",
+        ".spatial_linear.0.weight",
+        ".spatial_linear.2.bias",
+        ".spatial_linear.2.weight",
+        ".spatial_linear.3.bias",
+        ".spatial_linear.3.weight",
+        ".temporal_linear.0.bias",
+        ".temporal_linear.0.weight",
+        ".temporal_linear.2.bias",
+        ".temporal_linear.2.weight",
+        ".temporal_linear.3.bias",
+        ".temporal_linear.3.weight",
     ]:
         m.add(f"{hg_base}{suffix}", f"{mc_base}{suffix}")
 
@@ -214,9 +223,9 @@ def build_adapter_mapping(args) -> WeightMapping:
     m = WeightMapping(forward_fn=copy_fn)
     hg = "model.resampler_model"
     mc = "encoder_model.image_projector"
-    m.add(f"{hg}.mlp.weight",        f"{mc}.mlp.weight")
-    m.add(f"{hg}.mlp.bias",          f"{mc}.mlp.bias")
-    m.add(f"{hg}.after_norm.weight",  f"{mc}.after_norm.weight")
+    m.add(f"{hg}.mlp.weight", f"{mc}.mlp.weight")
+    m.add(f"{hg}.mlp.bias", f"{mc}.mlp.bias")
+    m.add(f"{hg}.after_norm.weight", f"{mc}.after_norm.weight")
     return m
 
 
@@ -228,29 +237,26 @@ def build_language_mapping(args) -> WeightMapping:
     m.add("model.embed_tokens.weight", "encoder_model.text_encoder.word_embeddings.weight")
     m.add("model.embed_tokens.weight", "foundation_model.embedding.word_embeddings.weight")
     m.add("model.embed_tokens.weight", "foundation_model.output_layer.weight")
-    m.add("model.norm.weight",         "foundation_model.decoder.final_layernorm.weight")
+    m.add("model.norm.weight", "foundation_model.decoder.final_layernorm.weight")
 
     for i in range(args.num_lm_layers):
         hg = f"model.layers.{i}"
         mc = f"foundation_model.decoder.layers.{i}"
 
         # --- self attention ---
-        m.add(f"{hg}.input_layernorm.weight",  f"{mc}.input_layernorm.weight")
+        m.add(f"{hg}.input_layernorm.weight", f"{mc}.input_layernorm.weight")
         # q/k/v are merged by merge_qkv_lm_fn; all three must share the same dst_name
-        m.add(f"{hg}.self_attn.q_proj.weight", f"{mc}.self_attention.linear_qkv.weight",
-              forward_fn=merge_qkv_lm_fn)
-        m.add(f"{hg}.self_attn.k_proj.weight", f"{mc}.self_attention.linear_qkv.weight",
-              forward_fn=merge_qkv_lm_fn)
-        m.add(f"{hg}.self_attn.v_proj.weight", f"{mc}.self_attention.linear_qkv.weight",
-              forward_fn=merge_qkv_lm_fn)
+        m.add(f"{hg}.self_attn.q_proj.weight", f"{mc}.self_attention.linear_qkv.weight", forward_fn=merge_qkv_lm_fn)
+        m.add(f"{hg}.self_attn.k_proj.weight", f"{mc}.self_attention.linear_qkv.weight", forward_fn=merge_qkv_lm_fn)
+        m.add(f"{hg}.self_attn.v_proj.weight", f"{mc}.self_attention.linear_qkv.weight", forward_fn=merge_qkv_lm_fn)
         m.add(f"{hg}.self_attn.o_proj.weight", f"{mc}.self_attention.linear_proj.weight")
         m.add(f"{hg}.post_attention_layernorm.weight", f"{mc}.pre_mlp_layernorm.weight")
 
         if i == 0:
             # Layer 0: dense MLP (no MoE)
             m.add(f"{hg}.mlp.gate_proj.weight", f"{mc}.mlp.linear_fc1.weight")
-            m.add(f"{hg}.mlp.up_proj.weight",   f"{mc}.mlp.linear_fc1_1.weight")
-            m.add(f"{hg}.mlp.down_proj.weight",  f"{mc}.mlp.linear_fc2.weight")
+            m.add(f"{hg}.mlp.up_proj.weight", f"{mc}.mlp.linear_fc1_1.weight")
+            m.add(f"{hg}.mlp.down_proj.weight", f"{mc}.mlp.linear_fc2.weight")
         else:
             # Layers 1+: MultiTypeMoE
             _add_moe_layer_mapping(m, hg, mc, args.num_experts)
@@ -262,46 +268,47 @@ def _add_moe_layer_mapping(m: WeightMapping, hg: str, mc: str, num_experts: int)
     """Add weight mappings for one ErnieMultiTypeMoE layer."""
 
     # routers
-    m.add(f"{hg}.mlp.gate.weight",   f"{mc}.mlp.text_moe_layer.router.weight")
+    m.add(f"{hg}.mlp.gate.weight", f"{mc}.mlp.text_moe_layer.router.weight")
     m.add(f"{hg}.mlp.gate.weight_1", f"{mc}.mlp.vision_moe_layer.router.weight")
 
     # expert bias (one tensor split into text / vision halves via '@' notation)
     bias_src = f"{hg}.mlp.moe_statics.e_score_correction_bias"
-    m.add(f"{bias_src}@0", f"{mc}.mlp.text_moe_layer.router.expert_bias",
-          forward_fn=split_fn)
-    m.add(f"{bias_src}@1", f"{mc}.mlp.vision_moe_layer.router.expert_bias",
-          forward_fn=split_fn)
+    m.add(f"{bias_src}@0", f"{mc}.mlp.text_moe_layer.router.expert_bias", forward_fn=split_fn)
+    m.add(f"{bias_src}@1", f"{mc}.mlp.vision_moe_layer.router.expert_bias", forward_fn=split_fn)
 
     # shared experts
     se_hg = f"{hg}.mlp.shared_experts"
     se_mc = f"{mc}.mlp.shared_experts"
     m.add(f"{se_hg}.gate_proj.weight", f"{se_mc}.linear_fc1.weight")
-    m.add(f"{se_hg}.up_proj.weight",   f"{se_mc}.linear_fc1_1.weight")
+    m.add(f"{se_hg}.up_proj.weight", f"{se_mc}.linear_fc1_1.weight")
     m.add(f"{se_hg}.down_proj.weight", f"{se_mc}.linear_fc2.weight")
 
     # text experts  (HF expert 0..num_experts-1)
     for j in range(num_experts):
-        _add_expert_mapping(m,
-            src_expert=f"{hg}.mlp.experts.{j}",
-            dst_expert=f"{mc}.mlp.text_moe_layer.experts.local_experts.{j}")
+        _add_expert_mapping(
+            m, src_expert=f"{hg}.mlp.experts.{j}", dst_expert=f"{mc}.mlp.text_moe_layer.experts.local_experts.{j}"
+        )
 
     # vision experts (HF expert num_experts..2*num_experts-1)
     for j in range(num_experts):
-        _add_expert_mapping(m,
+        _add_expert_mapping(
+            m,
             src_expert=f"{hg}.mlp.experts.{j + num_experts}",
-            dst_expert=f"{mc}.mlp.vision_moe_layer.experts.local_experts.{j}")
+            dst_expert=f"{mc}.mlp.vision_moe_layer.experts.local_experts.{j}",
+        )
 
 
 def _add_expert_mapping(m: WeightMapping, src_expert: str, dst_expert: str) -> None:
     """gate_proj / up_proj / down_proj for one expert."""
     m.add(f"{src_expert}.gate_proj.weight", f"{dst_expert}.linear_fc1.weight")
-    m.add(f"{src_expert}.up_proj.weight",   f"{dst_expert}.linear_fc1_1.weight")
+    m.add(f"{src_expert}.up_proj.weight", f"{dst_expert}.linear_fc1_1.weight")
     m.add(f"{src_expert}.down_proj.weight", f"{dst_expert}.linear_fc2.weight")
 
 
 # ---------------------------------------------------------------------------
 # Checkpoint I/O
 # ---------------------------------------------------------------------------
+
 
 def _shard_dir(t: int, p: int, pp: int) -> str:
     return f"mp_rank_{t:02d}" if pp == 1 else f"mp_rank_{t:02d}_{p:03d}"
@@ -343,6 +350,7 @@ def load_huggingface_checkpoints(hg_path: str) -> dict:
 # Debug / summary printers
 # ---------------------------------------------------------------------------
 
+
 def _shape(t) -> str:
     return str(tuple(t.shape))
 
@@ -361,8 +369,8 @@ def print_hf_summary(hf_sd: dict, args) -> None:
     print("\n" + "=" * W)
     print(f"  HuggingFace checkpoint summary")
     print(f"  ViT layers      : {args.num_vit_layers}")
-    print(f"  LM layers       : {args.num_lm_layers}  (layer 0: dense MLP, layers 1-{args.num_lm_layers-1}: MoE)")
-    print(f"  Experts per MoE : {args.num_experts} text + {args.num_experts} vision = {2*args.num_experts} total")
+    print(f"  LM layers       : {args.num_lm_layers}  (layer 0: dense MLP, layers 1-{args.num_lm_layers - 1}: MoE)")
+    print(f"  Experts per MoE : {args.num_experts} text + {args.num_experts} vision = {2 * args.num_experts} total")
     print("=" * W)
 
     # ---- global / non-layer tensors ----
@@ -385,12 +393,18 @@ def print_hf_summary(hf_sd: dict, args) -> None:
     for i in range(min(2, args.num_vit_layers)):
         print(f"  -- block {i} --")
         for suffix in [
-            "norm1.weight", "norm1.bias",
-            "attn.qkv.weight", "attn.qkv.bias",
-            "attn.proj.weight", "attn.proj.bias",
-            "norm2.weight", "norm2.bias",
-            "mlp.fc1.weight", "mlp.fc1.bias",
-            "mlp.fc2.weight", "mlp.fc2.bias",
+            "norm1.weight",
+            "norm1.bias",
+            "attn.qkv.weight",
+            "attn.qkv.bias",
+            "attn.proj.weight",
+            "attn.proj.bias",
+            "norm2.weight",
+            "norm2.bias",
+            "mlp.fc1.weight",
+            "mlp.fc1.bias",
+            "mlp.fc2.weight",
+            "mlp.fc2.bias",
         ]:
             k = f"vision_model.blocks.{i}.{suffix}"
             if k in hf_sd:
@@ -400,10 +414,14 @@ def print_hf_summary(hf_sd: dict, args) -> None:
     print(f"\n[LM layer 0]  (dense MLP)")
     for suffix in [
         "input_layernorm.weight",
-        "self_attn.q_proj.weight", "self_attn.k_proj.weight", "self_attn.v_proj.weight",
+        "self_attn.q_proj.weight",
+        "self_attn.k_proj.weight",
+        "self_attn.v_proj.weight",
         "self_attn.o_proj.weight",
         "post_attention_layernorm.weight",
-        "mlp.gate_proj.weight", "mlp.up_proj.weight", "mlp.down_proj.weight",
+        "mlp.gate_proj.weight",
+        "mlp.up_proj.weight",
+        "mlp.down_proj.weight",
     ]:
         k = f"model.layers.0.{suffix}"
         if k in hf_sd:
@@ -419,7 +437,9 @@ def print_hf_summary(hf_sd: dict, args) -> None:
         # attention (same as layer 0)
         for suffix in [
             "input_layernorm.weight",
-            "self_attn.q_proj.weight", "self_attn.k_proj.weight", "self_attn.v_proj.weight",
+            "self_attn.q_proj.weight",
+            "self_attn.k_proj.weight",
+            "self_attn.v_proj.weight",
             "self_attn.o_proj.weight",
             "post_attention_layernorm.weight",
         ]:
@@ -429,7 +449,8 @@ def print_hf_summary(hf_sd: dict, args) -> None:
 
         # router & expert_bias
         for suffix in [
-            "mlp.gate.weight", "mlp.gate.weight_1",
+            "mlp.gate.weight",
+            "mlp.gate.weight_1",
             "mlp.moe_statics.e_score_correction_bias",
         ]:
             k = f"{hg}.{suffix}"
@@ -502,12 +523,18 @@ def print_mcore_summary(mcore: list, args) -> None:
         mc = f"encoder_model.image_encoder.decoder.layers.{i}"
         print(f"  -- layer {i} --")
         for suffix in [
-            "input_layernorm.weight", "input_layernorm.bias",
-            "self_attention.linear_qkv.weight", "self_attention.linear_qkv.bias",
-            "self_attention.linear_proj.weight", "self_attention.linear_proj.bias",
-            "pre_mlp_layernorm.weight", "pre_mlp_layernorm.bias",
-            "mlp.linear_fc1.weight", "mlp.linear_fc1.bias",
-            "mlp.linear_fc2.weight", "mlp.linear_fc2.bias",
+            "input_layernorm.weight",
+            "input_layernorm.bias",
+            "self_attention.linear_qkv.weight",
+            "self_attention.linear_qkv.bias",
+            "self_attention.linear_proj.weight",
+            "self_attention.linear_proj.bias",
+            "pre_mlp_layernorm.weight",
+            "pre_mlp_layernorm.bias",
+            "mlp.linear_fc1.weight",
+            "mlp.linear_fc1.bias",
+            "mlp.linear_fc2.weight",
+            "mlp.linear_fc2.bias",
         ]:
             show(f"{mc}.{suffix}")
 
@@ -519,7 +546,9 @@ def print_mcore_summary(mcore: list, args) -> None:
         "self_attention.linear_qkv.weight",
         "self_attention.linear_proj.weight",
         "pre_mlp_layernorm.weight",
-        "mlp.linear_fc1.weight", "mlp.linear_fc1_1.weight", "mlp.linear_fc2.weight",
+        "mlp.linear_fc1.weight",
+        "mlp.linear_fc1_1.weight",
+        "mlp.linear_fc2.weight",
     ]:
         show(f"{mc0}.{suffix}")
 
@@ -596,8 +625,7 @@ def _build_dst_to_ops(mappings: List[WeightMapping]) -> dict:
             grouped[op.dst_name].append(op)
 
     return {
-        dst: sorted(ops, key=lambda op: _QKV_ORDER.get(op.src_name.split(".")[-2], 99))
-        for dst, ops in grouped.items()
+        dst: sorted(ops, key=lambda op: _QKV_ORDER.get(op.src_name.split(".")[-2], 99)) for dst, ops in grouped.items()
     }
 
 
@@ -619,12 +647,11 @@ def convert_hg2mcore(args) -> None:
         pp_offsets = [int(x) for x in args.pp_layer_offsets.split(",")]
         if len(pp_offsets) != args.pp:
             raise ValueError(
-                f"--pp_layer_offsets has {len(pp_offsets)} entries "
-                f"but --pp={args.pp}; lengths must match."
+                f"--pp_layer_offsets has {len(pp_offsets)} entries but --pp={args.pp}; lengths must match."
             )
 
-    hf_sd   = load_huggingface_checkpoints(args.load_hg_path)
-    mcore   = load_mcore_checkpoints(args.load_mcore_path, args.tp, args.pp)
+    hf_sd = load_huggingface_checkpoints(args.load_hg_path)
+    mcore = load_mcore_checkpoints(args.load_mcore_path, args.tp, args.pp)
 
     print_hf_summary(hf_sd, args)
     print_mcore_summary(mcore, args)
@@ -660,8 +687,7 @@ def convert_hg2mcore(args) -> None:
                 converted = ops[0].forward_fn(ops, hf_sd, original_tensor.shape)
 
                 assert converted.shape == original_tensor.shape, (
-                    f"Shape mismatch for {dst_key!r}: "
-                    f"expected {original_tensor.shape}, got {converted.shape}"
+                    f"Shape mismatch for {dst_key!r}: expected {original_tensor.shape}, got {converted.shape}"
                 )
                 srcs = [op.src_name for op in ops]
                 print(f"  {srcs} -> {dst_key}  {converted.shape}")
@@ -675,18 +701,17 @@ def convert_hg2mcore(args) -> None:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Convert ERNIE-4.5-VL checkpoints from HuggingFace to Megatron-Core."
-    )
-    parser.add_argument("--load_hg_path",    required=True, help="HF checkpoint directory (input)")
+    parser = argparse.ArgumentParser(description="Convert ERNIE-4.5-VL checkpoints from HuggingFace to Megatron-Core.")
+    parser.add_argument("--load_hg_path", required=True, help="HF checkpoint directory (input)")
     parser.add_argument("--load_mcore_path", required=True, help="MCore checkpoint directory (input, template)")
     parser.add_argument("--save_mcore_path", required=True, help="MCore checkpoint directory (output)")
-    parser.add_argument("--tp",              type=int, required=True, help="Tensor parallel size")
-    parser.add_argument("--pp",              type=int, required=True, help="Pipeline parallel size")
-    parser.add_argument("--num_vit_layers",  type=int, required=True, help="Number of ViT layers")
-    parser.add_argument("--num_lm_layers",   type=int, required=True, help="Number of LM layers")
-    parser.add_argument("--num_experts",     type=int, default=64,    help="Experts per MoE layer")
+    parser.add_argument("--tp", type=int, required=True, help="Tensor parallel size")
+    parser.add_argument("--pp", type=int, required=True, help="Pipeline parallel size")
+    parser.add_argument("--num_vit_layers", type=int, required=True, help="Number of ViT layers")
+    parser.add_argument("--num_lm_layers", type=int, required=True, help="Number of LM layers")
+    parser.add_argument("--num_experts", type=int, default=64, help="Experts per MoE layer")
     parser.add_argument(
         "--pp_layer_offsets",
         type=str,
@@ -708,7 +733,9 @@ if __name__ == "__main__":
 
     print(f"load_hg_path  : {args.load_hg_path}")
     print(f"save_mcore_path: {args.save_mcore_path}")
-    print(f"tp={args.tp}  pp={args.pp}  vit_layers={args.num_vit_layers}  "
-          f"lm_layers={args.num_lm_layers}  experts={args.num_experts}")
+    print(
+        f"tp={args.tp}  pp={args.pp}  vit_layers={args.num_vit_layers}  "
+        f"lm_layers={args.num_lm_layers}  experts={args.num_experts}"
+    )
 
     convert_hg2mcore(args)

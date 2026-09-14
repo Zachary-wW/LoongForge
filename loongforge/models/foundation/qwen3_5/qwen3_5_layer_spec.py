@@ -58,8 +58,7 @@ def get_qwen3_5_transformer_layer_spec(config, vp_stage=None):
     """Helper function to get module spec for Qwen3_5"""
     if not HAVE_TE:
         raise ImportError(
-            "Qwen3_5 layer spec requires Transformer Engine. "
-            "Please install it with: pip install transformer-engine"
+            "Qwen3_5 layer spec requires Transformer Engine. Please install it with: pip install transformer-engine"
         )
 
     layer_norm_impl = Qwen3NextRMSNorm
@@ -83,7 +82,7 @@ def get_qwen3_5_transformer_layer_spec(config, vp_stage=None):
 
     # Build per-layer specs based on layer_types pattern
     layer_types = [
-        'full_attention' if (i + 1) % config.full_attention_interval == 0 else 'linear_attention'
+        "full_attention" if (i + 1) % config.full_attention_interval == 0 else "linear_attention"
         for i in range(config.num_layers)
     ]
 
@@ -92,9 +91,9 @@ def get_qwen3_5_transformer_layer_spec(config, vp_stage=None):
         layer_spec = deepcopy(base_layer_spec)
         mlp_spec = deepcopy(mlp)
 
-        if layer_type == 'linear_attention':
+        if layer_type == "linear_attention":
             layer_spec.submodules.self_attention.module = GatedDeltaNet
-        elif layer_type == 'full_attention':
+        elif layer_type == "full_attention":
             layer_spec.submodules.self_attention.submodules.linear_qkv = TEColumnParallelLinear
             layer_spec.submodules.self_attention.module = Qwen3NextSelfAttention
             layer_spec.submodules.self_attention.params = {"attn_mask_type": AttnMaskType.causal}
@@ -106,12 +105,14 @@ def get_qwen3_5_transformer_layer_spec(config, vp_stage=None):
         # For MoE models, the base spec already provides a non-IdentityOp pre_mlp_layernorm.
         if is_dense:
             layer_spec.submodules.pre_mlp_layernorm = layer_norm_impl
-        elif hasattr(layer_spec.submodules,
-                     'pre_mlp_layernorm') and layer_spec.submodules.pre_mlp_layernorm is not IdentityOp:
+        elif (
+            hasattr(layer_spec.submodules, "pre_mlp_layernorm")
+            and layer_spec.submodules.pre_mlp_layernorm is not IdentityOp
+        ):
             layer_spec.submodules.pre_mlp_layernorm = layer_norm_impl
-        if hasattr(layer_spec.submodules.self_attention.submodules, 'q_layernorm'):
+        if hasattr(layer_spec.submodules.self_attention.submodules, "q_layernorm"):
             layer_spec.submodules.self_attention.submodules.q_layernorm = layer_norm_impl
-        if hasattr(layer_spec.submodules.self_attention.submodules, 'k_layernorm'):
+        if hasattr(layer_spec.submodules.self_attention.submodules, "k_layernorm"):
             layer_spec.submodules.self_attention.submodules.k_layernorm = layer_norm_impl
 
         layer_spec.submodules.mlp = mlp_spec
@@ -124,7 +125,7 @@ def get_qwen3_5_transformer_layer_spec(config, vp_stage=None):
     # Build MTP (Multi-Token Prediction) block spec if configured
     mtp_block_spec = None
     if config.mtp_num_layers is not None:
-        if hasattr(block_spec, 'layer_specs') and len(block_spec.layer_specs) == 0:
+        if hasattr(block_spec, "layer_specs") and len(block_spec.layer_specs) == 0:
             mtp_input_spec = layer_specs[-1]
         else:
             mtp_input_spec = block_spec

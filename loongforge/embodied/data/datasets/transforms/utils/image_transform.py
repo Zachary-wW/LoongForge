@@ -24,6 +24,7 @@ from loongforge.embodied.data.datasets.transforms.base import BaseTransform
 # Image resize utilities (formerly image_utils.py)
 # ═══════════════════════════════════════════════════════════════
 
+
 def resize_with_pad(
     images: torch.Tensor,
     height: int,
@@ -120,7 +121,7 @@ def center_crop_resize(
 
     start_h = (cur_h - crop_h) // 2
     start_w = (cur_w - crop_w) // 2
-    cropped = images[:, :, start_h:start_h + crop_h, start_w:start_w + crop_w]
+    cropped = images[:, :, start_h : start_h + crop_h, start_w : start_w + crop_w]
 
     resized = F.interpolate(
         cropped,
@@ -221,10 +222,7 @@ class ImageTransform(BaseTransform):
         t = self._to_tensor(img)
 
         # Step 2: Resize
-        if (
-            self.resize_strategy != "none"
-            and (t.shape[-2] != self.image_size or t.shape[-1] != self.image_size)
-        ):
+        if self.resize_strategy != "none" and (t.shape[-2] != self.image_size or t.shape[-1] != self.image_size):
             t = self._resize(t.unsqueeze(0)).squeeze(0)
 
         # Step 3: Normalize

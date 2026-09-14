@@ -33,17 +33,14 @@ def shard_packed_cu_seqlens_for_sp_rank(
             sequence fragment on this rank. Aligned with local_cu_seqlens[1:].
     """
     if global_cu_seqlens.dim() != 1 or global_cu_seqlens.numel() < 2:
-        raise ValueError(
-            f"global_cu_seqlens must be 1D with length >= 2, got {tuple(global_cu_seqlens.shape)}"
-        )
+        raise ValueError(f"global_cu_seqlens must be 1D with length >= 2, got {tuple(global_cu_seqlens.shape)}")
     if not (0 <= sp_rank < sp_world_size):
         raise ValueError(f"sp_rank must be in [0, {sp_world_size}), got {sp_rank}")
 
     total_packed_tokens = int(global_cu_seqlens[-1].item())
     if total_packed_tokens % sp_world_size != 0:
         raise ValueError(
-            f"total_packed_tokens ({total_packed_tokens}) must be divisible by "
-            f"sp_world_size ({sp_world_size})"
+            f"total_packed_tokens ({total_packed_tokens}) must be divisible by sp_world_size ({sp_world_size})"
         )
 
     local_token_count = total_packed_tokens // sp_world_size
@@ -111,10 +108,10 @@ def all_to_all_hp2sp_with_padding(input_):
 
     remainder = s % world_size
     padding_size = (world_size - remainder) % world_size
-    
+
     if padding_size > 0:
         out = input_.new_zeros(input_.shape[0] + padding_size, *input_.shape[1:])
-        out[:input_.shape[0]] = input_
+        out[: input_.shape[0]] = input_
         input_ = out
 
     s_padded = input_.size(0)
@@ -129,11 +126,11 @@ def all_to_all_hp2sp_with_padding(input_):
 def all_to_all_sp2hp_with_padding(input_, ori_s=None):
     """
     all_to_all with padding to handle cases where S is not divisible by TP.
-    
+
     From [S/TP, B, H, D] -> [S, B, H/TP, D]
-    
+
     The inverse of all_to_all_hp2sp_with_padding.
-    
+
     Args:
         input_: [S/TP, B, H, D]
         ori_s: original sequence length before padding, used to remove padding after all_to_all
@@ -201,7 +198,7 @@ class _GatherSequenceAndScatterHeads(torch.autograd.Function):
         # Swap back batch and sequence dim
         output = output.transpose(0, 1).contiguous()
         return output
-    
+
     @staticmethod
     def backward(ctx, grad_output):
         """grad_output: [batch, seq_len, heads_per_tp, head_dim]"""

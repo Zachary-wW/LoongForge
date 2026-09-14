@@ -47,10 +47,12 @@ from .packer import Packer
 
 IGNORE_INDEX = -100  # ID for labels that should be ignored.
 from importlib.metadata import version as _energon_version
+
 try:
     _ENERGON_NEEDS_SUBFLAVOR = _energon_version("megatron-energon") < "7.0.0"
 except Exception:
     _ENERGON_NEEDS_SUBFLAVOR = False
+
 
 @dataclass
 class BaseTaskSample(Sample):
@@ -66,8 +68,8 @@ class BaseTaskSample(Sample):
     attn_mask: torch.Tensor = None
     # (c, h, w)
     imgs: List[torch.Tensor] = None
-    num_tiles: Optional[List[int]]= None
-    pixel_values_videos: Optional[torch.Tensor]= None
+    num_tiles: Optional[List[int]] = None
+    pixel_values_videos: Optional[torch.Tensor] = None
 
 
 @dataclass
@@ -78,6 +80,7 @@ class BaseTaskSamplePacked(Sample):
     seq_len = Total sequence length
     num_imgs = Number of images across all samples in the packed sample
     """
+
     # Sample name
     __key__: str
     __restore_key__: Tuple[Union[str, int, tuple], ...]
@@ -94,8 +97,8 @@ class BaseTaskSamplePacked(Sample):
     attn_mask: torch.Tensor = None
     # Input images
     imgs: List[torch.Tensor] = None
-    num_tiles: Optional[List[int]]= None
-    pixel_values_videos: Optional[torch.Tensor]= None
+    num_tiles: Optional[List[int]] = None
+    pixel_values_videos: Optional[torch.Tensor] = None
 
     def __repr__(self):
         def _shape(x):
@@ -146,8 +149,8 @@ class BaseTaskBatchPacked(Batch):
     attn_mask: torch.Tensor = None
     # All image tiles stacked into a single tensor (num_tiles, C, H, W)
     imgs: torch.Tensor = None
-    num_tiles: Optional[List[int]]= None
-    pixel_values_videos: Optional[torch.Tensor]= None
+    num_tiles: Optional[List[int]] = None
+    pixel_values_videos: Optional[torch.Tensor] = None
 
 
 def _format_packed_sample_overflow_error(
@@ -175,11 +178,7 @@ def _format_packed_sample_overflow_error(
                 "labels_shape": _shape(sample.labels),
                 "attn_mask_shape": _shape(sample.attn_mask),
                 "num_images": len(sample.imgs) if sample.imgs is not None else 0,
-                "num_videos": (
-                    len(sample.pixel_values_videos)
-                    if sample.pixel_values_videos is not None
-                    else 0
-                ),
+                "num_videos": (len(sample.pixel_values_videos) if sample.pixel_values_videos is not None else 0),
             }
         )
 
@@ -193,6 +192,7 @@ def _format_packed_sample_overflow_error(
         f"would_be_length={current_length + next_sample.total_len}, "
         f"num_samples={len(samples)}{omitted_msg}, samples_summary={summary}"
     )
+
 
 _vlm_tags_cache: Optional[Dict[str, Dict]] = None
 
@@ -302,7 +302,7 @@ def _attach_tools(sample_obj, json_data: dict):
 
 @stateless
 def cooker_multi_mix_qa(sample: dict):
-    """Convert raw sample dict into a MultiMixQASample. """
+    """Convert raw sample dict into a MultiMixQASample."""
     messages, system = _parse_messages(sample["json"]["texts"])
     video = []
     image = []
@@ -314,26 +314,33 @@ def cooker_multi_mix_qa(sample: dict):
             image.append(sample.get(name))
 
     if _ENERGON_NEEDS_SUBFLAVOR:
-        return _attach_tools(MultiMixQASample(
-            __key__=sample["__key__"],
-            __restore_key__=sample["__restore_key__"],
-            __subflavor__=None,
-            __subflavors__=sample.get("__subflavors__", {}),
-            video=video if len(video) > 0 else None,
-            image=image if len(image) > 0 else None,
-            system=system,
-            messages=messages,
-        ), sample["json"])
+        return _attach_tools(
+            MultiMixQASample(
+                __key__=sample["__key__"],
+                __restore_key__=sample["__restore_key__"],
+                __subflavor__=None,
+                __subflavors__=sample.get("__subflavors__", {}),
+                video=video if len(video) > 0 else None,
+                image=image if len(image) > 0 else None,
+                system=system,
+                messages=messages,
+            ),
+            sample["json"],
+        )
     else:
-        return _attach_tools(MultiMixQASample(
-            __key__=sample["__key__"],
-            __restore_key__=sample["__restore_key__"],
-            __subflavors__=sample.get("__subflavors__", {}),
-            video=video if len(video) > 0 else None,
-            image=image if len(image) > 0 else None,
-            system=system,
-            messages=messages,
-        ), sample["json"])
+        return _attach_tools(
+            MultiMixQASample(
+                __key__=sample["__key__"],
+                __restore_key__=sample["__restore_key__"],
+                __subflavors__=sample.get("__subflavors__", {}),
+                video=video if len(video) > 0 else None,
+                image=image if len(image) > 0 else None,
+                system=system,
+                messages=messages,
+            ),
+            sample["json"],
+        )
+
 
 @stateless
 def cooker_chat_mix(sample: dict) -> ChatMixSample:
@@ -394,7 +401,7 @@ def cooker_chat_mix(sample: dict) -> ChatMixSample:
 
 @stateless
 def cooker_multi_vid_vqa(sample: dict):
-    """Convert raw sample dict into a MultiVidQASample. """
+    """Convert raw sample dict into a MultiVidQASample."""
     messages, system = _parse_messages(sample["json"]["texts"])
 
     video = []
@@ -408,24 +415,30 @@ def cooker_multi_vid_vqa(sample: dict):
             image.append(sample.get(name))
 
     if _ENERGON_NEEDS_SUBFLAVOR:
-        return _attach_tools(MultiVidQASample(
-            __key__=sample["__key__"],
-            __restore_key__=sample["__restore_key__"],
-            __subflavor__=None,
-            __subflavors__=sample.get("__subflavors__", {}),
-            video=video if len(video) > 0 else None,
-            system=system,
-            messages=messages,
-        ), sample["json"])
+        return _attach_tools(
+            MultiVidQASample(
+                __key__=sample["__key__"],
+                __restore_key__=sample["__restore_key__"],
+                __subflavor__=None,
+                __subflavors__=sample.get("__subflavors__", {}),
+                video=video if len(video) > 0 else None,
+                system=system,
+                messages=messages,
+            ),
+            sample["json"],
+        )
     else:
-        return _attach_tools(MultiVidQASample(
-            __key__=sample["__key__"],
-            __restore_key__=sample["__restore_key__"],
-            __subflavors__=sample.get("__subflavors__", {}),
-            video=video if len(video) > 0 else None,
-            system=system,
-            messages=messages,
-        ), sample["json"])
+        return _attach_tools(
+            MultiVidQASample(
+                __key__=sample["__key__"],
+                __restore_key__=sample["__restore_key__"],
+                __subflavors__=sample.get("__subflavors__", {}),
+                video=video if len(video) > 0 else None,
+                system=system,
+                messages=messages,
+            ),
+            sample["json"],
+        )
 
 
 @stateless
@@ -462,6 +475,7 @@ def cooker_packed_vqa(sample: dict):
             images=images,
         )
 
+
 @stateless
 def cooker_packed_multi_mix_qa(sample: dict):
     """
@@ -495,22 +509,13 @@ def cooker_packed_multi_mix_qa(sample: dict):
 
     # contexts/answers are List[List[str]]. A single-turn child is a
     # one-element list; multi-turn BMR children keep all turns.
-    contexts = [
-        [p] if isinstance(p, str)
-        else (list(p) if isinstance(p, (list, tuple)) else [])
-        for p in prompts
-    ]
-    answers = [
-        [c] if isinstance(c, str)
-        else (list(c) if isinstance(c, (list, tuple)) else [])
-        for c in captions
-    ]
+    contexts = [[p] if isinstance(p, str) else (list(p) if isinstance(p, (list, tuple)) else []) for p in prompts]
+    answers = [[c] if isinstance(c, str) else (list(c) if isinstance(c, (list, tuple)) else []) for c in captions]
     media_files = data.get("media_files", []) or []
     media_type = (data.get("media_type") or "").lower()
 
     images = None
     videos = None
-
 
     if media_type == "image":
         images = []
@@ -554,8 +559,7 @@ def cooker_packed_multi_mix_qa(sample: dict):
 
     else:
         raise ValueError(
-            f"[cooker_packed_multi_mix_qa] unknown media_type='{media_type}'. "
-            f"Expect 'image', 'video', or 'text'."
+            f"[cooker_packed_multi_mix_qa] unknown media_type='{media_type}'. Expect 'image', 'video', or 'text'."
         )
     if _ENERGON_NEEDS_SUBFLAVOR:
         return PackedMultiMixQASample(
@@ -667,8 +671,7 @@ def cooker_packed_chat_mix(sample: dict):
         videos = None
     else:
         raise ValueError(
-            f"[cooker_packed_chat_mix] unknown media_type='{media_type}'. "
-            f"Expect 'image', 'video', or 'text'."
+            f"[cooker_packed_chat_mix] unknown media_type='{media_type}'. Expect 'image', 'video', or 'text'."
         )
 
     if _ENERGON_NEEDS_SUBFLAVOR:
@@ -690,6 +693,7 @@ def cooker_packed_chat_mix(sample: dict):
             packed_images=images,
             packed_videos=videos,
         )
+
 
 @stateless
 def cooker_packed_caption(sample: dict):
@@ -742,6 +746,7 @@ def cooker_default(sample: dict):
 
 class BaseTaskEncoder(DefaultTaskEncoder[BaseTaskSample, BaseTaskSamplePacked, BaseTaskBatchPacked, dict]):
     """A simple task encoder for VLMs."""
+
     cookers = [
         Cooker(cooker_multi_mix_qa, has_subflavors={"sample_type": "multi_mix_qa"}),
         Cooker(cooker_chat_mix, has_subflavors={"sample_type": "chat_mix"}),
@@ -751,7 +756,9 @@ class BaseTaskEncoder(DefaultTaskEncoder[BaseTaskSample, BaseTaskSamplePacked, B
         Cooker(cooker_packed_vqa, has_subflavors={"sample_type": "packed_vqa"}),
         Cooker(cooker_packed_multi_mix_qa, has_subflavors={"sample_type": "packed_multi_mix_qa"}),
         Cooker(cooker_packed_chat_mix, has_subflavors={"sample_type": "packed_chat_mix"}),
-        Cooker(cooker_default,)
+        Cooker(
+            cooker_default,
+        ),
     ]
 
     def __init__(self):
@@ -771,12 +778,15 @@ class BaseTaskEncoder(DefaultTaskEncoder[BaseTaskSample, BaseTaskSamplePacked, B
         """Generates an encoded sample from a raw sample."""
         assert not (
             self.args.packing_sft_data
-            and isinstance(sample, (
-                PackedCaptioningSample,
-                PackedVQASample,
-                PackedMultiMixQASample,
-                PackedChatMixSample,
-            ))
+            and isinstance(
+                sample,
+                (
+                    PackedCaptioningSample,
+                    PackedVQASample,
+                    PackedMultiMixQASample,
+                    PackedChatMixSample,
+                ),
+            )
         ), (
             f"Configuration conflict: --packing-sft-data is enabled (online packing), "
             f"but the dataset contains offline-packed samples of type '{type(sample).__name__}'. "
@@ -819,8 +829,7 @@ class BaseTaskEncoder(DefaultTaskEncoder[BaseTaskSample, BaseTaskSamplePacked, B
     def encode_chat_mix(self, sample: ChatMixSample) -> BaseTaskSample:
         """Generates an encoded chat-format multimodal sample (with tool calling)."""
         raise NotImplementedError(
-            f"{type(self).__name__} must implement encode_chat_mix to use "
-            f"chat_mix or packed_chat_mix sample types.",
+            f"{type(self).__name__} must implement encode_chat_mix to use chat_mix or packed_chat_mix sample types.",
             sample,
         )
 
@@ -831,7 +840,6 @@ class BaseTaskEncoder(DefaultTaskEncoder[BaseTaskSample, BaseTaskSamplePacked, B
     def encode_packed_captioning(self, sample: PackedCaptioningSample) -> BaseTaskSample:
         """Generates an encoded multimodal packed captioning sample from a raw sample."""
         raise NotImplementedError("encode_packed_captioning not supported", sample)
-
 
     def encode_packed_vqa(self, sample: PackedVQASample) -> BaseTaskSample:
         """Generates an encoded multimodal packed vqa sample from a raw sample."""
@@ -853,16 +861,18 @@ class BaseTaskEncoder(DefaultTaskEncoder[BaseTaskSample, BaseTaskSamplePacked, B
         else:
             return torch.tensor([[0]], dtype=torch.float32)
 
-    def process_videos(self, samples: List[Union[BaseTaskSample, BaseTaskSamplePacked]]) \
-                                                                                    -> torch.Tensor:
-        """"Process the data to get the model's input"""
-        pixel_values_videos = [pixel_values_video for s in samples if s.pixel_values_videos is not None \
-                for pixel_values_video in s.pixel_values_videos]
+    def process_videos(self, samples: List[Union[BaseTaskSample, BaseTaskSamplePacked]]) -> torch.Tensor:
+        """ "Process the data to get the model's input"""
+        pixel_values_videos = [
+            pixel_values_video
+            for s in samples
+            if s.pixel_values_videos is not None
+            for pixel_values_video in s.pixel_values_videos
+        ]
         if len(pixel_values_videos) > 0:
             return torch.cat(pixel_values_videos)
         else:
             return torch.tensor([[0]], dtype=torch.float32)
-
 
     def batch(self, samples: List[Union[BaseTaskSample, BaseTaskSamplePacked]]) -> BaseTaskBatchPacked:
         """Generates a batched version of the provided samples."""
@@ -925,8 +935,9 @@ class BaseTaskEncoder(DefaultTaskEncoder[BaseTaskSample, BaseTaskSamplePacked, B
         NOTE: Energon dataloader calls this method internally if packing is used.
         Please see https://nvidia.github.io/Megatron-Energon/packing.html
         """
-        packed_samples = self.packer.pack(samples, self.max_packed_tokens,
-                        self.num_images_expected, self.max_buffer_size)
+        packed_samples = self.packer.pack(
+            samples, self.max_packed_tokens, self.num_images_expected, self.max_buffer_size
+        )
 
         return packed_samples
 
@@ -968,11 +979,7 @@ class BaseTaskEncoder(DefaultTaskEncoder[BaseTaskSample, BaseTaskSamplePacked, B
             # This should not happen.
             # The select_samples_to_pack method should have already ensured that the samples fit.
             if current_length + sample_len > packing_seq_len:
-                raise ValueError(
-                    _format_packed_sample_overflow_error(
-                        samples, packing_seq_len, current_length, sample
-                    )
-                )
+                raise ValueError(_format_packed_sample_overflow_error(samples, packing_seq_len, current_length, sample))
 
             # Add the sample's tokens and labels
             packed_tokens.append(sample.tokens)

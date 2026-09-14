@@ -58,7 +58,6 @@ class LLaMAModel(BaseGPTModel):
         rotary_dtype: torch.dtype = torch.float32,
         **kwargs,
     ) -> None:
-
         if config.model_spec is None:
             model_spec = [
                 "loongforge.models.foundation.llama.llama_layer_spec",

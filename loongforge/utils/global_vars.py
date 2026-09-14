@@ -95,18 +95,12 @@ def _build_chat_template(args) -> Optional["ChatTemplate"]:
         global _GLOBAL_CHAT_TEMPLATE
         _ensure_var_is_not_initialized(_GLOBAL_CHAT_TEMPLATE, "loongforge-chat-template")
         _GLOBAL_CHAT_TEMPLATE = ChatTemplate.from_name(args.chat_template)
-        assert (
-            _GLOBAL_CHAT_TEMPLATE is not None
-        ), f"chat_template {args.chat_template} not supported."
+        assert _GLOBAL_CHAT_TEMPLATE is not None, f"chat_template {args.chat_template} not supported."
         raw_kwargs = getattr(args, "chat_template_kwargs", None)
         if raw_kwargs is not None:
             if not isinstance(_GLOBAL_CHAT_TEMPLATE, HFChatTemplate):
-                raise ValueError(
-                    "--chat-template-kwargs is only supported with HF chat templates"
-                )
-            _GLOBAL_CHAT_TEMPLATE.chat_template_kwargs = load_chat_template_kwargs(
-                raw_kwargs
-            )
+                raise ValueError("--chat-template-kwargs is only supported with HF chat templates")
+            _GLOBAL_CHAT_TEMPLATE.chat_template_kwargs = load_chat_template_kwargs(raw_kwargs)
         return _GLOBAL_CHAT_TEMPLATE
 
     return None

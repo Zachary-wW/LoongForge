@@ -59,8 +59,7 @@ class RoPEOp(OpsProxy):
         head_dim = q.size(-1)
         if rotary_dim > head_dim:
             raise ValueError(
-                f"rotary_dim ({rotary_dim}) > head_dim ({head_dim}): "
-                f"cos last dim ({cos.size(-1)}) is too large for q"
+                f"rotary_dim ({rotary_dim}) > head_dim ({head_dim}): cos last dim ({cos.size(-1)}) is too large for q"
             )
         partial = rotary_dim < head_dim
         if partial:
@@ -147,12 +146,8 @@ class MRoPEOp(OpsProxy):
             [m[i % 3] for i, m in enumerate(sin.split(mrope_section_doubled, dim=-1))],
             dim=-1,
         ).unsqueeze(2)
-        q_embed = (query_states.float() * cos_split) + (
-            _rotate_half(query_states.float()) * sin_split
-        )
-        k_embed = (key_states.float() * cos_split) + (
-            _rotate_half(key_states.float()) * sin_split
-        )
+        q_embed = (query_states.float() * cos_split) + (_rotate_half(query_states.float()) * sin_split)
+        k_embed = (key_states.float() * cos_split) + (_rotate_half(key_states.float()) * sin_split)
         return q_embed.to(query_states.dtype), k_embed.to(key_states.dtype)
 
     def _pytorch_fallback_pack(
@@ -179,9 +174,7 @@ class MRoPEOp(OpsProxy):
         kv_dim = kv_num_heads * head_dim
         bz, seq_len = qkv.shape[0], qkv.shape[1]
 
-        query_states, key_states, value_states = qkv.split(
-            [q_dim, kv_dim, kv_dim], dim=-1
-        )
+        query_states, key_states, value_states = qkv.split([q_dim, kv_dim, kv_dim], dim=-1)
         q_embed, k_embed = self._pytorch_fallback(
             query_states.reshape(bz, seq_len, q_num_heads, head_dim),
             key_states.reshape(bz, seq_len, kv_num_heads, head_dim),
@@ -228,9 +221,7 @@ class RotPosEmbOp(OpsProxy):
             logger.warning("RotPosEmbOp: CUDA kernel load failed: %s", e)
             return None
 
-    def _pytorch_fallback(
-        self, inv_freq, grid_thw, spatial_merge_size, metadata=None
-    ):
+    def _pytorch_fallback(self, inv_freq, grid_thw, spatial_merge_size, metadata=None):
         """Compute vision rotary position embeddings with PyTorch."""
         if inv_freq.dtype != torch.float32:
             inv_freq = inv_freq.to(torch.float32)
@@ -238,9 +229,7 @@ class RotPosEmbOp(OpsProxy):
         for t, h, w in grid_thw:
             t, h, w = int(t), int(h), int(w)
             if h % spatial_merge_size != 0 or w % spatial_merge_size != 0:
-                raise ValueError(
-                    f"grid h={h}, w={w} must be divisible by spatial_merge_size={spatial_merge_size}"
-                )
+                raise ValueError(f"grid h={h}, w={w} must be divisible by spatial_merge_size={spatial_merge_size}")
             hpos_ids = torch.arange(h).unsqueeze(1).expand(-1, w)
             hpos_ids = (
                 hpos_ids.reshape(
@@ -265,11 +254,7 @@ class RotPosEmbOp(OpsProxy):
             )
             pos_ids.append(torch.stack([hpos_ids, wpos_ids], dim=-1).repeat(t, 1))
         pos_ids = torch.cat(pos_ids, dim=0).to(inv_freq.device)
-        max_grid_size = (
-            metadata.max_grid_size
-            if metadata is not None
-            else grid_thw[:, 1:].max()
-        )
+        max_grid_size = metadata.max_grid_size if metadata is not None else grid_thw[:, 1:].max()
         seq = torch.arange(max_grid_size, device=inv_freq.device, dtype=inv_freq.dtype)
         rotary_pos_emb_full = torch.outer(seq, inv_freq)
         rotary_pos_emb = rotary_pos_emb_full[pos_ids].flatten(1)

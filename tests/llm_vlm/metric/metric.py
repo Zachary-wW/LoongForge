@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Metric class."""
+
 from dataclasses import dataclass, field
 
 
@@ -10,6 +11,7 @@ class Metric:
     """
     Metric class to store and convert metrics related to a model.
     """
+
     model_name: str = None
     global_batch_size: list = field(default_factory=list)
     throughput: list = field(default_factory=list)

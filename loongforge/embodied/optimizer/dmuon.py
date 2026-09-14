@@ -145,9 +145,7 @@ def _step_adamw_params_foreach(optimizer, params, group: dict) -> None:
     optimizer._profile_add("adamw_foreach_max_temp_bytes", max_temp_bytes)
     if not optimizer._adamw_foreach_logged:
         optimizer._first_step_log(
-            "AdamW foreach enabled: "
-            f"tensors={tensor_count} buckets={bucket_count} "
-            f"max_temp_bytes={max_temp_bytes}"
+            f"AdamW foreach enabled: tensors={tensor_count} buckets={bucket_count} max_temp_bytes={max_temp_bytes}"
         )
         optimizer._adamw_foreach_logged = True
 
@@ -172,9 +170,7 @@ def _build_foreach_muon_class(dmuon):
             # site-packages patch is still installed, its constructor sets these
             # same attributes from the old DMUON_ADAMW_FOREACH* environment
             # variables. Writing afterwards makes the CLI arguments win.
-            self._adamw_foreach_max_temp_bytes = max(
-                1, int(foreach_bucket_mib * 1024 * 1024)
-            )
+            self._adamw_foreach_max_temp_bytes = max(1, int(foreach_bucket_mib * 1024 * 1024))
             self._adamw_foreach_logged = False
 
         def _step_adamw_params(self, params, group: dict) -> None:
@@ -211,20 +207,12 @@ def _build_ns_backend(dmuon, training_args):
     if coefficients == "default":
         return training_args.dmuon_ns_backend
     if coefficients != "wallx_muon":
-        raise ValueError(
-            "Unsupported DMuon ns coefficients: "
-            f"{coefficients!r}. Supported: default, wallx_muon."
-        )
+        raise ValueError(f"Unsupported DMuon ns coefficients: {coefficients!r}. Supported: default, wallx_muon.")
     if training_args.dmuon_ns_backend != "direct":
-        raise ValueError(
-            "dmuon_ns_coefficients='wallx_muon' requires dmuon_ns_backend='direct'."
-        )
+        raise ValueError("dmuon_ns_coefficients='wallx_muon' requires dmuon_ns_backend='direct'.")
     # (a, b, c) = (3.4445, -4.7750, 2.0315) are the tuned quintic Newton-Schulz
     # coefficients from Keller Jordan's Muon (https://github.com/KellerJordan/Muon)
-    wallx_coefficients = [
-        [3.4445, -4.7750, 2.0315]
-        for _ in range(training_args.dmuon_ns_steps)
-    ]
+    wallx_coefficients = [[3.4445, -4.7750, 2.0315] for _ in range(training_args.dmuon_ns_steps)]
     return dmuon.NewtonSchulz(
         backend="direct",
         coefficients=wallx_coefficients,
@@ -343,8 +331,7 @@ class DMuonOptimizerAdapter(torch.optim.Optimizer):
         )
         if any(not hasattr(optimizer, name) for name in required):
             raise RuntimeError(
-                "Installed dmuon.Muon lacks the private subset-step API needed "
-                "for root optimizer/unshard overlap."
+                "Installed dmuon.Muon lacks the private subset-step API needed for root optimizer/unshard overlap."
             )
         root_ids = {id(param) for param in root_params}
         if not root_ids:
@@ -471,14 +458,9 @@ def build_dmuon_optimizer(
     import dmuon
 
     if not is_dmuon_model(model):
-        raise RuntimeError(
-            "DMuon optimizer requires dmuon.dedicate_params() before optimizer creation."
-        )
+        raise RuntimeError("DMuon optimizer requires dmuon.dedicate_params() before optimizer creation.")
     if param_groups is not None and "param_groups" not in inspect.signature(dmuon.Muon).parameters:
-        raise RuntimeError(
-            "Installed dmuon.Muon does not support param_groups=. Update dmuon "
-            "or remove --lr-group."
-        )
+        raise RuntimeError("Installed dmuon.Muon does not support param_groups=. Update dmuon or remove --lr-group.")
 
     logger.info(
         "DMuon optimizer: muon_lr=%s momentum=%s ns_steps=%s; "
@@ -542,7 +524,5 @@ def build_dmuon_optimizer(
         optimizer,
         model,
         scheduler_peak_lr=training_args.lr_base,
-        root_optimizer_prefetch=getattr(
-            training_args, "fsdp_root_optimizer_prefetch", False
-        ),
+        root_optimizer_prefetch=getattr(training_args, "fsdp_root_optimizer_prefetch", False),
     )

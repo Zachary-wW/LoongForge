@@ -11,9 +11,9 @@ import torch
 
 def prepare_lens(cu_seqlens: torch.LongTensor) -> torch.LongTensor:
     """
-    cu_seqlens is a 1D tensor of shape [B+1], where B is the batch size, 
+    cu_seqlens is a 1D tensor of shape [B+1], where B is the batch size,
     and cu_seqlens[i] is the cumulative sequence length of the first i sequences
-    in the batch. This function returns a 1D tensor of shape [B], 
+    in the batch. This function returns a 1D tensor of shape [B],
     where the i-th element is the sequence length of the i-th sequence in the batch.
     """
     return torch.diff(cu_seqlens)
@@ -21,16 +21,11 @@ def prepare_lens(cu_seqlens: torch.LongTensor) -> torch.LongTensor:
 
 def prepare_position_ids(cu_seqlens: torch.LongTensor) -> torch.LongTensor:
     """
-    This function takes the cumulative sequence lengths and returns a 1D 
+    This function takes the cumulative sequence lengths and returns a 1D
     tensor of position ids for each token in the batch.
     """
     lens = prepare_lens(cu_seqlens)
-    return torch.cat(
-        [
-            torch.arange(n, dtype=cu_seqlens.dtype, device=cu_seqlens.device)
-            for n in lens.unbind()
-        ]
-    )
+    return torch.cat([torch.arange(n, dtype=cu_seqlens.dtype, device=cu_seqlens.device) for n in lens.unbind()])
 
 
 def prepare_sequence_ids(cu_seqlens: torch.LongTensor) -> torch.LongTensor:
@@ -251,26 +246,19 @@ def bwd(
             for i_i in T.Pipelined(NS, num_stages=num_stages):
                 # validity mask
                 for bi_i in T.Parallel(BS):
-                    mask[bi_i] = (
-                        (Indices[b_s_i, bz, i_i * BS + bi_i] <= max_kv_i)
-                        & (Indices[b_s_i, bz, i_i * BS + bi_i] != -1)
+                    mask[bi_i] = (Indices[b_s_i, bz, i_i * BS + bi_i] <= max_kv_i) & (
+                        Indices[b_s_i, bz, i_i * BS + bi_i] != -1
                     )
 
                 # init attn scores
                 for h_i, bi_i in T.Parallel(padded_H, BS):
-                    acc_p[h_i, bi_i] = T.if_then_else(
-                        mask[bi_i], 0, -T.infinity(acc_p.dtype)
-                    )
+                    acc_p[h_i, bi_i] = T.if_then_else(mask[bi_i], 0, -T.infinity(acc_p.dtype))
 
                 # load KV block
                 for bi_i, d_i in T.Parallel(BS, D):
-                    KV_shared[bi_i, d_i] = KV[
-                        bos + Indices[b_s_i, bz, i_i * BS + bi_i], bz, d_i
-                    ]
+                    KV_shared[bi_i, d_i] = KV[bos + Indices[b_s_i, bz, i_i * BS + bi_i], bz, d_i]
                 for bi_i, d_i in T.Parallel(BS, D_tail):
-                    KV_tail_shared[bi_i, d_i] = KV[
-                        bos + Indices[b_s_i, bz, i_i * BS + bi_i], bz, D + d_i
-                    ]
+                    KV_tail_shared[bi_i, d_i] = KV[bos + Indices[b_s_i, bz, i_i * BS + bi_i], bz, D + d_i]
 
                 T.gemm(
                     Q_shared[:, 0:256],
@@ -291,9 +279,7 @@ def bwd(
 
                 # softmax prob (sparse)
                 for h_i, bi_i in T.Parallel(padded_H, BS):
-                    acc_p[h_i, bi_i] = T.exp(
-                        acc_p[h_i, bi_i] * sm_scale - Lse[b_s_i, bz * padded_H + h_i]
-                    )
+                    acc_p[h_i, bi_i] = T.exp(acc_p[h_i, bi_i] * sm_scale - Lse[b_s_i, bz * padded_H + h_i])
 
                 T.copy(acc_p, P_shared_cast)
 
@@ -308,9 +294,7 @@ def bwd(
                 )
                 for h_i, bi_i in T.Parallel(padded_H, BS):
                     acc_dp[h_i, bi_i] = (
-                        acc_p[h_i, bi_i]
-                        * (acc_dp[h_i, bi_i] - Delta[bos + s_i, bz * padded_H + h_i])
-                        * sm_scale
+                        acc_p[h_i, bi_i] * (acc_dp[h_i, bi_i] - Delta[bos + s_i, bz * padded_H + h_i]) * sm_scale
                     )
 
                 T.copy(acc_dp, dP_shared_cast)
@@ -358,21 +342,14 @@ def bwd(
                 # atomic accumulate into global dKV
                 for s in range(split_store):
                     for bi_i, d_i in T.Parallel(BS // split_store, D):
-                        acc_dkv_shared[bi_i, d_i] = acc_dkv[
-                            bi_i + s * (BS // split_store), d_i
-                        ]
+                        acc_dkv_shared[bi_i, d_i] = acc_dkv[bi_i + s * (BS // split_store), d_i]
                     for bi_i, d_i in T.Parallel(BS // split_store, D_tail):
-                        acc_dkv_tail_shared[bi_i, d_i] = acc_dkv_tail[
-                            bi_i + s * (BS // split_store), d_i
-                        ]
+                        acc_dkv_tail_shared[bi_i, d_i] = acc_dkv_tail[bi_i + s * (BS // split_store), d_i]
 
                     for bi_i, d_i in T.Parallel(BS // split_store, D // 4):
                         T.atomic_addx4(
                             dKV[
-                                bos
-                                + Indices[
-                                    b_s_i, bz, i_i * BS + bi_i + s * (BS // split_store)
-                                ],
+                                bos + Indices[b_s_i, bz, i_i * BS + bi_i + s * (BS // split_store)],
                                 bz,
                                 d_i * 4,
                             ],
@@ -382,10 +359,7 @@ def bwd(
                     for bi_i, d_i in T.Parallel(BS // split_store, D_tail // 4):
                         T.atomic_addx4(
                             dKV[
-                                bos
-                                + Indices[
-                                    b_s_i, bz, i_i * BS + bi_i + s * (BS // split_store)
-                                ],
+                                bos + Indices[b_s_i, bz, i_i * BS + bi_i + s * (BS // split_store)],
                                 bz,
                                 D + d_i * 4,
                             ],
@@ -490,9 +464,7 @@ def sparse_mla_bwd_interface(
         )
         dq = torch.cat([dq_first, dq_second], dim=1)
     else:
-        dq = bwd_kernel(
-            q, kv, do, indices, lse, delta, offsets, token_indices, q_start, dkv
-        )
+        dq = bwd_kernel(q, kv, do, indices, lse, delta, offsets, token_indices, q_start, dkv)
 
     dkv = postprocess_kernel(dkv)
     return dq, dkv

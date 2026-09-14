@@ -10,7 +10,7 @@ from tasks.check_precess_data_task import PrecessDataCheckTask
 
 
 SUPPORTED_TASKS = {
-    "check_correctness_task":CorrectnessCheckTask,
+    "check_correctness_task": CorrectnessCheckTask,
     "check_perfness_task": PerfnessCheckTask,
-    "check_precess_data_task":PrecessDataCheckTask,
+    "check_precess_data_task": PrecessDataCheckTask,
 }

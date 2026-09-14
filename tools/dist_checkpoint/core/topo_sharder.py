@@ -7,6 +7,7 @@ TopoSharder module: Initialize parallel_state and provide rank topology
 This module initializes Megatron-Core parallel_state with ParallelConfig
 and provides a unified interface to query rank information.
 """
+
 import os
 from typing import List, Tuple, Optional, Dict
 import torch
@@ -15,11 +16,13 @@ import torch.distributed as dist
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 if project_root not in os.sys.path:
     import sys
+
     sys.path.insert(0, project_root)
 
 try:
     from megatron.core import parallel_state
     from megatron.training import print_rank_0
+
     MEGATRON_AVAILABLE = True
 except ImportError:
     MEGATRON_AVAILABLE = False
@@ -59,22 +62,19 @@ class TopoSharder:
             RuntimeError: If torch.distributed is not initialized
         """
         if not MEGATRON_AVAILABLE:
-            raise ImportError(
-                "megatron.core is not available. "
-                "Please install Megatron-LM to use TopoSharder."
-            )
+            raise ImportError("megatron.core is not available. Please install Megatron-LM to use TopoSharder.")
 
         # Initialize model parallel if not already initialized
         if not parallel_state.model_parallel_is_initialized():
             # Only pass ep_size and etp_size if they are explicitly set (not None)
             init_kwargs = {
-                'tensor_model_parallel_size': parallel_config.tp_size,
-                'pipeline_model_parallel_size': parallel_config.pp_size,
+                "tensor_model_parallel_size": parallel_config.tp_size,
+                "pipeline_model_parallel_size": parallel_config.pp_size,
             }
             if parallel_config.ep_size is not None:
-                init_kwargs['expert_model_parallel_size'] = parallel_config.ep_size
+                init_kwargs["expert_model_parallel_size"] = parallel_config.ep_size
             if parallel_config.etp_size is not None:
-                init_kwargs['expert_tensor_parallel_size'] = parallel_config.etp_size
+                init_kwargs["expert_tensor_parallel_size"] = parallel_config.etp_size
 
             parallel_state.initialize_model_parallel(**init_kwargs)
 
@@ -169,5 +169,3 @@ class TopoSharder:
             return lookup_table
         else:
             return {}
-
-

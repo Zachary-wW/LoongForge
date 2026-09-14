@@ -26,9 +26,11 @@ MODEL_REGISTRY: Dict[str, Type[nn.Module]] = {}
 
 def register_model(model_type: str):
     """Decorator that registers a model class into MODEL_REGISTRY."""
+
     def decorator(cls):
         MODEL_REGISTRY[model_type] = cls
         return cls
+
     return decorator
 
 
@@ -48,7 +50,8 @@ def _auto_import_model_modules():
                 # Lazy import: keeps the module-level ``register_model``
                 # decorator path free of the training-side distributed stack.
                 from loongforge.embodied.distributed.utils import is_rank_zero
-                if is_rank_zero():   
+
+                if is_rank_zero():
                     logger.warning(
                         "Skipping optional model package during auto-registration:\n"
                         "  - package: %s\n"
@@ -77,10 +80,7 @@ def build_model(model_cfg) -> nn.Module:
 
     model_type = model_cfg.model_type
     if model_type not in MODEL_REGISTRY:
-        raise KeyError(
-            f"Unknown model_type: '{model_type}'. "
-            f"Registered: {list(MODEL_REGISTRY.keys())}"
-        )
+        raise KeyError(f"Unknown model_type: '{model_type}'. Registered: {list(MODEL_REGISTRY.keys())}")
 
     cls = MODEL_REGISTRY[model_type]
     return cls.from_pretrained(model_cfg)

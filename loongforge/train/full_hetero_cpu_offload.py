@@ -51,9 +51,7 @@ class CpuOffloadManager:
             return
         self._ensure_streams()
 
-        cpu_tensor = torch.empty(
-            tensor.shape, dtype=tensor.dtype, device="cpu", pin_memory=True
-        )
+        cpu_tensor = torch.empty(tensor.shape, dtype=tensor.dtype, device="cpu", pin_memory=True)
 
         # Make sure the tensor is ready on the current stream before copying.
         ready_event = torch.cuda.current_stream().record_event()
@@ -132,6 +130,7 @@ class CpuOffloadManager:
 # ---------------------------------------------------------------------------
 # Convenience helpers for working with lists of tensors
 # ---------------------------------------------------------------------------
+
 
 def offload_list_items(
     manager: CpuOffloadManager,

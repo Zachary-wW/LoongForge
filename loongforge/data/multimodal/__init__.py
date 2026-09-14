@@ -23,9 +23,7 @@ TASK_ENCODER_REGISTRY = {
     "llavaov15taskencoder": "loongforge.data.multimodal.llava_ov_task_encoder.LLavaOv15TaskEncoder",
     "ernietaskencoder": "loongforge.data.multimodal.ernie_task_encoder.ErnieTaskEncoder",
     "kimitaskencoder": "loongforge.data.multimodal.kimi_task_encoder.KimiTaskEncoder",
-    "minicpmv46taskencoder": (
-        "loongforge.data.multimodal.minicpm_v_4_6_task_encoder.MiniCPMV46TaskEncoder"
-    ),
+    "minicpmv46taskencoder": ("loongforge.data.multimodal.minicpm_v_4_6_task_encoder.MiniCPMV46TaskEncoder"),
 }
 
 

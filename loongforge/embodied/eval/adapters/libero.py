@@ -102,9 +102,7 @@ class LiberoAdapter(BaseBenchmarkAdapter):
             # Full 2-DoF finger qpos (Panda: [+finger, -finger]); models needing
             # the native 2D gripper state (e.g. GR00T libero_panda) read this.
             "gripper_qpos": np.asarray(gripper_qpos, dtype=np.float32),
-            "ee_ori_mat": (
-                np.asarray(ctrl_ee_ori_mat, dtype=np.float32) if ctrl_ee_ori_mat is not None else None
-            ),
+            "ee_ori_mat": (np.asarray(ctrl_ee_ori_mat, dtype=np.float32) if ctrl_ee_ori_mat is not None else None),
         }
 
         return {

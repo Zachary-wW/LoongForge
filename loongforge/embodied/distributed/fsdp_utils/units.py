@@ -173,7 +173,8 @@ def resolve_wrap_runs(model: nn.Module, training_args, ignored_params: set) -> l
 
     logger.info(
         "FSDP units: %d in %d runs (sizes=%s)",
-        sum(len(run.units) for run in runs), len(runs),
+        sum(len(run.units) for run in runs),
+        len(runs),
         [len(unit) for run in runs for unit in run.units],
     )
     return runs
@@ -263,19 +264,14 @@ def resolve_container_runs(
             cls = type(unwrap_checkpoint_module(child))
             numel_by_dtype = group_numel_by_dtype(child, ignored_params)
             numel = sum(numel_by_dtype.values())
-            dominant_dtype = (
-                max(numel_by_dtype, key=numel_by_dtype.get)
-                if numel_by_dtype else None
-            )
+            dominant_dtype = max(numel_by_dtype, key=numel_by_dtype.get) if numel_by_dtype else None
             eligible = (
                 numel > 0
                 and is_valid_fsdp_wrap_target(child)
                 and cls.__name__ not in skip_class_names
                 and (keep_class_names is None or cls.__name__ in keep_class_names)
             )
-            starts_new_unit = current_unit and (
-                cls is not current_unit_cls or dominant_dtype != current_unit_dtype
-            )
+            starts_new_unit = current_unit and (cls is not current_unit_cls or dominant_dtype != current_unit_dtype)
             if not eligible or starts_new_unit:
                 if current_unit:
                     units.append(current_unit)
@@ -361,10 +357,7 @@ def resolve_wrap_modules(
     matched = {unwrap_checkpoint_module(m).__class__.__name__ for m in targets.values()}
     missing = module_class_names - matched
     if missing and strict:
-        raise ValueError(
-            "FSDP wrap module classes matched no callable boundaries: "
-            + ", ".join(sorted(missing))
-        )
+        raise ValueError("FSDP wrap module classes matched no callable boundaries: " + ", ".join(sorted(missing)))
 
     return sorted(targets.items(), key=lambda item: item[0].count("."), reverse=True)
 
@@ -376,11 +369,7 @@ def find_fsdp_root_module(model: nn.Module) -> nn.Module | None:
     except ImportError:
         return None
 
-    fsdp_ids = {
-        id(module)
-        for module in model.modules()
-        if isinstance(module, FSDPModule)
-    }
+    fsdp_ids = {id(module) for module in model.modules() if isinstance(module, FSDPModule)}
     if not fsdp_ids:
         return None
 

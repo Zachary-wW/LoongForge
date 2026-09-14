@@ -17,7 +17,7 @@ import torch.distributed as dist
 from megatron.training import print_rank_0
 
 # Type variable for decorated functions
-F = TypeVar('F', bound=Callable[..., Any])
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 class MemoryTracker:
@@ -36,9 +36,9 @@ class MemoryTracker:
         """Get current GPU memory snapshot in MB."""
         if not torch.cuda.is_available():
             return {
-                'allocated': 0.0,
-                'reserved': 0.0,
-                'free': 0.0,
+                "allocated": 0.0,
+                "reserved": 0.0,
+                "free": 0.0,
             }
 
         torch.cuda.synchronize()
@@ -47,10 +47,10 @@ class MemoryTracker:
         total = torch.cuda.get_device_properties(0).total_memory / 1024 / 1024
 
         return {
-            'allocated': allocated,
-            'reserved': reserved,
-            'free': total - allocated,
-            'total': total,
+            "allocated": allocated,
+            "reserved": reserved,
+            "free": total - allocated,
+            "total": total,
         }
 
     def start(self) -> None:
@@ -60,7 +60,7 @@ class MemoryTracker:
             torch.cuda.synchronize()
 
         self.initial_memory_snapshot = self.snapshot()
-        self.initial_memory = self.initial_memory_snapshot['allocated']
+        self.initial_memory = self.initial_memory_snapshot["allocated"]
         self.peak_memory = self.initial_memory
 
     def update(self) -> None:
@@ -69,7 +69,7 @@ class MemoryTracker:
             return
 
         current = self.snapshot()
-        self.peak_memory = max(self.peak_memory, current['allocated'])
+        self.peak_memory = max(self.peak_memory, current["allocated"])
 
     def checkpoint(self, label: str = "") -> Dict[str, float]:
         """Record intermediate memory checkpoint for detailed analysis.
@@ -84,10 +84,10 @@ class MemoryTracker:
             return {}
 
         snapshot = self.snapshot()
-        snapshot['label'] = label
-        snapshot['timestamp'] = len(self.snapshots)
+        snapshot["label"] = label
+        snapshot["timestamp"] = len(self.snapshots)
         self.snapshots.append(snapshot)
-        self.peak_memory = max(self.peak_memory, snapshot['allocated'])
+        self.peak_memory = max(self.peak_memory, snapshot["allocated"])
         return snapshot
 
     def end(self) -> Dict[str, float]:
@@ -96,22 +96,19 @@ class MemoryTracker:
             torch.cuda.synchronize()
 
         self.final_memory_snapshot = self.snapshot()
-        self.final_memory = self.final_memory_snapshot['allocated']
+        self.final_memory = self.final_memory_snapshot["allocated"]
 
         self.memory_allocated_diff = self.final_memory - self.initial_memory
-        self.memory_reserved_diff = (
-            self.final_memory_snapshot['reserved'] -
-            self.initial_memory_snapshot['reserved']
-        )
+        self.memory_reserved_diff = self.final_memory_snapshot["reserved"] - self.initial_memory_snapshot["reserved"]
 
         return {
-            'initial_allocated_mb': self.initial_memory,
-            'peak_allocated_mb': self.peak_memory,
-            'final_allocated_mb': self.final_memory,
-            'allocated_diff_mb': self.memory_allocated_diff,
-            'reserved_diff_mb': self.memory_reserved_diff,
-            'initial_reserved_mb': self.initial_memory_snapshot['reserved'],
-            'final_reserved_mb': self.final_memory_snapshot['reserved'],
+            "initial_allocated_mb": self.initial_memory,
+            "peak_allocated_mb": self.peak_memory,
+            "final_allocated_mb": self.final_memory,
+            "allocated_diff_mb": self.memory_allocated_diff,
+            "reserved_diff_mb": self.memory_reserved_diff,
+            "initial_reserved_mb": self.initial_memory_snapshot["reserved"],
+            "final_reserved_mb": self.final_memory_snapshot["reserved"],
         }
 
 
@@ -152,9 +149,7 @@ class Timer:
 
 @contextmanager
 def profile_checkpoint_operation(
-    operation_name: str = "Checkpoint Operation",
-    track_memory: bool = True,
-    print_rank_0_only: bool = True
+    operation_name: str = "Checkpoint Operation", track_memory: bool = True, print_rank_0_only: bool = True
 ):
     """
     Context manager to profile checkpoint operations with timing and memory tracking.
@@ -173,10 +168,10 @@ def profile_checkpoint_operation(
             print(profile_stats)
     """
     stats = {
-        'operation': operation_name,
-        'timing': {},
-        'memory': {},
-        'rank': dist.get_rank() if dist.is_initialized() else 0,
+        "operation": operation_name,
+        "timing": {},
+        "memory": {},
+        "rank": dist.get_rank() if dist.is_initialized() else 0,
     }
 
     # Start tracking
@@ -191,17 +186,17 @@ def profile_checkpoint_operation(
     try:
         # Store memory_tracker in stats so nested code can update peak
         if memory_tracker:
-            stats['_memory_tracker'] = memory_tracker
+            stats["_memory_tracker"] = memory_tracker
         yield stats
     finally:
         timer.__exit__(None, None, None)
-        stats['timing']['total_seconds'] = timer.elapsed
+        stats["timing"]["total_seconds"] = timer.elapsed
 
         if memory_tracker:
             memory_stats = memory_tracker.end()
-            stats['memory'] = memory_stats
+            stats["memory"] = memory_stats
             # Remove the tracker reference before returning
-            stats.pop('_memory_tracker', None)
+            stats.pop("_memory_tracker", None)
 
         # Print results
         if print_rank_0_only and dist.is_initialized():
@@ -228,12 +223,10 @@ def time_checkpoint_operation(func: F) -> F:
             # ... implementation
             pass
     """
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        with profile_checkpoint_operation(
-            operation_name=f"{func.__name__}",
-            track_memory=True
-        ) as stats:
+        with profile_checkpoint_operation(operation_name=f"{func.__name__}", track_memory=True) as stats:
             result = func(*args, **kwargs)
         return result
 
@@ -243,31 +236,31 @@ def time_checkpoint_operation(func: F) -> F:
 def _format_profile_stats(stats: Dict[str, Any]) -> str:
     """Format profile statistics for display."""
     lines = [
-        "\n" + "="*80,
+        "\n" + "=" * 80,
         f"[Rank {stats['rank']}] Profile: {stats['operation']}",
-        "="*80,
+        "=" * 80,
     ]
 
     # Timing information
-    if stats['timing']:
+    if stats["timing"]:
         lines.append("Timing:")
-        for key, value in stats['timing'].items():
+        for key, value in stats["timing"].items():
             if isinstance(value, float):
                 lines.append(f"  {key}: {value:.2f} seconds")
             else:
                 lines.append(f"  {key}: {value}")
 
     # Memory information
-    if stats['memory']:
+    if stats["memory"]:
         lines.append("\nMemory (GPU):")
-        memory = stats['memory']
+        memory = stats["memory"]
         lines.append(f"  Initial Allocated: {memory['initial_allocated_mb']:.1f} MB")
         lines.append(f"  Peak Allocated: {memory['peak_allocated_mb']:.1f} MB")
         lines.append(f"  Final Allocated: {memory['final_allocated_mb']:.1f} MB")
         lines.append(f"  Allocated Change: {memory['allocated_diff_mb']:+.1f} MB")
         lines.append(f"  Reserved Change: {memory['reserved_diff_mb']:+.1f} MB")
 
-    lines.append("="*80 + "\n")
+    lines.append("=" * 80 + "\n")
     return "\n".join(lines)
 
 
@@ -294,10 +287,10 @@ class RankProfiler:
         """
         rank = dist.get_rank() if dist.is_initialized() else 0
         stats = {
-            'rank': rank,
-            'operation': self.operation_name,
-            'timing': {},
-            'memory': {},
+            "rank": rank,
+            "operation": self.operation_name,
+            "timing": {},
+            "memory": {},
         }
 
         timer = Timer(f"[Rank {rank}] {self.operation_name}", verbose=False)
@@ -310,8 +303,8 @@ class RankProfiler:
             yield stats
         finally:
             timer.__exit__(None, None, None)
-            stats['timing']['elapsed_seconds'] = timer.elapsed
-            stats['memory'] = memory_tracker.end()
+            stats["timing"]["elapsed_seconds"] = timer.elapsed
+            stats["memory"] = memory_tracker.end()
 
             self.rank_stats[rank] = stats
 
@@ -336,6 +329,7 @@ class RankProfiler:
         # Broadcast to all ranks
         if dist.is_initialized() and world_size > 1:
             import pickle
+
             if rank == 0:
                 stats_bytes = pickle.dumps(all_stats)
             else:
@@ -357,18 +351,18 @@ class RankProfiler:
     def _print_report(self, all_stats: list):
         """Print profiling report from all ranks."""
         lines = [
-            "\n" + "="*80,
+            "\n" + "=" * 80,
             f"[Profiler Report] {self.operation_name}",
-            "="*80,
+            "=" * 80,
         ]
 
         for rank_stats in all_stats:
             if not rank_stats:
                 continue
 
-            rank = rank_stats.get('rank', '?')
-            timing = rank_stats.get('timing', {})
-            memory = rank_stats.get('memory', {})
+            rank = rank_stats.get("rank", "?")
+            timing = rank_stats.get("timing", {})
+            memory = rank_stats.get("memory", {})
 
             lines.append(f"\nRank {rank}:")
             if timing:
@@ -376,12 +370,16 @@ class RankProfiler:
 
             if memory:
                 mem = memory
-                lines.append(f"  Memory Allocated: {mem['initial_allocated_mb']:.1f} → {mem['final_allocated_mb']:.1f} MB "
-                           f"(Δ {mem['allocated_diff_mb']:+.1f} MB)")
-                lines.append(f"  Memory Reserved: {mem['initial_reserved_mb']:.1f} → {mem['final_reserved_mb']:.1f} MB "
-                           f"(Δ {mem['reserved_diff_mb']:+.1f} MB)")
+                lines.append(
+                    f"  Memory Allocated: {mem['initial_allocated_mb']:.1f} → {mem['final_allocated_mb']:.1f} MB "
+                    f"(Δ {mem['allocated_diff_mb']:+.1f} MB)"
+                )
+                lines.append(
+                    f"  Memory Reserved: {mem['initial_reserved_mb']:.1f} → {mem['final_reserved_mb']:.1f} MB "
+                    f"(Δ {mem['reserved_diff_mb']:+.1f} MB)"
+                )
 
-        lines.append("="*80 + "\n")
+        lines.append("=" * 80 + "\n")
         print_rank_0("\n".join(lines))
 
 
@@ -401,14 +399,18 @@ def get_memory_stats(label: str = "", update_peak: bool = True) -> Dict[str, flo
 
     if dist.is_initialized():
         rank = dist.get_rank()
-        print(f"[Rank {rank}] Memory {label}: "
-              f"Allocated={stats['allocated']:.1f}MB, "
-              f"Reserved={stats['reserved']:.1f}MB, "
-              f"Free={stats['free']:.1f}MB")
+        print(
+            f"[Rank {rank}] Memory {label}: "
+            f"Allocated={stats['allocated']:.1f}MB, "
+            f"Reserved={stats['reserved']:.1f}MB, "
+            f"Free={stats['free']:.1f}MB"
+        )
     else:
-        print(f"Memory {label}: "
-              f"Allocated={stats['allocated']:.1f}MB, "
-              f"Reserved={stats['reserved']:.1f}MB, "
-              f"Free={stats['free']:.1f}MB")
+        print(
+            f"Memory {label}: "
+            f"Allocated={stats['allocated']:.1f}MB, "
+            f"Reserved={stats['reserved']:.1f}MB, "
+            f"Free={stats['free']:.1f}MB"
+        )
 
     return stats

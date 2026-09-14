@@ -118,9 +118,7 @@ def load_manifest_samples(
     conn = _connect(manifest_sqlite)
     try:
         if media_type is None:
-            rows = conn.execute(
-                "SELECT * FROM samples ORDER BY sample_id"
-            ).fetchall()
+            rows = conn.execute("SELECT * FROM samples ORDER BY sample_id").fetchall()
         else:
             rows = conn.execute(
                 "SELECT * FROM samples WHERE media_type = ? ORDER BY sample_id",
@@ -151,10 +149,7 @@ def load_pack_items(manifest_sqlite: Path, media_type: str) -> List[PackItem]:
     finally:
         conn.close()
 
-    return [
-        PackItem(sample_id=row["sample_id"], token_len=int(row["token_len"]))
-        for row in rows
-    ]
+    return [PackItem(sample_id=row["sample_id"], token_len=int(row["token_len"])) for row in rows]
 
 
 def load_sample_token_index(manifest_sqlite: Path) -> Dict[str, SampleTokenInfo]:

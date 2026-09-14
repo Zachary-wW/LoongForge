@@ -59,9 +59,7 @@ def get_mesh_id_streaming(
     return grid
 
 
-def data_seq_to_patch(
-    patch_size, data_seq, latent_num_frames, latent_height, latent_width, batch_size=1
-):
+def data_seq_to_patch(patch_size, data_seq, latent_num_frames, latent_height, latent_width, batch_size=1):
     """Reshape a flattened patch sequence back into a ``[B, C, F, H, W]`` latent grid.
 
     Inverse of the latent stream's input patchification. Inference needs it to turn the
@@ -275,9 +273,7 @@ class WanStreamingTransformerBlock(WanTransformerBlock):
         # ``temb`` is the [B, L, 6, C] modulation tensor produced by
         # ``WanTransformer3DModel._time_embed``.
         modulation = self.scale_shift_table[None] + temb.float()
-        shift, scale, gate, ff_shift, ff_scale, ff_gate = rearrange(
-            modulation, "b l n c -> b n l c"
-        ).chunk(6, dim=1)
+        shift, scale, gate, ff_shift, ff_scale, ff_gate = rearrange(modulation, "b l n c -> b n l c").chunk(6, dim=1)
 
         # 1. Self-attention (with KV cache)
         normed = self.norm1(hidden_states.float())
@@ -304,9 +300,7 @@ class WanStreamingTransformerBlock(WanTransformerBlock):
         normed = self.norm3(hidden_states.float())
         normed = (normed * (1 + ff_scale.squeeze(1)) + ff_shift.squeeze(1)).to(hidden_states.dtype)
         ffn_update = self.ffn(normed)
-        hidden_states = (hidden_states.float() + ffn_update.float() * ff_gate.squeeze(1)).to(
-            hidden_states.dtype
-        )
+        hidden_states = (hidden_states.float() + ffn_update.float() * ff_gate.squeeze(1)).to(hidden_states.dtype)
         return hidden_states
 
 
@@ -366,9 +360,7 @@ class WanStreamingTransformer3DModel(WanTransformer3DModel):
         into ``attn_window // 2`` chunks of each kind. This bound is what keeps peak
         memory flat regardless of episode length.
         """
-        total_token_len = (attn_window // 2) * latent_token_per_chunk + (
-            attn_window // 2
-        ) * action_token_per_chunk
+        total_token_len = (attn_window // 2) * latent_token_per_chunk + (attn_window // 2) * action_token_per_chunk
         for block in self.blocks:
             block.attn1.init_kv_cache(
                 cache_name,
@@ -420,9 +412,7 @@ class WanStreamingTransformer3DModel(WanTransformer3DModel):
             * (input_dict["noisy_latents"].shape[-1] // patch_scale_w),
             dim=1,
         )
-        current_condition_embedder = (
-            self.condition_embedder_action if action_mode else self.condition_embedder
-        )
+        current_condition_embedder = self.condition_embedder_action if action_mode else self.condition_embedder
         temb, timestep_proj = current_condition_embedder(latent_time_steps, dtype=latent_hidden_states.dtype)
         timestep_proj = timestep_proj.unflatten(2, (6, -1))  # [B, L, 6, C]
 

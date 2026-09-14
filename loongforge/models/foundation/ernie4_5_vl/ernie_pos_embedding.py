@@ -58,9 +58,7 @@ class ErnieRopeEmbedding(nn.Module):
 
         indices = torch.arange(0, self.head_dim, 2, dtype=torch.float32)
         indices = 1 / self.base ** (indices / self.head_dim)
-        pos_ids = torch.arange(
-            0, seq_length, 1, dtype=torch.float32
-        ).unsqueeze(1)
+        pos_ids = torch.arange(0, seq_length, 1, dtype=torch.float32).unsqueeze(1)
         pos_ids = pos_ids / self.compression_ratio
         sinusoid_inp = pos_ids * indices.unsqueeze(0)
         pos_emb = torch.cat([torch.sin(sinusoid_inp), torch.cos(sinusoid_inp)], dim=-1)
@@ -95,9 +93,7 @@ class ErnieRopeEmbedding(nn.Module):
             :,
             1 : self.head_dim // 2 - self.freq_allocation : 2,
         ]
-        sin_hw = torch.stack([sin_h, sin_w], dim=-1).reshape(
-            sin_h.shape[:-1] + (sin_h.shape[-1] * 2,)
-        )
+        sin_hw = torch.stack([sin_h, sin_w], dim=-1).reshape(sin_h.shape[:-1] + (sin_h.shape[-1] * 2,))
         sin_thw = torch.cat([sin_hw, sin_t], dim=-1)
 
         cos_t = cos[batch_indices, position_ids[..., 0], :, -self.freq_allocation :]
@@ -113,25 +109,20 @@ class ErnieRopeEmbedding(nn.Module):
             :,
             1 : self.head_dim // 2 - self.freq_allocation : 2,
         ]
-        cos_hw = torch.stack([cos_h, cos_w], dim=-1).reshape(
-            cos_h.shape[:-1] + (cos_h.shape[-1] * 2,)
-        )
+        cos_hw = torch.stack([cos_h, cos_w], dim=-1).reshape(cos_h.shape[:-1] + (cos_h.shape[-1] * 2,))
         cos_thw = torch.cat([cos_hw, cos_t], dim=-1)
 
         # sin [θ0,θ1,θ2......θd/2-1] -> sin_pos [θ0,θ0,θ1,θ1,θ2,θ2......θd/2-1,θd/2-1]
         sin_pos = (
-            torch.stack([sin_thw, sin_thw], dim=-1)
-            .reshape(sin_thw.shape[:3] + (sin_thw.shape[-1] * 2,))
+            torch.stack([sin_thw, sin_thw], dim=-1).reshape(sin_thw.shape[:3] + (sin_thw.shape[-1] * 2,))
             # .to(current_device)
         )
         # cos [θ0,θ1,θ2......θd/2-1] -> cos_pos [θ0,θ0,θ1,θ1,θ2,θ2......θd/2-1,θd/2-1]
         cos_pos = (
-            torch.stack([cos_thw, cos_thw], dim=-1)
-            .reshape(cos_thw.shape[:3] + (cos_thw.shape[-1] * 2,))
+            torch.stack([cos_thw, cos_thw], dim=-1).reshape(cos_thw.shape[:3] + (cos_thw.shape[-1] * 2,))
             # .to(current_device)
         )
         return torch.cat([sin_pos, cos_pos])
-        
 
 
 def apply_rotary_3d(
@@ -155,12 +146,8 @@ def apply_rotary_3d(
     sin_cos = sin_cos.permute(1, 0, 2, 3).to(q.device)
     sin_pos, cos_pos = torch.split(sin_cos, 1, dim=1)
     # rotate_half_query_layer [-q1,q0,-q3,q2......,-qd-1,qd-2]
-    rotate_half_q = torch.stack(
-        [-q[:, :, :, 1::2], q[:, :, :, 0::2]], dim=-1
-    ).reshape(q.shape)
-    query = (q.to(torch.float32) * cos_pos) + (
-        rotate_half_q.to(torch.float32) * sin_pos
-    )
+    rotate_half_q = torch.stack([-q[:, :, :, 1::2], q[:, :, :, 0::2]], dim=-1).reshape(q.shape)
+    query = (q.to(torch.float32) * cos_pos) + (rotate_half_q.to(torch.float32) * sin_pos)
     query = query.to(q.dtype)
 
     if squeezed:

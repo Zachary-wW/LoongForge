@@ -14,6 +14,7 @@ class ErnieMoeConfig(BaseModelConfig):
     """configuration for ernie model
     The fields need to be consistent with the definitions in args
     """
+
     num_layers: int
     hidden_size: int
     ffn_hidden_size: int
@@ -39,7 +40,7 @@ class ErnieMoeConfig(BaseModelConfig):
     moe_router_topk: int = 6
     moe_layer_end_index: tuple[int] = (29, 28)
 
-    dense_layer_index: tuple[int] = (0, )
+    dense_layer_index: tuple[int] = (0,)
     moe_layer_start_index: tuple[int] = (1, 1)
     add_position_embedding: bool = False
     rotary_interleaved: bool = False

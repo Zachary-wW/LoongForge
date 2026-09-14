@@ -99,9 +99,12 @@ def get_batch_on_this_tp_rank(data_iterator):
     tp_group = mpu.get_tensor_model_parallel_group()
     if mpu.get_tensor_model_parallel_rank() == 0:
         modality_flag = torch.tensor(
-            [int(_batch_has_non_dummy_value(data, "imgs")),
-             int(_batch_has_non_dummy_value(data, "pixel_values_videos"))],
-            dtype=torch.int32, device="cuda",
+            [
+                int(_batch_has_non_dummy_value(data, "imgs")),
+                int(_batch_has_non_dummy_value(data, "pixel_values_videos")),
+            ],
+            dtype=torch.int32,
+            device="cuda",
         )
     else:
         modality_flag = torch.zeros(2, dtype=torch.int32, device="cuda")
@@ -115,16 +118,12 @@ def get_batch_on_this_tp_rank(data_iterator):
     video_grid_thw = None
     if has_image:
         images = tensor_parallel.broadcast_data(["imgs"], data, torch.float32)["imgs"]
-        image_grid_thw = tensor_parallel.broadcast_data(
-            ["image_grid_thw"], data, torch.int32
-        )["image_grid_thw"]
+        image_grid_thw = tensor_parallel.broadcast_data(["image_grid_thw"], data, torch.int32)["image_grid_thw"]
     if has_video:
-        pixel_values_videos = tensor_parallel.broadcast_data(
-            ["pixel_values_videos"], data, torch.float32
-        )["pixel_values_videos"]
-        video_grid_thw = tensor_parallel.broadcast_data(
-            ["video_grid_thw"], data, torch.int32
-        )["video_grid_thw"]
+        pixel_values_videos = tensor_parallel.broadcast_data(["pixel_values_videos"], data, torch.float32)[
+            "pixel_values_videos"
+        ]
+        video_grid_thw = tensor_parallel.broadcast_data(["video_grid_thw"], data, torch.int32)["video_grid_thw"]
     cu_lengths_cpu = cu_lengths.clone()
     tokens = tokens.cuda(non_blocking=True)
     labels = labels.cuda(non_blocking=True)
@@ -148,21 +147,11 @@ def get_batch_on_this_tp_rank(data_iterator):
 
     batch = {
         "images": images.cuda(non_blocking=True) if images is not None else None,
-        "image_grid_thw": (
-            image_grid_thw.cuda(non_blocking=True)
-            if image_grid_thw is not None
-            else None
-        ),
+        "image_grid_thw": (image_grid_thw.cuda(non_blocking=True) if image_grid_thw is not None else None),
         "pixel_values_videos": (
-            pixel_values_videos.cuda(non_blocking=True)
-            if pixel_values_videos is not None
-            else None
+            pixel_values_videos.cuda(non_blocking=True) if pixel_values_videos is not None else None
         ),
-        "video_grid_thw": (
-            video_grid_thw.cuda(non_blocking=True)
-            if video_grid_thw is not None
-            else None
-        ),
+        "video_grid_thw": (video_grid_thw.cuda(non_blocking=True) if video_grid_thw is not None else None),
         "tokens": tokens,
         "attn_mask": attn_mask,
         "labels": labels,
@@ -206,8 +195,8 @@ SPIKY_LOSS_FACTOR = 10
 
 batch_list = []
 forward_step_calling_count = 0
-_vpp0_batch_cache = []   # cached batch_list per forward_group_id from vp_stage=0
-_vpp_counters = {}       # counter for higher vpp chunks
+_vpp0_batch_cache = []  # cached batch_list per forward_group_id from vp_stage=0
+_vpp_counters = {}  # counter for higher vpp chunks
 embedding_list = []
 grad_list = []
 visual_pos_masks_list = []
@@ -225,76 +214,91 @@ def get_cpu_offload_manager():
         from loongforge.train.full_hetero_cpu_offload import CpuOffloadManager
 
         args = get_args()
-        _cpu_offload_manager = CpuOffloadManager(
-            enabled=args.full_hetero_dp_cpu_offload
-        )
+        _cpu_offload_manager = CpuOffloadManager(enabled=args.full_hetero_dp_cpu_offload)
     return _cpu_offload_manager
+
 
 def get_encoder_data_iterator():
     """Return the encoder data iterator for full_hetero_dp mode."""
     return _encoder_data_iterator
+
 
 def set_encoder_data_iterator(iterator):
     """Set the encoder data iterator for full_hetero_dp mode."""
     global _encoder_data_iterator
     _encoder_data_iterator = iterator
 
+
 def get_embedding_list():
     """Return the global embedding list."""
     return embedding_list
+
 
 def clear_embedding_list():
     """Clear the global embedding list."""
     embedding_list.clear()
 
+
 def get_grad_list():
     """Return the global gradient list."""
     return grad_list
+
 
 def clear_grad_list():
     """Clear the global gradient list."""
     grad_list.clear()
 
+
 def get_visual_pos_masks_list():
     """Return the global visual position masks list."""
     return visual_pos_masks_list
+
 
 def clear_visual_pos_masks_list():
     """Clear the global visual position masks list."""
     visual_pos_masks_list.clear()
 
+
 def get_deepstack_visual_embeds_list():
     """Return the global deepstack visual embeddings list."""
     return deepstack_visual_embeds_list
+
 
 def clear_deepstack_visual_embeds_list():
     """Clear the global deepstack visual embeddings list."""
     deepstack_visual_embeds_list.clear()
 
+
 def get_deepstack_grad_list():
     """Return the global deepstack gradient list."""
     return deepstack_grad_list
+
 
 def clear_deepstack_grad_list():
     """Clear the global deepstack gradient list."""
     deepstack_grad_list.clear()
 
+
 def get_count_and_gbs():
     """Return the forward step calling count and global batch size."""
     return forward_step_calling_count, get_args().global_batch_size
+
 
 def clear_vpp0_batch_cache():
     """Clear the global VPP batch cache."""
     _vpp0_batch_cache.clear()
 
+
 def clear_vpp_counters():
     """Clear the global VPP counters."""
     _vpp_counters.clear()
+
 
 def set_count(count=0):
     """Reset the forward step calling count."""
     global forward_step_calling_count
     forward_step_calling_count = count
+
 
 def clear_full_hetero_info(count=0):
     """Clear full hetero info."""
@@ -310,6 +314,7 @@ def clear_full_hetero_info(count=0):
     if manager.enabled:
         manager.clear()
 
+
 def forward_step(data_iterator, model, return_schedule_plan: bool = False):
     """Forward training step.
 
@@ -322,25 +327,25 @@ def forward_step(data_iterator, model, return_schedule_plan: bool = False):
     model_config = get_model_config()
     # Get the batch.
     timers("batch-generator", log_level=2).start()
-    change_parallel_state('text_decoder')
+    change_parallel_state("text_decoder")
 
     global stimer
     global forward_step_calling_count
     global batch_list
 
-    _ImageEncoderDataParallelSize = get_encoder_dp_size('image_encoder')
+    _ImageEncoderDataParallelSize = get_encoder_dp_size("image_encoder")
 
-    model_add_encoder = get_attr_wrapped_model(model, 'add_encoder')
+    model_add_encoder = get_attr_wrapped_model(model, "add_encoder")
     is_higher_vpp_chunk = args.enable_full_hetero_dp and (not model_add_encoder) and mpu.is_pipeline_first_stage()
 
     if is_higher_vpp_chunk:
-        vpp_counter = _vpp_counters.get('higher', 0)
+        vpp_counter = _vpp_counters.get("higher", 0)
         forward_group_id = vpp_counter // _ImageEncoderDataParallelSize
         inner_group_id = vpp_counter % _ImageEncoderDataParallelSize
         if inner_group_id == 0:
             batch_list.clear()
             batch_list.extend(_vpp0_batch_cache[forward_group_id])
-        _vpp_counters['higher'] = vpp_counter + 1
+        _vpp_counters["higher"] = vpp_counter + 1
     else:
         forward_group_id = forward_step_calling_count // _ImageEncoderDataParallelSize
         inner_group_id = forward_step_calling_count % _ImageEncoderDataParallelSize
@@ -379,7 +384,11 @@ def forward_step(data_iterator, model, return_schedule_plan: bool = False):
         ) = batch_list[inner_group_id].values()
 
         dump_model_input_example_once(
-            tokens, labels, attn_mask, cu_lengths, packed_seq_params,
+            tokens,
+            labels,
+            attn_mask,
+            cu_lengths,
+            packed_seq_params,
         )
 
         loss_func = getattr(model_config, "loss_func", default_loss_func)
@@ -388,17 +397,22 @@ def forward_step(data_iterator, model, return_schedule_plan: bool = False):
             forward_step_calling_count += 1
 
         if return_schedule_plan:
-            assert args.overlap_moe_expert_parallel_comm, \
+            assert args.overlap_moe_expert_parallel_comm, (
                 "overlap_moe_expert_parallel_comm must be enabled to return the schedule plan"
+            )
             schedule_plan = model.build_schedule_plan(
                 dict(
-                images=images,
-                image_grid_thw=image_grid_thw,
-                ) if images is not None else None,
+                    images=images,
+                    image_grid_thw=image_grid_thw,
+                )
+                if images is not None
+                else None,
                 dict(
                     pixel_values_videos=pixel_values_videos,
                     video_grid_thw=video_grid_thw,
-                ) if pixel_values_videos is not None else None,
+                )
+                if pixel_values_videos is not None
+                else None,
                 None,
                 input_ids=tokens,
                 position_ids=position_ids,
@@ -418,11 +432,15 @@ def forward_step(data_iterator, model, return_schedule_plan: bool = False):
                 dict(
                     images=images,
                     image_grid_thw=image_grid_thw,
-                ) if images is not None else None,
+                )
+                if images is not None
+                else None,
                 dict(
                     pixel_values_videos=pixel_values_videos,
                     video_grid_thw=video_grid_thw,
-                ) if pixel_values_videos is not None else None,
+                )
+                if pixel_values_videos is not None
+                else None,
                 None,
                 input_ids=tokens,
                 position_ids=position_ids,
@@ -446,6 +464,7 @@ GLOBAL_TRAIN_DATASET_SIZE = None
 def train_valid_test_dataset_provider(train_val_test_num_samples, vp_stage=None):
     """Provides the datasets used by the trainer"""
     import loongforge.data.dp_balance.patches
+
     global GLOBAL_TRAIN_DATASET_SIZE
     args = get_args()
 
@@ -455,25 +474,31 @@ def train_valid_test_dataset_provider(train_val_test_num_samples, vp_stage=None)
         print(f"[rank{rank}] loading preprocessed dataset from {save_path}")
         train_ds = load_from_disk(save_path)
         collator = build_sft_data_collator(DataCollatorForSeq2Seq)
-        train_data_iterator, valid_data_iterator, test_data_iterator = (
-            build_sft_cyclic_iterators(train_ds, None, None, collator)
+        train_data_iterator, valid_data_iterator, test_data_iterator = build_sft_cyclic_iterators(
+            train_ds, None, None, collator
         )
 
         # Build encoder-specific iterator for full_hetero_dp
-        if getattr(args, 'enable_full_hetero_dp', False):
+        if getattr(args, "enable_full_hetero_dp", False):
             from loongforge.train.sft.utils import (
                 build_full_hetero_encoder_data_iterator,
             )
             from loongforge.train.initialize import (
-                get_model_size, get_num_real_micro_batches_per_decoder_dp,
+                get_model_size,
+                get_num_real_micro_batches_per_decoder_dp,
             )
+
             pp_rank = mpu.get_pipeline_model_parallel_rank()
             tp_size = mpu.get_tensor_model_parallel_world_size()
             model_size = get_model_size()
             num_real_microbatch = get_num_real_micro_batches_per_decoder_dp()
             encoder_iter = build_full_hetero_encoder_data_iterator(
-                train_ds, args.consumed_train_samples, collator,
-                pp_rank=pp_rank, tp_size=tp_size, model_size=model_size,
+                train_ds,
+                args.consumed_train_samples,
+                collator,
+                pp_rank=pp_rank,
+                tp_size=tp_size,
+                model_size=model_size,
                 num_real_microbatch=num_real_microbatch,
             )
             set_encoder_data_iterator(encoder_iter)
@@ -495,26 +520,29 @@ def train_valid_test_dataset_provider(train_val_test_num_samples, vp_stage=None)
         if args.eval_interval and args.eval_iters > 0:
             valid_dataset = get_val_dataset(task_encoder)
             if valid_dataset is not None:
-                valid_dataloader = get_train_loader(
-                    valid_dataset, collator, restore_state=False
-                )
+                valid_dataloader = get_train_loader(valid_dataset, collator, restore_state=False)
 
         # Build encoder-specific iterator for full_hetero_dp (Energon path)
-        if getattr(args, 'enable_full_hetero_dp', False):
+        if getattr(args, "enable_full_hetero_dp", False):
             from loongforge.data.multimodal.dataloader_provider import (
                 build_full_hetero_encoder_energon_iterator,
             )
             from loongforge.train.initialize import (
-                get_model_size, get_num_real_micro_batches_per_decoder_dp,
+                get_model_size,
+                get_num_real_micro_batches_per_decoder_dp,
             )
+
             pp_rank = mpu.get_pipeline_model_parallel_rank()
             tp_size = mpu.get_tensor_model_parallel_world_size()
             model_size = get_model_size()
             num_real_microbatch = get_num_real_micro_batches_per_decoder_dp()
             encoder_iter = build_full_hetero_encoder_energon_iterator(
-                task_encoder, collator,
-                pp_rank=pp_rank, tp_size=tp_size,
-                model_size=model_size, num_real_microbatch=num_real_microbatch,
+                task_encoder,
+                collator,
+                pp_rank=pp_rank,
+                tp_size=tp_size,
+                model_size=model_size,
+                num_real_microbatch=num_real_microbatch,
             )
             set_encoder_data_iterator(encoder_iter)
 
@@ -533,6 +561,7 @@ def get_embedding_ranks(pp_ranks: List[int]):
     embedding_ranks = list(set(embedding_ranks))
     embedding_ranks = sorted(embedding_ranks)
     return embedding_ranks
+
 
 @register_model_trainer(
     model_family=constants.VisionLanguageModelFamilies.names(),

@@ -59,10 +59,11 @@ def _load_state_dict_hook_ignore_extra_state(module, incompatible_keys):
 
 class Qwen3VLRotaryEmbedding(Qwen2VLRotaryEmbedding):
     """Implements multimodal rotation"""
+
     def __init__(self, dim, theta=1000000, mrope_section=[24, 20, 20]):
         super().__init__(dim, theta)
         self.mrope_section = mrope_section
-    
+
     def apply_interleaved_mrope(self, freqs, mrope_section):
         """Apply interleaved MRoPE to 3D rotary embeddings.
         Reorganizes frequency layout from chunked [TTT...HHH...WWW] to
@@ -85,18 +86,10 @@ class Qwen3VLRotaryEmbedding(Qwen2VLRotaryEmbedding):
         """Returns the frequency"""
         # Core RoPE block. In contrast to other models, Qwen2_VL has different position ids for thw grids
         # So we expand the inv_freq to shape (3, ...)
-        inv_freq_expanded = (
-            self.inv_freq[None, None, :, None]
-            .float()
-            .expand(3, position_ids.shape[1], -1, 1)
-        ) 
-        position_ids_expanded = position_ids[
-            :, :, None, :
-        ].float()
-        freqs = (inv_freq_expanded.float() @ position_ids_expanded.float()).transpose(
-            2, 3
-        )
-        freqs = self.apply_interleaved_mrope(freqs, self.mrope_section) # shape (bs, seq_length, dim)
+        inv_freq_expanded = self.inv_freq[None, None, :, None].float().expand(3, position_ids.shape[1], -1, 1)
+        position_ids_expanded = position_ids[:, :, None, :].float()
+        freqs = (inv_freq_expanded.float() @ position_ids_expanded.float()).transpose(2, 3)
+        freqs = self.apply_interleaved_mrope(freqs, self.mrope_section)  # shape (bs, seq_length, dim)
         emb = torch.cat((freqs, freqs), dim=-1)
 
         # shape (seq_length, bs, 1, 2 * dim)
@@ -144,7 +137,6 @@ class Qwen3Model(BaseGPTModel):
         vp_stage: Optional[int] = None,
         **kwargs,
     ) -> None:
-
         if config.model_spec is None:
             model_spec = [
                 "loongforge.models.foundation.qwen3.qwen_layer_spec",
@@ -186,9 +178,7 @@ class Qwen3Model(BaseGPTModel):
             and not config.multi_latent_attention
         ):
             rotary_pos_emb = Qwen3VLRotaryEmbedding(
-                dim=config.kv_channels,
-                theta=config.rotary_base,
-                mrope_section=config.mrope_section
+                dim=config.kv_channels, theta=config.rotary_base, mrope_section=config.mrope_section
             )
 
         super().__init__(
@@ -200,8 +190,7 @@ class Qwen3Model(BaseGPTModel):
             post_process=post_process,
             fp16_lm_cross_entropy=config.fp16_lm_cross_entropy,
             parallel_output=parallel_output,
-            share_embeddings_and_output_weights=(
-                not config.untie_embeddings_and_output_weights),
+            share_embeddings_and_output_weights=(not config.untie_embeddings_and_output_weights),
             position_embedding_type=config.position_embedding_type,
             language_embedding=language_embedding,
             rotary_dtype=rotary_dtype,
@@ -217,10 +206,8 @@ class Qwen3Model(BaseGPTModel):
             vp_stage=vp_stage,
         )
 
-        self.register_load_state_dict_post_hook(
-            _load_state_dict_hook_ignore_extra_state
-        )
-        if hasattr(config, 'freeze') and config.freeze:
+        self.register_load_state_dict_post_hook(_load_state_dict_hook_ignore_extra_state)
+        if hasattr(config, "freeze") and config.freeze:
             self.freeze()
 
     def _preprocess(
@@ -243,9 +230,7 @@ class Qwen3Model(BaseGPTModel):
         # Decoder embedding.
         if decoder_input is None:
             if self.pre_process:
-                decoder_input = self.embedding(
-                    input_ids=input_ids, position_ids=position_ids
-                )
+                decoder_input = self.embedding(input_ids=input_ids, position_ids=position_ids)
             else:
                 # intermediate stage of pipeline
                 # decoder will get hidden_states from encoder.input_tensor
@@ -253,7 +238,7 @@ class Qwen3Model(BaseGPTModel):
 
         rotary_pos_cos = None
         rotary_pos_sin = None
-        sequence_len_offset = None        
+        sequence_len_offset = None
         # Rotary positional embeddings (embedding is None for PP intermediate devices)
         if (
             rotary_pos_emb is None
@@ -270,8 +255,8 @@ class Qwen3Model(BaseGPTModel):
             )
 
             chunk_offset = 0
-            if getattr(self.config, 'enable_chunkpipe', False):
-                if not hasattr(self.config, 'chunkpipe_chunk_idx_in_group'):
+            if getattr(self.config, "enable_chunkpipe", False):
+                if not hasattr(self.config, "chunkpipe_chunk_idx_in_group"):
                     raise RuntimeError(
                         "chunkpipe_chunk_idx_in_group is not set. "
                         "Please ensure the scheduler is properly configured for chunkpipe."
@@ -280,8 +265,7 @@ class Qwen3Model(BaseGPTModel):
             rotary_pos_emb = self.rotary_pos_emb(
                 rotary_seq_len,
                 offset=chunk_offset,
-                packed_seq=packed_seq_params is not None
-                and packed_seq_params.qkv_format == "thd",
+                packed_seq=packed_seq_params is not None and packed_seq_params.qkv_format == "thd",
             )
         else:
             rotary_pos_emb = self.rotary_pos_emb(
@@ -298,7 +282,7 @@ class Qwen3Model(BaseGPTModel):
         )
 
         return preproc_output
-    
+
     def forward(
         self,
         input_ids: Tensor,
@@ -334,9 +318,7 @@ class Qwen3Model(BaseGPTModel):
             rotary_pos_emb=rotary_pos_emb,
         )
 
-        (decoder_input, rotary_pos_emb, rotary_pos_cos, rotary_pos_sin, sequence_len_offset) = (
-            preproc_output[:5]
-        )
+        (decoder_input, rotary_pos_emb, rotary_pos_cos, rotary_pos_sin, sequence_len_offset) = preproc_output[:5]
 
         # Run decoder.
         hidden_states = self.decoder(

@@ -19,7 +19,6 @@ from loongforge.data.video.latent_dataset import TensorDataset
 from loongforge.data.video.sequence_packing_utils import first_fit
 
 
-
 def _get_cp_sample_alignment(cp_world_size: int) -> int:
     """Return per-sample sequence alignment required by CP split."""
     return cp_world_size * 2 if cp_world_size > 1 else 1
@@ -28,6 +27,7 @@ def _get_cp_sample_alignment(cp_world_size: int) -> int:
 # ---------------------------------------------------------------------------
 # Patchify utilities (Wan: patch_size=(1,2,2))
 # ---------------------------------------------------------------------------
+
 
 def _patchify_latent(latent: torch.Tensor, patch_size=(1, 2, 2)):
     """Convert [C, T, H, W] → [num_patches, pT * pH * pW * C].
@@ -113,12 +113,21 @@ class PackedDataset(IterableDataset):
         keep_keys = None
         if getattr(args, "model_name", None) in ("wan2-1-i2v", "wan2-2-i2v"):
             keep_keys = {
-                "context", "input_latents", "y", "clip_feature",
-                "height", "width", "num_frames",
-                "max_timestep_boundary", "min_timestep_boundary",
+                "context",
+                "input_latents",
+                "y",
+                "clip_feature",
+                "height",
+                "width",
+                "num_frames",
+                "max_timestep_boundary",
+                "min_timestep_boundary",
             }
         self.base_dataset = TensorDataset(
-            data_path, steps_per_epoch, seed=args.seed, keep_keys=keep_keys,
+            data_path,
+            steps_per_epoch,
+            seed=args.seed,
+            keep_keys=keep_keys,
             data_parallel_size=self.dp_world_size,
         )
 
@@ -138,11 +147,7 @@ class PackedDataset(IterableDataset):
         input_latents = sample["input_latents"]
         _, _, latent_frames, latent_height, latent_width = input_latents.shape
         patch_frames, patch_height, patch_width = self.PATCH_SIZE
-        return (
-            (latent_frames // patch_frames)
-            * (latent_height // patch_height)
-            * (latent_width // patch_width)
-        )
+        return (latent_frames // patch_frames) * (latent_height // patch_height) * (latent_width // patch_width)
 
     @staticmethod
     def _ceil_to_multiple(n: int, m: int) -> int:
@@ -184,9 +189,7 @@ class PackedDataset(IterableDataset):
             # Keep a packed bin inside one no-replacement physical epoch.
             shard_size = self.base_dataset.samples_per_rank
             shard_offset = (sample_idx // self.dp_world_size) % shard_size
-            buffer_target_size = min(
-                self.packing_buffer_size, shard_size - shard_offset
-            )
+            buffer_target_size = min(self.packing_buffer_size, shard_size - shard_offset)
             while len(buffer) < buffer_target_size:
                 # Rank-strided logical indices map to a fixed physical DP shard.
                 buffer.append(self.base_dataset[sample_idx])
@@ -262,7 +265,7 @@ class PackedDataset(IterableDataset):
         if actual_text_len < self.context_max_len:
             context = F.pad(context, (0, 0, 0, self.context_max_len - actual_text_len))
         elif actual_text_len > self.context_max_len:
-            context = context[:self.context_max_len]
+            context = context[: self.context_max_len]
         seq_len_kv = self.context_max_len
 
         # --- 3. CP padding ---

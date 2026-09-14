@@ -70,11 +70,13 @@ def mark_model(state: Dict[str, Any], model_name: str, passed: bool, meta: Dict[
     record = models.get(model_name, {})
     existing_tasks = record.get("tasks") or []
     existing_training_type = record.get("training_type") or []
-    record.update({
-        "status": "completed",
-        "passed": bool(passed),
-        "updated_at": _now(),
-    })
+    record.update(
+        {
+            "status": "completed",
+            "passed": bool(passed),
+            "updated_at": _now(),
+        }
+    )
     if meta:
         meta = dict(meta)
         if "tasks" in meta:

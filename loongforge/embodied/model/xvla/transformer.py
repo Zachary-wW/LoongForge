@@ -35,6 +35,7 @@ except ImportError:  # pragma: no cover - optional runtime dependency
 
 # ------------------------------- Small utils ----------------------------------
 
+
 def _to_2tuple(x) -> Tuple:
     """Minimal replacement for timm.layers.to_2tuple."""
     if isinstance(x, Iterable) and not isinstance(x, (str, bytes)):
@@ -87,6 +88,7 @@ def _try_flash_attn(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, dropout_p
 
 
 # ---------------------------------- MLP --------------------------------------
+
 
 class Mlp(nn.Module):
     """
@@ -143,6 +145,7 @@ class Mlp(nn.Module):
 
 # -------------------------------- Attention ----------------------------------
 
+
 class Attention(nn.Module):
     """
     Multi-Head Self-Attention with FlashAttention-2, fused SDPA, then manual.
@@ -179,7 +182,7 @@ class Attention(nn.Module):
         assert dim % num_heads == 0, "dim should be divisible by num_heads"
         self.num_heads = num_heads
         self.head_dim = dim // num_heads
-        self.scale = self.head_dim ** -0.5
+        self.scale = self.head_dim**-0.5
         self.fused_attn = _has_sdp_attention()
         # When True, prefer FlashAttention-2 then SDPA. Default off keeps the
         # original fused-SDPA / manual path.
@@ -206,9 +209,7 @@ class Attention(nn.Module):
         """
         B, T, C = x.shape
         qkv = (
-            self.qkv(x)
-            .reshape(B, T, 3, self.num_heads, self.head_dim)
-            .permute(2, 0, 3, 1, 4)  # 3 x [B, H, T, Dh]
+            self.qkv(x).reshape(B, T, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)  # 3 x [B, H, T, Dh]
         )
         q, k, v = qkv.unbind(0)  # each: [B, H, T, Dh]
         q, k = self.q_norm(q), self.k_norm(k)
@@ -217,23 +218,26 @@ class Attention(nn.Module):
         x = _try_flash_attn(q, k, v, dropout_p) if (self.use_fa2 and self.fused_attn) else None
         if x is None and self.fused_attn:
             x = F.scaled_dot_product_attention(
-                q, k, v,
+                q,
+                k,
+                v,
                 dropout_p=dropout_p,
             )  # [B, H, T, Dh]
         elif x is None:
             q = q * self.scale
-            attn = q @ k.transpose(-2, -1)        # [B, H, T, T]
+            attn = q @ k.transpose(-2, -1)  # [B, H, T, T]
             attn = attn.softmax(dim=-1)
             attn = self.attn_drop(attn)
-            x = attn @ v                           # [B, H, T, Dh]
+            x = attn @ v  # [B, H, T, Dh]
 
-        x = x.transpose(1, 2).reshape(B, T, C)     # [B, T, C]
+        x = x.transpose(1, 2).reshape(B, T, C)  # [B, T, C]
         x = self.proj(x)
         x = self.proj_drop(x)
         return x
 
 
 # ------------------------------- Utilities -----------------------------------
+
 
 def basic_init(module: nn.Module) -> None:
     """
@@ -267,11 +271,7 @@ def timestep_embedding(t: torch.Tensor, dim: int, max_period: int = 100) -> torc
         Shape [B, dim]. Sinusoidal embeddings.
     """
     half = dim // 2
-    freqs = torch.exp(
-        -math.log(max_period)
-        * torch.arange(start=0, end=half, dtype=t.dtype, device=t.device)
-        / half
-    )
+    freqs = torch.exp(-math.log(max_period) * torch.arange(start=0, end=half, dtype=t.dtype, device=t.device) / half)
     args = t[:, None] * freqs[None]
     embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
     if dim % 2 == 1:
@@ -280,6 +280,7 @@ def timestep_embedding(t: torch.Tensor, dim: int, max_period: int = 100) -> torc
 
 
 # ------------------------------- Core Layers ----------------------------------
+
 
 class DomainAwareLinear(nn.Module):
     """
@@ -353,9 +354,7 @@ class TransformerBlock(nn.Module):
         super().__init__()
         self.norm1 = nn.LayerNorm(hidden_size)
         self.norm2 = nn.LayerNorm(hidden_size)
-        self.attn = Attention(
-            hidden_size, num_heads=num_heads, qkv_bias=True, attn_drop=attn_dropout, use_fa2=use_fa2
-        )
+        self.attn = Attention(hidden_size, num_heads=num_heads, qkv_bias=True, attn_drop=attn_dropout, use_fa2=use_fa2)
         self.mlp = Mlp(
             in_features=hidden_size,
             hidden_features=int(hidden_size * mlp_ratio),
@@ -378,6 +377,7 @@ class TransformerBlock(nn.Module):
 
 
 # --------------------------- Main Model ---------------------------------------
+
 
 class SoftPromptedTransformer(nn.Module):
     """
@@ -483,11 +483,11 @@ class SoftPromptedTransformer(nn.Module):
         B, num_actions = action_with_noise.shape[:2]
 
         # Encode (action + proprio + time) → tokens
-        time_emb = timestep_embedding(t, self.dim_time)                     # [B, dim_time]
+        time_emb = timestep_embedding(t, self.dim_time)  # [B, dim_time]
         time_tokens = time_emb.unsqueeze(1).expand(B, num_actions, self.dim_time)
         proprio_tokens = proprio.unsqueeze(1).expand(B, num_actions, proprio.shape[-1])
         action_tokens = torch.cat([action_with_noise, proprio_tokens, time_tokens], dim=-1)
-        x = self.action_encoder(action_tokens, domain_id)                   # [B, T_action, H]
+        x = self.action_encoder(action_tokens, domain_id)  # [B, T_action, H]
 
         # Project visual streams and concatenate
         if self.use_hetero_proj:
@@ -501,9 +501,7 @@ class SoftPromptedTransformer(nn.Module):
         # Add positional embeddings (truncate if needed)
         seq_len = x.shape[1]
         if seq_len > self.pos_emb.shape[1]:
-            raise ValueError(
-                f"Sequence length {seq_len} exceeds max_len_seq={self.pos_emb.shape[1]}."
-            )
+            raise ValueError(f"Sequence length {seq_len} exceeds max_len_seq={self.pos_emb.shape[1]}.")
         x = x + self.pos_emb[:, :seq_len, :]
 
         # Append soft prompts

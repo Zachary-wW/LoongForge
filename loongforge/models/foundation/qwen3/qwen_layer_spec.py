@@ -27,9 +27,7 @@ from loongforge.utils import is_te_min_version
 from loongforge.models.dispatch import multiacc_modules
 
 
-def _get_mlp_module_spec(
-    num_experts: int = None, moe_grouped_gemm: bool = False
-) -> ModuleSpec:
+def _get_mlp_module_spec(num_experts: int = None, moe_grouped_gemm: bool = False) -> ModuleSpec:
     """Helper function to get module spec for MLP/MoE"""
 
     if num_experts is None:
@@ -75,9 +73,7 @@ def get_qwen3_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
     """
     # To simplify the code, temporarily remove the compatibility with MoE/MLA.
     # If there is a new version in the future, add and test it separately.
-    assert (
-        not config.multi_latent_attention
-    ), "Not supporting multi-latent attention for Qwen model yet."
+    assert not config.multi_latent_attention, "Not supporting multi-latent attention for Qwen model yet."
 
     mlp = _get_mlp_module_spec(
         num_experts=config.num_moe_experts,
@@ -88,8 +84,7 @@ def get_qwen3_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
     # we instead use the Apex implementation.
     qk_norm = (
         multiacc_modules.TENorm
-        if is_te_min_version("1.9.0")
-        and config.normalization in ["LayerNorm", "RMSNorm"]
+        if is_te_min_version("1.9.0") and config.normalization in ["LayerNorm", "RMSNorm"]
         else multiacc_modules.LocalNorm
     )
 
@@ -110,9 +105,7 @@ def get_qwen3_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
                 ),
             ),
             self_attn_bda=multiacc_modules.get_bias_dropout_add,
-            pre_mlp_layernorm=(
-                multiacc_modules.TENorm if config.num_moe_experts else IdentityOp
-            ),
+            pre_mlp_layernorm=(multiacc_modules.TENorm if config.num_moe_experts else IdentityOp),
             mlp=mlp,
             mlp_bda=multiacc_modules.get_bias_dropout_add,
         ),
@@ -125,9 +118,7 @@ def get_llava_ov_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
     """
     # To simplify the code, temporarily remove the compatibility with MoE/MLA.
     # If there is a new version in the future, add and test it separately.
-    assert (
-        not config.multi_latent_attention
-    ), "Not supporting multi-latent attention for Qwen model yet."
+    assert not config.multi_latent_attention, "Not supporting multi-latent attention for Qwen model yet."
 
     mlp = _get_mlp_module_spec(
         num_experts=config.num_moe_experts,
@@ -138,9 +129,7 @@ def get_llava_ov_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
     # we instead use the Apex implementation.
     # qk_norm = multiacc_modules.TENorm if is_te_min_version("1.9.0") else multiacc_modules.LocalNorm
     qk_norm = (
-        multiacc_modules.TENorm
-        if config.normalization in ["LayerNorm", "RMSNorm"]
-        else multiacc_modules.LocalNorm
+        multiacc_modules.TENorm if config.normalization in ["LayerNorm", "RMSNorm"] else multiacc_modules.LocalNorm
     )
 
     return ModuleSpec(
@@ -160,9 +149,7 @@ def get_llava_ov_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
                 ),
             ),
             self_attn_bda=multiacc_modules.get_bias_dropout_add,
-            pre_mlp_layernorm=(
-                multiacc_modules.TENorm if config.num_moe_experts else IdentityOp
-            ),
+            pre_mlp_layernorm=(multiacc_modules.TENorm if config.num_moe_experts else IdentityOp),
             mlp=mlp,
             mlp_bda=multiacc_modules.get_bias_dropout_add,
         ),
@@ -202,11 +189,7 @@ def _apply_mrope_bshd(t, freq, config, cu_seqlens, mscale: float = 1.0):
 def apply_mrope(t, freq, config, cu_seqlens=None, mscale: float = 1.0, cp_group=None):
     """mrope"""
     if cu_seqlens is not None:
-        cp_size = (
-            cp_group.size()
-            if cp_group is not None
-            else parallel_state.get_context_parallel_world_size()
-        )
+        cp_size = cp_group.size() if cp_group is not None else parallel_state.get_context_parallel_world_size()
         cu_seqlens = cu_seqlens // cp_size
         seqlens = (cu_seqlens[1:] - cu_seqlens[:-1]).tolist()
 
@@ -232,9 +215,7 @@ def get_qwen3_vl_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
     """
     # To simplify the code, temporarily remove the compatibility with MoE/MLA.
     # If there is a new version in the future, add and test it separately.
-    assert (
-        not config.multi_latent_attention
-    ), "Not supporting multi-latent attention for Qwen model yet."
+    assert not config.multi_latent_attention, "Not supporting multi-latent attention for Qwen model yet."
 
     mlp = _get_mlp_module_spec(
         num_experts=config.num_moe_experts,
@@ -245,8 +226,7 @@ def get_qwen3_vl_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
     # we instead use the Apex implementation.
     qk_norm = (
         multiacc_modules.TENorm
-        if is_te_min_version("1.9.0")
-        and config.normalization in ["LayerNorm", "RMSNorm"]
+        if is_te_min_version("1.9.0") and config.normalization in ["LayerNorm", "RMSNorm"]
         else multiacc_modules.LocalNorm
     )
 
@@ -267,9 +247,7 @@ def get_qwen3_vl_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
                 ),
             ),
             self_attn_bda=multiacc_modules.get_bias_dropout_add,
-            pre_mlp_layernorm=(
-                multiacc_modules.TENorm if config.num_moe_experts else IdentityOp
-            ),
+            pre_mlp_layernorm=(multiacc_modules.TENorm if config.num_moe_experts else IdentityOp),
             mlp=mlp,
             mlp_bda=multiacc_modules.get_bias_dropout_add,
         ),

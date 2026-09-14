@@ -150,7 +150,8 @@ class ErnieTaskEncoder(BaseTaskEncoder):
 
         # ---- Tokenizer ----
         self.ernie_tokenizer = Ernie45VLTokenizer.from_pretrained(
-            args.hf_tokenizer_path, trust_remote_code=True,
+            args.hf_tokenizer_path,
+            trust_remote_code=True,
         )
         # Wrap tokenizer.encode for paddleformers-style API compatibility.
         self._wrap_tokenizer_encode()
@@ -181,7 +182,9 @@ class ErnieTaskEncoder(BaseTaskEncoder):
         # ---- ImageModificationProcessor (for position_ids_for_rope_3d) ----
         # We create a lightweight args-like object for ImageModificationProcessor.
         self._imp = _build_image_modification_processor(
-            args, self.ernie_tokenizer, self.image_processor,
+            args,
+            self.ernie_tokenizer,
+            self.image_processor,
         )
 
         # ---- Video parameters ----
@@ -258,13 +261,17 @@ class ErnieTaskEncoder(BaseTaskEncoder):
                     if pi < len(parts) - 1 and image_idx < len(images):
                         img = images[image_idx]
                         w, h = img.size
-                        turn.append([{
-                            "image_url": img,
-                            "image_width": w,
-                            "image_height": h,
-                            "is_valid": True,
-                            "image_type": "image",
-                        }])
+                        turn.append(
+                            [
+                                {
+                                    "image_url": img,
+                                    "image_width": w,
+                                    "image_height": h,
+                                    "is_valid": True,
+                                    "image_type": "image",
+                                }
+                            ]
+                        )
                         image_idx += 1
             else:
                 tag = "mask" if msg["role"] == "user" else "no_mask"
@@ -277,13 +284,15 @@ class ErnieTaskEncoder(BaseTaskEncoder):
             img_items = []
             for img in images:
                 w, h = img.size
-                img_items.append({
-                    "image_url": img,
-                    "image_width": w,
-                    "image_height": h,
-                    "is_valid": True,
-                    "image_type": "image",
-                })
+                img_items.append(
+                    {
+                        "image_url": img,
+                        "image_width": w,
+                        "image_height": h,
+                        "is_valid": True,
+                        "image_type": "image",
+                    }
+                )
             # Find the first user turn.
             first_user_idx = 1 if is_system else 0
             if first_user_idx < len(all_item_list):
@@ -313,9 +322,7 @@ class ErnieTaskEncoder(BaseTaskEncoder):
                 )
                 if not has_think:
                     # Insert think prefix with tag="mask" at position 0.
-                    all_item_list[last_asst_idx].insert(
-                        0, {"text": THINK_PREFIX, "tag": "mask"}
-                    )
+                    all_item_list[last_asst_idx].insert(0, {"text": THINK_PREFIX, "tag": "mask"})
                     # Mark all earlier turns with label=0 (masked in loss) and
                     # last turn with label=1, matching offline processor.py
                     # lines 163-171.
@@ -349,7 +356,9 @@ class ErnieTaskEncoder(BaseTaskEncoder):
 
         # ---- Step 1: Build all_item_list ----
         data = self._messages_to_all_item_list(
-            sample.messages, images, sample.system,
+            sample.messages,
+            images,
+            sample.system,
         )
 
         # ---- Step 2: Apply chat training template ----
@@ -369,9 +378,7 @@ class ErnieTaskEncoder(BaseTaskEncoder):
             break  # Take the first (and typically only) feature.
 
         if feature_result is None:
-            raise ValueError(
-                f"ExampleToFeature yielded no features for sample {sample.__key__}"
-            )
+            raise ValueError(f"ExampleToFeature yielded no features for sample {sample.__key__}")
 
         ids = feature_result["feature"]["ids"]
         lossmask = feature_result["feature"]["lossmask"]
@@ -392,12 +399,8 @@ class ErnieTaskEncoder(BaseTaskEncoder):
         # 1) Replace SEP token with EOS token in labels (matches
         #    ImageModificationProcessor.mm_example_to_feature for ernie_vl).
         vocab = self.ernie_tokenizer.get_vocab()
-        sep_token = self.ernie_tokenizer.special_tokens_map.get(
-            "sep_token", "<|endofprompt|>"
-        )
-        eos_token = self.ernie_tokenizer.special_tokens_map.get(
-            "eos_token", "</s>"
-        )
+        sep_token = self.ernie_tokenizer.special_tokens_map.get("sep_token", "<|endofprompt|>")
+        eos_token = self.ernie_tokenizer.special_tokens_map.get("eos_token", "</s>")
         sep_token_id = vocab[sep_token]
         eos_token_id = vocab[eos_token]
         labels[labels == sep_token_id] = eos_token_id
@@ -445,7 +448,8 @@ class ErnieTaskEncoder(BaseTaskEncoder):
                 return (img, None) if need_exif_info else (img,)
 
             pixel_values, grid_thw = self._imp.image_handling_for_adaptive(
-                example, download_fn=_download_pil,
+                example,
+                download_fn=_download_pil,
             )
 
         # Handle text-only samples.
@@ -512,9 +516,7 @@ class ErnieTaskEncoder(BaseTaskEncoder):
     # Packing
     # -----------------------------------------------------------------
     @stateless
-    def pack_selected_samples(
-        self, samples: List[ErnieTaskSample]
-    ) -> ErnieTaskSamplePacked:
+    def pack_selected_samples(self, samples: List[ErnieTaskSample]) -> ErnieTaskSamplePacked:
         """Pack samples with ERNIE-specific concat logic.
 
         Matches ERNIE reference _concat_samples:
@@ -580,15 +582,23 @@ class ErnieTaskEncoder(BaseTaskEncoder):
             packed_position_ids_3d = merged
 
         # ---- 3. Image fields: direct concat (not affected by BOS/SEP) ----
-        packed_image_type_ids = torch.cat(
-            [s.image_type_ids for s in samples if len(s.image_type_ids) > 0],
-            dim=0,
-        ) if any(len(s.image_type_ids) > 0 for s in samples) else torch.tensor([], dtype=torch.int64)
+        packed_image_type_ids = (
+            torch.cat(
+                [s.image_type_ids for s in samples if len(s.image_type_ids) > 0],
+                dim=0,
+            )
+            if any(len(s.image_type_ids) > 0 for s in samples)
+            else torch.tensor([], dtype=torch.int64)
+        )
 
-        packed_grid_thw = torch.cat(
-            [s.image_grid_thw for s in samples if len(s.image_grid_thw) > 0],
-            dim=0,
-        ) if any(len(s.image_grid_thw) > 0 for s in samples) else torch.zeros(0, 3, dtype=torch.int64)
+        packed_grid_thw = (
+            torch.cat(
+                [s.image_grid_thw for s in samples if len(s.image_grid_thw) > 0],
+                dim=0,
+            )
+            if any(len(s.image_grid_thw) > 0 for s in samples)
+            else torch.zeros(0, 3, dtype=torch.int64)
+        )
 
         # ---- 4. Build cu_lengths and collect images ----
         # cu_lengths marks document boundaries in the packed sequence for
@@ -625,10 +635,7 @@ class ErnieTaskEncoder(BaseTaskEncoder):
         )
 
         if total_packed_len > packing_seq_len:
-            raise ValueError(
-                f"Packed sample exceeds max seq length {packing_seq_len}: "
-                f"got {total_packed_len}"
-            )
+            raise ValueError(f"Packed sample exceeds max seq length {packing_seq_len}: got {total_packed_len}")
 
         init_kwargs = dict(
             __key__=",".join([s.__key__ for s in samples]),
@@ -654,9 +661,7 @@ class ErnieTaskEncoder(BaseTaskEncoder):
     # -----------------------------------------------------------------
     # Batching
     # -----------------------------------------------------------------
-    def batch(
-        self, samples: List[Union[ErnieTaskSample, ErnieTaskSamplePacked]]
-    ) -> ErnieTaskBatchPacked:
+    def batch(self, samples: List[Union[ErnieTaskSample, ErnieTaskSamplePacked]]) -> ErnieTaskBatchPacked:
         """Batch samples together, adding ERNIE-specific padded fields."""
         base_batch = super().batch(samples)
 
@@ -664,17 +669,13 @@ class ErnieTaskEncoder(BaseTaskEncoder):
         batch_size = base_batch.tokens.shape[0]
 
         # Pad token_type_ids (pad with 0 = text type).
-        token_type_ids_np = np.zeros(
-            (batch_size, max_seq_len), dtype=np.int64
-        )
+        token_type_ids_np = np.zeros((batch_size, max_seq_len), dtype=np.int64)
         for i, s in enumerate(samples):
             tlen = min(max_seq_len, len(s.token_type_ids))
             token_type_ids_np[i, :tlen] = s.token_type_ids[:tlen].numpy()
 
         # Pad position_ids_3d (pad with incrementing values).
-        position_ids_np = np.zeros(
-            (batch_size, max_seq_len, 3), dtype=np.int64
-        )
+        position_ids_np = np.zeros((batch_size, max_seq_len, 3), dtype=np.int64)
         for i, s in enumerate(samples):
             tlen = min(max_seq_len, len(s.position_ids_3d))
             position_ids_np[i, :tlen, :] = s.position_ids_3d[:tlen].numpy()
@@ -693,22 +694,22 @@ class ErnieTaskEncoder(BaseTaskEncoder):
             if hasattr(s, "image_grid_thw") and s.image_grid_thw is not None and len(s.image_grid_thw) > 0:
                 all_grid_thw.append(s.image_grid_thw)
         image_type_ids = (
-            torch.cat(all_image_type_ids, dim=0)
-            if all_image_type_ids
-            else torch.tensor([], dtype=torch.int64)
+            torch.cat(all_image_type_ids, dim=0) if all_image_type_ids else torch.tensor([], dtype=torch.int64)
         )
         image_grid_thw = torch.cat(all_grid_thw, dim=0) if all_grid_thw else torch.zeros(0, 3, dtype=torch.int64)
 
         init_args = vars(base_batch).copy()
-        init_args.update({
-            "__key__": base_batch.__key__,
-            "__restore_key__": base_batch.__restore_key__,
-            "__subflavors__": base_batch.__subflavors__,
-            "token_type_ids": token_type_ids_np,
-            "image_type_ids": image_type_ids,
-            "image_grid_thw": image_grid_thw,
-            "position_ids_3d": position_ids_np,
-        })
+        init_args.update(
+            {
+                "__key__": base_batch.__key__,
+                "__restore_key__": base_batch.__restore_key__,
+                "__subflavors__": base_batch.__subflavors__,
+                "token_type_ids": token_type_ids_np,
+                "image_type_ids": image_type_ids,
+                "image_grid_thw": image_grid_thw,
+                "position_ids_3d": position_ids_np,
+            }
+        )
         return ErnieTaskBatchPacked(**init_args)
 
     # -----------------------------------------------------------------
@@ -762,9 +763,7 @@ class ErnieTaskEncoder(BaseTaskEncoder):
     # -----------------------------------------------------------------
     # Image processing override
     # -----------------------------------------------------------------
-    def process_images(
-        self, samples: List[Union[ErnieTaskSample, ErnieTaskSamplePacked]]
-    ) -> torch.Tensor:
+    def process_images(self, samples: List[Union[ErnieTaskSample, ErnieTaskSamplePacked]]) -> torch.Tensor:
         """Concatenate image patches. ERNIE uses flattened patches, not (C,H,W)."""
         imgs = [img for s in samples if s.imgs is not None for img in s.imgs]
         if len(imgs) > 0:
@@ -781,6 +780,7 @@ class ErnieTaskEncoder(BaseTaskEncoder):
 @dataclass
 class _ImageArgs:
     """Minimal args-like object for ImageModificationProcessor."""
+
     image_token_len: int = 64
     image_dtype: str = "float32"
     sft_shift_by_one: bool = False

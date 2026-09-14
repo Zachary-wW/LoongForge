@@ -29,6 +29,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """configuration_qwen2_5_vl module."""
+
 import logging
 
 from transformers.configuration_utils import PretrainedConfig
@@ -39,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 class Qwen25VLVisionConfig(PretrainedConfig):
     """Qwen2 5 VLVisionConfig."""
+
     model_type = "qwen2_5_vl"
     base_config_key = "vision_config"
 
@@ -340,9 +342,7 @@ class Qwen25VLConfig(PretrainedConfig):
         Args:
             train_config: dict containing training configuration parameters.
         """
-        self.use_state_string_representation = train_config["data"].get(
-            "use_state_string_representation", False
-        )
+        self.use_state_string_representation = train_config["data"].get("use_state_string_representation", False)
         self.ar_loss_weight = train_config.get("ar_loss_weight", 1.0)
 
         self.dof_config = train_config["dof_config"]

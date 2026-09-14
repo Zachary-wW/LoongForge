@@ -42,5 +42,5 @@ class InternLMConfig(BaseModelConfig):
         "loongforge.models.foundation.internlm.internlm_layer_spec",
         "get_internlm_layer_with_te_spec",
     ]
-    
+
     model_type = LanguageModelFamilies.INTERNLM2_5

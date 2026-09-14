@@ -46,7 +46,6 @@ def build_policy_stack(args: argparse.Namespace, adapter: Any):
     return payload_builder, action_decoder_key, action_decoder
 
 
-
 # --------------------------------------------------------------------------- #
 # SAPIEN / Vulkan runtime bootstrap (ManiSkill, SimplerEnv)
 # --------------------------------------------------------------------------- #

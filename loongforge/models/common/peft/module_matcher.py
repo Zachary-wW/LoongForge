@@ -60,9 +60,7 @@ class ModuleMatcher:
                 on the first two layers.
     """
 
-    target_modules: List[str] = field(
-        default_factory=lambda: ["linear_qkv", "linear_proj", "linear_fc1", "linear_fc2"]
-    )
+    target_modules: List[str] = field(default_factory=lambda: ["linear_qkv", "linear_proj", "linear_fc1", "linear_fc2"])
     exclude_modules: List[str] = field(default_factory=list)
     canonical_mapping: Dict[str, Set] = field(default_factory=lambda: defaultdict(set))
 

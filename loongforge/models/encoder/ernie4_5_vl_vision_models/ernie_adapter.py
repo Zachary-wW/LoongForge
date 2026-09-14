@@ -63,9 +63,7 @@ class RMSNorm(nn.Module):
         """
         super().__init__()
         self.hidden_size = hidden_size
-        self.weight = nn.Parameter(
-            torch.ones(self.hidden_size, dtype=torch.get_default_dtype())
-        )
+        self.weight = nn.Parameter(torch.ones(self.hidden_size, dtype=torch.get_default_dtype()))
         self.variance_epsilon = rms_norm_eps
 
     def forward(self, hidden_states):
@@ -112,6 +110,7 @@ class ErnieAdapter(BaseMegatronVisionModule):
         """
         x: image_features
         """
+
         def fwd_mlp(x):
             x = self.mlp(x)
             x = self.after_norm(x)
@@ -124,5 +123,3 @@ class ErnieAdapter(BaseMegatronVisionModule):
             image_features = image_features.reshape([B * N, C]).to(self.out_dtype)
 
         return image_features
-
-

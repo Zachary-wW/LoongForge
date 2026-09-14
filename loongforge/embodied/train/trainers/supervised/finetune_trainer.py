@@ -76,9 +76,7 @@ class FinetuneTrainer(BaseTrainer):
         )
 
         autocast_ctx = (
-            nullcontext()
-            if self._cfg_bool("disable_train_autocast", False)
-            else torch.autocast("cuda", dtype=dtype)
+            nullcontext() if self._cfg_bool("disable_train_autocast", False) else torch.autocast("cuda", dtype=dtype)
         )
 
         with self._fp8_forward_ctx(), autocast_ctx:
@@ -107,20 +105,13 @@ class FinetuneTrainer(BaseTrainer):
             self._fwd_param_names = {
                 param.name
                 for param in params
-                if param.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                                  inspect.Parameter.KEYWORD_ONLY)
+                if param.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
             }
-            self._fwd_accepts_var_kw = any(
-                param.kind is inspect.Parameter.VAR_KEYWORD for param in params
-            )
+            self._fwd_accepts_var_kw = any(param.kind is inspect.Parameter.VAR_KEYWORD for param in params)
         if self._fwd_accepts_var_kw:
             # **kwargs absorbs whatever is not declared by name.
             return dict(candidates)
-        return {
-            name: value
-            for name, value in candidates.items()
-            if name in self._fwd_param_names
-        }
+        return {name: value for name, value in candidates.items() if name in self._fwd_param_names}
 
     def _forward_backward(self) -> dict:
         """Single-stream gradient-accumulation loop (reuses base timed helpers).
@@ -146,10 +137,9 @@ class FinetuneTrainer(BaseTrainer):
                     self._backward_loss(loss, log_loss_dict, log_dict, grad_accum)
         return log_dict
 
-    def _backward_loss(self, loss: torch.Tensor,
-                       log_loss_dict: Dict[str, torch.Tensor],
-                       log_dict: Dict[str, float],
-                       grad_accum: int) -> None:
+    def _backward_loss(
+        self, loss: torch.Tensor, log_loss_dict: Dict[str, torch.Tensor], log_dict: Dict[str, float], grad_accum: int
+    ) -> None:
         """Scale + spike-guard + backward, accumulating losses into log_dict.
 
         ``loss`` is the single scalar to backpropagate; it is scaled by
@@ -279,9 +269,7 @@ class FinetuneTrainer(BaseTrainer):
         """
         if is_lora_adapter_checkpoint(path):
             if not self.training_args.use_lora:
-                raise ValueError(
-                    "Resuming a LoRA adapter checkpoint requires --use-lora."
-                )
+                raise ValueError("Resuming a LoRA adapter checkpoint requires --use-lora.")
             meta = read_adapter_meta(path) or {}
             base_checkpoint = meta.get("base_checkpoint")
             if base_checkpoint:
@@ -306,8 +294,8 @@ class FinetuneTrainer(BaseTrainer):
         if fmt == "dcp":
             if self.ctx.is_main:
                 logger.info(
-                    "resume: detected DCP checkpoint at %s — deferring weight "
-                    "load until after wrap_model.", path,
+                    "resume: detected DCP checkpoint at %s — deferring weight load until after wrap_model.",
+                    path,
                 )
         else:
             load_pretrained(self.model, path, self.ctx)
@@ -339,8 +327,13 @@ class FinetuneTrainer(BaseTrainer):
 
     def _save_checkpoint(self):
         save_checkpoint(
-            self.model, self.optimizer, self.lr_scheduler,
-            self.completed_steps, self.checkpoint_dir, self.ctx, self.training_args,
+            self.model,
+            self.optimizer,
+            self.lr_scheduler,
+            self.completed_steps,
+            self.checkpoint_dir,
+            self.ctx,
+            self.training_args,
             epoch=self.current_epoch,
             dataloader_state=self._get_dataloader_state(),
             model_cfg=self.model_cfg,
@@ -366,11 +359,7 @@ class FinetuneTrainer(BaseTrainer):
         epoch = self._epochs.get(name, self.current_epoch if name == "vla" else 0)
         sampler = getattr(dl, "sampler", None)
         restored_from_state = name in self._resume_dataloader_state
-        if (
-            sampler is not None
-            and hasattr(sampler, "set_epoch")
-            and not restored_from_state
-        ):
+        if sampler is not None and hasattr(sampler, "set_epoch") and not restored_from_state:
             sampler.set_epoch(epoch)
         self._epochs[name] = epoch
         self._data_iters[name] = iter(dl)

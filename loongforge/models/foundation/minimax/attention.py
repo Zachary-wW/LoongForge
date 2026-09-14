@@ -27,6 +27,7 @@ from megatron.core.transformer.spec_utils import ModuleSpec, build_module
 from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.core.extensions.transformer_engine import SplitAlongDim
+
 try:
     from flash_attn import flash_attn_with_kvcache
 except:
@@ -52,7 +53,6 @@ class MinimaxSelfAttentionSubmodules:
     apply_rotary_fn: Union[ModuleSpec, type] = None
 
 
-
 class MinimaxSelfAttention(Attention):
     """Self-attention layer class
 
@@ -66,8 +66,8 @@ class MinimaxSelfAttention(Attention):
         submodules: MinimaxSelfAttentionSubmodules,
         layer_number: int,
         attn_mask_type=AttnMaskType.padding,
-        cp_comm_type: str=None,
-        pg_collection: ProcessGroupCollection=None,
+        cp_comm_type: str = None,
+        pg_collection: ProcessGroupCollection = None,
     ):
         super().__init__(
             config=config,
@@ -88,7 +88,7 @@ class MinimaxSelfAttention(Attention):
             bias=self.config.add_bias_linear or self.config.add_qkv_bias,
             skip_bias_add=False,
             is_expert=False,
-            tp_comm_buffer_name='qkv',
+            tp_comm_buffer_name="qkv",
             tp_group=self.pg_collection.tp,
         )
 
@@ -146,8 +146,7 @@ class MinimaxSelfAttention(Attention):
             assert len(srcs) == len(tgts) == len(names)
             for src, tgt, name in zip(srcs, tgts, names):
                 assert torch.all(src == tgt), (
-                    f"Discrepancy between {name} in {parallelism} ranks {i} and {rank}. "
-                    f"Diff: {torch.norm(src - tgt)}"
+                    f"Discrepancy between {name} in {parallelism} ranks {i} and {rank}. Diff: {torch.norm(src - tgt)}"
                 )
 
         for i, dp in enumerate(dp_list):
@@ -221,34 +220,32 @@ class MinimaxSelfAttention(Attention):
             # [sq, b, ng, (np/ng + 2) * hn]
             # --> [sq, b, ng, np/ng * hn], [sq, b, ng, hn], [sq, b, ng, hn]
             (query, key, value) = torch.split(mixed_qkv, split_arg_list, dim=3)
- 
+
         query_shape = query.shape
         key_shape = key.shape
-         
-        #[sq, b, ng/tp, hn] -> [sq, b, ng, hn]
+
+        # [sq, b, ng/tp, hn] -> [sq, b, ng, hn]
         if self.config.tensor_model_parallel_size > 0:
             query = gather_from_tensor_model_parallel_region(query)
             key = gather_from_tensor_model_parallel_region(key)
 
-        
-        #[sq, b, ng, hn] -> [sq, b, ng*hn]
+        # [sq, b, ng, hn] -> [sq, b, ng*hn]
         if self.q_layernorm is not None:
             query = self.q_layernorm(query.reshape(*query_shape[:-2], -1))
 
         if self.k_layernorm is not None:
-            key =  self.k_layernorm(key.reshape(*key_shape[:-2], -1))
+            key = self.k_layernorm(key.reshape(*key_shape[:-2], -1))
 
-        #[sq, b, ng*hn/tp]
+        # [sq, b, ng*hn/tp]
         if self.config.tensor_model_parallel_size > 0:
             query = scatter_to_tensor_model_parallel_region(query)
             key = scatter_to_tensor_model_parallel_region(key)
-        
-        #[sq, b, ng/tp, hn]
+
+        # [sq, b, ng/tp, hn]
         query = query.reshape(query.size(0), query.size(1), -1, self.hidden_size_per_attention_head)
         key = key.reshape(key.size(0), key.size(1), -1, self.hidden_size_per_attention_head)
-        
+
         if self.config.test_mode:
             self.run_realtime_tests()
 
         return query, key, value
-

@@ -15,12 +15,11 @@ import numpy as np
 import torch
 
 
-from loongforge.embodied.distributed.utils import is_rank_zero 
+from loongforge.embodied.distributed.utils import is_rank_zero
 
 
 def resolve_dtype(dtype_str: str) -> torch.dtype:
-    """Convert string dtype to torch.dtype.
-    """
+    """Convert string dtype to torch.dtype."""
     mapping = {
         "bfloat16": torch.bfloat16,
         "float16": torch.float16,
@@ -51,9 +50,7 @@ def set_precision(allow_tf32):
 
 
 def set_deterministic():
-    """Enable or disable deterministic algorithms for reproducibility.
-
-    """
+    """Enable or disable deterministic algorithms for reproducibility."""
     if "PYTHONHASHSEED" not in os.environ:
         logger.warning(
             "PYTHONHASHSEED is not set; --deterministic-mode is best-effort without it. "
@@ -79,9 +76,7 @@ def setup_logging(output_dir: str, rank: int):
 
     sh = logging.StreamHandler()
     sh.setLevel(level)
-    sh.setFormatter(
-        logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
-    )
+    sh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
     handlers = [sh]
 
     if rank == 0 and output_dir:
@@ -90,9 +85,7 @@ def setup_logging(output_dir: str, rank: int):
         log_file = os.path.join(log_dir, f"train_{datetime.now():%Y%m%d_%H%M%S}.log")
         fh = logging.FileHandler(log_file, encoding="utf-8")
         fh.setLevel(logging.INFO)
-        fh.setFormatter(
-            logging.Formatter("[%(asctime)s][%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
-        )
+        fh.setFormatter(logging.Formatter("[%(asctime)s][%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
         handlers.append(fh)
 
     logging.basicConfig(level=level, handlers=handlers, force=True)
@@ -132,9 +125,11 @@ def log_stage(
             elapsed = f"{time.perf_counter() - t0:.2f}s"
             out.info(f"[{tag}] {end_msg.format(elapsed=elapsed)}")
 
+
 # ═══════════════════════════════════════════════
 # Profiler (torch.profiler or nsys profiler, unified class)
 # ═══════════════════════════════════════════════
+
 
 class Profiler:
     """Unified profiler covering torch.profiler and nsys (cudaProfilerApi).
@@ -147,8 +142,7 @@ class Profiler:
     Non-profile ranks (or when profiling is disabled) get a no-op instance.
     """
 
-    __slots__ = ("training_args", "ctx", "output_dir", "mode", "_prof", "_nvtx_ctx",
-                 "_started", "_active")
+    __slots__ = ("training_args", "ctx", "output_dir", "mode", "_prof", "_nvtx_ctx", "_started", "_active")
 
     def __init__(self, training_args, ctx, output_dir: str):
         self.training_args = training_args
@@ -188,8 +182,7 @@ class Profiler:
 
         if self.mode == "nsys":
             logger.info(
-                f"nsys profiling enabled on profile_ranks={training_args.profile_ranks}: "
-                f"steps [{start}, {end})"
+                f"nsys profiling enabled on profile_ranks={training_args.profile_ranks}: steps [{start}, {end})"
             )
             return
 

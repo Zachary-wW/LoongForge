@@ -110,9 +110,7 @@ def get_chat_template(sample_type: str, model_type: str) -> Template:
         return Template(task_templates)
     template_str = task_templates.get(model_type)
     if template_str is None:
-        raise ValueError(
-            f"No template for sample_type={sample_type}, model_type={model_type}"
-        )
+        raise ValueError(f"No template for sample_type={sample_type}, model_type={model_type}")
     return Template(template_str)
 
 
@@ -166,11 +164,7 @@ def _first_text(value) -> str:
 def load_messages_and_pair(json_data: dict, template_text_key: str) -> Tuple[list, str, str]:
     """Return normalized messages plus first user prompt and assistant answer."""
     text_data = next(
-        (
-            json_data.get(key)
-            for key in (template_text_key, "messages", "texts")
-            if json_data.get(key) is not None
-        ),
+        (json_data.get(key) for key in (template_text_key, "messages", "texts") if json_data.get(key) is not None),
         None,
     )
 
@@ -304,11 +298,7 @@ def load_processor(model_cfg: dict):
     kwargs = dict(model_cfg.get("processor_kwargs", {}))
     loader = model_cfg.get("processor_loader", "auto_processor")
     if loader == "auto_tokenizer":
-        kwargs = {
-            key: value
-            for key, value in kwargs.items()
-            if key in TOKENIZER_ONLY_KWARGS
-        }
+        kwargs = {key: value for key, value in kwargs.items() if key in TOKENIZER_ONLY_KWARGS}
         return install_chat_template(AutoTokenizer.from_pretrained(**kwargs), model_cfg)
     if loader != "auto_processor":
         raise ValueError(f"Unsupported model.processor_loader: {loader}")
@@ -413,11 +403,7 @@ def _count_media_placeholder_tokens(processor, model_inputs, placeholder_tokens:
     convert_tokens_to_ids = getattr(tokenizer, "convert_tokens_to_ids", None)
     if convert_tokens_to_ids is None:
         return 0
-    placeholder_ids = {
-        convert_tokens_to_ids(token)
-        for token in placeholder_tokens
-        if token
-    }
+    placeholder_ids = {convert_tokens_to_ids(token) for token in placeholder_tokens if token}
     placeholder_ids.discard(None)
     if not placeholder_ids:
         return 0
@@ -426,12 +412,7 @@ def _count_media_placeholder_tokens(processor, model_inputs, placeholder_tokens:
     if hasattr(input_ids, "tolist"):
         input_ids = input_ids.tolist()
     if input_ids and isinstance(input_ids[0], list):
-        return sum(
-            1
-            for row in input_ids
-            for token_id in row
-            if token_id in placeholder_ids
-        )
+        return sum(1 for row in input_ids for token_id in row if token_id in placeholder_ids)
     return sum(1 for token_id in input_ids if token_id in placeholder_ids)
 
 
@@ -463,11 +444,7 @@ def _count_media_placeholder_token_ids(
     convert_tokens_to_ids = getattr(tokenizer, "convert_tokens_to_ids", None)
     if convert_tokens_to_ids is None:
         return 0
-    placeholder_ids = {
-        convert_tokens_to_ids(token)
-        for token in placeholder_tokens
-        if token
-    }
+    placeholder_ids = {convert_tokens_to_ids(token) for token in placeholder_tokens if token}
     placeholder_ids.discard(None)
     if not placeholder_ids:
         return 0
@@ -526,24 +503,16 @@ def _compute_processor_token_len(
         return len(direct_input_ids)
 
     model_inputs = _processor_model_inputs(processor, text_input, media_inputs)
-    token_len = (
-        len(direct_input_ids)
-        if direct_input_ids is not None
-        else _input_ids_len(model_inputs)
-    )
+    token_len = len(direct_input_ids) if direct_input_ids is not None else _input_ids_len(model_inputs)
 
     feature_lengths = _media_feature_lengths_from_grid(processor, model_inputs)
     if not feature_lengths:
         return token_len
 
     if direct_input_ids is not None:
-        placeholder_count = _count_media_placeholder_token_ids(
-            processor, direct_input_ids, placeholder_tokens
-        )
+        placeholder_count = _count_media_placeholder_token_ids(processor, direct_input_ids, placeholder_tokens)
     else:
-        placeholder_count = _count_media_placeholder_tokens(
-            processor, model_inputs, placeholder_tokens
-        )
+        placeholder_count = _count_media_placeholder_tokens(processor, model_inputs, placeholder_tokens)
     replaced_tokens = min(placeholder_count, len(feature_lengths))
     return token_len - replaced_tokens + sum(feature_lengths)
 
@@ -552,9 +521,7 @@ def compute_token_len(processor, text_input: str, media_inputs: dict, model_cfg=
     if isinstance(model_cfg, str):
         model_cfg = {"model_type": model_cfg}
     model_cfg = model_cfg or {}
-    placeholder_tokens = model_cfg.get(
-        "media_placeholder_tokens", DEFAULT_MEDIA_PLACEHOLDER_TOKENS
-    )
+    placeholder_tokens = model_cfg.get("media_placeholder_tokens", DEFAULT_MEDIA_PLACEHOLDER_TOKENS)
     if isinstance(placeholder_tokens, str):
         placeholder_tokens = (placeholder_tokens,)
     return _compute_processor_token_len(
@@ -577,7 +544,7 @@ def split_text_with_media_placeholders(content: str, media_type: str, expected_c
     parts = []
     cursor = 0
     for match in matches:
-        segment = content[cursor:match.start()]
+        segment = content[cursor : match.start()]
         if segment:
             parts.append({"type": "text", "text": segment})
         parts.append({"type": media_type})
@@ -592,11 +559,7 @@ def count_structured_media_parts(content, media_type: str) -> int:
     if not isinstance(content, list):
         return 0
     aliases = MEDIA_CONTENT_ALIASES.get(media_type, {media_type})
-    return sum(
-        1
-        for part in content
-        if isinstance(part, dict) and part.get("type") in aliases
-    )
+    return sum(1 for part in content if isinstance(part, dict) and part.get("type") in aliases)
 
 
 def prepare_messages_for_hf_chat_template(messages: Sequence[dict], media_type: str, media_count: int):
@@ -608,17 +571,11 @@ def prepare_messages_for_hf_chat_template(messages: Sequence[dict], media_type: 
         if content is None:
             content = message.get("value") or ""
 
-        if (
-            role == "user"
-            and media_type in ("image", "video")
-            and remaining_media > 0
-        ):
+        if role == "user" and media_type in ("image", "video") and remaining_media > 0:
             if isinstance(content, str):
                 current_count = content.count(f"<{media_type}>")
                 if current_count > 0:
-                    content = split_text_with_media_placeholders(
-                        content, media_type, current_count
-                    )
+                    content = split_text_with_media_placeholders(content, media_type, current_count)
                     remaining_media -= current_count
             else:
                 remaining_media -= count_structured_media_parts(content, media_type)
@@ -654,17 +611,12 @@ def prepare_tools_for_hf_render(tokenizer, tools: Optional[Sequence[dict]], kwar
         apply_chat_template = apply_chat_template.__func__
     apply_globals = getattr(apply_chat_template, "__globals__", {})
     deep_sort_dict = apply_globals.get("deep_sort_dict")
-    encode_tools_to_typescript_style = apply_globals.get(
-        "encode_tools_to_typescript_style"
-    )
+    encode_tools_to_typescript_style = apply_globals.get("encode_tools_to_typescript_style")
 
     if deep_sort_dict is not None:
         tools = deep_sort_dict(tools)
 
-    if (
-        "tools_ts_str" not in kwargs
-        and encode_tools_to_typescript_style is not None
-    ):
+    if "tools_ts_str" not in kwargs and encode_tools_to_typescript_style is not None:
         try:
             kwargs["tools_ts_str"] = encode_tools_to_typescript_style(tools)
         except Exception as exc:
@@ -689,16 +641,10 @@ def render_chat_text(
     if should_use_hf_chat_template(processor, cfg):
         tokenizer = get_processor_tokenizer(processor)
         if not hasattr(tokenizer, "apply_chat_template"):
-            raise ValueError(
-                "Configured HF chat template path, but tokenizer has no apply_chat_template"
-            )
+            raise ValueError("Configured HF chat template path, but tokenizer has no apply_chat_template")
         if not getattr(tokenizer, "chat_template", None):
-            raise ValueError(
-                "Configured HF chat template rendering, but tokenizer.chat_template is empty"
-            )
-        rendered_messages = prepare_messages_for_hf_chat_template(
-            messages, media_type, media_count
-        )
+            raise ValueError("Configured HF chat template rendering, but tokenizer.chat_template is empty")
+        rendered_messages = prepare_messages_for_hf_chat_template(messages, media_type, media_count)
         chat_kwargs = dict(cfg.get("model", {}).get("chat_template_kwargs", {}))
         chat_kwargs.pop("add_generation_prompt", None)
         chat_kwargs.pop("tokenize", None)
@@ -754,9 +700,7 @@ def resolve_media_files(json_data: dict, group: RawSampleGroup, media_type: str)
     media_files = flatten_media_files(raw_media_files)
     if media_type != "text" and not media_files:
         media_files = [
-            part
-            for part in group.members
-            if part != "json" and infer_media_type_from_part(part) == media_type
+            part for part in group.members if part != "json" and infer_media_type_from_part(part) == media_type
         ]
     return [] if media_type == "text" else media_files
 
@@ -842,9 +786,7 @@ def process_group(
 
     media_type = get_sample_media_type(json_data)
     if media_type not in SUPPORTED_MEDIA_TYPES:
-        return None, skip_row(
-            "unsupported_media_type", group.base_key, media_type=media_type
-        )
+        return None, skip_row("unsupported_media_type", group.base_key, media_type=media_type)
 
     template_text_key = cfg.get("data", {}).get("template_text_key", "messages")
     messages, prompt, caption = load_messages_and_pair(json_data, template_text_key)
@@ -858,9 +800,7 @@ def process_group(
         return None, skip_row("missing_media", group.base_key, missing_media=missing_media)
 
     try:
-        media_inputs = build_media_inputs(
-            raw_file, group, media_type, media_files, media_preprocess
-        )
+        media_inputs = build_media_inputs(raw_file, group, media_type, media_files, media_preprocess)
     except Exception as exc:
         return None, {
             "reason": "media_preprocess_failed",
@@ -945,9 +885,7 @@ def scan_shard(shard_path_str: str, cfg: dict) -> dict:
     processor = load_processor(cfg.get("model", {}))
     chat_template = None
     if not should_use_hf_chat_template(processor, cfg):
-        chat_template = get_chat_template(
-            cfg["sample"]["sample_type"], cfg.get("model", {}).get("model_type", "")
-        )
+        chat_template = get_chat_template(cfg["sample"]["sample_type"], cfg.get("model", {}).get("model_type", ""))
     media_preprocess = build_media_preprocess(cfg)
 
     rows = []
@@ -969,9 +907,7 @@ def scan_shard(shard_path_str: str, cfg: dict) -> dict:
             if row is not None:
                 rows.append(row)
                 if keep_debug:
-                    token_rows[row["media_type"]].append(
-                        f"{row['sample_id']}: {row['token_len']}\n"
-                    )
+                    token_rows[row["media_type"]].append(f"{row['sample_id']}: {row['token_len']}\n")
             elif skip is not None:
                 skip["shard"] = str(shard_path.relative_to(wds_dir))
                 skipped.append(skip)
@@ -1009,18 +945,9 @@ def merge_outputs(cfg: dict, shard_results: Sequence[dict]) -> None:
     conn = create_manifest(manifest_sqlite)
     seen = set()
     with ExitStack() as stack:
-        manifest_out = (
-            stack.enter_context(manifest_jsonl.open("w", encoding="utf-8"))
-            if keep_debug else None
-        )
-        combined_out = (
-            stack.enter_context(combined_report.open("w", encoding="utf-8"))
-            if keep_debug else None
-        )
-        skipped_out = (
-            stack.enter_context(skipped_path.open("w", encoding="utf-8"))
-            if keep_debug else None
-        )
+        manifest_out = stack.enter_context(manifest_jsonl.open("w", encoding="utf-8")) if keep_debug else None
+        combined_out = stack.enter_context(combined_report.open("w", encoding="utf-8")) if keep_debug else None
+        skipped_out = stack.enter_context(skipped_path.open("w", encoding="utf-8")) if keep_debug else None
         overlong_out = stack.enter_context(overlong_path.open("w", encoding="utf-8"))
 
         if keep_debug:
@@ -1055,9 +982,7 @@ def merge_outputs(cfg: dict, shard_results: Sequence[dict]) -> None:
             if keep_debug:
                 for media_type, token_path in result["token_paths"].items():
                     target = get_token_report_path(cfg, media_type)
-                    with target.open("a", encoding="utf-8") as out, Path(token_path).open(
-                        "r", encoding="utf-8"
-                    ) as src:
+                    with target.open("a", encoding="utf-8") as out, Path(token_path).open("r", encoding="utf-8") as src:
                         for line in src:
                             out.write(line)
 
@@ -1101,8 +1026,7 @@ def main() -> None:
     supported_sample_types = {"packed_multi_mix_qa", "packed_chat_mix"}
     if sample_type not in supported_sample_types:
         raise ValueError(
-            "WDS-native V1 only supports sample.sample_type in "
-            f"{sorted(supported_sample_types)}, got {sample_type!r}"
+            f"WDS-native V1 only supports sample.sample_type in {sorted(supported_sample_types)}, got {sample_type!r}"
         )
 
     model_cfg = cfg.get("model", {})
@@ -1134,10 +1058,7 @@ def main() -> None:
     LOG.info("Scanning %d shards with %d worker(s)", len(shards), workers)
 
     if workers <= 1:
-        shard_results = [
-            scan_shard(str(shard), cfg)
-            for shard in tqdm(shards, desc="scan shards", unit="shard")
-        ]
+        shard_results = [scan_shard(str(shard), cfg) for shard in tqdm(shards, desc="scan shards", unit="shard")]
     else:
         import multiprocessing as mp
 

@@ -41,19 +41,16 @@ def prepare_models_list(args):
             logger.info("Running all models from configs + optional_configs (Method 5)...")
         else:
             args.models = ConfigManager.get_all_models(args.configs_dir)
-    
+
     # If --optional_subdir is specified, load all models in the specified subdirectory
     if args.optional_subdir:
         # Get all models under the specified subdirectory
-        subdir_models = ConfigManager.get_models_from_subdir(
-            "optional_configs",
-            args.optional_subdir
-        )
+        subdir_models = ConfigManager.get_models_from_subdir("optional_configs", args.optional_subdir)
 
         if subdir_models:
             args.models = list(args.models) + subdir_models
             logger.info(f"Models from optional_subdir '{args.optional_subdir}': {subdir_models}")
-    
+
     # If --extra_models is specified, append extra models to the list
     if args.extra_models:
         # Append extra_models to the models list
@@ -67,11 +64,11 @@ def prepare_models_list(args):
 
 def main() -> None:
     args = parse_args()
-    
+
     # If only listing available models, exit directly (list displayed in print_args)
     if args.list_available_models:
         sys.exit(0)
-    
+
     # Prepare model list (apply filtering rules)
     prepare_models_list(args)
 
@@ -107,15 +104,16 @@ def main() -> None:
 
         # Loop through all supported tasks
         for task_name in model_configer.get_tasks(model):
-
             if task_name not in args.tasks:
                 continue
             task_runner = model_configer.get_task_runner(task_name)
-            result = task_runner(model_description=model_description,
-                                task_description=task_name,
-                                model=model,
-                                model_configer=model_configer,
-                                args=args)()
+            result = task_runner(
+                model_description=model_description,
+                task_description=task_name,
+                model=model,
+                model_configer=model_configer,
+                args=args,
+            )()
             scenario_result.append(result)
 
         if resume_enabled and os.getenv("RANK", "0") == "0":
@@ -159,6 +157,7 @@ def main() -> None:
         if BaseTask.has_validation_failures():
             logger.error("Validation failed: at least one case did not pass.")
             sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

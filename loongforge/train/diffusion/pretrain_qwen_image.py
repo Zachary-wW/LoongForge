@@ -181,9 +181,7 @@ def broadcast_qwen_image_batch_on_tp_group(batch):
     batch["prompt_emb_mask"] = _broadcast_optional_tensor(
         batch.get("prompt_emb_mask") if is_src else None, src_rank, group
     )
-    batch["edit_latents"] = _broadcast_edit_latents(
-        batch.get("edit_latents") if is_src else None, src_rank, group
-    )
+    batch["edit_latents"] = _broadcast_edit_latents(batch.get("edit_latents") if is_src else None, src_rank, group)
     return batch
 
 
@@ -217,8 +215,7 @@ def get_batch(data_iterator):
                 batch[key] = _move_tensor(value, dtype=target_dtype)
             elif isinstance(value, list):
                 batch[key] = [
-                    _move_tensor(v, dtype=batch["latents"].dtype) if isinstance(v, torch.Tensor) else v
-                    for v in value
+                    _move_tensor(v, dtype=batch["latents"].dtype) if isinstance(v, torch.Tensor) else v for v in value
                 ]
 
     if should_broadcast_batch:

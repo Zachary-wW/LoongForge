@@ -163,9 +163,7 @@ class Wan22Core(torch.nn.Module):
         if input_image.ndim == 3:
             input_image = input_image.unsqueeze(0)
         if input_image.ndim != 4 or input_image.shape[0] != 1 or input_image.shape[1] != 3:
-            raise ValueError(
-                f"`input_image` must have shape [1,3,H,W] or [3,H,W], got {tuple(input_image.shape)}"
-            )
+            raise ValueError(f"`input_image` must have shape [1,3,H,W] or [3,H,W], got {tuple(input_image.shape)}")
         image = input_image.to(device=self.device)[0].unsqueeze(1)
         z = self.vae.encode(
             [image],
@@ -221,9 +219,7 @@ class Wan22Core(torch.nn.Module):
         video = sample["video"]
         prompt = sample["prompt"]
         if not isinstance(video, torch.Tensor):
-            raise TypeError(
-                f"`sample['video']` must be a torch.Tensor with shape [B, 3, T, H, W], got {type(video)}"
-            )
+            raise TypeError(f"`sample['video']` must be a torch.Tensor with shape [B, 3, T, H, W], got {type(video)}")
         if video.ndim != 5:
             raise ValueError(f"`sample['video']` must be 5D [B, 3, T, H, W], got shape {tuple(video.shape)}")
         if video.shape[1] != 3:
@@ -345,9 +341,7 @@ class Wan22Core(torch.nn.Module):
         if input_image.ndim == 3:
             input_image = input_image.unsqueeze(0)
         if input_image.ndim != 4 or input_image.shape[0] != 1 or input_image.shape[1] != 3:
-            raise ValueError(
-                f"`input_image` must have shape [1,3,H,W] or [3,H,W], got {tuple(input_image.shape)}"
-            )
+            raise ValueError(f"`input_image` must have shape [1,3,H,W] or [3,H,W], got {tuple(input_image.shape)}")
         _, _, height, width = input_image.shape
         checked_h, checked_w, checked_t = self._check_resize_height_width(height, width, num_frames)
         if (checked_h, checked_w) != (height, width):

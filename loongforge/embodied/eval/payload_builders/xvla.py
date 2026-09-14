@@ -37,9 +37,7 @@ def quat_to_rot6d_interleaved(quat: np.ndarray) -> np.ndarray:
     return mat[:, :2].reshape(6).astype(np.float32)
 
 
-def build_ee6d_dual_proprio(
-    endpose: Dict[str, Any], last_env_action: Optional[np.ndarray] = None
-) -> np.ndarray:
+def build_ee6d_dual_proprio(endpose: Dict[str, Any], last_env_action: Optional[np.ndarray] = None) -> np.ndarray:
     """Build the 20D dual-arm proprio used by the official X-VLA RoboTwin client.
 
     Layout: [left pos(3) + quat->rot6d(6) + (1 - 2*gripper)(1),
@@ -178,9 +176,7 @@ def _encode_ee6d_widowx_initial(state_raw: Dict[str, Any], target_dim: int = 20)
 
         base_arr = np.asarray(base_pose, dtype=np.float64).reshape(-1)
         tcp_arr = np.asarray(tcp_pose, dtype=np.float64).reshape(-1)
-        ee_pose_wrt_base = (
-            Pose(p=base_arr[:3], q=base_arr[3:]).inv() * Pose(p=tcp_arr[:3], q=tcp_arr[3:])
-        )
+        ee_pose_wrt_base = Pose(p=base_arr[:3], q=base_arr[3:]).inv() * Pose(p=tcp_arr[:3], q=tcp_arr[3:])
         pos = np.asarray(ee_pose_wrt_base.p, dtype=np.float32)
     except Exception:
         return None
@@ -282,9 +278,7 @@ class XVLAPayloadBuilder(PayloadBuilder):
             return DEFAULT_DOMAIN_ID_MAP[benchmark_name]
         return None
 
-    def _initial_stateful_proprio(
-        self, canonical: Dict[str, Any], state_raw: Dict[str, Any]
-    ) -> Optional[np.ndarray]:
+    def _initial_stateful_proprio(self, canonical: Dict[str, Any], state_raw: Dict[str, Any]) -> Optional[np.ndarray]:
         """Build the first-step proprio for ``ee6d_widowx`` / ``ee6d_calvin``.
 
         ``ee6d_calvin`` reads ``state_raw['robot_obs']`` from the CALVIN

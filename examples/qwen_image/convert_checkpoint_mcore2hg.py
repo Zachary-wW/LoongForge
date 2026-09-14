@@ -77,7 +77,7 @@ def load_dcp(load_path, iteration=None):
 def mcore_key_to_hf(key):
     """Map a QwenImageModel key back to HuggingFace naming."""
     if key.startswith("decoder.layers."):
-        rest = key[len("decoder.layers."):]
+        rest = key[len("decoder.layers.") :]
         idx, _, tail = rest.partition(".")
         key = f"transformer_blocks.{idx}.{tail}"
     return key

@@ -30,6 +30,7 @@ ACTION_REGISTRY: Dict[str, Type["BaseActionSpace"]] = {}
 
 def register_action(name: str):
     """Decorator for registering a new action space."""
+
     def _wrap(cls):
         """
         Inner decorator that adds the class to ACTION_REGISTRY under the given name.
@@ -43,6 +44,7 @@ def register_action(name: str):
         ACTION_REGISTRY[key] = cls
         cls.name = key
         return cls
+
     return _wrap
 
 
@@ -139,10 +141,10 @@ class EE6DActionSpace(BaseActionSpace):
     # use plain slicing (much faster than tuple advanced-indexing; the latter
     # emits ``index_put_`` with accumulate on the backward, which forces
     # ``torch.compile`` to skip CUDA graphs).
-    POS_IDX_1 = (0, 3)     # was (0, 1, 2)
-    POS_IDX_2 = (10, 13)   # was (10, 11, 12)
-    ROT_IDX_1 = (3, 9)     # was (3, 4, 5, 6, 7, 8)
-    ROT_IDX_2 = (13, 19)   # was (13, 14, 15, 16, 17, 18)
+    POS_IDX_1 = (0, 3)  # was (0, 1, 2)
+    POS_IDX_2 = (10, 13)  # was (10, 11, 12)
+    ROT_IDX_1 = (3, 9)  # was (3, 4, 5, 6, 7, 8)
+    ROT_IDX_2 = (13, 19)  # was (13, 14, 15, 16, 17, 18)
 
     def __init__(self):
         """Initialize EE6DActionSpace with MSE loss (position/rotation) and BCE loss (gripper)."""
@@ -176,22 +178,24 @@ class EE6DActionSpace(BaseActionSpace):
             # Fast path: original semantics.
             g0, g1 = self.gripper_idx
             gripper_loss = (
-                self.bce(pred[..., g0:g0 + 1], target[..., g0:g0 + 1])
-                + self.bce(pred[..., g1:g1 + 1], target[..., g1:g1 + 1])
-            ) / 2 * self.GRIPPER_SCALE
+                (
+                    self.bce(pred[..., g0 : g0 + 1], target[..., g0 : g0 + 1])
+                    + self.bce(pred[..., g1 : g1 + 1], target[..., g1 : g1 + 1])
+                )
+                / 2
+                * self.GRIPPER_SCALE
+            )
 
             p1s, p1e = self.POS_IDX_1
             p2s, p2e = self.POS_IDX_2
             pos_loss = (
-                self.mse(pred[..., p1s:p1e], target[..., p1s:p1e])
-                + self.mse(pred[..., p2s:p2e], target[..., p2s:p2e])
+                self.mse(pred[..., p1s:p1e], target[..., p1s:p1e]) + self.mse(pred[..., p2s:p2e], target[..., p2s:p2e])
             ) * self.XYZ_SCALE
 
             r1s, r1e = self.ROT_IDX_1
             r2s, r2e = self.ROT_IDX_2
             rot_loss = (
-                self.mse(pred[..., r1s:r1e], target[..., r1s:r1e])
-                + self.mse(pred[..., r2s:r2e], target[..., r2s:r2e])
+                self.mse(pred[..., r1s:r1e], target[..., r1s:r1e]) + self.mse(pred[..., r2s:r2e], target[..., r2s:r2e])
             ) * self.ROT_SCALE
 
             return {
@@ -227,9 +231,13 @@ class EE6DActionSpace(BaseActionSpace):
 
         g0, g1 = self.gripper_idx
         gripper_loss = (
-            _masked_bce(pred[..., g0:g0 + 1], target[..., g0:g0 + 1])
-            + _masked_bce(pred[..., g1:g1 + 1], target[..., g1:g1 + 1])
-        ) / 2 * self.GRIPPER_SCALE
+            (
+                _masked_bce(pred[..., g0 : g0 + 1], target[..., g0 : g0 + 1])
+                + _masked_bce(pred[..., g1 : g1 + 1], target[..., g1 : g1 + 1])
+            )
+            / 2
+            * self.GRIPPER_SCALE
+        )
 
         p1s, p1e = self.POS_IDX_1
         p2s, p2e = self.POS_IDX_2
@@ -348,12 +356,12 @@ class AGIBOTEE6DActionSpace(BaseActionSpace):
 
         gripper_loss = self.mse(pred[:, :, self.gripper_idx], target[:, :, self.gripper_idx]) * self.GRIPPER_SCALE
         pos_loss = (
-            self.mse(pred[:, :, self.POS_IDX_1], target[:, :, self.POS_IDX_1]) +
-            self.mse(pred[:, :, self.POS_IDX_2], target[:, :, self.POS_IDX_2])
+            self.mse(pred[:, :, self.POS_IDX_1], target[:, :, self.POS_IDX_1])
+            + self.mse(pred[:, :, self.POS_IDX_2], target[:, :, self.POS_IDX_2])
         ) * self.XYZ_SCALE
         rot_loss = (
-            self.mse(pred[:, :, self.ROT_IDX_1], target[:, :, self.ROT_IDX_1]) +
-            self.mse(pred[:, :, self.ROT_IDX_2], target[:, :, self.ROT_IDX_2])
+            self.mse(pred[:, :, self.ROT_IDX_1], target[:, :, self.ROT_IDX_1])
+            + self.mse(pred[:, :, self.ROT_IDX_2], target[:, :, self.ROT_IDX_2])
         ) * self.ROT_SCALE
 
         return {
@@ -369,9 +377,6 @@ class AGIBOTEE6DActionSpace(BaseActionSpace):
     def postprocess(self, action: torch.Tensor) -> torch.Tensor:
         """AGIBOT does not postprocess."""
         return action
-
-
-
 
 
 @register_action("auto")
@@ -461,7 +466,6 @@ class AutoActionSpace(BaseActionSpace):
         Trim model output from max_dim to real_dim for real robot control.
         """
         return self._trim_to_real_dim(action)
-
 
 
 # =============================================================================

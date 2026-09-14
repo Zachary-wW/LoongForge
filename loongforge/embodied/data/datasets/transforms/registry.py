@@ -33,6 +33,7 @@ _DISCOVERED_TRANSFORM_BUILDERS = False
 
 def register_transform_builder(model_type: str):
     """Decorator to register a model-specific per-sample transform builder."""
+
     def decorator(builder: TransformBuilder) -> TransformBuilder:
         _TRANSFORM_BUILDER_REGISTRY[model_type] = builder
         return builder

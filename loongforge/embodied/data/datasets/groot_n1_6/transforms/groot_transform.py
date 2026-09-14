@@ -234,15 +234,10 @@ class GrootN1d6FeatureTransform(BaseTransform):
         dataset_stats_local = dict(dataset_stats or {})
         if self.embodiment_tag in EMBODIMENT_STAT_CONFIGS:
             action_cfg = EMBODIMENT_STAT_CONFIGS[self.embodiment_tag]["modality_config"]["action"]
-            needs_relative_stats = any(
-                cfg.rep.value == "relative"
-                for cfg in (action_cfg.action_configs or [])
-            )
+            needs_relative_stats = any(cfg.rep.value == "relative" for cfg in (action_cfg.action_configs or []))
             if needs_relative_stats and "relative_action" not in dataset_stats_local:
                 if dataset is None:
-                    raise ValueError(
-                        "Missing 'relative_action' stats for GR00T preprocessing and dataset is None"
-                    )
+                    raise ValueError("Missing 'relative_action' stats for GR00T preprocessing and dataset is None")
                 dataset_stats_local["relative_action"] = compute_relative_action_stats(
                     dataset,
                     self.embodiment_tag,
@@ -301,7 +296,7 @@ class GrootN1d6FeatureTransform(BaseTransform):
                 dim=-1,
             )
         elif state_dim > self.max_state_dim:
-            state = state[..., :self.max_state_dim]
+            state = state[..., : self.max_state_dim]
         return state.to(torch.get_default_dtype()).numpy()
 
     def _pack_action(
@@ -481,9 +476,7 @@ def build_groot_n1_6_transforms(ctx: TransformBuilderContext):
     """Build GR00T-N1.6-specific per-sample transforms."""
     preprocess_mode = ctx.data_cfg.groot_preprocess_mode
     if preprocess_mode != "sample":
-        raise ValueError(
-            f"Unsupported GR00T-N1.6 preprocess mode for per-sample transforms: {preprocess_mode!r}"
-        )
+        raise ValueError(f"Unsupported GR00T-N1.6 preprocess mode for per-sample transforms: {preprocess_mode!r}")
 
     return [
         GrootPromptTransform(),

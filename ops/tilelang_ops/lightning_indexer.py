@@ -10,9 +10,9 @@ import tilelang.language as T
 
 # ==================== baseline ====================
 def fp8_index_baseline(
-    q: torch.Tensor, 
+    q: torch.Tensor,
     q_s: torch.Tensor,
-    k: torch.Tensor, 
+    k: torch.Tensor,
     k_s: torch.Tensor,
 ) -> torch.Tensor:
     """
@@ -21,14 +21,14 @@ def fp8_index_baseline(
     b, m, h, d = q.shape
     n = k.shape[1]
 
-    logits = torch.einsum('bmhd,bnd->bmhn', q, k)
+    logits = torch.einsum("bmhd,bnd->bmhn", q, k)
     relu_logits = torch.relu(logits)
-    scaled_logits = relu_logits * q_s.unsqueeze(-1)     # [B, Seq_q, H, Seq_k] 
-    logits_sum = scaled_logits.sum(dim=2)               # [B, Seq_q, Seq_k] 
-    index_score = logits_sum * k_s.unsqueeze(1)         # [B, Seq_q, Seq_k] 
+    scaled_logits = relu_logits * q_s.unsqueeze(-1)  # [B, Seq_q, H, Seq_k]
+    logits_sum = scaled_logits.sum(dim=2)  # [B, Seq_q, Seq_k]
+    index_score = logits_sum * k_s.unsqueeze(1)  # [B, Seq_q, Seq_k]
 
     cache = (q, k, logits, relu_logits, scaled_logits, logits_sum)
-    
+
     return index_score, cache
 
 
@@ -38,11 +38,11 @@ def fp8_index_baseline_backward(d_output, q, q_s, k, k_s, output, cache=None):
     """
     b, m, h, d = q.shape
     n = k.shape[1]
-    
+
     if cache is None:
         q_fp32 = q.float()
         k_fp32 = k.float()
-        logits = torch.einsum('bmhd,bnd->bmhn', q_fp32, k_fp32)
+        logits = torch.einsum("bmhd,bnd->bmhn", q_fp32, k_fp32)
         relu_logits = torch.relu(logits)
         scaled_logits = relu_logits * q_s.unsqueeze(-1)
         logits_sum = scaled_logits.sum(dim=2)
@@ -59,9 +59,9 @@ def fp8_index_baseline_backward(d_output, q, q_s, k, k_s, output, cache=None):
 
     d_logits = d_relu_logits * (logits > 0).float()  # (b, m, h, n)
 
-    d_q = torch.einsum('bmhn,bnd->bmhd', d_logits.float(), k_fp32)  # (b, m, h, d)
-    d_k = torch.einsum('bmhn,bmhd->bnd', d_logits.float(), q_fp32)  # (b, n, d)
-    
+    d_q = torch.einsum("bmhn,bnd->bmhd", d_logits.float(), k_fp32)  # (b, m, h, d)
+    d_k = torch.einsum("bmhn,bmhd->bnd", d_logits.float(), q_fp32)  # (b, n, d)
+
     return d_q, d_q_s, d_k, d_k_s
 
 
@@ -215,9 +215,9 @@ def fp8_index_q_backward_kernel(h: int, d: int):
 
                 logits = T.alloc_fragment((h, blk_n1), FP32)
                 T.gemm(
-                    q_smem,   # (h, d)
-                    k_smem,   # (blk_n1, d)
-                    logits,   # (h, blk_n1)
+                    q_smem,  # (h, d)
+                    k_smem,  # (blk_n1, d)
+                    logits,  # (h, blk_n1)
                     transpose_A=False,
                     transpose_B=True,
                     clear_accum=True,
@@ -240,18 +240,18 @@ def fp8_index_q_backward_kernel(h: int, d: int):
                 T.copy(k_smem, k_smem_fp32)
 
                 T.gemm(
-                    d_logits,         # (h, blk_n1)
-                    k_smem_fp32,      # (blk_n1, d)
-                    d_q_accum,        # (h, d)
+                    d_logits,  # (h, blk_n1)
+                    k_smem_fp32,  # (blk_n1, d)
+                    d_q_accum,  # (h, d)
                     transpose_A=False,
                     transpose_B=False,
-                    clear_accum=False
+                    clear_accum=False,
                 )
 
             T.reduce_sum(d_q_s_frag, d_q_s_accum, dim=1)
             T.copy(d_q_s_accum, d_q_s[i_b, i_m, 0])
             T.copy(d_q_accum, d_q[i_b, i_m, 0, 0])
-    
+
     return fp8_index_q_backward_kernel_
 
 
@@ -277,7 +277,7 @@ def fp8_index_k_backward_kernel(h: int, d: int):
     ) -> None:
         with T.Kernel(b, T.ceildiv(m, blk_m), T.ceildiv(n, blk_n), threads=256) as (i_b, i_m1, i_n1):
             i_n_offset = i_n1 * blk_n
-            
+
             k_smem = T.alloc_shared((blk_n, d), FP8)
             k_s_frag = T.alloc_fragment(blk_n, FP32)
             T.copy(k[i_b, i_n_offset, 0], k_smem)
@@ -301,9 +301,9 @@ def fp8_index_k_backward_kernel(h: int, d: int):
 
                 logits = T.alloc_fragment((blk_n, h), FP32)
                 T.gemm(
-                    k_smem,   # (blk_n, d)
-                    q_smem,   # (h, d)
-                    logits,   # (blk_n, h)
+                    k_smem,  # (blk_n, d)
+                    q_smem,  # (h, d)
+                    logits,  # (blk_n, h)
                     transpose_A=False,
                     transpose_B=True,
                     clear_accum=True,
@@ -331,9 +331,9 @@ def fp8_index_k_backward_kernel(h: int, d: int):
                 q_smem_fp32 = T.alloc_shared((h, d), FP32)
                 T.copy(q_smem, q_smem_fp32)
                 T.gemm(
-                    d_logits,        # (blk_n, h)
-                    q_smem_fp32,     # (h, d)
-                    d_k_frag,        # (blk_n, d)
+                    d_logits,  # (blk_n, h)
+                    q_smem_fp32,  # (h, d)
+                    d_k_frag,  # (blk_n, d)
                     transpose_A=False,
                     transpose_B=False,
                     clear_accum=False,
@@ -343,7 +343,7 @@ def fp8_index_k_backward_kernel(h: int, d: int):
                 T.atomic_add(d_k_s[i_b, i_n_offset + i_n2], d_k_s_accum[i_n2])
             for i_n2, i_d in T.Parallel(blk_n, d):
                 T.atomic_add(d_k[i_b, i_n_offset + i_n2, i_d], d_k_frag[i_n2, i_d])
-    
+
     return fp8_index_k_backward_kernel_
 
 
@@ -436,19 +436,14 @@ def bf16_index_kernel(h: int, d: int):
     return bf16_index_kernel_
 
 
-def bf16_index(
-    q: torch.Tensor,
-    weights: torch.Tensor,
-    k: torch.Tensor,
-    softmax_scale: float = 0.0
-) -> torch.Tensor:
+def bf16_index(q: torch.Tensor, weights: torch.Tensor, k: torch.Tensor, softmax_scale: float = 0.0) -> torch.Tensor:
     """
     Perform index score using BF16 precision.
     """
     q = q.contiguous().view(q.shape)
     k = k.contiguous().view(k.shape)
     weights = weights.contiguous().view(weights.shape)
-    
+
     return bf16_index_kernel(q.shape[2], q.shape[3])(q, weights, k, softmax_scale)
 
 
@@ -475,7 +470,7 @@ def bf16_index_backward_kernel(h: int, d: int):
     ) -> None:
         with T.Kernel(b, T.ceildiv(m, blk_m), T.ceildiv(n, blk_n), threads=256) as (i_b, i_m1, i_n1):
             i_n_offset = i_n1 * blk_n
-            
+
             k_smem = T.alloc_shared((blk_n, d), BF16)
             T.copy(k[i_b, i_n_offset, 0], k_smem)
 
@@ -495,9 +490,9 @@ def bf16_index_backward_kernel(h: int, d: int):
 
                 logits = T.alloc_fragment((blk_n, h), FP32)
                 T.gemm(
-                    k_smem,   # (blk_n, d)
-                    q_smem,   # (h, d)
-                    logits,   # (blk_n, h)
+                    k_smem,  # (blk_n, d)
+                    q_smem,  # (h, d)
+                    logits,  # (blk_n, h)
                     transpose_A=False,
                     transpose_B=True,
                     clear_accum=True,
@@ -507,14 +502,10 @@ def bf16_index_backward_kernel(h: int, d: int):
                 d_weights_frag = T.alloc_fragment((h, blk_n), FP32)
                 for i_n2, i_h in T.Parallel(blk_n, h):
                     d_logits[i_n2, i_h] = T.if_then_else(
-                        logits[i_n2, i_h] > 0,
-                        d_output_frag[i_n2] * weights_frag[i_h] * softmax_scale,
-                        0
+                        logits[i_n2, i_h] > 0, d_output_frag[i_n2] * weights_frag[i_h] * softmax_scale, 0
                     )
                     d_weights_frag[i_h, i_n2] = T.if_then_else(
-                        logits[i_n2, i_h] >= 0,
-                        d_output_frag[i_n2] * logits[i_n2, i_h] * softmax_scale,
-                        0
+                        logits[i_n2, i_h] >= 0, d_output_frag[i_n2] * logits[i_n2, i_h] * softmax_scale, 0
                     )
 
                 d_weights_accum = T.alloc_fragment(h, FP32)
@@ -523,9 +514,9 @@ def bf16_index_backward_kernel(h: int, d: int):
                     T.atomic_add(d_weights[i_m, i_b, i_h], d_weights_accum[i_h])
 
                 T.gemm(
-                    d_logits,   # (blk_n, h)
-                    q_smem,     # (h, d)
-                    d_k_frag,   # (blk_n, d)
+                    d_logits,  # (blk_n, h)
+                    q_smem,  # (h, d)
+                    d_k_frag,  # (blk_n, d)
                     transpose_A=False,
                     transpose_B=False,
                     clear_accum=False,
@@ -533,9 +524,9 @@ def bf16_index_backward_kernel(h: int, d: int):
 
                 d_q_frag = T.alloc_fragment((h, d), FP32)
                 T.gemm(
-                    d_logits,   # (blk_n, h)
-                    k_smem,     # (blk_n, d)
-                    d_q_frag,   # (h, d)
+                    d_logits,  # (blk_n, h)
+                    k_smem,  # (blk_n, d)
+                    d_q_frag,  # (h, d)
                     transpose_A=True,
                     transpose_B=False,
                     clear_accum=True,
@@ -545,7 +536,7 @@ def bf16_index_backward_kernel(h: int, d: int):
 
             for i_n2, i_d in T.Parallel(blk_n, d):
                 T.atomic_add(d_k[i_b, i_n_offset + i_n2, i_d], d_k_frag[i_n2, i_d])
-    
+
     return bf16_index_backward_kernel_
 
 
@@ -622,12 +613,8 @@ class BF16IndexerFunction(torch.autograd.Function):
         """
         Tilelang BF16Indexer forward.
         """
-        assert q.shape[-1] == 128, (
-            f"Last dimension size of q must be 128, but got {q.shape[-1]}."
-        )
-        assert k.shape[-1] == 128, (
-            f"Last dimension size of k must be 128, but got {k.shape[-1]}."
-        )
+        assert q.shape[-1] == 128, f"Last dimension size of q must be 128, but got {q.shape[-1]}."
+        assert k.shape[-1] == 128, f"Last dimension size of k must be 128, but got {k.shape[-1]}."
 
         softmax_scale = q.shape[-1] ** -0.5
         ctx.save_for_backward(q, k, weights)
@@ -636,7 +623,7 @@ class BF16IndexerFunction(torch.autograd.Function):
         index_score = bf16_index(q, weights, k, softmax_scale)
         index_score = index_score.requires_grad_(True)
         return index_score
-    
+
     @staticmethod
     def backward(ctx, d_output):
         """TileLang BF16 indexer backward."""
@@ -698,7 +685,7 @@ class BF16IndexerBaseline(torch.nn.Module):
 
     def __init__(self):
         super().__init__()
-        
+
     def forward(self, q, k, weights):
         """
         Baseline BF16Indexer forward.
@@ -711,18 +698,14 @@ class BF16IndexerBaseline(torch.nn.Module):
         Returns:
             index_score: Computed index score.
         """
-        assert q.shape[-1] == 128, (
-            f"Last dimension size of q must be 128, but got {q.shape[-1]}."
-        )
-        assert k.shape[-1] == 128, (
-            f"Last dimension size of k must be 128, but got {k.shape[-1]}."
-        )
+        assert q.shape[-1] == 128, f"Last dimension size of q must be 128, but got {q.shape[-1]}."
+        assert k.shape[-1] == 128, f"Last dimension size of k must be 128, but got {k.shape[-1]}."
 
         softmax_scale = q.shape[-1] ** -0.5
         weights_transposed = torch.transpose(weights, 0, 1).contiguous()
         q_s = weights_transposed * softmax_scale
 
-        logits = torch.einsum('bmhd,bnd->bmhn', q, k)  # (B, M, H, N)
+        logits = torch.einsum("bmhd,bnd->bmhn", q, k)  # (B, M, H, N)
         logits = logits.float()
         relu_logits = torch.relu(logits)
         scaled_logits = relu_logits * q_s.unsqueeze(-1)
@@ -760,11 +743,8 @@ def prepare_test_data(args: TestArgs, batch_size: int, seq_len: int, kv_seq_len:
     q_bf16 = torch.randn(batch_size, seq_len, num_heads, head_dim, device="cuda", dtype=torch.bfloat16)
     k_bf16 = torch.randn(batch_size, kv_seq_len, head_dim, device="cuda", dtype=torch.bfloat16)
 
-    softmax_scale = head_dim ** -0.5
-    weights_raw = (
-        torch.randn(seq_len, batch_size, num_heads, device="cuda", dtype=torch.float32)
-        * softmax_scale
-    )
+    softmax_scale = head_dim**-0.5
+    weights_raw = torch.randn(seq_len, batch_size, num_heads, device="cuda", dtype=torch.float32) * softmax_scale
 
     q_fp8 = q_bf16.to(torch.float8_e4m3fn)
     k_fp8, k_scale_inv = quantize_rowwise_to_fp8(k_bf16)
@@ -773,10 +753,7 @@ def prepare_test_data(args: TestArgs, batch_size: int, seq_len: int, kv_seq_len:
     return q_bf16, k_bf16, weights_raw, q_fp8, q_s, k_fp8, k_scale_inv
 
 
-def performance_test(
-    fn: callable,
-    msg: str
-):
+def performance_test(fn: callable, msg: str):
     """Performance test for fp8 indexer interfaces."""
     with torch.profiler.profile(activities=[torch.profiler.ProfilerActivity.CUDA]) as prof:
         fn()
@@ -784,11 +761,7 @@ def performance_test(
 
 
 def forward_accuracy_test(
-    args: TestArgs,
-    batch_size: int = 1,
-    seq_len: int = 1024,
-    kv_seq_len: int = 2048,
-    relative_tolerance: float = 1e-4
+    args: TestArgs, batch_size: int = 1, seq_len: int = 1024, kv_seq_len: int = 2048, relative_tolerance: float = 1e-4
 ):
     """Use relative error to verify forward correctness."""
     _, _, _, q_fp8, q_s, k_fp8, k_s = prepare_test_data(args, batch_size, seq_len, kv_seq_len)
@@ -841,9 +814,7 @@ def backward_accuracy_test(
     kv_seq_len: int = 2048,
 ):
     """Verify backward correctness against the FP8 reference implementation."""
-    _, _, weights_raw, q_fp8, q_s, k_fp8, k_s = prepare_test_data(
-        args, batch_size, seq_len, kv_seq_len
-    )
+    _, _, weights_raw, q_fp8, q_s, k_fp8, k_s = prepare_test_data(args, batch_size, seq_len, kv_seq_len)
     d_output = torch.ones(batch_size, seq_len, kv_seq_len, device="cuda", dtype=torch.float32)
 
     ref_d_q, ref_d_q_s, ref_d_k, ref_d_k_s = ref_fp8_indexer_bwd(d_output, q_fp8, q_s, k_fp8, k_s)
@@ -852,10 +823,7 @@ def backward_accuracy_test(
     def print_diff(a, b, msg):
         abs_diff = torch.abs(a - b)
         rel_diff = abs_diff / (torch.abs(b) + 1e-8)
-        print(
-            f"  {msg} max diff: {abs_diff.max().item():.4f}, "
-            f"rel diff: {rel_diff.mean().item() * 100:.4f}%"
-        )
+        print(f"  {msg} max diff: {abs_diff.max().item():.4f}, rel diff: {rel_diff.mean().item() * 100:.4f}%")
 
     print("Backward Accuracy Test:")
     print_diff(tl_d_q, ref_d_q, "d_q")
@@ -882,6 +850,7 @@ def backward_performance_test(
 
     def ref_indexer_benchmark():
         return ref_fp8_indexer_bwd(d_output, q_fp8, q_s, k_fp8, k_s)
+
     performance_test(tilelang_indexer_benchmark, "tilelang backward kernel")
     performance_test(ref_indexer_benchmark, "reference backward kernel")
 
@@ -892,4 +861,3 @@ if __name__ == "__main__":
     forward_performance_test(args)
     backward_accuracy_test(args)
     backward_performance_test(args)
-

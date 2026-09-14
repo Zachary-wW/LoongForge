@@ -113,6 +113,7 @@ class _BlockShardSampler(Sampler[int]):
 
 def register_sampler_builder(model_type: str):
     """Decorator to register a model-specific sampler builder."""
+
     def decorator(builder: SamplerBuilder) -> SamplerBuilder:
         _SAMPLER_BUILDER_REGISTRY[model_type] = builder
         return builder

@@ -96,6 +96,7 @@ def load_video_frames(
         scale = max(width / w, height / h)
         nw, nh = round(w * scale), round(h * scale)
         import torchvision.transforms.functional as TF
+
         img = TF.resize(img, (nh, nw), interpolation=TF.InterpolationMode.BILINEAR)
         return TF.center_crop(img, (height, width))
 
@@ -155,9 +156,9 @@ def preprocess(
 
     # VAE encode video -> input_latents [1, C_z, T_l, H//8, W//8]
     pipe.load_models_to_device(["vae"])
-    input_latents = pipe.vae.encode(
-        preprocess_video(frames, device, torch_dtype), device=device, tiled=False
-    ).to(dtype=torch_dtype, device=device)
+    input_latents = pipe.vae.encode(preprocess_video(frames, device, torch_dtype), device=device, tiled=False).to(
+        dtype=torch_dtype, device=device
+    )
 
     # CLIP image encoding for Wan2.1 I2V.
     clip_feature = None
@@ -173,21 +174,24 @@ def preprocess(
     # Expand the first-frame mask slot by the VAE temporal downsampling factor (4).
     msk = torch.cat([torch.repeat_interleave(msk[:, 0:1], repeats=4, dim=1), msk[:, 1:]], dim=1)
     msk = msk.view(1, msk.shape[1] // 4, 4, height // 8, width // 8).transpose(1, 2)[0]
-    vae_input = torch.cat([
-        image.squeeze(0).unsqueeze(1),  # [C, 1, H, W]
-        torch.zeros(3, num_frames - 1, height, width, device=device, dtype=torch_dtype),
-    ], dim=1)
+    vae_input = torch.cat(
+        [
+            image.squeeze(0).unsqueeze(1),  # [C, 1, H, W]
+            torch.zeros(3, num_frames - 1, height, width, device=device, dtype=torch_dtype),
+        ],
+        dim=1,
+    )
     y = pipe.vae.encode([vae_input], device=device, tiled=False)[0].to(dtype=torch_dtype, device=device)
     y = torch.cat([msk, y]).unsqueeze(0)  # [1, C_z+4, T_l, H//8, W//8]
 
     return {
-        "context":               context.cpu(),
-        "input_latents":         input_latents.cpu(),
-        "clip_feature":          clip_feature.cpu() if clip_feature is not None else None,
-        "y":                     y.cpu(),
-        "height":                height,
-        "width":                 width,
-        "num_frames":            num_frames,
+        "context": context.cpu(),
+        "input_latents": input_latents.cpu(),
+        "clip_feature": clip_feature.cpu() if clip_feature is not None else None,
+        "y": y.cpu(),
+        "height": height,
+        "width": width,
+        "num_frames": num_frames,
         "max_timestep_boundary": max_timestep_boundary,
         "min_timestep_boundary": min_timestep_boundary,
     }
@@ -198,22 +202,24 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description="Wan2.2-I2V offline preprocessing: encode dataset samples into .pth cache files."
     )
-    p.add_argument("--dataset_base_path",     type=str, required=True)
-    p.add_argument("--dataset_metadata_path", type=str, default=None,
-                   help="Path to metadata file (.csv / .json / .jsonl).")
-    p.add_argument("--height",     type=int, default=480)
-    p.add_argument("--width",      type=int, default=832)
+    p.add_argument("--dataset_base_path", type=str, required=True)
+    p.add_argument(
+        "--dataset_metadata_path", type=str, default=None, help="Path to metadata file (.csv / .json / .jsonl)."
+    )
+    p.add_argument("--height", type=int, default=480)
+    p.add_argument("--width", type=int, default=832)
     p.add_argument("--num_frames", type=int, default=49)
     p.add_argument("--max_pixels", type=int, default=1280 * 720)
-    p.add_argument("--model_paths", type=str, required=True,
-                   help="Comma-separated local paths to T5 and VAE weight files.")
-    p.add_argument("--tokenizer_local_path", type=str, required=True,
-                   help="Local directory of the UMT5 tokenizer.")
-    p.add_argument("--output_path", type=str, required=True,
-                   help="Output root; per-process subdirs are created automatically.")
+    p.add_argument(
+        "--model_paths", type=str, required=True, help="Comma-separated local paths to T5 and VAE weight files."
+    )
+    p.add_argument("--tokenizer_local_path", type=str, required=True, help="Local directory of the UMT5 tokenizer.")
+    p.add_argument(
+        "--output_path", type=str, required=True, help="Output root; per-process subdirs are created automatically."
+    )
     p.add_argument("--max_timestep_boundary", type=float, default=1.0)
     p.add_argument("--min_timestep_boundary", type=float, default=0.0)
-    p.add_argument("--dataset_num_workers",   type=int,   default=0)
+    p.add_argument("--dataset_num_workers", type=int, default=0)
     return p
 
 
@@ -238,11 +244,10 @@ def main():
     for param in pipe.parameters() if hasattr(pipe, "parameters") else []:
         param.requires_grad_(False)
 
-    assert args.dataset_metadata_path is not None, \
-        "--dataset_metadata_path is required."
+    assert args.dataset_metadata_path is not None, "--dataset_metadata_path is required."
     metadata = load_metadata(args.dataset_metadata_path)
 
-    proc_idx  = accelerator.process_index
+    proc_idx = accelerator.process_index
     num_procs = accelerator.num_processes
     local_ids = list(range(proc_idx, len(metadata), num_procs))
 
@@ -256,12 +261,15 @@ def main():
 
         row = metadata[data_id]
         video_file = os.path.join(args.dataset_base_path, row["video"])
-        prompt     = str(row.get("prompt", ""))
+        prompt = str(row.get("prompt", ""))
 
         try:
             frames = load_video_frames(video_file, args.height, args.width, args.num_frames)
             result = preprocess(
-                frames=frames, prompt=prompt, pipe=pipe, torch_dtype=torch_dtype,
+                frames=frames,
+                prompt=prompt,
+                pipe=pipe,
+                torch_dtype=torch_dtype,
                 max_timestep_boundary=args.max_timestep_boundary,
                 min_timestep_boundary=args.min_timestep_boundary,
             )

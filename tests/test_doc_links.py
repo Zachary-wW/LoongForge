@@ -35,10 +35,7 @@ def test_ignores_external_urls_and_bare_output_paths():
 
 
 def test_placeholders_are_marked_for_main_to_skip():
-    found = _references(
-        "[run](../../examples/<model>/run.sh) and "
-        "[config](../../configs/{name}.yaml)"
-    )
+    found = _references("[run](../../examples/<model>/run.sh) and [config](../../configs/{name}.yaml)")
     assert found
     assert all(PLACEHOLDER.search(raw) for raw, _ in found)
 
@@ -60,8 +57,16 @@ def test_changed_markdown_files_uses_git_revision(tmp_path):
     subprocess.run(["git", "-C", str(tmp_path), "add", "README.md"], check=True)
     subprocess.run(
         [
-            "git", "-C", str(tmp_path), "-c", "user.name=Test",
-            "-c", "user.email=test@example.invalid", "commit", "-qm", "initial",
+            "git",
+            "-C",
+            str(tmp_path),
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-qm",
+            "initial",
         ],
         check=True,
     )
@@ -69,8 +74,16 @@ def test_changed_markdown_files_uses_git_revision(tmp_path):
     subprocess.run(["git", "-C", str(tmp_path), "add", "README.md"], check=True)
     subprocess.run(
         [
-            "git", "-C", str(tmp_path), "-c", "user.name=Test",
-            "-c", "user.email=test@example.invalid", "commit", "-qm", "changed",
+            "git",
+            "-C",
+            str(tmp_path),
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-qm",
+            "changed",
         ],
         check=True,
     )

@@ -27,6 +27,7 @@ from transformers import AutoTokenizer
 try:
     import ftfy
 except ModuleNotFoundError:
+
     class _FTFY(object):
         """Fallback text fixer used when ftfy is not installed."""
 
@@ -217,9 +218,12 @@ class T5RelativeEmbedding(nn.Module):
             rel_pos = -torch.min(rel_pos, torch.zeros_like(rel_pos))
 
         max_exact = num_buckets // 2
-        rel_pos_large = max_exact + (
-            torch.log(rel_pos.float() / max_exact) / math.log(self.max_dist / max_exact) * (num_buckets - max_exact)
-        ).long()
+        rel_pos_large = (
+            max_exact
+            + (
+                torch.log(rel_pos.float() / max_exact) / math.log(self.max_dist / max_exact) * (num_buckets - max_exact)
+            ).long()
+        )
         rel_pos_large = torch.min(rel_pos_large, torch.full_like(rel_pos_large, num_buckets - 1))
         rel_buckets += torch.where(rel_pos < max_exact, rel_pos, rel_pos_large)
         return rel_buckets
@@ -230,13 +234,13 @@ def init_weights(m):
     if isinstance(m, T5LayerNorm):
         nn.init.ones_(m.weight)
     elif isinstance(m, T5FeedForward):
-        nn.init.normal_(m.gate[0].weight, std=m.dim ** -0.5)
-        nn.init.normal_(m.fc1.weight, std=m.dim ** -0.5)
-        nn.init.normal_(m.fc2.weight, std=m.dim_ffn ** -0.5)
+        nn.init.normal_(m.gate[0].weight, std=m.dim**-0.5)
+        nn.init.normal_(m.fc1.weight, std=m.dim**-0.5)
+        nn.init.normal_(m.fc2.weight, std=m.dim_ffn**-0.5)
     elif isinstance(m, T5Attention):
         nn.init.normal_(m.q.weight, std=(m.dim * m.dim_attn) ** -0.5)
-        nn.init.normal_(m.k.weight, std=m.dim ** -0.5)
-        nn.init.normal_(m.v.weight, std=m.dim ** -0.5)
+        nn.init.normal_(m.k.weight, std=m.dim**-0.5)
+        nn.init.normal_(m.v.weight, std=m.dim**-0.5)
         nn.init.normal_(m.o.weight, std=(m.num_heads * m.dim_attn) ** -0.5)
     elif isinstance(m, T5RelativeEmbedding):
         nn.init.normal_(m.embedding.weight, std=(2 * m.num_buckets * m.num_heads) ** -0.5)

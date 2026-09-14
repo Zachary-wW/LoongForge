@@ -10,10 +10,12 @@ import time
 from typing import Dict, List, Tuple, Optional
 
 # Regex to strip ANSI codes
-ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+
 
 def strip_ansi(text: str) -> str:
-    return ansi_escape.sub('', text)
+    return ansi_escape.sub("", text)
+
 
 # Flexible patterns for individual fields
 patterns = {
@@ -23,39 +25,39 @@ patterns = {
     "lm_loss": re.compile(r"lm loss:\s*([\d\.E\+\-]+)"),
     "grad_norm": re.compile(r"grad norm:\s*([\d\.E\+\-]+)"),
     "mem_allocated_avg_MB": re.compile(r"mem-allocated-bytes-avg\(MB\):\s*([\d\.]+)"),
-    "mem_max_allocated_avg_MB": re.compile(r"mem-max-allocated-bytes-avg\(MB\):\s*([\d\.]+)")
+    "mem_max_allocated_avg_MB": re.compile(r"mem-max-allocated-bytes-avg\(MB\):\s*([\d\.]+)"),
 }
 
 phase_pattern = re.compile(r"training_phase\s*\.*\s*(\w+)")
 
+
 def _process_buffer(text: str) -> Optional[Dict[str, float]]:
     if not text:
         return None
-    
+
     text_clean = strip_ansi(text).replace("\n", " ").replace("\r", " ")
-    
+
     iter_match = patterns["iteration"].search(text_clean)
     if not iter_match:
         return None
 
     try:
-        data = {
-            "iteration": int(iter_match.group(1))
-        }
-        
+        data = {"iteration": int(iter_match.group(1))}
+
         for key, pattern in patterns.items():
             if key == "iteration":
                 continue
             m = pattern.search(text_clean)
             if m:
                 data[key] = float(m.group(1))
-        
+
         if "elapsed_time_ms" in data or "lm_loss" in data:
             return data
     except ValueError:
         return None
-        
+
     return None
+
 
 def parse_log_file(log_path: str) -> Tuple[str, List[Dict[str, float]]]:
     phase = "unknown"
@@ -86,10 +88,12 @@ def parse_log_file(log_path: str) -> Tuple[str, List[Dict[str, float]]]:
 
     return phase, results
 
+
 def write_json(output_path: str, phase: str, records: List[Dict[str, float]]) -> None:
     final = {phase: records}
     with open(output_path, "w") as f:
         json.dump(final, f, indent=2)
+
 
 def main() -> int:
     log_path = ""
@@ -120,6 +124,7 @@ def main() -> int:
         return 1
 
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

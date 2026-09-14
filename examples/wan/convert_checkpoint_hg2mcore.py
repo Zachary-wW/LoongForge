@@ -11,12 +11,8 @@ from pathlib import Path
 
 
 parser = argparse.ArgumentParser(description="Process some checkpoints.")
-parser.add_argument(
-    "--model_name", type=str, required=True, help="Supported model name: [wan2_2_i2v]"
-)
-parser.add_argument(
-    "--save_path", type=str, required=True, help="Path to save checkpoints to"
-)
+parser.add_argument("--model_name", type=str, required=True, help="Supported model name: [wan2_2_i2v]")
+parser.add_argument("--save_path", type=str, required=True, help="Path to save checkpoints to")
 parser.add_argument(
     "--checkpoint_path",
     type=str,
@@ -130,7 +126,7 @@ extra_first_part_dict = {
         "img_emb.proj.4.weight",
         "img_emb.proj.4.bias",
     ],
-    "wan2_2_i2v": []
+    "wan2_2_i2v": [],
 }
 first_part_list = base_first_part_list + extra_first_part_dict.get(model_name, [])
 # All weight correspondence for second part
@@ -220,13 +216,9 @@ for i in range(num_layers):
 
     # Convert to huggingface linear_qkv
     concat_qkv_weight = torch.concat([q_weight, k_weight, v_weight], dim=0)
-    concat_qkv_weight = rearrange(
-        concat_qkv_weight, "(R N D) H -> (N R D) H", R=3, N=40, D=128, H=5120
-    )
+    concat_qkv_weight = rearrange(concat_qkv_weight, "(R N D) H -> (N R D) H", R=3, N=40, D=128, H=5120)
     concat_qkv_bias = torch.concat([q_bias, k_bias, v_bias], dim=0)
-    concat_qkv_bias = rearrange(
-        concat_qkv_bias, "(R N D H) -> (N R D H)", R=3, N=40, D=128, H=1
-    )
+    concat_qkv_bias = rearrange(concat_qkv_bias, "(R N D H) -> (N R D H)", R=3, N=40, D=128, H=1)
 
     new_state_dict[f"decoder.layers.{i}.self_attention.linear_qkv.weight"] = concat_qkv_weight
     new_state_dict[f"decoder.layers.{i}.self_attention.linear_qkv.bias"] = concat_qkv_bias
@@ -245,9 +237,7 @@ for i in range(num_layers):
     cross_q_w = rearrange(cross_q_w, "(R N D) H -> (N R D) H", R=1, N=40, D=128, H=5120)
     cross_q_b = state_dict["blocks." + str(i) + ".cross_attn.q.bias"]
     cross_q_b = rearrange(cross_q_b, "(R N D H) -> (N R D H)", R=1, N=40, D=128, H=1)
-    new_state_dict["decoder.layers." + str(i) + ".cross_attn.linear_q.weight"] = (
-        cross_q_w
-    )
+    new_state_dict["decoder.layers." + str(i) + ".cross_attn.linear_q.weight"] = cross_q_w
     new_state_dict["decoder.layers." + str(i) + ".cross_attn.linear_q.bias"] = cross_q_b
 
     # cross_attention kv merge
@@ -256,19 +246,11 @@ for i in range(num_layers):
     cross_attn_v_weight = state_dict["blocks." + str(i) + ".cross_attn.v.weight"]
     cross_attn_v_bias = state_dict["blocks." + str(i) + ".cross_attn.v.bias"]
     concat_kv_weight = torch.concat([cross_attn_k_weight, cross_attn_v_weight], dim=0)
-    concat_kv_weight = rearrange(
-        concat_kv_weight, "(R N D) H -> (N R D) H", R=2, N=40, D=128, H=5120
-    )
+    concat_kv_weight = rearrange(concat_kv_weight, "(R N D) H -> (N R D) H", R=2, N=40, D=128, H=5120)
     concat_kv_bias = torch.concat([cross_attn_k_bias, cross_attn_v_bias], dim=0)
-    concat_kv_bias = rearrange(
-        concat_kv_bias, "(R N D H) -> (N R D H)", R=2, N=40, D=128, H=1
-    )
-    new_state_dict["decoder.layers." + str(i) + ".cross_attn.linear_kv.weight"] = (
-        concat_kv_weight
-    )
-    new_state_dict["decoder.layers." + str(i) + ".cross_attn.linear_kv.bias"] = (
-        concat_kv_bias
-    )
+    concat_kv_bias = rearrange(concat_kv_bias, "(R N D H) -> (N R D H)", R=2, N=40, D=128, H=1)
+    new_state_dict["decoder.layers." + str(i) + ".cross_attn.linear_kv.weight"] = concat_kv_weight
+    new_state_dict["decoder.layers." + str(i) + ".cross_attn.linear_kv.bias"] = concat_kv_bias
 
     if model_name == "wan2_1_i2v":
         cross_k_img_w = state_dict["blocks." + str(i) + ".cross_attn.k_img.weight"]
@@ -287,24 +269,14 @@ for i in range(num_layers):
 
     # cross_attention o transpose
     cross_o_weight = state_dict["blocks." + str(i) + ".cross_attn.o.weight"]
-    cross_o_weight = rearrange(
-        cross_o_weight, "(R N D) H -> (N R D) H", R=1, N=40, D=128, H=5120
-    )
+    cross_o_weight = rearrange(cross_o_weight, "(R N D) H -> (N R D) H", R=1, N=40, D=128, H=5120)
     cross_o_bias = state_dict["blocks." + str(i) + ".cross_attn.o.bias"]
-    cross_o_bias = rearrange(
-        cross_o_bias, "(R N D H) -> (N R D H)", R=1, N=40, D=128, H=1
-    )
-    new_state_dict["decoder.layers." + str(i) + ".cross_attn.linear_proj.weight"] = (
-        cross_o_weight
-    )
-    new_state_dict["decoder.layers." + str(i) + ".cross_attn.linear_proj.bias"] = (
-        cross_o_bias
-    )
+    cross_o_bias = rearrange(cross_o_bias, "(R N D H) -> (N R D H)", R=1, N=40, D=128, H=1)
+    new_state_dict["decoder.layers." + str(i) + ".cross_attn.linear_proj.weight"] = cross_o_weight
+    new_state_dict["decoder.layers." + str(i) + ".cross_attn.linear_proj.bias"] = cross_o_bias
     # 1, 6, 5120 -> 6, 1, 5120 # modulation transpose
     modulation = state_dict["blocks." + str(i) + ".modulation"]
-    new_state_dict["decoder.layers." + str(i) + ".modulation"] = rearrange(
-        modulation, "D M L -> M D L"
-    )
+    new_state_dict["decoder.layers." + str(i) + ".modulation"] = rearrange(modulation, "D M L -> M D L")
     ## General replacement
     for key, value in inside_blk_replace_dict.items():
         key = key.replace("blocks.0", "blocks." + str(i))

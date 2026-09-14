@@ -67,16 +67,10 @@ def _bias_norm_no_weight_decay(model: nn.Module):
             explicit_param_names.add(name)
 
     def no_decay(name: str, param) -> bool:
-        return (
-            name == "bias"
-            or name.endswith(".bias")
-            or id(param) in norm_param_ids
-            or name in explicit_param_names
-        )
+        return name == "bias" or name.endswith(".bias") or id(param) in norm_param_ids or name in explicit_param_names
 
     logger.info(
-        "Bias/norm weight-decay grouping enabled: "
-        "norm_param_tensors=%d explicit_param_names=%d",
+        "Bias/norm weight-decay grouping enabled: norm_param_tensors=%d explicit_param_names=%d",
         len(norm_param_ids),
         len(explicit_param_names),
     )
@@ -89,9 +83,7 @@ def _weight_decay_grouping_predicate(model: nn.Module, training_args):
         return None
     if grouping == "bias_norm":
         return _bias_norm_no_weight_decay(model)
-    raise ValueError(
-        f"Unknown weight decay grouping '{grouping}'. Supported values: all, bias_norm."
-    )
+    raise ValueError(f"Unknown weight decay grouping '{grouping}'. Supported values: all, bias_norm.")
 
 
 def _append_param_group(
@@ -106,9 +98,7 @@ def _append_param_group(
     if not named_params:
         return
     if no_decay is None:
-        groups.append(
-            {"params": [param for _, param in named_params], "lr": lr, "name": name}
-        )
+        groups.append({"params": [param for _, param in named_params], "lr": lr, "name": name})
         return
 
     decay_params = []
@@ -159,10 +149,7 @@ def _log_model_lr(model: nn.Module, max_depth: int = 3, groups: List[Dict] = Non
     if groups is not None:
         title = "[LR Groups] Model modules with LR assignment:"
     else:
-        title = (
-            "[LR Groups] Model modules"
-            " (use paths below with --lr-group to set per-module LR):"
-        )
+        title = "[LR Groups] Model modules (use paths below with --lr-group to set per-module LR):"
     lines = [title]
     for name, module in model.named_modules():
         if not name:
@@ -204,9 +191,7 @@ def _parse_lr_group(lr_group_str: str) -> list[tuple[str, float]]:
         if not item:
             continue
         if "=" not in item:
-            raise ValueError(
-                f"Invalid --lr-group entry '{item}': expected 'module.path=lr'"
-            )
+            raise ValueError(f"Invalid --lr-group entry '{item}': expected 'module.path=lr'")
         path, lr_str = item.rsplit("=", 1)
         result.append((path.strip(), float(lr_str.strip())))
     return result
@@ -256,9 +241,7 @@ def build_param_groups(model: nn.Module, training_args) -> List[Dict]:
         named_params = [
             (name_by_id[id(param)], param)
             for param in parameters
-            if param.requires_grad
-            and id(param) not in frozen_ids
-            and id(param) not in used_ids
+            if param.requires_grad and id(param) not in frozen_ids and id(param) not in used_ids
         ]
         if named_params:
             _append_param_group(
@@ -271,17 +254,13 @@ def build_param_groups(model: nn.Module, training_args) -> List[Dict]:
             )
             used_ids.update(id(param) for _, param in named_params)
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(
-                    f"LR group '{path}': lr={lr_val}, params={len(named_params)}"
-                )
+                logger.debug(f"LR group '{path}': lr={lr_val}, params={len(named_params)}")
 
     # Base group: everything else
     other = [
         (name_by_id.get(id(param), f"param_{index}"), param)
         for index, param in enumerate(raw.parameters())
-        if param.requires_grad
-        and id(param) not in used_ids
-        and id(param) not in frozen_ids
+        if param.requires_grad and id(param) not in used_ids and id(param) not in frozen_ids
     ]
     if other:
         _append_param_group(
@@ -303,13 +282,12 @@ def build_scheduler(optimizer, training_args):
     style = training_args.lr_decay_style
 
     if style == "lambda_linear":
-
         _scheduler = LambdaLinearScheduler(
             warm_up_steps=[training_args.lr_warmup_iters],
             f_min=[training_args.lambda_f_min],
             f_max=[training_args.lambda_f_max],
             f_start=[training_args.lambda_f_start],
-            cycle_lengths=[training_args.lambda_cycle_length]
+            cycle_lengths=[training_args.lambda_cycle_length],
         )
 
         logger.info(
@@ -319,7 +297,7 @@ def build_scheduler(optimizer, training_args):
         )
 
         return LambdaLR(optimizer, _scheduler.schedule)
-    
+
     if style in {"cosine_with_min_lr", "cosine_warmup_with_min_lr"} and training_args.custom_lr_lambda:
         peak_lr = float(optimizer.defaults["lr"])
         end_lr = float(training_args.min_lr if training_args.min_lr is not None else peak_lr * 0.1)
@@ -349,9 +327,7 @@ def build_scheduler(optimizer, training_args):
         elif style == "cosine_with_restarts":
             kwargs["num_cycles"] = training_args.num_cycles
 
-        num_training_steps = int(
-            training_args.lr_decay_iters or training_args.train_iters
-        )
+        num_training_steps = int(training_args.lr_decay_iters or training_args.train_iters)
         return get_scheduler(
             name=style,
             optimizer=optimizer,

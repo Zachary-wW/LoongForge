@@ -68,13 +68,10 @@ def validate_runtime(device, backend: str) -> None:
         raise RuntimeError(f"{FLAG} requires a CUDA device; got {context}")
     if resolved != "nccl":
         raise RuntimeError(
-            f"{FLAG} requires the NCCL backend; got {context} "
-            f"(resolved {device.type}:{resolved or 'unknown'})"
+            f"{FLAG} requires the NCCL backend; got {context} (resolved {device.type}:{resolved or 'unknown'})"
         )
     if triton is None or tl is None or not hasattr(tl, "float8e4nv"):
-        raise RuntimeError(
-            f"{FLAG} requires Triton with the FP8 type tl.float8e4nv; got {context}"
-        )
+        raise RuntimeError(f"{FLAG} requires Triton with the FP8 type tl.float8e4nv; got {context}")
     if not hasattr(torch, "float8_e4m3fn"):
         raise RuntimeError(f"{FLAG} requires PyTorch FP8 E4M3 support; got {context}")
     # tl.float8e4nv needs Ada or newer. On cc 8.0 the import and the type both
@@ -82,36 +79,28 @@ def validate_runtime(device, backend: str) -> None:
     # fails, which is the late failure this function exists to move forward.
     capability = torch.cuda.get_device_capability(device)
     if capability < (8, 9):
-        raise RuntimeError(
-            f"{FLAG} requires compute capability >= 8.9 for tl.float8e4nv; "
-            f"got {capability} ({context})"
-        )
+        raise RuntimeError(f"{FLAG} requires compute capability >= 8.9 for tl.float8e4nv; got {capability} ({context})")
     try:
         target = triton.runtime.driver.active.get_current_target()
         triton_backend = str(target.backend).lower()
     except Exception as exc:
-        raise RuntimeError(
-            f"Unable to initialize Triton's CUDA backend for {FLAG} ({context})"
-        ) from exc
+        raise RuntimeError(f"Unable to initialize Triton's CUDA backend for {FLAG} ({context})") from exc
     if triton_backend != "cuda":
-        raise RuntimeError(
-            f"{FLAG} requires Triton's CUDA backend; "
-            f"got triton_backend={triton_backend!r} ({context})"
-        )
+        raise RuntimeError(f"{FLAG} requires Triton's CUDA backend; got triton_backend={triton_backend!r} ({context})")
 
 
 if triton is not None:
 
     @triton.jit
     def _quantize_fused_kernel(
-        X,                      # input, num_chunks * S elements
-        OUT_U8,                 # fused uint8 buffer
-        OUT_F32,                # same storage viewed as fp32
-        numel,                  # valid elements in X; the rest is padding
-        S,                      # elements per chunk
-        chunk_u8,               # bytes per chunk = S + 4 * S // BLOCK
-        chunk_f32,              # chunk_u8 // 4
-        scale_base_f32,         # S // 4, fp32-offset of the scale region
+        X,  # input, num_chunks * S elements
+        OUT_U8,  # fused uint8 buffer
+        OUT_F32,  # same storage viewed as fp32
+        numel,  # valid elements in X; the rest is padding
+        S,  # elements per chunk
+        chunk_u8,  # bytes per chunk = S + 4 * S // BLOCK
+        chunk_f32,  # chunk_u8 // 4
+        scale_base_f32,  # S // 4, fp32-offset of the scale region
         tiles_per_chunk,
         BLOCK: tl.constexpr,
         NB: tl.constexpr,
@@ -149,7 +138,7 @@ if triton is not None:
     def _dequant_reduce_kernel(
         RECV_U8,
         RECV_F32,
-        OUT,                    # averaged shard, S elements
+        OUT,  # averaged shard, S elements
         chunk_u8,
         chunk_f32,
         scale_base_f32,
@@ -183,8 +172,8 @@ if triton is not None:
     def _dequant_scatter_kernel(
         AG_U8,
         AG_F32,
-        OUT,                    # full gradient bucket, written in place
-        numel,                  # valid elements in OUT
+        OUT,  # full gradient bucket, written in place
+        numel,  # valid elements in OUT
         S,
         chunk_u8,
         chunk_f32,
@@ -233,8 +222,7 @@ class _BucketScratch:
     it.
     """
 
-    __slots__ = ("send", "recv", "shard", "S", "chunk_u8", "tiles_per_chunk",
-                 "numel", "identity")
+    __slots__ = ("send", "recv", "shard", "S", "chunk_u8", "tiles_per_chunk", "numel", "identity")
 
     def __init__(self, identity, numel: int, dtype, device, world_size, block):
         self.S, self.chunk_u8, _ = self.plan(numel, dtype, world_size, block)
@@ -310,7 +298,10 @@ def _scratch_for(index, identity, numel, dtype, device, world_size, block, budge
                 "with %.2f GiB already held -- falling back to full-precision "
                 "AllReduce for this bucket. Raise --ddp-comm-hook-fp8-max-scratch-gb "
                 "or use a larger ddp_bucket_cap_mb to quantize it.",
-                index, need / 2**30, budget / 2**30, _SCRATCH_BYTES / 2**30,
+                index,
+                need / 2**30,
+                budget / 2**30,
+                _SCRATCH_BYTES / 2**30,
             )
         return None
 
@@ -318,10 +309,14 @@ def _scratch_for(index, identity, numel, dtype, device, world_size, block, budge
     _SCRATCH[index] = scratch
     _SCRATCH_BYTES += scratch.bytes()
     logger.info(
-        "fp8_a2a: bucket %d numel=%d S=%d chunk_u8=%d scratch=%.1f MiB "
-        "(total %.2f GiB over %d buckets)",
-        index, numel, scratch.S, scratch.chunk_u8,
-        scratch.bytes() / 2**20, _SCRATCH_BYTES / 2**30, len(_SCRATCH),
+        "fp8_a2a: bucket %d numel=%d S=%d chunk_u8=%d scratch=%.1f MiB (total %.2f GiB over %d buckets)",
+        index,
+        numel,
+        scratch.S,
+        scratch.chunk_u8,
+        scratch.bytes() / 2**20,
+        _SCRATCH_BYTES / 2**30,
+        len(_SCRATCH),
     )
     return scratch
 
@@ -338,9 +333,17 @@ def quantize_chunks(x, out_u8, numel, S, chunk_u8, num_chunks, block):
     """Quantize ``x`` into ``num_chunks`` fused fp8+scale chunks of ``out_u8``."""
     tiles_per_chunk = S // (block * NUM_BLOCKS_PER_TILE)
     _quantize_fused_kernel[(num_chunks * tiles_per_chunk,)](
-        x, out_u8, out_u8.view(torch.float32),
-        numel, S, chunk_u8, chunk_u8 // 4, S // 4, tiles_per_chunk,
-        BLOCK=block, NB=NUM_BLOCKS_PER_TILE,
+        x,
+        out_u8,
+        out_u8.view(torch.float32),
+        numel,
+        S,
+        chunk_u8,
+        chunk_u8 // 4,
+        S // 4,
+        tiles_per_chunk,
+        BLOCK=block,
+        NB=NUM_BLOCKS_PER_TILE,
     )
 
 
@@ -348,9 +351,16 @@ def dequant_reduce(recv_u8, out, S, chunk_u8, world_size, block):
     """Sum every rank's fp8 chunk in fp32 and write the averaged shard."""
     tiles = S // (block * NUM_BLOCKS_PER_TILE)
     _dequant_reduce_kernel[(tiles,)](
-        recv_u8, recv_u8.view(torch.float32), out,
-        chunk_u8, chunk_u8 // 4, S // 4, world_size, 1.0 / world_size,
-        BLOCK=block, NB=NUM_BLOCKS_PER_TILE,
+        recv_u8,
+        recv_u8.view(torch.float32),
+        out,
+        chunk_u8,
+        chunk_u8 // 4,
+        S // 4,
+        world_size,
+        1.0 / world_size,
+        BLOCK=block,
+        NB=NUM_BLOCKS_PER_TILE,
     )
 
 
@@ -358,14 +368,23 @@ def dequant_scatter(ag_u8, out, numel, S, chunk_u8, num_chunks, block):
     """Dequantize gathered shards back into the gradient bucket, in place."""
     tiles_per_chunk = S // (block * NUM_BLOCKS_PER_TILE)
     _dequant_scatter_kernel[(num_chunks * tiles_per_chunk,)](
-        ag_u8, ag_u8.view(torch.float32), out,
-        numel, S, chunk_u8, chunk_u8 // 4, S // 4, tiles_per_chunk,
-        BLOCK=block, NB=NUM_BLOCKS_PER_TILE,
+        ag_u8,
+        ag_u8.view(torch.float32),
+        out,
+        numel,
+        S,
+        chunk_u8,
+        chunk_u8 // 4,
+        S // 4,
+        tiles_per_chunk,
+        BLOCK=block,
+        NB=NUM_BLOCKS_PER_TILE,
     )
 
 
-def configure(block: int = DEFAULT_BLOCK, min_mib: float = DEFAULT_MIN_MIB,
-              max_scratch_gb: float = DEFAULT_MAX_SCRATCH_GB) -> None:
+def configure(
+    block: int = DEFAULT_BLOCK, min_mib: float = DEFAULT_MIN_MIB, max_scratch_gb: float = DEFAULT_MAX_SCRATCH_GB
+) -> None:
     """Set the hook's tunables. Called once from ``parallel.py`` at install time.
 
     DDP fixes the comm-hook signature at ``(state, bucket)``, so the knobs cannot
@@ -378,31 +397,21 @@ def configure(block: int = DEFAULT_BLOCK, min_mib: float = DEFAULT_MIN_MIB,
     global _BLOCK, _MIN_BYTES, _MAX_SCRATCH_BYTES
     # Power of two because all three kernels index with tl.arange(0, BLOCK).
     if block <= 0 or block & (block - 1):
-        raise ValueError(
-            f"ddp_comm_hook_fp8_block must be a positive power of two, got {block}"
-        )
+        raise ValueError(f"ddp_comm_hook_fp8_block must be a positive power of two, got {block}")
     # Each program holds an NUM_BLOCKS_PER_TILE x block fp32 tile in registers,
     # so the usable ceiling is far below Triton's own tl.arange limit.
     if block > MAX_BLOCK:
-        raise ValueError(
-            f"ddp_comm_hook_fp8_block must be <= {MAX_BLOCK}, got {block}"
-        )
+        raise ValueError(f"ddp_comm_hook_fp8_block must be <= {MAX_BLOCK}, got {block}")
     if min_mib < 0:
-        raise ValueError(
-            f"ddp_comm_hook_fp8_min_mib must be >= 0, got {min_mib}"
-        )
+        raise ValueError(f"ddp_comm_hook_fp8_min_mib must be >= 0, got {min_mib}")
     if max_scratch_gb < 0:
-        raise ValueError(
-            f"ddp_comm_hook_fp8_max_scratch_gb must be >= 0, got {max_scratch_gb}"
-        )
+        raise ValueError(f"ddp_comm_hook_fp8_max_scratch_gb must be >= 0, got {max_scratch_gb}")
     if block != _BLOCK:
         reset_scratch()
     _BLOCK = block
     _MIN_BYTES = int(min_mib * 2**20)
     _MAX_SCRATCH_BYTES = int(max_scratch_gb * 2**30)
-    logger.info(
-        "fp8_a2a: block=%d min_mib=%g max_scratch_gb=%g", block, min_mib, max_scratch_gb
-    )
+    logger.info("fp8_a2a: block=%d min_mib=%g max_scratch_gb=%g", block, min_mib, max_scratch_gb)
 
 
 def _config():
@@ -431,8 +440,14 @@ def fp8_a2a_allgather_hook(process_group, bucket):
 
     identity = (tensor.numel(), tensor.dtype, tensor.device, id(group), block)
     st = _scratch_for(
-        bucket.index(), identity, tensor.numel(), tensor.dtype, tensor.device,
-        world_size, block, budget,
+        bucket.index(),
+        identity,
+        tensor.numel(),
+        tensor.dtype,
+        tensor.device,
+        world_size,
+        block,
+        budget,
     )
     if st is None:
         return allreduce_hook(process_group, bucket)
@@ -450,9 +465,7 @@ def fp8_a2a_allgather_hook(process_group, bucket):
             dequant_reduce(st.recv, st.shard, S, chunk_u8, world_size, block)
             ag_send = st.send[:chunk_u8]
             quantize_chunks(st.shard, ag_send, S, S, chunk_u8, 1, block)
-            work = dist.all_gather_into_tensor(
-                st.recv, ag_send, group=group, async_op=True
-            )
+            work = dist.all_gather_into_tensor(st.recv, ag_send, group=group, async_op=True)
         except Exception as exc:
             result.set_exception(exc)
             return
@@ -460,9 +473,7 @@ def fp8_a2a_allgather_hook(process_group, bucket):
         def after_ag(fut):
             try:
                 fut.wait()
-                dequant_scatter(
-                    st.recv, tensor, st.numel, S, chunk_u8, world_size, block
-                )
+                dequant_scatter(st.recv, tensor, st.numel, S, chunk_u8, world_size, block)
                 result.set_result(tensor)
             except Exception as exc:
                 result.set_exception(exc)
@@ -471,7 +482,3 @@ def fp8_a2a_allgather_hook(process_group, bucket):
 
     a2a.get_future().then(after_a2a)
     return result
-
-
-
-

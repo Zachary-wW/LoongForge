@@ -189,19 +189,26 @@ def parse_args() -> argparse.Namespace:
     """Parse command-line arguments for the text embedding precompute script."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--dataset-root", action="append", default=[],
+        "--dataset-root",
+        action="append",
+        default=[],
         help="LeRobot dataset root with meta/tasks.jsonl. Can be repeated.",
     )
     parser.add_argument(
-        "--prompt-file", action="append", default=[],
+        "--prompt-file",
+        action="append",
+        default=[],
         help="Text/jsonl prompt file. Can be repeated.",
     )
     parser.add_argument(
-        "--prompt", action="append", default=[],
+        "--prompt",
+        action="append",
+        default=[],
         help="Single raw task/prompt string. Can be repeated.",
     )
     parser.add_argument(
-        "--output-dir", required=True,
+        "--output-dir",
+        required=True,
         help="Directory for FastWAM text embedding cache files.",
     )
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID)
@@ -210,7 +217,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--device", default="cuda")
     parser.add_argument(
-        "--dtype", default="bfloat16",
+        "--dtype",
+        default="bfloat16",
         choices=["bfloat16", "bf16", "float16", "fp16", "float32", "fp32"],
     )
     parser.add_argument("--overwrite", action="store_true")
@@ -234,7 +242,8 @@ def main() -> None:
     cache_dir.mkdir(parents=True, exist_ok=True)
     enc_id = _model_id_to_enc_id(args.model_id)
     pending = [
-        prompt for prompt in prompts
+        prompt
+        for prompt in prompts
         if args.overwrite or not _cache_path(cache_dir, prompt, args.context_len, enc_id).exists()
     ]
 
@@ -251,7 +260,7 @@ def main() -> None:
     text_encoder, tokenizer = _load_text_encoder(args, args.device, dtype)
 
     for start in range(0, len(pending), args.batch_size):
-        batch_prompts = pending[start:start + args.batch_size]
+        batch_prompts = pending[start : start + args.batch_size]
         context, mask = _encode_batch(text_encoder, tokenizer, batch_prompts, args.device)
         for prompt, prompt_context, prompt_mask in zip(batch_prompts, context, mask, strict=True):
             path = _cache_path(cache_dir, prompt, args.context_len, enc_id)

@@ -73,9 +73,7 @@ class LingBotVAPreprocessor(BasePreprocessor):
         """
         return cls(pad_to_multiple=int(data_cfg.pad_to_multiple))
 
-    def __call__(
-        self, examples: List[Dict[str, torch.Tensor]]
-    ) -> LingBotVAPreparedBatch:
+    def __call__(self, examples: List[Dict[str, torch.Tensor]]) -> LingBotVAPreparedBatch:
         """Apply the callable to its inputs.
 
         Args:
@@ -87,24 +85,15 @@ class LingBotVAPreprocessor(BasePreprocessor):
         if not examples:
             raise ValueError("LingBotVAPreprocessor received an empty example list")
         return LingBotVAPreparedBatch(
-            latents=_pad_stack(
-                [item["latents"] for item in examples], self.pad_to_multiple
-            ).contiguous(),
-            actions=_pad_stack(
-                [item["actions"] for item in examples], self.pad_to_multiple
-            ).contiguous(),
+            latents=_pad_stack([item["latents"] for item in examples], self.pad_to_multiple).contiguous(),
+            actions=_pad_stack([item["actions"] for item in examples], self.pad_to_multiple).contiguous(),
             actions_mask=_pad_stack(
                 [item["actions_mask"].to(torch.bool) for item in examples],
                 self.pad_to_multiple,
             ).contiguous(),
-            text_emb=_pad_stack_text(
-                [item["text_emb"] for item in examples]
-            ).contiguous(),
+            text_emb=_pad_stack_text([item["text_emb"] for item in examples]).contiguous(),
             frame_ids=_pad_stack_1d(
-                [
-                    torch.as_tensor(item.get("frame_ids", []), dtype=torch.long)
-                    for item in examples
-                ]
+                [torch.as_tensor(item.get("frame_ids", []), dtype=torch.long) for item in examples]
             ).contiguous(),
         )
 
@@ -119,9 +108,7 @@ def _pad_stack(tensors: List[torch.Tensor], pad_to_multiple: int) -> torch.Tenso
     Returns:
         The computed result.
     """
-    max_shape = [
-        max(tensor.shape[dim] for tensor in tensors) for dim in range(tensors[0].ndim)
-    ]
+    max_shape = [max(tensor.shape[dim] for tensor in tensors) for dim in range(tensors[0].ndim)]
     if pad_to_multiple > 1:
         for dim in range(1, len(max_shape)):
             max_shape[dim] = _align(max_shape[dim], pad_to_multiple)
@@ -143,9 +130,7 @@ def _pad_stack_text(tensors: List[torch.Tensor]) -> torch.Tensor:
     Returns:
         The computed result.
     """
-    max_shape = [
-        max(tensor.shape[dim] for tensor in tensors) for dim in range(tensors[0].ndim)
-    ]
+    max_shape = [max(tensor.shape[dim] for tensor in tensors) for dim in range(tensors[0].ndim)]
     padded = []
     for tensor in tensors:
         pad = []

@@ -22,9 +22,7 @@ from loongforge.embodied.distributed.ddp_utils import fp8_a2a_comm as mod
 from loongforge.embodied.distributed.ddp_utils.ddp_comm_hook import resolve_comm_hook
 from loongforge.embodied.train.training_args import TrainingArgs
 
-requires_cuda = pytest.mark.skipif(
-    not torch.cuda.is_available(), reason="fp8 a2a kernels require CUDA"
-)
+requires_cuda = pytest.mark.skipif(not torch.cuda.is_available(), reason="fp8 a2a kernels require CUDA")
 
 
 class _FakeBucket:
@@ -55,6 +53,7 @@ def _clean_module_state():
 # CLI defaults and hook registration
 # --------------------------------------------------------------------------
 
+
 def test_cli_defaults():
     defaults = TrainingArgs()
     assert defaults.ddp_comm_hook is None
@@ -70,6 +69,7 @@ def test_hook_resolves_by_name():
 # --------------------------------------------------------------------------
 # configure() validation
 # --------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("block", [1, 2, 4, 256, 512, mod.MAX_BLOCK])
 def test_configure_accepts_powers_of_two(block):
@@ -106,9 +106,11 @@ def test_changing_block_drops_stale_scratch():
     mod.configure(block=512)
     assert not mod._SCRATCH
 
+
 # --------------------------------------------------------------------------
 # validate_runtime(): preflight once at install time, not once per bucket
 # --------------------------------------------------------------------------
+
 
 def test_validate_runtime_rejects_cpu():
     with pytest.raises(RuntimeError, match="requires a CUDA device"):
@@ -150,9 +152,7 @@ def test_plan_layout_matches_the_documented_formula():
     block, world_size = 256, 8
     align = block * mod.NUM_BLOCKS_PER_TILE
     numel = 106_560_711
-    S, chunk_u8, total = mod._BucketScratch.plan(
-        numel, torch.bfloat16, world_size, block
-    )
+    S, chunk_u8, total = mod._BucketScratch.plan(numel, torch.bfloat16, world_size, block)
     assert S % align == 0
     assert S >= (numel + world_size - 1) // world_size
     assert S - (numel + world_size - 1) // world_size < align
@@ -175,9 +175,7 @@ def test_plan_shard_is_the_only_term_that_scales_with_world_size():
     numel, block = 1 << 24, 256
     prev_payload = None
     for world_size in (2, 4, 8, 16):
-        S, chunk_u8, total = mod._BucketScratch.plan(
-            numel, torch.bfloat16, world_size, block
-        )
+        S, chunk_u8, total = mod._BucketScratch.plan(numel, torch.bfloat16, world_size, block)
         payload = 2 * world_size * chunk_u8
         if prev_payload is not None:
             assert payload == pytest.approx(prev_payload, rel=1e-3)
@@ -192,16 +190,15 @@ def test_plan_fp32_gradients_halve_the_relative_cost():
     assert bf16 / (numel * 2) == pytest.approx(1.0156 + 1 / world_size, abs=2e-3)
     assert fp32 / (numel * 4) == pytest.approx(0.5078 + 1 / world_size, abs=2e-3)
 
+
 # --------------------------------------------------------------------------
 # Scratch budget bookkeeping (the flag exists to prevent an OOM, so the
 # accounting has to be right *before* anything is allocated)
 # --------------------------------------------------------------------------
 
-def _scratch_for(index, identity, numel, budget, world_size=8, block=256,
-                 device=torch.device("cpu")):
-    return mod._scratch_for(
-        index, identity, numel, torch.bfloat16, device, world_size, block, budget
-    )
+
+def _scratch_for(index, identity, numel, budget, world_size=8, block=256, device=torch.device("cpu")):
+    return mod._scratch_for(index, identity, numel, torch.bfloat16, device, world_size, block, budget)
 
 
 def test_zero_budget_degrades_every_bucket():
@@ -260,8 +257,7 @@ _EXACT_VALUES = (448.0, 224.0, 112.0, 56.0)
 
 def _exact_input(world_size, S, device):
     chunks = [
-        torch.full((S,), _EXACT_VALUES[r % len(_EXACT_VALUES)],
-                   dtype=torch.bfloat16, device=device)
+        torch.full((S,), _EXACT_VALUES[r % len(_EXACT_VALUES)], dtype=torch.bfloat16, device=device)
         for r in range(world_size)
     ]
     return torch.cat(chunks)
@@ -303,7 +299,7 @@ def test_full_round_trip_is_exact():
     mod.dequant_reduce(send, shard, S, chunk_u8, world_size, block)
     mod.quantize_chunks(shard, send[:chunk_u8], S, S, chunk_u8, 1, block)
     for r in range(world_size):  # emulate all_gather_into_tensor
-        recv[r * chunk_u8:(r + 1) * chunk_u8].copy_(send[:chunk_u8])
+        recv[r * chunk_u8 : (r + 1) * chunk_u8].copy_(send[:chunk_u8])
     out = torch.zeros_like(x)
     mod.dequant_scatter(recv, out, numel, S, chunk_u8, world_size, block)
 
@@ -312,9 +308,7 @@ def test_full_round_trip_is_exact():
 
 
 def _emulated_round_trip(x, numel, world_size, block, device):
-    S, chunk_u8, _ = mod._BucketScratch.plan(
-        numel, torch.bfloat16, world_size, block
-    )
+    S, chunk_u8, _ = mod._BucketScratch.plan(numel, torch.bfloat16, world_size, block)
     send = torch.empty(world_size * chunk_u8, dtype=torch.uint8, device=device)
     recv = torch.empty(world_size * chunk_u8, dtype=torch.uint8, device=device)
     shard = torch.empty(S, dtype=torch.bfloat16, device=device)
@@ -322,7 +316,7 @@ def _emulated_round_trip(x, numel, world_size, block, device):
     mod.dequant_reduce(send, shard, S, chunk_u8, world_size, block)
     mod.quantize_chunks(shard, send[:chunk_u8], S, S, chunk_u8, 1, block)
     for r in range(world_size):
-        recv[r * chunk_u8:(r + 1) * chunk_u8].copy_(send[:chunk_u8])
+        recv[r * chunk_u8 : (r + 1) * chunk_u8].copy_(send[:chunk_u8])
     out = torch.zeros(numel, dtype=torch.bfloat16, device=device)
     mod.dequant_scatter(recv, out, numel, S, chunk_u8, world_size, block)
     return out
@@ -363,13 +357,12 @@ def test_round_trip_handles_the_ragged_tail(slack):
 # Multi-rank: the hook must agree with the AllReduce it replaces
 # --------------------------------------------------------------------------
 
+
 def _run_two_rank_equivalence(rank, world_size, init_file):
     import torch.distributed as dist
 
     torch.cuda.set_device(rank)
-    dist.init_process_group(
-        "nccl", init_method=f"file://{init_file}", rank=rank, world_size=world_size
-    )
+    dist.init_process_group("nccl", init_method=f"file://{init_file}", rank=rank, world_size=world_size)
     try:
         device = torch.device("cuda", rank)
         numel = 1 << 20
@@ -390,9 +383,7 @@ def _run_two_rank_equivalence(rank, world_size, init_file):
         rel = (quantized.float() - reference).norm() / reference.norm()
         assert float(rel) < 0.08, f"rank={rank} rel_l2={float(rel)}"
         # A layout bug decorrelates the result instead of merely adding noise.
-        cos = torch.nn.functional.cosine_similarity(
-            quantized.float().unsqueeze(0), reference.unsqueeze(0)
-        )
+        cos = torch.nn.functional.cosine_similarity(quantized.float().unsqueeze(0), reference.unsqueeze(0))
         assert float(cos) > 0.995, f"rank={rank} cosine={float(cos)}"
 
         # The small-bucket fallback must stay bit-comparable to stock DDP.
@@ -420,4 +411,3 @@ def test_hook_matches_allreduce_across_two_ranks():
             nprocs=2,
             join=True,
         )
-

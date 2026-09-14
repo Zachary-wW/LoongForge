@@ -30,9 +30,7 @@ def apply_activation_checkpointing(
         option_name="activation checkpoint skip modules",
     )
     if not module_patterns and skip_patterns:
-        raise ValueError(
-            "activation checkpoint skip modules require checkpoint module patterns"
-        )
+        raise ValueError("activation checkpoint skip modules require checkpoint module patterns")
     if not module_patterns:
         return
 
@@ -49,13 +47,10 @@ def apply_activation_checkpointing(
     unmatched_skip_patterns = set(skip_patterns).difference(matched_skip_patterns)
     if unmatched_skip_patterns:
         raise ValueError(
-            "activation checkpoint skip modules were not selected: "
-            + ", ".join(sorted(unmatched_skip_patterns))
+            "activation checkpoint skip modules were not selected: " + ", ".join(sorted(unmatched_skip_patterns))
         )
     selected_modules = {
-        module_key: module
-        for module_key, module in selected_modules.items()
-        if module_key not in skip_module_keys
+        module_key: module for module_key, module in selected_modules.items() if module_key not in skip_module_keys
     }
     _validate_non_nested_module_keys(selected_modules)
 
@@ -65,10 +60,7 @@ def apply_activation_checkpointing(
             checkpoint_wrapper,
         )
     except ImportError as exc:
-        raise RuntimeError(
-            "framework-managed activation checkpointing requires PyTorch "
-            "checkpoint_wrapper"
-        ) from exc
+        raise RuntimeError("framework-managed activation checkpointing requires PyTorch checkpoint_wrapper") from exc
 
     # TE's FP8 path saves a different set of tensors during the original forward
     # than during recompute, which makes the non-reentrant PyTorch checkpoint
@@ -115,14 +107,9 @@ def _resolve_module_key_patterns(
                 selected_modules[module_key] = module
                 break
 
-    unmatched_patterns = [
-        pattern for pattern in patterns if pattern not in matched_patterns
-    ]
+    unmatched_patterns = [pattern for pattern in patterns if pattern not in matched_patterns]
     if unmatched_patterns:
-        raise ValueError(
-            "activation checkpoint module patterns matched no modules: "
-            + ", ".join(unmatched_patterns)
-        )
+        raise ValueError("activation checkpoint module patterns matched no modules: " + ", ".join(unmatched_patterns))
     return selected_modules
 
 

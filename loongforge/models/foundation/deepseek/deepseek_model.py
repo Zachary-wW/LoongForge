@@ -91,7 +91,6 @@ class DeepseekModelWithMTP(BaseGPTModel):
         pg_collection: Optional[ProcessGroupCollection] = None,
         **kwargs,
     ) -> None:
-
         if config.model_spec is None:
             model_spec = [
                 "loongforge.models.foundation.deepseek.deepseek_layer_spec",
@@ -100,8 +99,7 @@ class DeepseekModelWithMTP(BaseGPTModel):
         else:
             model_spec = config.model_spec
 
-        transformer_layer_spec, mtp_layer_spec = import_module(
-            model_spec, config, vp_stage=vp_stage)
+        transformer_layer_spec, mtp_layer_spec = import_module(model_spec, config, vp_stage=vp_stage)
 
         super().__init__(
             config=config,
@@ -112,8 +110,7 @@ class DeepseekModelWithMTP(BaseGPTModel):
             post_process=post_process,
             fp16_lm_cross_entropy=config.fp16_lm_cross_entropy,
             parallel_output=parallel_output,
-            share_embeddings_and_output_weights=(
-                not config.untie_embeddings_and_output_weights),
+            share_embeddings_and_output_weights=(not config.untie_embeddings_and_output_weights),
             position_embedding_type=config.position_embedding_type,
             language_embedding=language_embedding,
             rotary_percent=config.rotary_percent,
@@ -127,9 +124,7 @@ class DeepseekModelWithMTP(BaseGPTModel):
             vp_stage=vp_stage,
         )
 
-        self.register_load_state_dict_post_hook(
-            _load_state_dict_hook_ignore_extra_state
-        )
+        self.register_load_state_dict_post_hook(_load_state_dict_hook_ignore_extra_state)
 
     def forward(
         self,

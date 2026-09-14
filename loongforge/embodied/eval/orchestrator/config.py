@@ -29,9 +29,7 @@ def build_payload_builder_from_config(
     yaml_server = dict(raw_config.get("server") or {})
     yaml_benchmark = dict(raw_config.get("benchmark") or {})
 
-    model_type = str(
-        model_type_override or yaml_model.get("model_type") or "pi05"
-    ).lower()
+    model_type = str(model_type_override or yaml_model.get("model_type") or "pi05").lower()
     return build_payload_builder(
         model_type,
         yaml_model=yaml_model,
@@ -70,7 +68,9 @@ def resolve_action_decoder_key(
             "No ActionDecoder registered for %r (model action_encoding=%r × "
             "adapter action_space=%r); falling back to the benchmark adapter's "
             "native action conversion.",
-            key, src, dst,
+            key,
+            src,
+            dst,
         )
         return ""
     return key
@@ -94,9 +94,7 @@ def build_rpc_payload(
     model_kwargs = payload_builder.build(canonical_obs, ctx)
     rpc: Dict[str, Any] = {
         "episode_id": ctx.get("episode_id", canonical_obs.get("meta", {}).get("episode_id", "default")),
-        "episode_step": int(
-            ctx.get("episode_step", canonical_obs.get("meta", {}).get("episode_step", 0))
-        ),
+        "episode_step": int(ctx.get("episode_step", canonical_obs.get("meta", {}).get("episode_step", 0))),
         "disable_action_cache": bool(disable_action_cache),
         "return_action_chunk": bool(return_action_chunk),
     }

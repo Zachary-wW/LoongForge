@@ -20,6 +20,7 @@ import torch
 
 def create_custom_forward(module):
     """Wrap a module call so checkpoint can pass positional and keyword inputs."""
+
     def custom_forward(*inputs, **kwargs):
         """Run the wrapped module with checkpoint-provided inputs."""
         return module(*inputs, **kwargs)

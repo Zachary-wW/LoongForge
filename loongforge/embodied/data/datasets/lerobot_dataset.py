@@ -228,9 +228,7 @@ class MultiLeRobotV3Dataset(MultiLeRobotDataset):
         if delta_timestamps_fn is not None:
             delta_timestamps = delta_timestamps_fn(self, info, fps)
         else:
-            delta_timestamps = _build_delta_timestamps(
-                self._strategy_kwargs.get("action_horizon", 50), fps
-            )
+            delta_timestamps = _build_delta_timestamps(self._strategy_kwargs.get("action_horizon", 50), fps)
 
         super().__init__(
             repo_ids=repo_ids,
@@ -243,8 +241,7 @@ class MultiLeRobotV3Dataset(MultiLeRobotDataset):
         )
 
         logger.info(
-            f"MultiLeRobotV3Dataset: repo_ids={repo_ids}, len={len(self)}, "
-            f"fps={fps}, video_backend={video_backend}"
+            f"MultiLeRobotV3Dataset: repo_ids={repo_ids}, len={len(self)}, fps={fps}, video_backend={video_backend}"
         )
 
     def __len__(self):
@@ -333,8 +330,10 @@ class LeRobotV2Dataset(Dataset):
     @property
     def meta(self):
         """Compatibility shim for stats access (matches v3.0 interface)."""
+
         class _Meta:
             pass
+
         m = _Meta()
         m.stats = self.stats
         m.camera_keys = self._video_keys
@@ -348,10 +347,7 @@ class LeRobotV2Dataset(Dataset):
             if stats_path.exists():
                 with open(stats_path) as f:
                     raw = json.load(f)
-                self._stats = {
-                    k: {sk: torch.tensor(sv) for sk, sv in v.items()}
-                    for k, v in raw.items()
-                }
+                self._stats = {k: {sk: torch.tensor(sv) for sk, sv in v.items()} for k, v in raw.items()}
             else:
                 # v2.1: aggregate from episodes_stats.jsonl
                 self._stats = self._aggregate_episodes_stats()
@@ -364,7 +360,6 @@ class LeRobotV2Dataset(Dataset):
         the parallel/weighted algorithm in compute_stats.aggregate_stats, then converts
         to torch tensors and appends q01/q99 aliases.
         """
-
 
         ep_stats_path = self.root / "meta" / "episodes_stats.jsonl"
         if not ep_stats_path.exists():
@@ -444,12 +439,15 @@ class LeRobotV2Dataset(Dataset):
         """Decode a single video frame. Returns tensor [C, H, W] float32 in [0, 1]."""
         episode_chunk = episode_index // self.chunks_size
         video_path = self.root / self._video_path_tpl.format(
-            episode_chunk=episode_chunk, video_key=video_key, episode_index=episode_index,
+            episode_chunk=episode_chunk,
+            video_key=video_key,
+            episode_index=episode_index,
         )
 
         timestamp = frame_index / self.fps
 
         from loongforge.embodied.data.datasets.video_backends import decode_video_frame
+
         frame = decode_video_frame(str(video_path), timestamp, backend=self.video_backend)
         return torch.from_numpy(frame).permute(2, 0, 1).float() / 255.0
 
@@ -681,10 +679,7 @@ def _build_lerobot_dataset(
                 **strategy_kwargs,
             )
     else:
-        raise ValueError(
-            f"Unsupported lerobotdataset_version: '{lerobotdataset_version}'. "
-            f"Supported: v2.0, v2.1, v3.0"
-        )
+        raise ValueError(f"Unsupported lerobotdataset_version: '{lerobotdataset_version}'. Supported: v2.0, v2.1, v3.0")
 
     return dataset
 
@@ -714,4 +709,3 @@ def build_default_lerobot_dataset(model_cfg, data_cfg, training_args):
         tolerance_s=1e-4,
         lerobotdataset_version=training_args.lerobotdataset_version,
     )
-

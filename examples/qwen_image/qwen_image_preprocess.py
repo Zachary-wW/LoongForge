@@ -55,8 +55,7 @@ if "torchaudio" not in sys.modules:
     _stub = types.ModuleType("torchaudio")
     _stub.__version__ = "0.0.0"
     _stub.__spec__ = importlib.machinery.ModuleSpec("torchaudio", None)
-    _stub.load = lambda *a, **kw: (_ for _ in ()).throw(
-        NotImplementedError("torchaudio not available"))
+    _stub.load = lambda *a, **kw: (_ for _ in ()).throw(NotImplementedError("torchaudio not available"))
     sys.modules["torchaudio"] = _stub
 
 import pandas
@@ -195,8 +194,7 @@ def encode_sample(
         "input_latents": to_cpu(normalize_latent(input_latents)).float(),
         "edit_latents": [t.float() for t in to_cpu(normalize_latent(edit_latents))]
         if edit_latents is not None and isinstance(edit_latents, list)
-        else (to_cpu(normalize_latent(edit_latents)).float()
-              if edit_latents is not None else None),
+        else (to_cpu(normalize_latent(edit_latents)).float() if edit_latents is not None else None),
         "height": int(height),
         "width": int(width),
     }
@@ -221,41 +219,55 @@ def build_fixed_targets(
     training_target = noise - input_latents
     scale = scheduler.training_weight(timestep).to(dtype=torch.float32).view(1)
 
-    encoded.update({
-        "noise": noise,
-        "timestep_id": ts_id,
-        "timestep": timestep,
-        "latents": latents,
-        "training_target": training_target,
-        "scale": scale,
-    })
+    encoded.update(
+        {
+            "noise": noise,
+            "timestep_id": ts_id,
+            "timestep": timestep,
+            "latents": latents,
+            "training_target": training_target,
+            "scale": scale,
+        }
+    )
     return encoded
 
 
 def build_parser() -> argparse.ArgumentParser:
     """CLI parser."""
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--dataset_base_path", type=str, required=True,
-                   help="Base directory for image / edit_image paths in metadata.")
-    p.add_argument("--dataset_metadata_path", type=str, required=True,
-                   help="Metadata file (.json / .jsonl / .csv).")
-    p.add_argument("--model_root", type=str, required=True,
-                   help="Qwen-Image-Edit-2511 model root (contains transformer/, "
-                        "text_encoder/, vae/, tokenizer/, processor/).")
-    p.add_argument("--tokenizer_id", type=str, default="Qwen/Qwen-Image",
-                   help="HF model_id for the tokenizer (uses model_root/tokenizer/ by default).")
-    p.add_argument("--processor_id", type=str, default="Qwen/Qwen-Image-Edit",
-                   help="HF model_id for the processor (uses model_root/processor/ by default).")
-    p.add_argument("--output_path", type=str, required=True,
-                   help="Output cache directory; each sample is written as <idx>.pth.")
-    p.add_argument("--max_pixels", type=int, default=1024 * 1024,
-                   help="Max pixel budget for the target image (default 1MP).")
-    p.add_argument("--seed", type=int, default=1234,
-                   help="Base seed for deterministic per-sample noise generation.")
-    p.add_argument("--timestep_id", type=int, default=321,
-                   help="Fixed timestep index (0..999) for the pre-noised latents.")
-    p.add_argument("--tiled_vae", action="store_true",
-                   help="Enable tiled VAE encoding (for large images at low VRAM).")
+    p.add_argument(
+        "--dataset_base_path", type=str, required=True, help="Base directory for image / edit_image paths in metadata."
+    )
+    p.add_argument("--dataset_metadata_path", type=str, required=True, help="Metadata file (.json / .jsonl / .csv).")
+    p.add_argument(
+        "--model_root",
+        type=str,
+        required=True,
+        help="Qwen-Image-Edit-2511 model root (contains transformer/, text_encoder/, vae/, tokenizer/, processor/).",
+    )
+    p.add_argument(
+        "--tokenizer_id",
+        type=str,
+        default="Qwen/Qwen-Image",
+        help="HF model_id for the tokenizer (uses model_root/tokenizer/ by default).",
+    )
+    p.add_argument(
+        "--processor_id",
+        type=str,
+        default="Qwen/Qwen-Image-Edit",
+        help="HF model_id for the processor (uses model_root/processor/ by default).",
+    )
+    p.add_argument(
+        "--output_path", type=str, required=True, help="Output cache directory; each sample is written as <idx>.pth."
+    )
+    p.add_argument(
+        "--max_pixels", type=int, default=1024 * 1024, help="Max pixel budget for the target image (default 1MP)."
+    )
+    p.add_argument("--seed", type=int, default=1234, help="Base seed for deterministic per-sample noise generation.")
+    p.add_argument(
+        "--timestep_id", type=int, default=321, help="Fixed timestep index (0..999) for the pre-noised latents."
+    )
+    p.add_argument("--tiled_vae", action="store_true", help="Enable tiled VAE encoding (for large images at low VRAM).")
     p.add_argument("--torch_dtype", choices=("bf16", "fp16", "fp32"), default="bf16")
     return p
 
@@ -311,9 +323,15 @@ def main():
     )
     # DiT / ControlNet / image2lora modules are not used for preprocessing;
     # free the memory if from_pretrained happened to load them.
-    for attr in ("dit", "blockwise_controlnet", "siglip2_image_encoder",
-                 "dinov3_image_encoder", "image2lora_style",
-                 "image2lora_coarse", "image2lora_fine"):
+    for attr in (
+        "dit",
+        "blockwise_controlnet",
+        "siglip2_image_encoder",
+        "dinov3_image_encoder",
+        "image2lora_style",
+        "image2lora_coarse",
+        "image2lora_fine",
+    ):
         if getattr(pipe, attr, None) is not None:
             setattr(pipe, attr, None)
 

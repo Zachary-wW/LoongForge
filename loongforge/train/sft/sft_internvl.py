@@ -1,7 +1,7 @@
 # Copyright 2026 The LoongForge Authors.
 # SPDX-License-Identifier: Apache-2.0
 
-""" sft for internvl model """
+"""sft for internvl model"""
 
 import torch.distributed as dist
 
@@ -22,7 +22,7 @@ from megatron.core import parallel_state
 
 from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.utils import StragglerDetector
-from loongforge.utils import (get_args, get_tokenizer, get_model_config)
+from loongforge.utils import get_args, get_tokenizer, get_model_config
 from megatron.core.enums import ModelType
 from loongforge.utils import constants
 from loongforge.models import get_model_provider, get_model_family
@@ -56,14 +56,14 @@ def model_provider(pre_process=True, post_process=True, vp_stage: int = None):
         MCoreModel: The returned model
     """
     args = get_args()
-    #model_family = get_model_family(args.model_family)
+    # model_family = get_model_family(args.model_family)
     model_provider = get_model_provider(args.model_family)
-    assert model_provider is not None, f'model provider for {args.model_name} not found'
+    assert model_provider is not None, f"model provider for {args.model_name} not found"
     return model_provider(pre_process, post_process, vp_stage)
 
 
 def get_packed_seq_params(attention_mask):
-    """Get packed seq params """
+    """Get packed seq params"""
     packed_seq_params = PackedSeqParams()
     packed_seq_params.qkv_format = "thd"
     packed_seq_params.cu_seqlens_q = attention_mask
@@ -81,7 +81,7 @@ def get_batch(data_iterator):
 
     if data_iterator is not None:
         sample = next(data_iterator)
-        key_mapping = {'tokens': 'input_ids', 'attn_mask': 'attention_mask', 'imgs': 'pixel_values'}
+        key_mapping = {"tokens": "input_ids", "attn_mask": "attention_mask", "imgs": "pixel_values"}
         data = {key_mapping.get(k, k): v for k, v in sample.items()}
     else:
         data = None
@@ -105,8 +105,9 @@ def get_batch(data_iterator):
         attention_mask = ~(data_a["attention_mask"].unsqueeze(1).unsqueeze(1))
 
     if args.pipeline_model_parallel_size == 1:
-        data_i = tensor_parallel.broadcast_data(["input_ids", "position_ids", "labels", "image_flags"], data,
-                                                torch.int64)
+        data_i = tensor_parallel.broadcast_data(
+            ["input_ids", "position_ids", "labels", "image_flags"], data, torch.int64
+        )
         data_f = tensor_parallel.broadcast_data(["pixel_values"], data, torch.float32)
         if args.packing_sft_data:
             data_l = tensor_parallel.broadcast_data(["loss_weight"], data, torch.float32)
@@ -137,20 +138,22 @@ def get_batch(data_iterator):
 
     # slice batch along sequence dimension for context parallelism
 
-    batch = (pixel_values,
-             position_ids,
-             input_ids,
-             image_flags,
-             attention_mask,
-             labels,
-             loss_mask,
-             packed_seq_params,
-             loss_weight)
+    batch = (
+        pixel_values,
+        position_ids,
+        input_ids,
+        image_flags,
+        attention_mask,
+        labels,
+        loss_mask,
+        packed_seq_params,
+        loss_weight,
+    )
     return batch
 
 
 def filter_ignore_data(input_ids, image_flags, img_context_token_id, num_image_token):
-    """For qianfanvl """
+    """For qianfanvl"""
     selected = (input_ids == img_context_token_id).sum().item()
     expected = (image_flags == 1).sum().item() * num_image_token
     return selected != expected
@@ -166,14 +169,23 @@ def forward_step(data_iterator, model):
     timers = get_timers()
 
     # Get the batch.
-    timers('batch-generator', log_level=2).start()
+    timers("batch-generator", log_level=2).start()
     args = get_args()
     global stimer
     with stimer(bdata=True):
-        (pixel_values, position_ids, input_ids, image_flags, attention_mask, labels, loss_mask,
-         packed_seq_params, loss_weights) = get_batch(data_iterator)
+        (
+            pixel_values,
+            position_ids,
+            input_ids,
+            image_flags,
+            attention_mask,
+            labels,
+            loss_mask,
+            packed_seq_params,
+            loss_weights,
+        ) = get_batch(data_iterator)
 
-    timers('batch-generator').stop()
+    timers("batch-generator").stop()
     with stimer:
         output_tensor = model(
             input_ids=input_ids,
@@ -186,10 +198,9 @@ def forward_step(data_iterator, model):
     # for qianfanvl
     if mpu.is_pipeline_last_stage():
         tokenizer = get_tokenizer().tokenizer
-        image_token_id = tokenizer.convert_tokens_to_ids('<IMG_CONTEXT>')
-        num_image_token = int((args.force_image_size // args.patch_size) ** 2 * (args.down_sample_ratio ** 2))
-        ignore_flag = filter_ignore_data(input_ids, image_flags, image_token_id,
-                                            num_image_token)
+        image_token_id = tokenizer.convert_tokens_to_ids("<IMG_CONTEXT>")
+        num_image_token = int((args.force_image_size // args.patch_size) ** 2 * (args.down_sample_ratio**2))
+        ignore_flag = filter_ignore_data(input_ids, image_flags, image_token_id, num_image_token)
         if ignore_flag:
             print(f"filter_ignore_data get True, skip current microbatch...")
             output_tensor = output_tensor * 0.0
@@ -201,14 +212,15 @@ def forward_step(data_iterator, model):
 
 
 def train_valid_test_datasets_provider(train_val_test_num_samples, vp_stage=None):
-    """Train_valid_test_datasets_provider """
+    """Train_valid_test_datasets_provider"""
     import loongforge.data.dp_balance.patches
+
     args = get_args()
     if mpu.get_tensor_model_parallel_rank() != 0:
         return None, None, None
 
     # Disable wandb if it causes issues
-    if not hasattr(args, 'wandb_project') or args.wandb_project is None:
+    if not hasattr(args, "wandb_project") or args.wandb_project is None:
         print("Warning: Disabling wandb logging as wandb_project is not set")
         args.wandb_project = ""
         args.wandb_exp_name = ""
@@ -222,8 +234,8 @@ def train_valid_test_datasets_provider(train_val_test_num_samples, vp_stage=None
         print(f"[rank{rank}] loading preprocessed dataset from {save_path}")
         train_ds = load_from_disk(save_path)
         collator = build_sft_data_collator(DataCollatorForSeq2Seq)
-        train_data_iterator, valid_data_iterator, test_data_iterator = (
-            build_sft_cyclic_iterators(train_ds, None, None, collator)
+        train_data_iterator, valid_data_iterator, test_data_iterator = build_sft_cyclic_iterators(
+            train_ds, None, None, collator
         )
         return train_data_iterator, None, None
     else:
@@ -234,8 +246,11 @@ def train_valid_test_datasets_provider(train_val_test_num_samples, vp_stage=None
         return train_dataloader, None, None
 
 
-@register_model_trainer(model_family=constants.VisionLanguageModelFamilies.INTERN_VL,
-                        training_phase=constants.TrainingPhase.SFT, override=True)
+@register_model_trainer(
+    model_family=constants.VisionLanguageModelFamilies.INTERN_VL,
+    training_phase=constants.TrainingPhase.SFT,
+    override=True,
+)
 def default_sft_trainer(train_args):
     """Build trainer"""
     trainer = MegatronTrainer(

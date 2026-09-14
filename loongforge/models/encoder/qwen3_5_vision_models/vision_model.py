@@ -1,7 +1,7 @@
 # Copyright 2026 The LoongForge Authors.
 # SPDX-License-Identifier: Apache-2.0
 
-""" Qwen3.5 Vision Model """
+"""Qwen3.5 Vision Model"""
 
 from typing import Optional
 
@@ -19,11 +19,12 @@ from .qwen3_5_vision_config import Qwen35VisionConfig
 
 
 class Qwen35VisionModel(BaseVisionModel):
-    """ VisionModel with Qwen3.5 architecture """
+    """VisionModel with Qwen3.5 architecture"""
 
     config_class = Qwen35VisionConfig
 
-    def __init__(self,
+    def __init__(
+        self,
         config: TransformerConfig,
         vp_stage: Optional[int] = None,
     ) -> None:
@@ -36,8 +37,8 @@ class Qwen35VisionModel(BaseVisionModel):
         )
         self.pos_embed = torch.nn.Embedding(config.num_position_embeddings, config.hidden_size)
         self.num_grid_per_side = int(config.num_position_embeddings**0.5)
-        
-        if hasattr(config, 'freeze') and config.freeze:
+
+        if hasattr(config, "freeze") and config.freeze:
             self.freeze()
 
     def fast_pos_embed_interpolate(self, image_grid_thw):
@@ -70,10 +71,10 @@ class Qwen35VisionModel(BaseVisionModel):
             weight_parts[2].append((dh[:, None] * (1 - dw)[None, :]).flatten())
             weight_parts[3].append((dh[:, None] * dw[None, :]).flatten())
 
-        idx_tensor = torch.stack([torch.cat(parts) for parts in idx_parts])      # (4, total)
-        weight_tensor = torch.stack(
-            [torch.cat(parts) for parts in weight_parts]
-        ).to(dtype=self.pos_embed.weight.dtype) # (4, total)
+        idx_tensor = torch.stack([torch.cat(parts) for parts in idx_parts])  # (4, total)
+        weight_tensor = torch.stack([torch.cat(parts) for parts in weight_parts]).to(
+            dtype=self.pos_embed.weight.dtype
+        )  # (4, total)
         pos_embeds = self.pos_embed(idx_tensor).to(device) * weight_tensor[:, :, None]
         patch_pos_embeds = pos_embeds[0] + pos_embeds[1] + pos_embeds[2] + pos_embeds[3]
 
@@ -122,8 +123,8 @@ class Qwen35VisionModel(BaseVisionModel):
                 col_idx = col_idx.unsqueeze(0).expand(num_frames, -1).reshape(-1)
 
             num_tokens = num_frames * height * width
-            pos_ids[offset:offset + num_tokens, 0] = row_idx
-            pos_ids[offset:offset + num_tokens, 1] = col_idx
+            pos_ids[offset : offset + num_tokens, 0] = row_idx
+            pos_ids[offset : offset + num_tokens, 1] = col_idx
             offset += num_tokens
 
         embeddings = freq_table[pos_ids].flatten(1)
@@ -151,15 +152,18 @@ class Qwen35VisionModel(BaseVisionModel):
             dtype=image_grid_thw.dtype if torch.jit.is_tracing() else torch.int32,
         )
         cu_seqlens = F.pad(cu_seqlens, (1, 0), value=0)
-        
+
         x = x[:, None, :].contiguous()  # [s, h] -> [s, 1, h]
         x, deepstack_feature_lists = self.decoder(
             x,
-            packed_seq_params=[PackedSeqParams(
-                qkv_format="thd",
-                cu_seqlens_q=cu_seqlens,
-                cu_seqlens_kv=cu_seqlens,
-            ) for _ in range(self.config.num_layers)],
+            packed_seq_params=[
+                PackedSeqParams(
+                    qkv_format="thd",
+                    cu_seqlens_q=cu_seqlens,
+                    cu_seqlens_kv=cu_seqlens,
+                )
+                for _ in range(self.config.num_layers)
+            ],
             rotary_pos_emb=rotary_pos_emb,
             attention_mask=None,
         )

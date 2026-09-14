@@ -66,19 +66,12 @@ def build_ext_modules():
     """Construct the standard and optional exact CUDA extension modules."""
     binding = CSRC_DIR / "binding.cu"
     if not (ROOT / binding).exists():
-        raise RuntimeError(
-            "CUDA operator sources are missing. Expected "
-            f"{ROOT / binding} to exist."
-        )
+        raise RuntimeError(f"CUDA operator sources are missing. Expected {ROOT / binding} to exist.")
 
     cuda_sources = [binding] + sorted(
-        path
-        for path in (ROOT / CSRC_DIR).rglob("*.cu")
-        if path.name != "binding.cu" and not _is_exact_source(path)
+        path for path in (ROOT / CSRC_DIR).rglob("*.cu") if path.name != "binding.cu" and not _is_exact_source(path)
     )
-    cuda_sources = [
-        path if path == binding else path.relative_to(ROOT) for path in cuda_sources
-    ]
+    cuda_sources = [path if path == binding else path.relative_to(ROOT) for path in cuda_sources]
 
     modules = [
         CUDAExtension(
@@ -94,9 +87,7 @@ def build_ext_modules():
 
     if (ROOT / EXACT_BINDING).exists():
         exact_sources = [EXACT_BINDING] + sorted(
-            path.relative_to(ROOT)
-            for path in (ROOT / CSRC_DIR).rglob("*.cu")
-            if path.parent.name in EXACT_DIRS
+            path.relative_to(ROOT) for path in (ROOT / CSRC_DIR).rglob("*.cu") if path.parent.name in EXACT_DIRS
         )
         # Exact kernels: no fast-math; keep full IEEE precision.
         _nvcc_exact = [

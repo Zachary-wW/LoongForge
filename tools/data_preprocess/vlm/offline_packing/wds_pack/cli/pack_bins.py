@@ -131,9 +131,7 @@ def run_hashbucket_processor(processor, tracker, max_token_len):
     bins_boxs = []
     mean, min_, max_, tmp_num = get_hs(processor.hash_buckets)
     turn = 1
-    bin_boxs_001 = tracker.track_packing(
-        "pack_with_deletion", box_capacity=max_token_len
-    )
+    bin_boxs_001 = tracker.track_packing("pack_with_deletion", box_capacity=max_token_len)
     update_stats = processor.update_hash_buckets(remove_empty=True, verbose=True)
     rest_items = update_info(update_stats)
     bins_boxs.extend(bin_boxs_001)
@@ -142,7 +140,7 @@ def run_hashbucket_processor(processor, tracker, max_token_len):
         return bins_boxs
     scale = int(mean - (mean - min_) * 0.1)
     print(
-        f"in the first round of end ----------the current processing box number: {len (bin_boxs_001)}, total box {len (bins_boxs)}, handle the {num - tmp_num} items, remaining {num} the items"
+        f"in the first round of end ----------the current processing box number: {len(bin_boxs_001)}, total box {len(bins_boxs)}, handle the {num - tmp_num} items, remaining {num} the items"
     )
     # tmp_items=[(1,0.96),(5,0.96),(5,0.94),(6,0.92),(4,0.92),(4,0.92)]
     tmp_items = [(1, 0.96), (1, 0.95), (8, 0.9), (4, 0.92), (6, 0.92), (4, 0.9)]
@@ -165,7 +163,7 @@ def run_hashbucket_processor(processor, tracker, max_token_len):
         bins_boxs.extend(bin_boxs_turn)
         mean, min_, max_, tmp_num = get_hs(processor.hash_buckets)
         print(
-            f" the {turn+i+1} th round ends ---------- current number of processed boxes: {len(bin_boxs_turn)}, total box {len(bins_boxs)}, processed {num-tmp_num}items, remaining {tmp_num}items"
+            f" the {turn + i + 1} th round ends ---------- current number of processed boxes: {len(bin_boxs_turn)}, total box {len(bins_boxs)}, processed {num - tmp_num}items, remaining {tmp_num}items"
         )
         num = tmp_num
 
@@ -181,14 +179,12 @@ def run_hashbucket_processor(processor, tracker, max_token_len):
                 min_ratio=0.90,
                 max_workers=os.cpu_count(),
             )
-            update_stats = processor.update_hash_buckets(
-                remove_empty=True, verbose=True
-            )
+            update_stats = processor.update_hash_buckets(remove_empty=True, verbose=True)
             update_info(update_stats)
             bins_boxs.extend(bin_boxs_TOP)
             mean, min_, max_, tmp_num = get_hs(processor.hash_buckets)
             print(
-                f"top{i} end----------the current processing box number: {len(bin_boxs_TOP)}, total box{len(bins_boxs)},handle the{num-tmp_num}items,remaining {tmp_num} items"
+                f"top{i} end----------the current processing box number: {len(bin_boxs_TOP)}, total box{len(bins_boxs)},handle the{num - tmp_num}items,remaining {tmp_num} items"
             )
             if num - tmp_num < 3000:
                 break
@@ -208,14 +204,12 @@ def run_hashbucket_processor(processor, tracker, max_token_len):
                 min_ratio=min_ratio,
                 max_workers=os.cpu_count(),
             )
-            update_stats = processor.update_hash_buckets(
-                remove_empty=True, verbose=True
-            )
+            update_stats = processor.update_hash_buckets(remove_empty=True, verbose=True)
             update_info(update_stats)
             bins_boxs.extend(bin_boxs_turn)
             mean, min_, max_, tmp_num = get_hs(processor.hash_buckets)
             print(
-                f" the final pack_with_flexible_seeds end ---------- current number of processed boxes: {len(bin_boxs_turn)}, total box {len(bins_boxs)}, processed {num-tmp_num}items, remaining {tmp_num}items"
+                f" the final pack_with_flexible_seeds end ---------- current number of processed boxes: {len(bin_boxs_turn)}, total box {len(bins_boxs)}, processed {num - tmp_num}items, remaining {tmp_num}items"
             )
             num = tmp_num
 
@@ -280,10 +274,7 @@ def run_wds_native(cfg):
         plan_path = write_bins_plan(cfg, media_type, bins_boxs)
         total_boxes += len(bins_boxs)
         if keep_intermediate:
-            print(
-                f"{media_type} bins saved to {file_path}, compact_plan={plan_path}, "
-                f"boxes={len(bins_boxs)}"
-            )
+            print(f"{media_type} bins saved to {file_path}, compact_plan={plan_path}, boxes={len(bins_boxs)}")
         else:
             print(f"{media_type} compact bins plan saved to {plan_path}, boxes={len(bins_boxs)}")
     print(f"WDS-native hashbucket done, total boxes={total_boxes}")

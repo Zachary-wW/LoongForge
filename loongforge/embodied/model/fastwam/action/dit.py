@@ -188,9 +188,7 @@ class ActionDiT(nn.Module):
 
         payload = torch.load(action_dit_pretrained_path, map_location="cpu")
         if not isinstance(payload, dict):
-            raise ValueError(
-                f"Invalid action backbone payload type from {action_dit_pretrained_path}: {type(payload)}"
-            )
+            raise ValueError(f"Invalid action backbone payload type from {action_dit_pretrained_path}: {type(payload)}")
 
         policy = payload.get("policy", {})
         if policy:
@@ -214,8 +212,7 @@ class ActionDiT(nn.Module):
         backbone_state_dict = payload.get("backbone_state_dict")
         if not isinstance(backbone_state_dict, dict):
             raise ValueError(
-                f"`backbone_state_dict` must be a dict in {action_dit_pretrained_path}, "
-                f"got {type(backbone_state_dict)}"
+                f"`backbone_state_dict` must be a dict in {action_dit_pretrained_path}, got {type(backbone_state_dict)}"
             )
 
         provided_keys = set(backbone_state_dict.keys())
@@ -274,8 +271,7 @@ class ActionDiT(nn.Module):
                     )
             elif int(got_value) != int(expected_value):
                 raise ValueError(
-                    f"`meta.{key}` mismatch in {action_dit_pretrained_path}: "
-                    f"expected {expected_value}, got {got_value}"
+                    f"`meta.{key}` mismatch in {action_dit_pretrained_path}: expected {expected_value}, got {got_value}"
                 )
 
     def pre_dit(
@@ -287,9 +283,7 @@ class ActionDiT(nn.Module):
     ) -> Dict[str, Any]:
         """Embed action tokens, timesteps, text context, and RoPE state before DiT blocks."""
         if action_tokens.ndim != 3:
-            raise ValueError(
-                f"`action_tokens` must be 3D [B, T, action_dim], got shape {tuple(action_tokens.shape)}"
-            )
+            raise ValueError(f"`action_tokens` must be 3D [B, T, action_dim], got shape {tuple(action_tokens.shape)}")
         if action_tokens.shape[2] != self.action_dim:
             raise ValueError(f"`action_tokens` last dim must be {self.action_dim}, got {action_tokens.shape[2]}")
         if timestep.ndim != 1:

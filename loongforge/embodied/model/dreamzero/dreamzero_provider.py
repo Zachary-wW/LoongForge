@@ -64,11 +64,7 @@ def _skip_default_reset_parameters(enabled: bool):
         torch.nn.Conv2d,
         torch.nn.Conv3d,
     )
-    originals = {
-        cls: cls.reset_parameters
-        for cls in classes
-        if hasattr(cls, "reset_parameters")
-    }
+    originals = {cls: cls.reset_parameters for cls in classes if hasattr(cls, "reset_parameters")}
 
     def _noop_reset(self):
         return None
@@ -90,20 +86,14 @@ def _dit_checkpoint_coverage_is_complete(
     if (full_init_path or model_config.dit_init_checkpoint_path or "").strip():
         return True
     action_state_path = action_state_path or model_config.action_state_init_checkpoint_path
-    return bool(
-        model_config.backbone_variant == "wan21_14b"
-        and (action_state_path or "").strip()
-    )
+    return bool(model_config.backbone_variant == "wan21_14b" and (action_state_path or "").strip())
 
 
 def _should_skip_default_reset(
     model_config: DreamZeroConfig,
     checkpoint_path: str | None,
 ) -> bool:
-    return bool(
-        model_config.skip_init_weights
-        and (checkpoint_path or "").strip()
-    )
+    return bool(model_config.skip_init_weights and (checkpoint_path or "").strip())
 
 
 def _should_skip_dit_default_init(
@@ -160,21 +150,13 @@ def _coerce_dreamzero_config(config) -> DreamZeroConfig:
         values = {key: value for key, value in raw.items() if key in valid_fields}
     else:
         raw_values = vars(raw)
-        values = {
-            key: raw_values[key]
-            for key in valid_fields
-            if key in raw_values
-        }
+        values = {key: raw_values[key] for key in valid_fields if key in raw_values}
     return DreamZeroConfig(**values)
 
 
 def _loadable_model_state_keys(model: torch.nn.Module) -> set[str]:
     """Return checkpoint-backed keys, excluding empty TE compatibility state."""
-    return {
-        key
-        for key in model.state_dict().keys()
-        if not key.endswith("._extra_state")
-    }
+    return {key for key in model.state_dict().keys() if not key.endswith("._extra_state")}
 
 
 def _maybe_load_full_dit_from_checkpoint(
@@ -229,9 +211,7 @@ def _maybe_load_full_dit_from_checkpoint(
             missing_targets.append(target_name)
             return False
         if target.shape != tensor.shape:
-            shape_mismatches.append(
-                f"{source_key} -> {target_name}: {tuple(tensor.shape)} vs {tuple(target.shape)}"
-            )
+            shape_mismatches.append(f"{source_key} -> {target_name}: {tuple(tensor.shape)} vs {tuple(target.shape)}")
             return False
         with torch.no_grad():
             target.copy_(tensor.to(device=target.device, dtype=target.dtype))
@@ -262,10 +242,7 @@ def _maybe_load_full_dit_from_checkpoint(
         problems.append(f"shape mismatches={shape_mismatches[:10]} count={len(shape_mismatches)}")
 
     if problems and strict:
-        raise RuntimeError(
-            "failed to load complete DreamZero DiT init from "
-            f"{ckpt_path}: {'; '.join(problems)}"
-        )
+        raise RuntimeError(f"failed to load complete DreamZero DiT init from {ckpt_path}: {'; '.join(problems)}")
 
     if _rank0():
         logger.info(
@@ -306,18 +283,14 @@ def _maybe_load_action_state_from_checkpoint(
 
     from safetensors import safe_open  # local import: optional dep
 
-    source_to_target = {
-        f"action_head.model.{target_name}": target_name for target_name in _ACTION_STATE_TARGETS
-    }
+    source_to_target = {f"action_head.model.{target_name}": target_name for target_name in _ACTION_STATE_TARGETS}
     source_keys = set(source_to_target)
     strict = True
 
     try:
         candidates = candidate_action_state_files(ckpt_path)
     except FileNotFoundError:
-        raise FileNotFoundError(
-            f"action_state_init_checkpoint_path does not exist: {ckpt_path}"
-        ) from None
+        raise FileNotFoundError(f"action_state_init_checkpoint_path does not exist: {ckpt_path}") from None
 
     file_to_sources: dict[str, list[str]] = {}
     for source_key, files in candidates.items():
@@ -325,8 +298,7 @@ def _maybe_load_action_state_from_checkpoint(
             file_to_sources.setdefault(str(fpath), []).append(source_key)
     if not file_to_sources:
         raise FileNotFoundError(
-            "no action/state safetensors shards found under "
-            f"action_state_init_checkpoint_path={ckpt_path}"
+            f"no action/state safetensors shards found under action_state_init_checkpoint_path={ckpt_path}"
         )
 
     params = dict(model.named_parameters())
@@ -344,9 +316,7 @@ def _maybe_load_action_state_from_checkpoint(
             missing_targets.append(target_name)
             return False
         if target.shape != tensor.shape:
-            shape_mismatches.append(
-                f"{source_key} -> {target_name}: {tuple(tensor.shape)} vs {tuple(target.shape)}"
-            )
+            shape_mismatches.append(f"{source_key} -> {target_name}: {tuple(tensor.shape)} vs {tuple(target.shape)}")
             return False
         with torch.no_grad():
             target.copy_(tensor.to(device=target.device, dtype=target.dtype))
@@ -378,8 +348,7 @@ def _maybe_load_action_state_from_checkpoint(
 
     if problems and strict:
         raise RuntimeError(
-            "failed to load complete DreamZero action/state init from "
-            f"{ckpt_path}: {'; '.join(problems)}"
+            f"failed to load complete DreamZero action/state init from {ckpt_path}: {'; '.join(problems)}"
         )
 
     if _rank0():
@@ -393,6 +362,7 @@ def _maybe_load_action_state_from_checkpoint(
         if problems:
             logger.warning("[dreamzero] action/state init warnings: %s", "; ".join(problems))
     return loaded_targets
+
 
 # DiT key rename table: diffusers (HF Wan release) -> CausalWanModel naming.
 # Kept in sync with
@@ -500,9 +470,7 @@ def _load_dit_pretrained(model: torch.nn.Module, path: str) -> set[str]:
                 skipped.append(source_key)
                 return False
             if target.shape != tensor.shape:
-                skipped.append(
-                    f"{source_key} (shape mismatch {tuple(tensor.shape)} vs {tuple(target.shape)})"
-                )
+                skipped.append(f"{source_key} (shape mismatch {tuple(tensor.shape)} vs {tuple(target.shape)})")
                 return False
             target.copy_(tensor.to(target.dtype))
             loaded_targets.add(target_name)
@@ -783,9 +751,7 @@ def _build_diffusion_model(model_config: DreamZeroConfig) -> torch.nn.Module:
     if dit_pretrained_path:
         loaded_targets.update(_load_dit_pretrained(model, dit_pretrained_path))
     loaded_targets.update(_maybe_load_full_dit_from_checkpoint(model, full_init_path))
-    loaded_targets.update(
-        _maybe_load_action_state_from_checkpoint(model, action_state_path)
-    )
+    loaded_targets.update(_maybe_load_action_state_from_checkpoint(model, action_state_path))
     if skip_default_reset:
         _raise_if_missing_after_skipped_reset(
             component="DiT",

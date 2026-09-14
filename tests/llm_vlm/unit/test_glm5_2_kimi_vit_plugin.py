@@ -107,13 +107,9 @@ class Glm52KimiVitPluginTest(unittest.TestCase):
     def test_kimi_k26_hf_vqa_keeps_media_tokens_equal_to_features(self):
         """The real HF plugin path emits exactly one token per image feature."""
         processor_path = os.environ["KIMI_K26_PROCESSOR"]
-        tokenizer = AutoTokenizer.from_pretrained(
-            processor_path, trust_remote_code=True
-        )
+        tokenizer = AutoTokenizer.from_pretrained(processor_path, trust_remote_code=True)
         encoder = object.__new__(KimiTaskEncoder)
-        encoder.args = SimpleNamespace(
-            train_on_prompt=False, history_mask_loss=False
-        )
+        encoder.args = SimpleNamespace(train_on_prompt=False, history_mask_loss=False)
         encoder.chat_template = MAPPING_NAME_TO_TEMPLATE["kimi-k2.6-hf"]
         encoder.tokenizer = SimpleNamespace(
             hf_tokenizer=lambda: tokenizer,
@@ -123,32 +119,21 @@ class Glm52KimiVitPluginTest(unittest.TestCase):
         encoder.min_pixels = 28 * 28
         encoder.max_pixels = 2048 * 2048
         encoder._resize_image = lambda image: image
-        image_processor = AutoImageProcessor.from_pretrained(
-            processor_path, trust_remote_code=True
-        )
-        processor_cls = get_class_from_dynamic_module(
-            "kimi_k25_processor.KimiK25Processor", processor_path
-        )
-        encoder.processor = processor_cls(
-            image_processor=image_processor, tokenizer=tokenizer
-        )
+        image_processor = AutoImageProcessor.from_pretrained(processor_path, trust_remote_code=True)
+        processor_cls = get_class_from_dynamic_module("kimi_k25_processor.KimiK25Processor", processor_path)
+        encoder.processor = processor_cls(image_processor=image_processor, tokenizer=tokenizer)
 
-        image = Image.open(
-            Path(__file__).parent / "datasets/vlm/mllm_demo_data/1.jpg"
-        ).convert("RGB")
+        image = Image.open(Path(__file__).parent / "datasets/vlm/mllm_demo_data/1.jpg").convert("RGB")
         input_ids, _, _, pixel_values, image_grid_thw = encoder.process_sft_vqa(
             "Describe the image.", "A test answer.", image
         )
 
         media_content_id = tokenizer.convert_tokens_to_ids("<|media_content|>")
         feature_count = sum(
-            int(h // encoder.merge_kernel_size[0])
-            * int(w // encoder.merge_kernel_size[1])
+            int(h // encoder.merge_kernel_size[0]) * int(w // encoder.merge_kernel_size[1])
             for _, h, w in image_grid_thw.tolist()
         )
-        self.assertEqual(
-            int((input_ids == media_content_id).sum()), feature_count
-        )
+        self.assertEqual(int((input_ids == media_content_id).sum()), feature_count)
         self.assertTrue(pixel_values and pixel_values[0].numel())
 
 
@@ -229,22 +214,24 @@ class VLMTaskEncoderCompatibilityTest(unittest.TestCase):
                 def load_processor(path, **kwargs):
                     self.assertEqual(path, expected_path)
                     self.assertTrue(kwargs["trust_remote_code"])
-                    repr_was_patched.append(
-                        ProcessorMixin.__repr__ is object.__repr__
-                    )
+                    repr_was_patched.append(ProcessorMixin.__repr__ is object.__repr__)
                     return Mock()
 
-                with patch.object(
-                    BaseTaskEncoder,
-                    "__init__",
-                    lambda encoder: setattr(encoder, "args", args),
-                ), patch(
-                    "loongforge.data.multimodal.vlm_task_encoder.AutoProcessor.from_pretrained",
-                    side_effect=load_processor,
+                with (
+                    patch.object(
+                        BaseTaskEncoder,
+                        "__init__",
+                        lambda encoder: setattr(encoder, "args", args),
+                    ),
+                    patch(
+                        "loongforge.data.multimodal.vlm_task_encoder.AutoProcessor.from_pretrained",
+                        side_effect=load_processor,
+                    ),
                 ):
                     VLMTaskEncoder(args)
                 self.assertEqual(repr_was_patched, [expected_patched])
                 self.assertIs(ProcessorMixin.__repr__, original_repr)
+
 
 class VLMValidationDatasetTest(unittest.TestCase):
     """Check validation data path selection for Energon datasets."""
@@ -261,32 +248,31 @@ class VLMValidationDatasetTest(unittest.TestCase):
 
     def _get_val_dataset(self, args):
         dataset = object()
-        with patch.object(
-            dataloader_provider, "get_args", return_value=args
-        ), patch.object(
-            dataloader_provider.parallel_state,
-            "get_data_parallel_rank",
-            return_value=0,
-        ), patch.object(
-            dataloader_provider.parallel_state,
-            "get_data_parallel_world_size",
-            return_value=1,
-        ), patch.object(
-            dataloader_provider.parallel_state,
-            "get_data_parallel_group",
-            return_value=None,
-        ), patch.object(
-            dataloader_provider.energon, "WorkerConfig", return_value=object()
-        ), patch.object(
-            dataloader_provider.energon, "get_val_dataset", return_value=dataset
-        ) as get_val_dataset:
+        with (
+            patch.object(dataloader_provider, "get_args", return_value=args),
+            patch.object(
+                dataloader_provider.parallel_state,
+                "get_data_parallel_rank",
+                return_value=0,
+            ),
+            patch.object(
+                dataloader_provider.parallel_state,
+                "get_data_parallel_world_size",
+                return_value=1,
+            ),
+            patch.object(
+                dataloader_provider.parallel_state,
+                "get_data_parallel_group",
+                return_value=None,
+            ),
+            patch.object(dataloader_provider.energon, "WorkerConfig", return_value=object()),
+            patch.object(dataloader_provider.energon, "get_val_dataset", return_value=dataset) as get_val_dataset,
+        ):
             result = dataloader_provider.get_val_dataset(Mock())
         return result, dataset, get_val_dataset
 
     def test_explicit_validation_path_is_used(self):
-        result, dataset, get_val_dataset = self._get_val_dataset(
-            self._args(["train"], ["valid"])
-        )
+        result, dataset, get_val_dataset = self._get_val_dataset(self._args(["train"], ["valid"]))
 
         self.assertIs(result, dataset)
         self.assertEqual(get_val_dataset.call_args.args[0], "valid")
@@ -309,25 +295,18 @@ class VLMValidationDatasetTest(unittest.TestCase):
             result, dataset, get_val_dataset = self._get_val_dataset(args)
 
         self.assertIs(result, dataset)
-        create_metadataset_yaml.assert_called_once_with(
-            ["valid-a", "valid-b"], [0.6, 0.4], split="val"
-        )
-        self.assertEqual(
-            get_val_dataset.call_args.args[0], "validation-metadataset.yaml"
-        )
+        create_metadataset_yaml.assert_called_once_with(["valid-a", "valid-b"], [0.6, 0.4], split="val")
+        self.assertEqual(get_val_dataset.call_args.args[0], "validation-metadataset.yaml")
 
 
 class MetaDatasetYamlTest(unittest.TestCase):
     def test_train_and_validation_files_are_split_specific(self):
-        with tempfile.TemporaryDirectory() as temp_dir, patch.object(
-            dataloader_provider.tempfile, "gettempdir", return_value=temp_dir
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch.object(dataloader_provider.tempfile, "gettempdir", return_value=temp_dir),
         ):
-            train_path = dataloader_provider.create_metadataset_yaml(
-                ["train-a"], [1.0], split="train"
-            )
-            val_path = dataloader_provider.create_metadataset_yaml(
-                ["val-a"], [1.0], split="val"
-            )
+            train_path = dataloader_provider.create_metadataset_yaml(["train-a"], [1.0], split="train")
+            val_path = dataloader_provider.create_metadataset_yaml(["val-a"], [1.0], split="val")
             self.assertNotEqual(train_path, val_path)
             with open(train_path) as train_file, open(val_path) as val_file:
                 self.assertIn("train:", train_file.read())

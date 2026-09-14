@@ -33,6 +33,7 @@ from wds_pack.core.paths import (
     get_token_info_report_path,
     get_log_file_path,
 )
+
 logger = logging.getLogger(__name__)
 
 # ----------------- Configuration Global Variables -----------------
@@ -84,10 +85,7 @@ def get_chat_template(sample_type: str, model_type: str) -> Template:
 
     task_templates = TEMPLATES.get(sample_type)
     if task_templates is None:
-        raise ValueError(
-            f"Unsupported sample_type '{sample_type}'. "
-            f"Available sample types: {supported_sample_types}"
-        )
+        raise ValueError(f"Unsupported sample_type '{sample_type}'. Available sample types: {supported_sample_types}")
 
     if isinstance(task_templates, str):
         # Simple case: directly defined template string
@@ -144,9 +142,7 @@ def fetch_media_data(media_paths: List[Tuple[str, str]]) -> Dict[str, list]:
     return media_inputs
 
 
-def resolve_media_paths(
-    sample_name: str, json_data: dict, main_dir: Path, sample_type: str
-) -> List[Tuple[str, str]]:
+def resolve_media_paths(sample_name: str, json_data: dict, main_dir: Path, sample_type: str) -> List[Tuple[str, str]]:
     """
     Build media path list for a sample.
 
@@ -213,16 +209,12 @@ def resolve_media_paths(
                 media_type = infer_media_type(media_name)
 
         if media_type is None:
-            logger.warning(
-                f"Skipping media '{media_name}' in {sample_name}: unable to infer media type"
-            )
+            logger.warning(f"Skipping media '{media_name}' in {sample_name}: unable to infer media type")
             continue
 
         resolved_path = _pick_existing_path(media_name)
         if not resolved_path:
-            logger.warning(
-                f"Media file not found for {sample_name}: {media_name} (searched beside JSON)"
-            )
+            logger.warning(f"Media file not found for {sample_name}: {media_name} (searched beside JSON)")
             continue
 
         media_paths.append((media_type, str(resolved_path)))
@@ -234,9 +226,7 @@ def resolve_media_paths(
 
     if sample_type == "packed_multi_mix_qa":
         if not media_paths:
-            logger.warning(
-                f"packed_multi_mix_qa requires media files in JSON; none resolved for {sample_name}"
-            )
+            logger.warning(f"packed_multi_mix_qa requires media files in JSON; none resolved for {sample_name}")
     elif not media_paths and sample_type in single_media_types:
         for media_type, ext_list in VALID_MEDIA_EXT.items():
             if media_type not in MEDIA_PREPROCESS:
@@ -247,9 +237,7 @@ def resolve_media_paths(
                     media_paths.append((media_type, str(candidate)))
 
     if not media_paths and declared_media_type:
-        logger.warning(
-            f"No media located for {sample_name} (declared media type '{declared_media_type}')"
-        )
+        logger.warning(f"No media located for {sample_name} (declared media type '{declared_media_type}')")
 
     return media_paths
 
@@ -334,9 +322,7 @@ def count_valid_lines(file_path: Union[str, Path]) -> int:
         return 0
 
 
-def read_lines_by_chunk(
-    file_path: Union[str, Path], chunk_size: int
-) -> Generator[List[str], None, None]:
+def read_lines_by_chunk(file_path: Union[str, Path], chunk_size: int) -> Generator[List[str], None, None]:
     """
     Read a text file and yield non-empty lines in fixed-size chunks.
 
@@ -367,17 +353,13 @@ def read_lines_by_chunk(
                     continue
                 chunk.append(line)
                 if len(chunk) >= chunk_size:
-                    logger.debug(
-                        f"Yielding chunk of {len(chunk)} lines from {file_path.name}"
-                    )
+                    logger.debug(f"Yielding chunk of {len(chunk)} lines from {file_path.name}")
                     yield chunk
                     chunk = []
 
             # Yield remaining lines (if any)
             if chunk:
-                logger.debug(
-                    f"Yielding final chunk of {len(chunk)} lines from {file_path.name}"
-                )
+                logger.debug(f"Yielding final chunk of {len(chunk)} lines from {file_path.name}")
                 yield chunk
 
     except Exception as e:
@@ -425,16 +407,12 @@ def get_adaptive_workers(min_workers=8, max_workers=256, base_ratio=4):
         return adjusted
 
     except Exception as e:
-        logger.warning(
-            f"Failed to compute adaptive workers, fallback to min_workers={min_workers}: {e}"
-        )
+        logger.warning(f"Failed to compute adaptive workers, fallback to min_workers={min_workers}: {e}")
         return min_workers
 
 
 # ----------------- Core Processing Functions -----------------
-def process_sample(
-    json_path: Union[str, Path], chat_template, processor
-) -> Tuple[Union[int, None], str]:
+def process_sample(json_path: Union[str, Path], chat_template, processor) -> Tuple[Union[int, None], str]:
     """
     Process a single multimodal sample:
     1. Load JSON metadata
@@ -469,9 +447,7 @@ def process_sample(
         json_data[TEMPLATE_TEXT_KEY] = text_data
         logger.debug(msg=f"[{sample_name}] normalized text_data keys: {text_data}")
         if not text_data:
-            raise ValueError(
-                f"Missing '{TEMPLATE_TEXT_KEY}' field in {json_path}"
-            )
+            raise ValueError(f"Missing '{TEMPLATE_TEXT_KEY}' field in {json_path}")
         # Allow templates to reference either the configured key or a default "messages".
         # This keeps existing templates (which hardcode `messages`) working when config uses another key (e.g., `texts`).
         render_payload = {TEMPLATE_TEXT_KEY: text_data}
@@ -490,16 +466,10 @@ def process_sample(
         # --- Step 4: Load and process media data ---
         media_inputs = fetch_media_data(media_paths) if media_paths else {}
         # --- Step 5: Build model input ---
-        model_inputs = processor(
-            text=[text_input], **media_inputs, padding=True, return_tensors="pt"
-        )
+        model_inputs = processor(text=[text_input], **media_inputs, padding=True, return_tensors="pt")
 
         token_len = int(model_inputs["input_ids"].shape[1])
-        media_summary = (
-            ", ".join(f"{k}:{len(v)}" for k, v in media_inputs.items())
-            if media_inputs
-            else "no media"
-        )
+        media_summary = ", ".join(f"{k}:{len(v)}" for k, v in media_inputs.items()) if media_inputs else "no media"
         logger.info(
             f"[sample:{sample_name}] token_len={token_len}, text_chars={len(text_input)}, media={media_summary}"
         )
@@ -557,13 +527,8 @@ def process_chunk(
         processor = AutoProcessor.from_pretrained(**processor_kwargs)
         n_workers = get_adaptive_workers()
 
-        with ThreadPoolExecutor(
-            max_workers=n_workers, thread_name_prefix=f"chunk{chunk_idx:02d}"
-        ) as executor:
-            future_map = {
-                executor.submit(process_sample, path, chat_template, processor): path
-                for path in json_paths
-            }
+        with ThreadPoolExecutor(max_workers=n_workers, thread_name_prefix=f"chunk{chunk_idx:02d}") as executor:
+            future_map = {executor.submit(process_sample, path, chat_template, processor): path for path in json_paths}
 
             for future in as_completed(future_map):
                 json_path = future_map[future]
@@ -610,9 +575,7 @@ def process_chunk(
         return temp_file_path
 
     except Exception as e:
-        logger.error(
-            f"Process {multiprocessing.current_process().name} failed for chunk {chunk_idx}: {e}"
-        )
+        logger.error(f"Process {multiprocessing.current_process().name} failed for chunk {chunk_idx}: {e}")
         return None
 
 
@@ -649,9 +612,7 @@ def merge_by_batch(
             if not queue_to_merge.empty():
                 try:
                     # Fill buffer by fetching files from queue_to_merge
-                    file_path = queue_to_merge.get(
-                        timeout=1
-                    )  # Fetch files from queue_to_merge to fill the buffer
+                    file_path = queue_to_merge.get(timeout=1)  # Fetch files from queue_to_merge to fill the buffer
                     buffer.append(file_path)
                     queue_to_merge.task_done()
                     logger.debug(
@@ -701,9 +662,7 @@ def merge_by_batch(
                             dir=temp_dir,
                         ).name
                     )
-                    result_path, line_count = merge_files_by_token(
-                        buffer, temp_file_path, max_token_len=max_token_len
-                    )
+                    result_path, line_count = merge_files_by_token(buffer, temp_file_path, max_token_len=max_token_len)
 
                     if result_path and line_count > 0:
                         merged_outputs_per_batch.append(result_path)
@@ -720,14 +679,10 @@ def merge_by_batch(
     except Exception as e:
         logger.error(f"merge_by_batch thread exited abnormally: {str(e)}", exc_info=True)
     finally:
-        logger.info(
-            f"merge_by_batch thread exited, generated {len(merged_outputs_per_batch)} files"
-        )
+        logger.info(f"merge_by_batch thread exited, generated {len(merged_outputs_per_batch)} files")
 
 
-def merge_files_by_token(
-    input_files: List[Path], output_file: Path, max_token_len: int
-) -> Tuple[Optional[Path], int]:
+def merge_files_by_token(input_files: List[Path], output_file: Path, max_token_len: int) -> Tuple[Optional[Path], int]:
     """
     Merge multiple sorted token length files while filtering out entries exceeding max_token_len.
     Each line format: "sample_name:token_length".
@@ -771,10 +726,7 @@ def merge_files_by_token(
     try:
         with ExitStack() as stack:
             # Open all files safely
-            file_handles = [
-                stack.enter_context(open(fpath, "r", encoding="utf-8"))
-                for fpath in valid_files
-            ]
+            file_handles = [stack.enter_context(open(fpath, "r", encoding="utf-8")) for fpath in valid_files]
             iterators = [(parse_line(line) for line in fh) for fh in file_handles]
 
             # Merge all iterators by token length
@@ -823,7 +775,7 @@ def main():
     chunk_size = config["process"]["chunk_size"]
     time_out = config["process"]["time_out"]
     merge_batch_size = config["process"]["merge_batch_size"]
-    
+
     temp_dir = get_temp_dir(wds_dir)
     sample_record = get_sample_record_path(wds_dir)
     token_info_report = get_token_info_report_path(wds_dir)
@@ -837,9 +789,7 @@ def main():
     for media_type, func_name in config.get("media_preprocess", {}).items():
         preprocess_func = getattr(media_preprocess_utils, func_name)
         if preprocess_func is None:
-            raise ValueError(
-                f"No preprocessing function found for '{func_name}' of media type '{media_type}'"
-            )
+            raise ValueError(f"No preprocessing function found for '{func_name}' of media type '{media_type}'")
         MEDIA_PREPROCESS[media_type] = preprocess_func
 
     # ======== Setup logging ========
@@ -891,9 +841,7 @@ def main():
         all_chunks = list(read_lines_by_chunk(sample_record, chunk_size))
         total_chunks = len(all_chunks)
         n_processes = min(multiprocessing.cpu_count(), total_chunks)
-        logger.info(
-            f"Divided into {total_chunks} chunks, starting {n_processes} processes for processing"
-        )
+        logger.info(f"Divided into {total_chunks} chunks, starting {n_processes} processes for processing")
 
         # 4.2 Build process args for each chunk
         chunk_process_args = [
@@ -924,26 +872,18 @@ def main():
                 ready_to_batch_merge_files = []
 
         # 5. Wait for batch merge completion
-        ready_to_batch_merge_files = [
-            f for f in ready_to_batch_merge_files if f is not None
-        ]
-        logger.info(
-            f"Chunk processing completed, generated {len(ready_to_batch_merge_files)} temp files"
-        )
+        ready_to_batch_merge_files = [f for f in ready_to_batch_merge_files if f is not None]
+        logger.info(f"Chunk processing completed, generated {len(ready_to_batch_merge_files)} temp files")
 
         total_processed = GLOBAL_PROCESSED_SAMPLE_COUNT.value
-        logger.info(
-            f"Original sample count: {original_sample_count}, Valid processed samples: {total_processed}"
-        )
+        logger.info(f"Original sample count: {original_sample_count}, Valid processed samples: {total_processed}")
 
         if total_processed != original_sample_count:
             logger.warning(
                 f"Data incomplete! Original {original_sample_count}, valid processed {total_processed}, difference {original_sample_count - total_processed}"
             )
         else:
-            logger.info(
-                "Data integrity verification passed, all samples processed successfully"
-            )
+            logger.info("Data integrity verification passed, all samples processed successfully")
 
         # Wait for all batch merge queue tasks to complete
         logger.info("Waiting for batch merge queue to finish...")
@@ -963,9 +903,7 @@ def main():
             logger.info("Merge thread exited normally")
 
         # Verify intermediate merge output count
-        expected_batch_count = (
-            len(ready_to_batch_merge_files) + merge_batch_size - 1
-        ) // merge_batch_size
+        expected_batch_count = (len(ready_to_batch_merge_files) + merge_batch_size - 1) // merge_batch_size
         if len(intermediate_merged_files) != expected_batch_count:
             logger.warning(
                 f"Unexpected merged file count: expected {expected_batch_count}, got {len(intermediate_merged_files)}"
@@ -978,9 +916,7 @@ def main():
             logger.warning("No merged files generated, skipping final merge")
             return
 
-        total_final_records = sum(
-            count_valid_lines(f) for f in intermediate_merged_files
-        )
+        total_final_records = sum(count_valid_lines(f) for f in intermediate_merged_files)
         logger.info(
             f"Starting final merge: {len(intermediate_merged_files)} batch files, total {total_final_records} records"
         )
@@ -993,13 +929,9 @@ def main():
         )
 
         if final_merged_file and final_merged_count > 0:
-            logger.info(
-                f"Final result generated: {token_info_report} ({final_merged_count} records)"
-            )
+            logger.info(f"Final result generated: {token_info_report} ({final_merged_count} records)")
             if final_merged_count != total_processed:
-                logger.error(
-                    f"Data mismatch: processed {total_processed}, final {final_merged_count}"
-                )
+                logger.error(f"Data mismatch: processed {total_processed}, final {final_merged_count}")
             else:
                 logger.info(logger.info("Final record count verified"))
         else:
@@ -1024,9 +956,7 @@ def main():
                     os.remove(fpath)
                     logger.debug(f"Cleaned up temp file: {os.path.basename(fpath)}")
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to clean temp file {os.path.basename(fpath)}: {str(e)}"
-                    )
+                    logger.warning(f"Failed to clean temp file {os.path.basename(fpath)}: {str(e)}")
 
         logger.info("Program completed successfully")
 

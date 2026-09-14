@@ -73,10 +73,7 @@ def _groot_eagle_no_init_weights():
     # Transformers 4 is the base environment and exposes no_init_weights from
     # modeling_utils. Keep that exact path there; Transformers 5 moved no-init
     # to a broader implementation that changes the CPU RNG stream.
-    if (
-        _hf_no_init_weights is not None
-        and (_TRANSFORMERS_MAJOR_VERSION is None or _TRANSFORMERS_MAJOR_VERSION < 5)
-    ):
+    if _hf_no_init_weights is not None and (_TRANSFORMERS_MAJOR_VERSION is None or _TRANSFORMERS_MAJOR_VERSION < 5):
         with _hf_no_init_weights():
             yield
         return
@@ -104,17 +101,17 @@ def _use_graph_safe_eagle() -> bool:
         return True
     try:
         from loongforge.embodied.train.global_vars import get_training_args
+
         training_args = get_training_args()
-        return (
-            training_args.cuda_graph_impl == "local"
-            and training_args.cuda_graph_scope in {"full_iteration", "per_microbatch"}
-        )
+        return training_args.cuda_graph_impl == "local" and training_args.cuda_graph_scope in {
+            "full_iteration",
+            "per_microbatch",
+        }
     except (ImportError, RuntimeError, AssertionError):
         pass
-    return (
-        os.environ.get("CUDA_GRAPH_IMPL", "none") == "local"
-        and os.environ.get("CUDA_GRAPH_SCOPE", "full_iteration") in {"full_iteration", "per_microbatch"}
-    )
+    return os.environ.get("CUDA_GRAPH_IMPL", "none") == "local" and os.environ.get(
+        "CUDA_GRAPH_SCOPE", "full_iteration"
+    ) in {"full_iteration", "per_microbatch"}
 
 
 def _load_lerobot_eager_eagle(
@@ -172,7 +169,7 @@ class EagleBackbone(torch.nn.Module):
         transformers_loading_kwargs: dict | None = None,
     ):
         """Initialize EagleBackbone module.
-        
+
         Args:
             model_name: Name of the pretrained model to load
             tune_llm: Whether to fine-tune language model parameters
@@ -217,12 +214,12 @@ class EagleBackbone(torch.nn.Module):
 
         # Handle layer selection for different model structures
         # The language model structure may vary based on how the model was loaded
-        if hasattr(self.model, 'language_model'):
-            if hasattr(self.model.language_model, 'model') and hasattr(self.model.language_model.model, 'layers'):
+        if hasattr(self.model, "language_model"):
+            if hasattr(self.model.language_model, "model") and hasattr(self.model.language_model.model, "layers"):
                 # Standard structure: model.language_model.model.layers
                 while len(self.model.language_model.model.layers) > select_layer:
                     self.model.language_model.model.layers.pop(-1)
-            elif hasattr(self.model.language_model, 'layers'):
+            elif hasattr(self.model.language_model, "layers"):
                 # Alternative structure: model.language_model.layers
                 while len(self.model.language_model.layers) > select_layer:
                     self.model.language_model.layers.pop(-1)
@@ -242,7 +239,7 @@ class EagleBackbone(torch.nn.Module):
 
     def set_trainable_parameters(self, tune_llm: bool, tune_visual: bool, tune_top_llm_layers: int):
         """Set which parameters should be trainable.
-        
+
         Args:
             tune_llm: Whether to tune language model parameters
             tune_visual: Whether to tune visual model parameters
@@ -254,18 +251,18 @@ class EagleBackbone(torch.nn.Module):
         for parameter in self.parameters():
             parameter.requires_grad = True
 
-        if hasattr(self.model, 'language_model') and not tune_llm:
+        if hasattr(self.model, "language_model") and not tune_llm:
             self.model.language_model.requires_grad_(False)
-        if hasattr(self.model, 'vision_model') and not tune_visual:
+        if hasattr(self.model, "vision_model") and not tune_visual:
             self.model.vision_model.requires_grad_(False)
-        if hasattr(self.model, 'mlp1') and not tune_visual:
+        if hasattr(self.model, "mlp1") and not tune_visual:
             self.model.mlp1.requires_grad_(False)
 
-        if tune_top_llm_layers > 0 and hasattr(self.model, 'language_model'):
+        if tune_top_llm_layers > 0 and hasattr(self.model, "language_model"):
             # Handle different layer structures
-            if hasattr(self.model.language_model, 'model') and hasattr(self.model.language_model.model, 'layers'):
+            if hasattr(self.model.language_model, "model") and hasattr(self.model.language_model.model, "layers"):
                 layers = self.model.language_model.model.layers
-            elif hasattr(self.model.language_model, 'layers'):
+            elif hasattr(self.model.language_model, "layers"):
                 layers = self.model.language_model.layers
             else:
                 layers = []
@@ -280,19 +277,19 @@ class EagleBackbone(torch.nn.Module):
     def set_frozen_modules_to_eval_mode(self):
         """Set frozen modules to evaluation mode."""
         if self.training:
-            if hasattr(self.model, 'language_model') and self.model.language_model and not self.tune_llm:
+            if hasattr(self.model, "language_model") and self.model.language_model and not self.tune_llm:
                 self.model.language_model.eval()
-            if hasattr(self.model, 'vision_model') and self.model.vision_model and not self.tune_visual:
+            if hasattr(self.model, "vision_model") and self.model.vision_model and not self.tune_visual:
                 self.model.vision_model.eval()
-            if hasattr(self.model, 'mlp1') and self.model.mlp1 and not self.tune_visual:
+            if hasattr(self.model, "mlp1") and self.model.mlp1 and not self.tune_visual:
                 self.model.mlp1.eval()
 
     def prepare_input(self, batch: dict) -> BatchFeature:
         """Prepare input for model processing.
-        
+
         Args:
             batch: Input dictionary containing model inputs
-            
+
         Returns:
             BatchFeature: Processed input features
         """
@@ -300,10 +297,10 @@ class EagleBackbone(torch.nn.Module):
 
     def forward(self, vl_input: BatchFeature) -> BatchFeature:
         """Forward pass of the model.
-        
+
         Args:
             vl_input: Input features for the model
-            
+
         Returns:
             BatchFeature: Model outputs
         """

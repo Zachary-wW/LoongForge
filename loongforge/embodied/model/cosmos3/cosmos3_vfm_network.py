@@ -6,6 +6,7 @@
 # SPDX-License-Identifier: OpenMDW-1.1
 
 """Cosmos3 VFM (Visual Foundation Model) network implementation."""
+
 from __future__ import annotations
 
 import math
@@ -27,8 +28,7 @@ from .modeling_utils import (
 
 
 def get_context_parallel_sharded_sequence(
-    attn_implementation=None, input_pack=None,
-    position_ids=None, parallel_dims=None, **kwargs
+    attn_implementation=None, input_pack=None, position_ids=None, parallel_dims=None, **kwargs
 ):
     """Stub for context parallel sharding (no-op in single-node)."""
     return input_pack, position_ids
@@ -37,6 +37,7 @@ def get_context_parallel_sharded_sequence(
 def get_context_parallel_last_hidden_state(packed_outputs, **kwargs):
     """Extract last hidden state from packed outputs."""
     from loongforge.embodied.model.cosmos3.sequence_packing import get_all_seq
+
     return get_all_seq(packed_outputs)
 
 
@@ -619,7 +620,6 @@ class Cosmos3VFMNetwork(PreTrainedModel):
 
         packed_tokens_vision = self.vae2llm(packed_tokens_vision)  # [total_vision_patches,hidden_size]
 
-
         # Add absolute position embedding only when NOT using unified 3D mRoPE
         # (3D mRoPE provides positional information via rotary embeddings instead)
         if self.latent_pos_embed is not None:
@@ -641,7 +641,6 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             packed_timestep_embeds_vision = packed_timestep_embeds_vision.to(
                 target_dtype
             )  # [N_noisy_frames_vision,hidden_size]
-
 
             packed_tokens_vision = _apply_timestep_embeds_to_noisy_tokens(
                 packed_tokens=packed_tokens_vision,

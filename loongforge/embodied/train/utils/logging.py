@@ -140,18 +140,14 @@ class StageTimers:
             torch.cuda.synchronize()
         if name not in self._start_time:
             return
-        self._elapsed[name] = self._elapsed.get(name, 0.0) + (
-            time.perf_counter() - self._start_time.pop(name)
-        )
+        self._elapsed[name] = self._elapsed.get(name, 0.0) + (time.perf_counter() - self._start_time.pop(name))
 
     def reset(self):
         """Clear all accumulated times."""
         self._elapsed.clear()
         self._start_time.clear()
 
-    def get_max_time_string(
-        self, ctx, normalizer: float = 1.0, log_level: int = 0
-    ) -> Optional[str]:
+    def get_max_time_string(self, ctx, normalizer: float = 1.0, log_level: int = 0) -> Optional[str]:
         """Render `max time across ranks (ms):` string on rank 0, else None.
 
         Args:
@@ -198,9 +194,7 @@ class StageTimers:
                 output_string += "\n  rank {} time (ms):".format(r)
                 for name, t in zip(names, g.tolist()):
                     ms = (t / normalizer) * 1000.0
-                    output_string += "\n    {}: {:.2f}".format(
-                        name.ljust(48, "."), ms
-                    )
+                    output_string += "\n    {}: {:.2f}".format(name.ljust(48, "."), ms)
         return output_string
 
 
@@ -271,9 +265,7 @@ class TrainingLogger:
                 tb_dir = os.path.join(output_dir, tb_dir)
             try:
                 os.makedirs(tb_dir, exist_ok=True)
-                self._tb_writer = SummaryWriter(
-                    log_dir=tb_dir, max_queue=tensorboard_queue_size
-                )
+                self._tb_writer = SummaryWriter(log_dir=tb_dir, max_queue=tensorboard_queue_size)
                 self._tb_dir = tb_dir
                 logger.info(f"TensorBoard enabled: {tb_dir}")
             except Exception as e:
@@ -546,9 +538,7 @@ class TrainingLogger:
         # JSONL
         self._append_metrics_jsonl(metrics)
 
-    def log_stage_times(
-        self, timers: "StageTimers", ctx, normalizer: float = 1.0, log_level: int = 0
-    ):
+    def log_stage_times(self, timers: "StageTimers", ctx, normalizer: float = 1.0, log_level: int = 0):
         """Log per-stage timing in `max time across ranks (ms):` format.
 
         All ranks must call this (all_gather is collective); only rank 0 emits.

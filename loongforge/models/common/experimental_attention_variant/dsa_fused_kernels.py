@@ -11,8 +11,7 @@ import torch
 from torch import Tensor
 
 _DSA_FUSED_DEPS_HINT = (
-    "dsa_fused requires optional dependencies. "
-    "Install them with: pip install -r requirements_dsa_fused.txt"
+    "dsa_fused requires optional dependencies. Install them with: pip install -r requirements_dsa_fused.txt"
 )
 
 try:
@@ -85,7 +84,7 @@ def rotary_fwd_q_kernel_interleaved(
 ):
     """
     Triton kernel for forward pass - Interleaved mode.
-    
+
     Interleaved layout:
     - Pairs adjacent elements: (x[0], x[1]), (x[2], x[3]), ..., (x[n-2], x[n-1])
     - For each pair (x_even, x_odd):
@@ -118,24 +117,24 @@ def rotary_fwd_q_kernel_interleaved(
     x_odd_off = x_even_off + 1
     x_even = tl.load(Q + x_even_off, mask=mask)
     x_odd = tl.load(Q + x_odd_off, mask=mask)
-    
+
     # Get corresponding cos/sin values for BOTH even and odd positions
     cos_even = tl.load(COS + token_idx * emb_dim + tl.arange(0, emb_dim // 2) * 2)
     sin_even = tl.load(SIN + token_idx * emb_dim + tl.arange(0, emb_dim // 2) * 2)
     cos_odd = tl.load(COS + token_idx * emb_dim + tl.arange(0, emb_dim // 2) * 2 + 1)
     sin_odd = tl.load(SIN + token_idx * emb_dim + tl.arange(0, emb_dim // 2) * 2 + 1)
-    
+
     cos_even = cos_even.expand_dims(0).broadcast_to(BLOCK_H, emb_dim // 2)
     sin_even = sin_even.expand_dims(0).broadcast_to(BLOCK_H, emb_dim // 2)
     cos_odd = cos_odd.expand_dims(0).broadcast_to(BLOCK_H, emb_dim // 2)
     sin_odd = sin_odd.expand_dims(0).broadcast_to(BLOCK_H, emb_dim // 2)
-    
+
     # Apply rotation transformation
     # x_even_new = x_even * cos_even - x_odd * sin_even
     # x_odd_new = x_odd * cos_odd + x_even * sin_odd
     x_even_new = x_even * cos_even - x_odd * sin_even
     x_odd_new = x_odd * cos_odd + x_even * sin_odd
-    
+
     # Store back in interleaved positions
     tl.store(Q + x_even_off, x_even_new, mask=mask)
     tl.store(Q + x_odd_off, x_odd_new, mask=mask)
@@ -175,7 +174,7 @@ def rotary_bwd_q_kernel_interleaved(
 ):
     """
     Triton kernel for backward pass - Interleaved mode.
-    
+
     Backward rotation (inverse transformation):
     - x_even_grad = x_even_new_grad * cos + x_odd_new_grad * sin
     - x_odd_grad = -x_even_new_grad * sin + x_odd_new_grad * cos
@@ -196,24 +195,24 @@ def rotary_bwd_q_kernel_interleaved(
 
     x_off = tl.arange(0, BLOCK_H)[:, None] * stride_x_nheads + emb_offset
     mask = x_off < head_num * stride_x_nheads
-    
+
     # Load gradient values at even and odd positions
     x_even_off = x_off + tl.arange(0, emb_dim // 2)[None, :] * 2
     x_odd_off = x_even_off + 1
     x_even_grad = tl.load(DO + x_even_off, mask=mask)
     x_odd_grad = tl.load(DO + x_odd_off, mask=mask)
-    
+
     # Get corresponding cos/sin values for BOTH even and odd positions
     cos_even = tl.load(COS + token_idx * emb_dim + tl.arange(0, emb_dim // 2) * 2)
     sin_even = tl.load(SIN + token_idx * emb_dim + tl.arange(0, emb_dim // 2) * 2)
     cos_odd = tl.load(COS + token_idx * emb_dim + tl.arange(0, emb_dim // 2) * 2 + 1)
     sin_odd = tl.load(SIN + token_idx * emb_dim + tl.arange(0, emb_dim // 2) * 2 + 1)
-    
+
     cos_even = cos_even.expand_dims(0).broadcast_to(BLOCK_H, emb_dim // 2)
     sin_even = sin_even.expand_dims(0).broadcast_to(BLOCK_H, emb_dim // 2)
     cos_odd = cos_odd.expand_dims(0).broadcast_to(BLOCK_H, emb_dim // 2)
     sin_odd = sin_odd.expand_dims(0).broadcast_to(BLOCK_H, emb_dim // 2)
-    
+
     # Apply inverse rotation
     # Forward was: x_even_new = x_even * cos_even - x_odd * sin_even
     #              x_odd_new = x_odd * cos_odd + x_even * sin_odd
@@ -221,7 +220,7 @@ def rotary_bwd_q_kernel_interleaved(
     #           x_odd_grad = -x_even_new_grad * sin_even + x_odd_new_grad * cos_odd
     x_even_out = x_even_grad * cos_even + x_odd_grad * sin_odd
     x_odd_out = -x_even_grad * sin_even + x_odd_grad * cos_odd
-    
+
     # Store back
     tl.store(DO + x_even_off, x_even_out, mask=mask)
     tl.store(DO + x_odd_off, x_odd_out, mask=mask)
@@ -602,6 +601,7 @@ class ApplyMLARotaryEmbQNonInterleavedWithOffset(torch.autograd.Function):
             grad = grad.view(max_seqlen, batch_size, nheads, headdim)
         return grad, None, None, None, None, None, None, None, None, None
 
+
 # Fused RoPE + Permute (HSD→SHD) + Cat kernel
 @triton.autotune(
     configs=[
@@ -618,24 +618,24 @@ class ApplyMLARotaryEmbQNonInterleavedWithOffset(torch.autograd.Function):
 )
 @triton.jit
 def fused_rope_permute_cat_fwd_kernel_non_interleaved(
-    Q_CONTENT,       # [h, S, d_out]  HSD (GroupedGEMM output)
-    Q_POS_EMB,       # [S, h, d_pe]   SHD (split view, squeezed b)
-    COS,             # [max_seq_len, emb_dim]
-    SIN,             # [max_seq_len, emb_dim]
-    OUTPUT,          # [S, h, d_total] SHD
+    Q_CONTENT,  # [h, S, d_out]  HSD (GroupedGEMM output)
+    Q_POS_EMB,  # [S, h, d_pe]   SHD (split view, squeezed b)
+    COS,  # [max_seq_len, emb_dim]
+    SIN,  # [max_seq_len, emb_dim]
+    OUTPUT,  # [S, h, d_total] SHD
     S,
     head_num: tl.constexpr,
-    d_out: tl.constexpr,         # kv_lora_rank (e.g. 512)
-    emb_dim: tl.constexpr,       # qk_pos_emb_head_dim (e.g. 64)
+    d_out: tl.constexpr,  # kv_lora_rank (e.g. 512)
+    emb_dim: tl.constexpr,  # qk_pos_emb_head_dim (e.g. 64)
     batch_size,
     seq_num,
     cu_seqlens_q,
-    stride_qc_h,                 # Q_CONTENT stride for head dim
-    stride_qc_s,                 # Q_CONTENT stride for token dim
-    stride_pe_s,                 # Q_POS_EMB stride for token dim
-    stride_pe_h,                 # Q_POS_EMB stride for head dim
-    stride_out_s,                # OUTPUT stride for token dim
-    stride_out_h,                # OUTPUT stride for head dim
+    stride_qc_h,  # Q_CONTENT stride for head dim
+    stride_qc_s,  # Q_CONTENT stride for token dim
+    stride_pe_s,  # Q_POS_EMB stride for token dim
+    stride_pe_h,  # Q_POS_EMB stride for head dim
+    stride_out_s,  # OUTPUT stride for token dim
+    stride_out_h,  # OUTPUT stride for head dim
     cp_rank,
     cp_size,
     BLOCK_H: tl.constexpr,
@@ -645,8 +645,8 @@ def fused_rope_permute_cat_fwd_kernel_non_interleaved(
       1) Copy q_content from HSD layout to output's SHD layout (permute)
       2) Apply non-interleaved RoPE on q_pos_emb, write to output tail (RoPE + cat)
     """
-    pid_m = tl.program_id(axis=0)       # token index
-    pid_head = tl.program_id(axis=1)    # head block index
+    pid_m = tl.program_id(axis=0)  # token index
+    pid_head = tl.program_id(axis=1)  # head block index
 
     if cu_seqlens_q is None:
         token_idx = pid_m // batch_size
@@ -665,14 +665,10 @@ def fused_rope_permute_cat_fwd_kernel_non_interleaved(
         d_mask = d_offs < d_out
         mask = h_mask[:, None] & d_mask[None, :]
 
-        src = (h_offs[:, None] * stride_qc_h
-               + pid_m * stride_qc_s
-               + d_offs[None, :])
+        src = h_offs[:, None] * stride_qc_h + pid_m * stride_qc_s + d_offs[None, :]
         vals = tl.load(Q_CONTENT + src, mask=mask)
 
-        dst = (pid_m * stride_out_s
-               + h_offs[:, None] * stride_out_h
-               + d_offs[None, :])
+        dst = pid_m * stride_out_s + h_offs[:, None] * stride_out_h + d_offs[None, :]
         tl.store(OUTPUT + dst, vals, mask=mask)
 
     # Part 2: RoPE on q_pos_emb + cat
@@ -682,7 +678,7 @@ def fused_rope_permute_cat_fwd_kernel_non_interleaved(
     sin_left = tl.load(SIN + token_idx * emb_dim + tl.arange(0, half_emb))
     cos_right = tl.load(COS + token_idx * emb_dim + half_emb + tl.arange(0, half_emb))
     sin_right = tl.load(SIN + token_idx * emb_dim + half_emb + tl.arange(0, half_emb))
-    cos_left = cos_left[None, :]   # [1, half_emb]
+    cos_left = cos_left[None, :]  # [1, half_emb]
     sin_left = sin_left[None, :]
     cos_right = cos_right[None, :]
     sin_right = sin_right[None, :]
@@ -763,14 +759,10 @@ def fused_rope_permute_cat_fwd_kernel_interleaved(
         d_mask = d_offs < d_out
         mask = h_mask[:, None] & d_mask[None, :]
 
-        src = (h_offs[:, None] * stride_qc_h
-               + pid_m * stride_qc_s
-               + d_offs[None, :])
+        src = h_offs[:, None] * stride_qc_h + pid_m * stride_qc_s + d_offs[None, :]
         vals = tl.load(Q_CONTENT + src, mask=mask)
 
-        dst = (pid_m * stride_out_s
-               + h_offs[:, None] * stride_out_h
-               + d_offs[None, :])
+        dst = pid_m * stride_out_s + h_offs[:, None] * stride_out_h + d_offs[None, :]
         tl.store(OUTPUT + dst, vals, mask=mask)
 
     # Part 2: interleaved RoPE on q_pos_emb + cat
@@ -796,10 +788,8 @@ def fused_rope_permute_cat_fwd_kernel_interleaved(
     x_odd_new = x_odd * cos_odd + x_even * sin_odd
 
     out_base = pid_m * stride_out_s + h_offs[:, None] * stride_out_h + d_out
-    tl.store(OUTPUT + out_base + tl.arange(0, half_emb)[None, :] * 2,
-             x_even_new, mask=h_mask[:, None])
-    tl.store(OUTPUT + out_base + tl.arange(0, half_emb)[None, :] * 2 + 1,
-             x_odd_new, mask=h_mask[:, None])
+    tl.store(OUTPUT + out_base + tl.arange(0, half_emb)[None, :] * 2, x_even_new, mask=h_mask[:, None])
+    tl.store(OUTPUT + out_base + tl.arange(0, half_emb)[None, :] * 2 + 1, x_odd_new, mask=h_mask[:, None])
 
 
 # ---- Backward kernels ----
@@ -820,9 +810,9 @@ def fused_rope_permute_cat_fwd_kernel_interleaved(
 )
 @triton.jit
 def fused_rope_permute_cat_bwd_kernel_non_interleaved(
-    GRAD_OUTPUT,         # [S, h, d_total] SHD
-    GRAD_Q_CONTENT,      # [h, S, d_out]   HSD
-    GRAD_Q_POS_EMB,      # [S, h, d_pe]    SHD
+    GRAD_OUTPUT,  # [S, h, d_total] SHD
+    GRAD_Q_CONTENT,  # [h, S, d_out]   HSD
+    GRAD_Q_POS_EMB,  # [S, h, d_pe]    SHD
     COS,
     SIN,
     S,
@@ -862,14 +852,10 @@ def fused_rope_permute_cat_bwd_kernel_non_interleaved(
         d_mask = d_offs < d_out
         mask = h_mask[:, None] & d_mask[None, :]
 
-        src = (pid_m * stride_go_s
-               + h_offs[:, None] * stride_go_h
-               + d_offs[None, :])
+        src = pid_m * stride_go_s + h_offs[:, None] * stride_go_h + d_offs[None, :]
         vals = tl.load(GRAD_OUTPUT + src, mask=mask)
 
-        dst = (h_offs[:, None] * stride_gc_h
-               + pid_m * stride_gc_s
-               + d_offs[None, :])
+        dst = h_offs[:, None] * stride_gc_h + pid_m * stride_gc_s + d_offs[None, :]
         tl.store(GRAD_Q_CONTENT + dst, vals, mask=mask)
 
     # Part 2: inverse RoPE on grad for pos_emb region
@@ -964,14 +950,10 @@ def fused_rope_permute_cat_bwd_kernel_interleaved(
         d_mask = d_offs < d_out
         mask = h_mask[:, None] & d_mask[None, :]
 
-        src = (pid_m * stride_go_s
-               + h_offs[:, None] * stride_go_h
-               + d_offs[None, :])
+        src = pid_m * stride_go_s + h_offs[:, None] * stride_go_h + d_offs[None, :]
         vals = tl.load(GRAD_OUTPUT + src, mask=mask)
 
-        dst = (h_offs[:, None] * stride_gc_h
-               + pid_m * stride_gc_s
-               + d_offs[None, :])
+        dst = h_offs[:, None] * stride_gc_h + pid_m * stride_gc_s + d_offs[None, :]
         tl.store(GRAD_Q_CONTENT + dst, vals, mask=mask)
 
     # Part 2: inverse interleaved RoPE
@@ -987,10 +969,8 @@ def fused_rope_permute_cat_bwd_kernel_interleaved(
     sin_odd = sin_odd[None, :]
 
     go_base = pid_m * stride_go_s + h_offs[:, None] * stride_go_h + d_out
-    g_even = tl.load(GRAD_OUTPUT + go_base + tl.arange(0, half_emb)[None, :] * 2,
-                     mask=h_mask[:, None])
-    g_odd = tl.load(GRAD_OUTPUT + go_base + tl.arange(0, half_emb)[None, :] * 2 + 1,
-                    mask=h_mask[:, None])
+    g_even = tl.load(GRAD_OUTPUT + go_base + tl.arange(0, half_emb)[None, :] * 2, mask=h_mask[:, None])
+    g_odd = tl.load(GRAD_OUTPUT + go_base + tl.arange(0, half_emb)[None, :] * 2 + 1, mask=h_mask[:, None])
 
     # Inverse interleaved RoPE:
     #   fwd: x_even_new = x_even * cos_even - x_odd * sin_even
@@ -1001,10 +981,8 @@ def fused_rope_permute_cat_bwd_kernel_interleaved(
     dx_odd = -g_even * sin_even + g_odd * cos_odd
 
     gpe_base = pid_m * stride_gpe_s + h_offs[:, None] * stride_gpe_h
-    tl.store(GRAD_Q_POS_EMB + gpe_base + tl.arange(0, half_emb)[None, :] * 2,
-             dx_even, mask=h_mask[:, None])
-    tl.store(GRAD_Q_POS_EMB + gpe_base + tl.arange(0, half_emb)[None, :] * 2 + 1,
-             dx_odd, mask=h_mask[:, None])
+    tl.store(GRAD_Q_POS_EMB + gpe_base + tl.arange(0, half_emb)[None, :] * 2, dx_even, mask=h_mask[:, None])
+    tl.store(GRAD_Q_POS_EMB + gpe_base + tl.arange(0, half_emb)[None, :] * 2 + 1, dx_odd, mask=h_mask[:, None])
 
 
 class FusedRopePermuteCat(torch.autograd.Function):
@@ -1063,17 +1041,32 @@ class FusedRopePermuteCat(torch.autograd.Function):
 
         grid = lambda META: (S, triton.cdiv(nheads, META["BLOCK_H"]))
 
-        kernel = (fused_rope_permute_cat_fwd_kernel_interleaved
-                  if rotary_interleaved
-                  else fused_rope_permute_cat_fwd_kernel_non_interleaved)
+        kernel = (
+            fused_rope_permute_cat_fwd_kernel_interleaved
+            if rotary_interleaved
+            else fused_rope_permute_cat_fwd_kernel_non_interleaved
+        )
         kernel[grid](
-            qc_3d, pe_3d, cos_2d, sin_2d, output,
-            S, nheads, d_out, emb_dim,
-            batch_size, seq_num, cu_seqlens_q,
-            qc_3d.stride(0), qc_3d.stride(1),
-            pe_3d.stride(0), pe_3d.stride(1),
-            output.stride(0), output.stride(1),
-            cp_rank, cp_size,
+            qc_3d,
+            pe_3d,
+            cos_2d,
+            sin_2d,
+            output,
+            S,
+            nheads,
+            d_out,
+            emb_dim,
+            batch_size,
+            seq_num,
+            cu_seqlens_q,
+            qc_3d.stride(0),
+            qc_3d.stride(1),
+            pe_3d.stride(0),
+            pe_3d.stride(1),
+            output.stride(0),
+            output.stride(1),
+            cp_rank,
+            cp_size,
         )
 
         ctx.save_for_backward(cos_2d, sin_2d)
@@ -1107,18 +1100,32 @@ class FusedRopePermuteCat(torch.autograd.Function):
 
         grid = lambda META: (S, triton.cdiv(nheads, META["BLOCK_H"]))
 
-        kernel = (fused_rope_permute_cat_bwd_kernel_interleaved
-                  if ctx.rotary_interleaved
-                  else fused_rope_permute_cat_bwd_kernel_non_interleaved)
+        kernel = (
+            fused_rope_permute_cat_bwd_kernel_interleaved
+            if ctx.rotary_interleaved
+            else fused_rope_permute_cat_bwd_kernel_non_interleaved
+        )
         kernel[grid](
-            grad_3d, grad_q_content, grad_q_pos_emb,
-            cos_2d, sin_2d,
-            S, nheads, d_out, emb_dim,
-            batch_size, seq_num, ctx.cu_seqlens_q,
-            grad_3d.stride(0), grad_3d.stride(1),
-            grad_q_content.stride(0), grad_q_content.stride(1),
-            grad_q_pos_emb.stride(0), grad_q_pos_emb.stride(1),
-            ctx.cp_rank, ctx.cp_size,
+            grad_3d,
+            grad_q_content,
+            grad_q_pos_emb,
+            cos_2d,
+            sin_2d,
+            S,
+            nheads,
+            d_out,
+            emb_dim,
+            batch_size,
+            seq_num,
+            ctx.cu_seqlens_q,
+            grad_3d.stride(0),
+            grad_3d.stride(1),
+            grad_q_content.stride(0),
+            grad_q_content.stride(1),
+            grad_q_pos_emb.stride(0),
+            grad_q_pos_emb.stride(1),
+            ctx.cp_rank,
+            ctx.cp_size,
         )
 
         # Reshape grad_q_content to match forward input's original shape
@@ -1160,8 +1167,14 @@ def fused_rope_permute_cat(
         query: [s, b, h, d_out + emb_dim] or [total_seq_len, h, d_out + emb_dim]
     """
     return FusedRopePermuteCat.apply(
-        q_content, q_pos_emb, cos, sin,
-        cu_seqlens_q, cp_rank, cp_size, rotary_interleaved,
+        q_content,
+        q_pos_emb,
+        cos,
+        sin,
+        cu_seqlens_q,
+        cp_rank,
+        cp_size,
+        rotary_interleaved,
     )
 
 
@@ -1301,11 +1314,7 @@ def rotary_fwd_absorb_kv_kernel_non_interleaved(
     x_left = x_left.expand_dims(0).broadcast_to(BLOCK_H, emb_dim // 2)
     x_right = x_right.expand_dims(0).broadcast_to(BLOCK_H, emb_dim // 2)
 
-    x_left_off = (
-        tl.arange(0, BLOCK_H)[:, None] * stride_k_nheads
-        + k_dim
-        + tl.arange(0, emb_dim // 2)[None, :]
-    )
+    x_left_off = tl.arange(0, BLOCK_H)[:, None] * stride_k_nheads + k_dim + tl.arange(0, emb_dim // 2)[None, :]
     x_right_off = x_left_off + emb_dim // 2
     tl.store(K_ptr + x_left_off, x_left, mask=mask)
     tl.store(K_ptr + x_right_off, x_right, mask=mask)
@@ -1446,7 +1455,7 @@ def rotary_fwd_absorb_kv_kernel_interleaved(
 ):
     """
     Triton kernel for forward pass - Interleaved mode.
-    
+
     Interleaved layout:
     - Pairs adjacent elements in K_POS_EMB: (x[0], x[1]), (x[2], x[3]), ...
     - For each pair (x_even, x_odd):
@@ -1475,25 +1484,25 @@ def rotary_fwd_absorb_kv_kernel_interleaved(
 
     # Load K_POS_EMB and apply interleaved RoPE
     EMB = K_POS_EMB + pid_m * stride_emb_seq
-    
+
     # Extract even and odd indices from K_POS_EMB
     x_even = tl.load(EMB + tl.arange(0, emb_dim // 2) * 2)
     x_odd = tl.load(EMB + tl.arange(0, emb_dim // 2) * 2 + 1)
-    
+
     # Load cos/sin for BOTH even and odd positions
     cos_even = tl.load(COS + token_idx * emb_dim + tl.arange(0, emb_dim // 2) * 2)
     sin_even = tl.load(SIN + token_idx * emb_dim + tl.arange(0, emb_dim // 2) * 2)
     cos_odd = tl.load(COS + token_idx * emb_dim + tl.arange(0, emb_dim // 2) * 2 + 1)
     sin_odd = tl.load(SIN + token_idx * emb_dim + tl.arange(0, emb_dim // 2) * 2 + 1)
-    
+
     # Apply rotation transformation
     x_even_new = x_even * cos_even - x_odd * sin_even
     x_odd_new = x_odd * cos_odd + x_even * sin_odd
-    
+
     # Broadcast to BLOCK_H heads and store in interleaved positions
     x_even_new = x_even_new.expand_dims(0).broadcast_to(BLOCK_H, emb_dim // 2)
     x_odd_new = x_odd_new.expand_dims(0).broadcast_to(BLOCK_H, emb_dim // 2)
-    
+
     # Store back in interleaved layout
     x_even_off = tl.arange(0, BLOCK_H)[:, None] * stride_k_nheads + k_dim + tl.arange(0, emb_dim // 2)[None, :] * 2
     x_odd_off = x_even_off + 1
@@ -1538,7 +1547,7 @@ def rotary_bwd_absorb_kv_kernel_interleaved(
 ):
     """
     Triton kernel for backward pass - Interleaved mode.
-    
+
     Accumulates gradients from all heads and applies inverse rotation
     in interleaved layout.
     """
@@ -1565,22 +1574,22 @@ def rotary_bwd_absorb_kv_kernel_interleaved(
     if pid_head == 0:
         x_even_accum = tl.zeros((BLOCK_H, emb_dim // 2), dtype=tl.float32)
         x_odd_accum = tl.zeros((BLOCK_H, emb_dim // 2), dtype=tl.float32)
-        
+
         # Accumulate from all heads
         for i in tl.static_range(triton.cdiv(head_num, BLOCK_H)):
             dK_ptr = dK + pid_m * stride_dk_seq + i * BLOCK_H * stride_dk_nheads
             x_off = tl.arange(0, BLOCK_H)[:, None] * stride_dk_nheads + k_dim
             mask = x_off < head_num * stride_dk_nheads
-            
+
             # Load gradients from interleaved positions
             x_even_off = x_off + tl.arange(0, emb_dim // 2)[None, :] * 2
             x_odd_off = x_even_off + 1
             x_even_grad = tl.load(dK_ptr + x_even_off, mask=mask)
             x_odd_grad = tl.load(dK_ptr + x_odd_off, mask=mask)
-            
+
             x_even_accum += x_even_grad
             x_odd_accum += x_odd_grad
-        
+
         # Sum across BLOCK_H dimension
         x_even_accum = tl.sum(x_even_accum, axis=0)
         x_odd_accum = tl.sum(x_odd_accum, axis=0)
@@ -1600,7 +1609,7 @@ def rotary_bwd_absorb_kv_kernel_interleaved(
         #           x_odd_grad = -x_even_new_grad * sin_even + x_odd_new_grad * cos_odd
         x_even_out = x_even_accum * cos_even + x_odd_accum * sin_odd
         x_odd_out = -x_even_accum * sin_even + x_odd_accum * cos_odd
-        
+
         # Store back in interleaved positions
         dEMB_ptr = dEMB + pid_m * stride_demb_seq
         tl.store(dEMB_ptr + tl.arange(0, emb_dim // 2) * 2, x_even_out)
@@ -1660,7 +1669,7 @@ class ApplyMLARotaryEmbAbsorbKV(torch.autograd.Function):
         o_key = kv.new_empty(total_seqlen, nheads, emb_dim + k_dim)
 
         grid = lambda META: (total_seqlen, triton.cdiv(nheads, META["BLOCK_H"]))
-        
+
         # Choose kernel based on mode
         if rotary_interleaved:
             rotary_fwd_absorb_kv_kernel_interleaved[grid](
@@ -1743,7 +1752,7 @@ class ApplyMLARotaryEmbAbsorbKV(torch.autograd.Function):
         d_emb = dk.new_empty(total_seqlen, 1, ctx.emb_dim)
 
         grid = lambda META: (total_seqlen, triton.cdiv(nheads, META["BLOCK_H"]))
-        
+
         # Choose kernel based on mode
         if ctx.rotary_interleaved:
             rotary_bwd_absorb_kv_kernel_interleaved[grid](
@@ -1846,9 +1855,13 @@ def triton_attn_dist_kernel(
     p_out_ptr,
     output_ptr,
     sm_scale,
-    s_q, topk,
-    stride_p_s: tl.int64, stride_p_h: tl.int64, stride_p_k: tl.int64,
-    stride_o_s: tl.int64, stride_o_k: tl.int64,
+    s_q,
+    topk,
+    stride_p_s: tl.int64,
+    stride_p_h: tl.int64,
+    stride_p_k: tl.int64,
+    stride_o_s: tl.int64,
+    stride_o_k: tl.int64,
     H_Q: tl.constexpr,
     BLOCK_K: tl.constexpr,
 ):
@@ -1875,7 +1888,7 @@ def triton_attn_dist_kernel(
         BLOCK_K: Block size for topk dimension (constexpr, must equal topk)
     """
     s_idx = tl.program_id(0)
-    k_offs = tl.arange(0, BLOCK_K)    
+    k_offs = tl.arange(0, BLOCK_K)
     acc = tl.zeros([BLOCK_K], dtype=tl.float32)
 
     for h_idx in range(H_Q):
@@ -1945,10 +1958,16 @@ def triton_attn_dist(p_out: torch.Tensor, sm_scale) -> torch.Tensor:
     grid = (s_q,)
 
     triton_attn_dist_kernel[grid](
-        p_out, output, sm_scale,
-        s_q, topk,
-        p_out.stride(0), p_out.stride(1), p_out.stride(2),
-        output.stride(0), output.stride(1),
+        p_out,
+        output,
+        sm_scale,
+        s_q,
+        topk,
+        p_out.stride(0),
+        p_out.stride(1),
+        p_out.stride(2),
+        output.stride(0),
+        output.stride(1),
         H_Q=h_q,
         BLOCK_K=topk,
     )
@@ -1994,7 +2013,7 @@ def padded_flashinfer_topk(logits, topk, sk, *, sorted=True):
     vals, idx = flashinfer.top_k(logits, d, sorted=sorted)
     pad = topk - d
     vals = torch.cat([vals, vals.new_full((*vals.shape[:-1], pad), float("-inf"))], dim=-1)
-    idx  = torch.cat([idx, idx.new_full((*idx.shape[:-1], pad), sk)], dim=-1)  # use key length to fill
+    idx = torch.cat([idx, idx.new_full((*idx.shape[:-1], pad), sk)], dim=-1)  # use key length to fill
     return vals, idx
 
 
@@ -2085,7 +2104,12 @@ class DSADotProductAttentionFunction(torch.autograd.Function):
 
         if major == 10:
             grad_q, grad_kv = flash_mla_sparse_bwd(
-                q, kv, out, grad_out, indices, lse,
+                q,
+                kv,
+                out,
+                grad_out,
+                indices,
+                lse,
                 sm_scale=ctx.sm_scale,
                 q_start_index_s=ctx.chunk_offset,
                 topk_length=ctx.topk_length,
@@ -2106,9 +2130,9 @@ class DSADotProductAttentionFunction(torch.autograd.Function):
                 chunk_offset=ctx.chunk_offset,
                 sm_scale=ctx.sm_scale,
                 return_kernel=False,
-                delta=None
+                delta=None,
             )
-            
+
         return grad_q, grad_kv, None, None, None, None, None, None, None, None, None, None
 
 
@@ -2130,7 +2154,7 @@ class DSADotProductAttention(MegatronModule):
         super().__init__(config=config)
 
         self.config: TransformerConfig = config
-        self.qkv_format: str = 'sbhd'
+        self.qkv_format: str = "sbhd"
         # layer_number is not used.
         # attention_type is not used.
         # attention_dropout is not used.
@@ -2177,9 +2201,8 @@ class DSADotProductAttention(MegatronModule):
         if attn_mask_type is None:
             attn_mask_type = AttnMaskType.causal
 
-        assert (attn_mask_type == AttnMaskType.causal or attn_mask_type == AttnMaskType.padding_causal), (
-            "DSADotProductAttention only support causal attention."
-            "Please use TEDotProductAttention instead."
+        assert attn_mask_type == AttnMaskType.causal or attn_mask_type == AttnMaskType.padding_causal, (
+            "DSADotProductAttention only support causal attention.Please use TEDotProductAttention instead."
         )
         assert attention_bias is None, "Attention bias is not supported for DSADotProductAttention."
 
@@ -2195,14 +2218,14 @@ class DSADotProductAttention(MegatronModule):
         # overwrite self.qkv_format depending on self.config.apply_rope_fusion, which can be set
         # after init
         if self.config.apply_rope_fusion and is_te_min_version("0.13.0", check_equality=False):
-            self.qkv_format = 'bshd'
+            self.qkv_format = "bshd"
 
-        qkv_format = packed_seq_kwargs.get('qkv_format', self.qkv_format)
+        qkv_format = packed_seq_kwargs.get("qkv_format", self.qkv_format)
 
         # if qkv_format == 'bshd'
         #     query: [b, sq, n, kv_lora_rank + qk_pos_emb_head_dim]
         #     kv: [b, skv, kv_lora_rank + qk_pos_emb_head_dim]
-        if self.config.apply_rope_fusion and qkv_format == 'bshd':
+        if self.config.apply_rope_fusion and qkv_format == "bshd":
             query = query.transpose(0, 1).contiguous()
             kv = kv.unsqueeze(2).transpose(0, 1).contiguous()
 
@@ -2210,13 +2233,13 @@ class DSADotProductAttention(MegatronModule):
         #   query: [sq*b, n, kv_lora_rank + qk_pos_emb_head_dim]
         #   kv: [skv*b, kv_lora_rank + qk_pos_emb_head_dim]
         # FlashMLA accept query [s, h, d] and kv [s, 1, d], so no need to add extra batch dim
-        elif qkv_format == 'thd':
+        elif qkv_format == "thd":
             kv = kv.unsqueeze(1)  # add dummy head dim for kv
 
         # if qkv_format == 'sbhd':
         #     query: [sq, b, n, kv_lora_rank + qk_pos_emb_head_dim]
         #     kv: [skv, b, kv_lora_rank + qk_pos_emb_head_dim]
-        elif qkv_format == 'sbhd':
+        elif qkv_format == "sbhd":
             query = query.transpose(0, 1).contiguous()
             kv = kv.unsqueeze(2).transpose(0, 1).contiguous()
 
@@ -2224,7 +2247,7 @@ class DSADotProductAttention(MegatronModule):
         #   non-THD: [b, sq, topk] -> unsqueeze(2) -> [b, sq, 1, topk] -> squeeze(0) -> [sq, 1, topk]
         #   THD:     [total_q, topk] -> unsqueeze(1) -> [total_q, 1, topk]
         assert indices is not None, "DSADotProductAttention need topk_indices."
-        if qkv_format == 'thd':
+        if qkv_format == "thd":
             # THD: indices is [total_q, topk], add h_kv dim at position 1
             indices = indices.unsqueeze(1)  # [total_q, topk] -> [total_q, 1, topk]
         else:
@@ -2272,7 +2295,7 @@ class DSADotProductAttention(MegatronModule):
         # Note: with b=1, [1, s, h, d] is interchangeable with [s, 1, h, d] for downstream ops
         core_attn_out, *p_out = DSADotProductAttentionFunction.apply(*args)
 
-        if qkv_format == 'thd':
+        if qkv_format == "thd":
             # [1, t, h, d_v] -> [t, h, d_v]
             core_attn_out = core_attn_out.squeeze(0).contiguous()
         else:
@@ -2305,13 +2328,14 @@ class DSAIndexerKernelFunction(torch.autograd.Function):
     Attributes:
         quantizer (Float8BlockQuantizer): FP8 quantizer with blockwise quantization
     """
+
     quantizer = Float8BlockQuantizer(
         fp8_dtype=tex.DType.kFloat8E4M3,
         rowwise=True,
         columnwise=False,
         amax_epsilon=1e-12,
         force_pow_2_scales=True,
-        block_scaling_dim=1
+        block_scaling_dim=1,
     )
 
     @staticmethod
@@ -2335,8 +2359,8 @@ class DSAIndexerKernelFunction(torch.autograd.Function):
         assert dim == _dim, "Query and Key have diff dim."
         assert dim == 128, "Only support dim with size 128."
         device = index_q.device
-        
-        softmax_scale = (dim ** -0.5)
+
+        softmax_scale = dim**-0.5
 
         quantized_q = DSAIndexerKernelFunction.quantizer.quantize(index_q)
         quantized_k = DSAIndexerKernelFunction.quantizer.quantize(index_k)
@@ -2354,7 +2378,7 @@ class DSAIndexerKernelFunction(torch.autograd.Function):
                 cu_seqlens_kv = packed_seq_params.cu_seqlens_kv
             seqlens = cu_seqlens_kv[1:] - cu_seqlens_kv[:-1]
             full_seq_ids = torch.repeat_interleave(torch.arange(len(seqlens), device=device, dtype=torch.int), seqlens)
-            local_seq_ids = full_seq_ids[chunk_offset:chunk_offset + seq_q]
+            local_seq_ids = full_seq_ids[chunk_offset : chunk_offset + seq_q]
             k_start = cu_seqlens_kv[local_seq_ids]
 
         k_end = torch.arange(seq_q, dtype=torch.int, device=device) + chunk_offset + 1
@@ -2368,16 +2392,11 @@ class DSAIndexerKernelFunction(torch.autograd.Function):
             # index_score [sq, max_seqlen_k]
             max_seqlen_k = 0 if packed_seq_params is None else packed_seq_params.max_seqlen_kv
             index_score = deep_gemm.fp8_mqa_logits(
-                q_fp8,
-                (k_fp8, k_scale),
-                weight_scaled,
-                k_start, k_end,
-                clean_logits=False,
-                max_seqlen_k=max_seqlen_k
+                q_fp8, (k_fp8, k_scale), weight_scaled, k_start, k_end, clean_logits=False, max_seqlen_k=max_seqlen_k
             )
             # Post-process to clean logits, apply causal mask, k_start is all zeros so omit here
-            mask = torch.arange(max_seqlen_k, device='cuda')[None, :] < (k_end - k_start)[:, None]
-            index_score = index_score.masked_fill(~mask, float('-inf'))
+            mask = torch.arange(max_seqlen_k, device="cuda")[None, :] < (k_end - k_start)[:, None]
+            index_score = index_score.masked_fill(~mask, float("-inf"))
 
         index_score_topk, topk_indices = padded_flashinfer_topk(index_score.contiguous(), index_topk, seq_k)
 
@@ -2426,7 +2445,7 @@ class DSAIndexerKernelFunction(torch.autograd.Function):
             ks,
             ke,
             topk_indices=topk_indices.int(),
-            topk=ctx.index_topk
+            topk=ctx.index_topk,
         )
 
         d_weights = d_weights * q_scale * ctx.softmax_scale

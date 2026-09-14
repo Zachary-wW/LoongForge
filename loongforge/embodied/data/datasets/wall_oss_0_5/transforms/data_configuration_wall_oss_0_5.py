@@ -11,9 +11,7 @@ from typing import Dict, List, Optional
 class WallOss05DataConfig:
     """Data-processing config for Wall-OSS-0.5 LeRobot training."""
 
-    episodes: Optional[List[int]] = field(
-        default_factory=lambda: list(range(20))
-    )
+    episodes: Optional[List[int]] = field(default_factory=lambda: list(range(20)))
     key_mappings: Dict = field(
         default_factory=lambda: {
             "camera": {

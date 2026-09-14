@@ -51,24 +51,19 @@ def _baseline_loss_reduction(
     action_weights,
     action_mask,
 ):
-    latent_loss = F.mse_loss(
-        latent_pred.float(), latent_target.float().detach(), reduction="none"
-    )
+    latent_loss = F.mse_loss(latent_pred.float(), latent_target.float().detach(), reduction="none")
     latent_loss = latent_loss * latent_weights[:, None, :, None, None]
     latent_loss = latent_loss.permute(0, 2, 3, 4, 1).flatten(0, 1).flatten(1)
     latent_count = torch.ones_like(latent_loss).sum(dim=1)
     latent_loss = (latent_loss.sum(dim=1) / (latent_count + 1e-6)).mean()
 
     action_mask = action_mask.float()
-    action_loss = F.mse_loss(
-        action_pred.float(), action_target.float().detach(), reduction="none"
-    )
+    action_loss = F.mse_loss(action_pred.float(), action_target.float().detach(), reduction="none")
     action_loss = action_loss * action_weights[:, None, :, None, None] * action_mask
     action_loss = action_loss.permute(0, 2, 3, 4, 1).flatten(0, 1).flatten(1)
     action_mask = action_mask.permute(0, 2, 3, 4, 1).flatten(0, 1).flatten(1)
     action_loss = (action_loss.sum(dim=1) / (action_mask.sum(dim=1) + 1e-6)).mean()
     return latent_loss, action_loss
-
 
 
 _COMPILED_BASELINE_LOSS_REDUCTION = (
@@ -78,9 +73,7 @@ _COMPILED_BASELINE_LOSS_REDUCTION = (
 )
 
 _COMPILED_NOISE_AND_TARGET = (
-    torch.compile(_noise_and_target, dynamic=True)
-    if getattr(torch, "compile", None) is not None
-    else _noise_and_target
+    torch.compile(_noise_and_target, dynamic=True) if getattr(torch, "compile", None) is not None else _noise_and_target
 )
 _COMPILED_ACTION_MASK = (
     torch.compile(_apply_action_mask, dynamic=True)
@@ -112,16 +105,13 @@ class LingBotVAEmbodiedModel(nn.Module):
         super().__init__()
         self.cfg = cfg
         self.latent_scheduler = _build_scheduler(cfg, "lingbot_va_snr_shift", 5.0)
-        self.action_scheduler = _build_scheduler(
-            cfg, "lingbot_va_action_snr_shift", 1.0
-        )
+        self.action_scheduler = _build_scheduler(cfg, "lingbot_va_action_snr_shift", 1.0)
         self._grid_id_cache = OrderedDict()
         use_flex = bool(_cfg_get(cfg, "lingbot_va_use_flex_attention", False))
         self.model = WanTransformer3DModel(
             patch_size=tuple(_cfg_get(cfg, "latent_patch_size", (1, 2, 2))),
             num_attention_heads=int(_cfg_get(cfg, "num_attention_heads", 24)),
-            attention_head_dim=int(_cfg_get(cfg, "hidden_size", 3072))
-            // int(_cfg_get(cfg, "num_attention_heads", 24)),
+            attention_head_dim=int(_cfg_get(cfg, "hidden_size", 3072)) // int(_cfg_get(cfg, "num_attention_heads", 24)),
             in_channels=int(_cfg_get(cfg, "latent_in_channels", 48)),
             out_channels=int(_cfg_get(cfg, "latent_out_channels", 48)),
             action_dim=int(_cfg_get(cfg, "action_dim", 30)),
@@ -195,9 +185,7 @@ class LingBotVAEmbodiedModel(nn.Module):
             batch["latents"],
             self.latent_scheduler,
             False,
-            noisy_cond_prob=float(
-                _cfg_get(self.cfg, "lingbot_va_noisy_cond_prob", 0.5)
-            ),
+            noisy_cond_prob=float(_cfg_get(self.cfg, "lingbot_va_noisy_cond_prob", 0.5)),
             cpu_gen=cpu_gen,
             cuda_gen=cuda_gen,
         )
@@ -206,9 +194,7 @@ class LingBotVAEmbodiedModel(nn.Module):
             self.action_scheduler,
             True,
             batch["actions_mask"],
-            noisy_cond_prob=float(
-                _cfg_get(self.cfg, "lingbot_va_action_noisy_cond_prob", 0.0)
-            ),
+            noisy_cond_prob=float(_cfg_get(self.cfg, "lingbot_va_action_noisy_cond_prob", 0.0)),
             cpu_gen=cpu_gen,
             cuda_gen=cuda_gen,
         )
@@ -238,9 +224,7 @@ class LingBotVAEmbodiedModel(nn.Module):
         cuda_gen=None,
     ):
         batch_size, _, frames, height, width = latent.shape
-        timestep_ids = sample_timestep_id(
-            frames, scheduler.num_train_timesteps, generator=cpu_gen
-        )
+        timestep_ids = sample_timestep_id(frames, scheduler.num_train_timesteps, generator=cpu_gen)
         noise = torch.empty_like(latent).normal_(generator=cuda_gen)
         if latent.is_cuda:
             timestep_ids = timestep_ids.pin_memory()
@@ -248,11 +232,7 @@ class LingBotVAEmbodiedModel(nn.Module):
         timesteps = scheduler.timesteps_from_ids(device_timestep_ids)
         sigma = scheduler.sigma_from_ids(latent, device_timestep_ids, t_dim=2)
         noisy_latents, targets = _COMPILED_NOISE_AND_TARGET(latent, noise, sigma)
-        patch = (
-            (1, 1, 1)
-            if action_mode
-            else tuple(_cfg_get(self.cfg, "latent_patch_size", (1, 2, 2)))
-        )
+        patch = (1, 1, 1) if action_mode else tuple(_cfg_get(self.cfg, "latent_patch_size", (1, 2, 2)))
         grid_key = (
             frames // patch[0],
             height // patch[1],
@@ -290,16 +270,12 @@ class LingBotVAEmbodiedModel(nn.Module):
             cond_noise = torch.empty_like(latent).normal_(generator=cuda_gen)
             device_cond_ids = cond_ids.to(latent.device, non_blocking=True)
             cond_timesteps = scheduler.timesteps_from_ids(device_cond_ids)
-            latent = scheduler.add_noise_from_ids(
-                latent, cond_noise, device_cond_ids, t_dim=2
-            )
+            latent = scheduler.add_noise_from_ids(latent, cond_noise, device_cond_ids, t_dim=2)
         else:
             cond_timesteps = torch.zeros_like(timesteps)
         if action_mask is not None:
             mask = action_mask.to(latent.dtype)
-            noisy_latents, targets, latent = _COMPILED_ACTION_MASK(
-                noisy_latents, targets, latent, mask
-            )
+            noisy_latents, targets, latent = _COMPILED_ACTION_MASK(noisy_latents, targets, latent, mask)
         return {
             "timesteps": timesteps[None].repeat(batch_size, 1),
             "timestep_ids": device_timestep_ids[None].repeat(batch_size, 1),
@@ -317,9 +293,7 @@ class LingBotVAEmbodiedModel(nn.Module):
     def _loss(self, input_dict, prediction):
         latent_pred, action_pred = prediction
         action_target = input_dict["action_dict"]["targets"]
-        action_pred = rearrange(
-            action_pred, "b (f t) c -> b c f t 1", f=action_target.shape[-3]
-        )
+        action_pred = rearrange(action_pred, "b (f t) c -> b c f t 1", f=action_target.shape[-3])
         latent_target = input_dict["latent_dict"]["targets"]
         latent_weights = self.latent_scheduler.training_weight_from_ids(
             input_dict["latent_dict"]["timestep_ids"].flatten()
@@ -339,8 +313,7 @@ class LingBotVAEmbodiedModel(nn.Module):
         )
         total_loss = (
             float(_cfg_get(self.cfg, "lingbot_va_video_loss_weight", 1.0)) * latent_loss
-            + float(_cfg_get(self.cfg, "lingbot_va_action_loss_weight", 1.0))
-            * action_loss
+            + float(_cfg_get(self.cfg, "lingbot_va_action_loss_weight", 1.0)) * action_loss
         )
         return total_loss, {
             "total loss": total_loss.detach(),

@@ -77,7 +77,7 @@ def _is_fp8_tensor(tensor):
 
 def _materialize_weight(state_dict, weight_key, output_dtype):
     weight = state_dict[weight_key]
-    scale_key = f"{weight_key[:-len(WEIGHT_SUFFIX)]}{WEIGHT_SCALE_SUFFIX}"
+    scale_key = f"{weight_key[: -len(WEIGHT_SUFFIX)]}{WEIGHT_SCALE_SUFFIX}"
     scale = state_dict.get(scale_key)
 
     if _is_fp8_tensor(weight):
@@ -103,7 +103,7 @@ def _calculate_int4_group_scale(weight, quantization_scheme, output_dtype):
 def _replace_with_packed_weight(state_dict, weight_key, weight, scale, zero_point, quantization_scheme):
     from compressed_tensors import PackedQuantizationCompressor
 
-    base_key = weight_key[:-len(WEIGHT_SUFFIX)]
+    base_key = weight_key[: -len(WEIGHT_SUFFIX)]
     local_state = {"weight": weight, "weight_scale": scale}
     if not quantization_scheme.weights.symmetric:
         local_state["weight_zero_point"] = zero_point
@@ -163,7 +163,7 @@ def pack_state_dict_from_official_config(state_dict, config_file, target_regex=N
             skipped += 1
             continue
 
-        module_name = weight_key[:-len(WEIGHT_SUFFIX)]
+        module_name = weight_key[: -len(WEIGHT_SUFFIX)]
         scale_key = f"{module_name}{WEIGHT_SCALE_SUFFIX}"
         should_pack = target_re.match(module_name) is not None and not _module_is_ignored(module_name, ignore_rules)
 
@@ -191,7 +191,7 @@ def pack_state_dict_from_official_config(state_dict, config_file, target_regex=N
     for key in list(state_dict):
         if not key.endswith(WEIGHT_SCALE_SUFFIX):
             continue
-        base_key = key[:-len(WEIGHT_SCALE_SUFFIX)]
+        base_key = key[: -len(WEIGHT_SCALE_SUFFIX)]
         if f"{base_key}{WEIGHT_PACKED_SUFFIX}" not in state_dict:
             state_dict.pop(key, None)
 

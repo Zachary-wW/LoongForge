@@ -1,7 +1,7 @@
 # Copyright 2026 The LoongForge Authors.
 # SPDX-License-Identifier: Apache-2.0
 
-""" Huggingface checkpoint converter """
+"""Huggingface checkpoint converter"""
 
 import argparse
 
@@ -9,13 +9,10 @@ from tools.dist_checkpoint.config.parallel_config import ParallelConfig
 from tools.convert_checkpoint.huggingface.huggingface_checkpoint import HuggingFaceCheckpoint
 from tools.convert_checkpoint.mcore.mcore_checkpoint import McoreCheckpoint
 from tools.convert_checkpoint.common.common_config import CommonConfig
-from tools.convert_checkpoint.utils.utils import(
-    _flatten_expert_ids,
-    get_ep_map,
-    get_layer_ids
-)
+from tools.convert_checkpoint.utils.utils import _flatten_expert_ids, get_ep_map, get_layer_ids
 
 from tools.convert_checkpoint.module_convertor.model import Model
+
 
 class HfCheckpointConverter:
     """Converter for Huggingface checkpoint."""
@@ -89,10 +86,11 @@ class HfCheckpointConverter:
             visual_args = Model.get_visual_args(self.args)
             vision_num_layers = vision_patch_config.get_args("common")["num_layers"]
             self.vision_layer_dict = {}
-            self.vision_layer_dict[0] = list(range(vision_num_layers)) 
+            self.vision_layer_dict[0] = list(range(vision_num_layers))
             self.hf_vision_ckpt = HuggingFaceCheckpoint(vision_patch_config, visual_args)
             self.m_vision_ckpt = McoreCheckpoint(
-                c_config=vision_patch_config, args=visual_args, model_id=visual_model_id)
+                c_config=vision_patch_config, args=visual_args, model_id=visual_model_id
+            )
 
     def get_mcore_ckpt(self, ckpt_path):
         expert_ids = self.expert_dict.values() if self.expert_dict is not None else None
@@ -100,8 +98,14 @@ class HfCheckpointConverter:
         mcore_dict = {}
         for p in self.pp_ranks:
             cur_layer_dict = {p: self.layer_dict[p]}
-            self.hf_ckpt.load(ckpt_path, self.args.safetensors, self.config, self.layer_ids, expert_ids=expert_ids,
-                         mtp_num_layers=self.args.mtp_num_layers)
+            self.hf_ckpt.load(
+                ckpt_path,
+                self.args.safetensors,
+                self.config,
+                self.layer_ids,
+                expert_ids=expert_ids,
+                mtp_num_layers=self.args.mtp_num_layers,
+            )
             c_ckpt = self.hf_ckpt.convert_to_common(cur_layer_dict, expert_dict=self.expert_dict)
             # HF-format tensors are no longer needed once converted to common;
             # drop the dict entries so anything not aliased by c_ckpt is freed
@@ -110,13 +114,32 @@ class HfCheckpointConverter:
             no_encoder: bool = self.vision_patch_config is None or (not self.args.enable_full_hetero_dp and p > 0)
             if no_encoder:
                 mcore_dict[p] = self.m_ckpt.convert_from_common(
-                        c_ckpt, None, cur_layer_dict, expert_dict=self.expert_dict, save_file=False,
-                        tp_ranks=self.tp_ranks, etp_ranks=self.etp_ranks)[p]
+                    c_ckpt,
+                    None,
+                    cur_layer_dict,
+                    expert_dict=self.expert_dict,
+                    save_file=False,
+                    tp_ranks=self.tp_ranks,
+                    etp_ranks=self.etp_ranks,
+                )[p]
             else:
-                self.hf_vision_ckpt.load(ckpt_path, self.args.safetensors, self.vision_patch_config, self.vision_layer_dict[0])
+                self.hf_vision_ckpt.load(
+                    ckpt_path, self.args.safetensors, self.vision_patch_config, self.vision_layer_dict[0]
+                )
                 self.c_vision_ckpt = self.hf_vision_ckpt.convert_to_common(self.vision_layer_dict)
-                mcore_dict[p] = McoreCheckpoint.convert_from_common_vlm(self.m_ckpt, self.m_vision_ckpt, self.vision_patch_config, c_ckpt,
-                        self.c_vision_ckpt, None, None, None, cur_layer_dict, self.expert_dict, save_file=False)[p]
+                mcore_dict[p] = McoreCheckpoint.convert_from_common_vlm(
+                    self.m_ckpt,
+                    self.m_vision_ckpt,
+                    self.vision_patch_config,
+                    c_ckpt,
+                    self.c_vision_ckpt,
+                    None,
+                    None,
+                    None,
+                    cur_layer_dict,
+                    self.expert_dict,
+                    save_file=False,
+                )[p]
         return mcore_dict
 
     def save_hf_ckpt(self, mcore_dict, save_path):
@@ -125,10 +148,19 @@ class HfCheckpointConverter:
             self.m_ckpt.load(None, layer_dict=cur_layer_dict, expert_dict=self.expert_dict, mcore_dict=mcore_dict)
             c_ckpt = self.m_ckpt.convert_to_common(cur_layer_dict, expert_dict=self.expert_dict)
             if p > 0 or self.vision_patch_config is None:
-                self.hf_ckpt.convert_from_common(c_ckpt, cur_layer_dict, expert_dict=self.expert_dict, save_path=save_path)
+                self.hf_ckpt.convert_from_common(
+                    c_ckpt, cur_layer_dict, expert_dict=self.expert_dict, save_path=save_path
+                )
             else:
                 self.m_vision_ckpt.m_dict = self.m_ckpt.m_dict
                 c_vision_ckpt = self.m_vision_ckpt.convert_to_common(self.vision_layer_dict)
                 HuggingFaceCheckpoint.save_vlm_checkpoint(
-                    self.hf_ckpt, self.hf_vision_ckpt, self.vision_patch_config, c_ckpt,
-                    c_vision_ckpt, save_path, cur_layer_dict, expert_dict=self.expert_dict)
+                    self.hf_ckpt,
+                    self.hf_vision_ckpt,
+                    self.vision_patch_config,
+                    c_ckpt,
+                    c_vision_ckpt,
+                    save_path,
+                    cur_layer_dict,
+                    expert_dict=self.expert_dict,
+                )

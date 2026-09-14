@@ -94,11 +94,7 @@ def find_fsdp_root_module(model: nn.Module) -> nn.Module | None:
         Reflects the tree at call time and must therefore be called after the wrap
         pass has run, not while it is building groups.
     """
-    fsdp_ids = {
-        id(module)
-        for module in model.modules()
-        if isinstance(module, FSDPModule)
-    }
+    fsdp_ids = {id(module) for module in model.modules() if isinstance(module, FSDPModule)}
     if not fsdp_ids:
         return None
 

@@ -222,11 +222,7 @@ class MiniCPMV46ImageProcessor:
         for raw_image in images:
             image = self._to_tensor(raw_image)
             image_size = tuple(image.shape[-2:])
-            best_grid = (
-                self.get_sliced_grid(image_size, max_slice_nums, scale_resolution)
-                if slice_mode
-                else None
-            )
+            best_grid = self.get_sliced_grid(image_size, max_slice_nums, scale_resolution) if slice_mode else None
 
             source_height, source_width = self.find_best_resize(
                 image_size,
@@ -258,9 +254,7 @@ class MiniCPMV46ImageProcessor:
                         ]
                         image_slice = self._normalize(image_slice)
                         image_pixel_values.append(self._reshape_by_patch(image_slice, patch_size))
-                        image_target_sizes.append(
-                            [slice_height // patch_size, slice_width // patch_size]
-                        )
+                        image_target_sizes.append([slice_height // patch_size, slice_width // patch_size])
 
             per_image_pixel_values.append(image_pixel_values)
             per_image_target_sizes.append(image_target_sizes)

@@ -24,10 +24,7 @@ from .constants import INITIAL_ACTIONS_FILENAME, METADATA_LANG_KEYS
 def _load_initial_actions(path):
     """Load initial actions saved as a pickled object array in an .npz file."""
     with np.load(str(path), allow_pickle=True) as payload:
-        return [
-            {key: value for key, value in item.items()}
-            for item in payload["arr_0"]
-        ]
+        return [{key: value for key, value in item.items()} for item in payload["arr_0"]]
 
 
 class _DreamZeroLanguageActionMixin:
@@ -137,9 +134,7 @@ class _DreamZeroLanguageActionMixin:
                     return np.array([])
                 unique_sorted = unique_sorted[:-7]
 
-        assert unique_sorted.size % 8 == 1, (
-            f"unique_sorted size {unique_sorted.size} is not 8n+1"
-        )
+        assert unique_sorted.size % 8 == 1, f"unique_sorted size {unique_sorted.size} is not 8n+1"
         self._current_num_chunks[first_idx] = (unique_sorted.size - 1) // 8
         return unique_sorted
 
@@ -220,9 +215,9 @@ class _DreamZeroLanguageActionMixin:
         assert le_key in trajectory_data.columns, f"No {le_key} found in {trajectory_id=}"
         data_array: np.ndarray = np.stack(trajectory_data[le_key])  # type: ignore
         if data_array.ndim == 1:
-            assert (
-                data_array.shape[0] == max_length
-            ), f"Expected 1D array with length {max_length}, got {data_array.shape} array"
+            assert data_array.shape[0] == max_length, (
+                f"Expected 1D array with length {max_length}, got {data_array.shape} array"
+            )
             data_array = data_array.reshape(-1, 1)
         assert data_array.ndim == 2, f"Expected 2D array, got {data_array.shape} array"
         le_indices = np.arange(
@@ -366,9 +361,7 @@ class _DreamZeroLanguageActionMixin:
         """Return state data sampled and padded according to language-chunk anchors."""
         trajectory_index = self.get_trajectory_index(trajectory_id)
         max_length = self.trajectory_lengths[trajectory_index]
-        data_array, state_or_action_cfg, _ = self._get_state_action_array(
-            trajectory_id, modality, key
-        )
+        data_array, state_or_action_cfg, _ = self._get_state_action_array(trajectory_id, modality, key)
         sampled_indices = self._language_chunk_state_indices(trajectory_id, step_indices)
         return self.retrieve_data_and_pad(
             array=data_array,
@@ -387,9 +380,7 @@ class _DreamZeroLanguageActionMixin:
         """Return action data sampled/padded per language-chunk anchors, optionally relative."""
         trajectory_index = self.get_trajectory_index(trajectory_id)
         max_length = self.trajectory_lengths[trajectory_index]
-        data_array, state_or_action_cfg, subkey = self._get_state_action_array(
-            trajectory_id, modality, key
-        )
+        data_array, state_or_action_cfg, subkey = self._get_state_action_array(trajectory_id, modality, key)
         sampled_indices = self._language_chunk_action_indices(trajectory_id, step_indices)
         action_data = self.retrieve_data_and_pad(
             array=data_array,
@@ -455,9 +446,7 @@ class _DreamZeroLanguageActionMixin:
                 ref_state = state_array[-1]
             else:
                 ref_state = state_array[anchor_idx]
-            relative_action_data[chunk_start:chunk_end] = (
-                action_data[chunk_start:chunk_end] - ref_state
-            )
+            relative_action_data[chunk_start:chunk_end] = action_data[chunk_start:chunk_end] - ref_state
         return relative_action_data
 
     def get_state_or_action(
@@ -604,9 +593,7 @@ class _DreamZeroLanguageActionMixin:
         step_indices = np.maximum(step_indices, 0)
         step_indices = np.minimum(step_indices, max_length - 1)
         # Get the annotations
-        assert key.startswith(
-            "annotation."
-        ), f"Language key must start with 'annotation.', got {key}"
+        assert key.startswith("annotation."), f"Language key must start with 'annotation.', got {key}"
         subkey = key.replace("annotation.", "")
 
         # Check if this is a metadata-based language key (detailed_global_instruction_medium/concise)
@@ -616,9 +603,9 @@ class _DreamZeroLanguageActionMixin:
         # Otherwise, load from parquet columns (original behavior)
         annotation_meta = self.lerobot_modality_meta.annotation
         assert annotation_meta is not None, f"Annotation metadata is None for {subkey}"
-        assert (
-            subkey in annotation_meta
-        ), f"Annotation key {subkey} not found in metadata, available annotation keys: {annotation_meta.keys()}"
+        assert subkey in annotation_meta, (
+            f"Annotation key {subkey} not found in metadata, available annotation keys: {annotation_meta.keys()}"
+        )
         subkey_meta = annotation_meta[subkey]
         original_key = subkey_meta.original_key
         if original_key is None:

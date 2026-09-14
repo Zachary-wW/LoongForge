@@ -13,7 +13,7 @@ from loongforge.data.multimodal.internvl.internvl_constants import IMG_CONTEXT_T
 @dataclass
 class InternVisionConfig(BaseModelConfig):
     """configuration for intern vision model
-    
+
     The fields need to be consistent with the definitions in args
     """
 
@@ -57,9 +57,7 @@ class InternVisionConfig(BaseModelConfig):
         if self.image_token_id is None:
             # Unlike the other vision towers, InternVL's context-image token has no
             # fixed id: it is whatever the tokenizer in use assigns to IMG_CONTEXT_TOKEN.
-            self.image_token_id = get_tokenizer().tokenizer.convert_tokens_to_ids(
-                IMG_CONTEXT_TOKEN
-            )
+            self.image_token_id = get_tokenizer().tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN)
 
 
 @dataclass
@@ -78,5 +76,5 @@ class InternMLPAdapterConfig(BaseModelConfig):
     bias_activation_fusion: bool = True
     activation_func: torch.nn.Module = torch.nn.functional.gelu
     model_spec = None
-    
+
     model_type: str = "intern_adapter"

@@ -38,7 +38,7 @@ class RMSNorm(_AdapterRMSNorm):
 
 
 def _get_mlp_module_spec(
-    num_experts: int=None,
+    num_experts: int = None,
 ) -> ModuleSpec:
     """Helper function to get module spec for MLP/MoE"""
 
@@ -59,9 +59,9 @@ def _get_mlp_module_spec(
                 submodules=MLPSubmodules(
                     linear_fc1=multiacc_modules.TEColumnParallelLinear,
                     linear_fc2=multiacc_modules.TERowParallelLinear,
-                )
+                ),
             )
-        )
+        ),
     )
     # moe mlp
     return ModuleSpec(
@@ -75,9 +75,9 @@ def _get_mlp_module_spec(
                 submodules=MLPSubmodules(
                     linear_fc1=multiacc_modules.TEColumnParallelLinear,
                     linear_fc2=multiacc_modules.TERowParallelLinear,
-                )
+                ),
             ),
-        )
+        ),
     )
 
 
@@ -100,8 +100,7 @@ def _get_ernie4_5_vl_moedecoderlayer_with_spec(num_experts=0, qk_layernorm: bool
                     linear_qkv=multiacc_modules.TEColumnParallelLinear,
                     core_attention=multiacc_modules.DotProductAttention,
                     linear_proj=multiacc_modules.TERowParallelLinear,
-                    apply_rotary_fn=apply_rotary_3d
-
+                    apply_rotary_fn=apply_rotary_3d,
                 ),
             ),
             self_attn_bda=get_bias_dropout_add,
@@ -139,7 +138,7 @@ def get_ernie4_5_vl_decoder_spec(
         elif mlp_layer_types[layer_number] == "sparse":
             layer_specs.append(moe_layer_spec)
         else:
-            raise ValueError(f"Invalid layer pattern: { mlp_layer_types[layer_number]}")
+            raise ValueError(f"Invalid layer pattern: {mlp_layer_types[layer_number]}")
 
     # Slice the layer specs to only include the layers that are built in this pipeline stage.
     # Note: MCore layer_number starts at 1

@@ -88,10 +88,7 @@ def _validate_dit_config(dit_config: dict[str, Any]) -> dict[str, Any]:
 
     unknown_keys = sorted(set(validated) - allowed_keys)
     if unknown_keys:
-        raise ValueError(
-            f"Unknown keys in `dit_config`: {unknown_keys}. "
-            f"Allowed keys: {sorted(allowed_keys)}"
-        )
+        raise ValueError(f"Unknown keys in `dit_config`: {unknown_keys}. Allowed keys: {sorted(allowed_keys)}")
 
     missing_keys = sorted(required_keys - set(validated))
     if missing_keys:

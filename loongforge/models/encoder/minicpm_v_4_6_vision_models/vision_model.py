@@ -132,12 +132,9 @@ class MiniCPMV46VisionEmbeddings(nn.Module):
     def forward(self, pixel_values: torch.Tensor, target_sizes: torch.Tensor) -> torch.Tensor:
         if pixel_values.dim() != 4:
             raise ValueError(
-                "MiniCPM pixel_values must be a processor-packed or BCHW tensor, "
-                f"got {tuple(pixel_values.shape)}."
+                f"MiniCPM pixel_values must be a processor-packed or BCHW tensor, got {tuple(pixel_values.shape)}."
             )
-        patch_embeds = self.patch_embedding(
-            pixel_values.to(dtype=self.patch_embedding.weight.dtype)
-        )
+        patch_embeds = self.patch_embedding(pixel_values.to(dtype=self.patch_embedding.weight.dtype))
         embeddings = patch_embeds.flatten(2).transpose(1, 2)
         pos_ids = get_vision_nearest_position_ids(target_sizes, self.num_patches_per_side).to(
             self.position_embedding.weight.device
@@ -291,8 +288,7 @@ class MiniCPMV46ViTWindowAttentionMerger(nn.Module):
             height, width = int(height), int(width)
             if height % window_h != 0 or width % window_w != 0:
                 raise ValueError(
-                    f"Patch grid ({height}, {width}) must be divisible by window kernel size "
-                    f"{self.window_kernel_size}."
+                    f"Patch grid ({height}, {width}) must be divisible by window kernel size {self.window_kernel_size}."
                 )
             num_patches = height * width
             merged_h = height // window_h
@@ -437,9 +433,7 @@ class MiniCPMV46VisionModel(BaseMegatronVisionModule):
 
         if use_vit_merger:
             split = self.config.insert_layer_id + 1
-            hidden_states = self._forward_encoder_segment(
-                hidden_states, packed_seq_params, 0, split
-            )
+            hidden_states = self._forward_encoder_segment(hidden_states, packed_seq_params, 0, split)
             hidden_states = self.vit_merger(hidden_states.transpose(0, 1).contiguous(), target_sizes)
             hidden_states = hidden_states.squeeze(0).unsqueeze(1).contiguous()
             target_sizes, cu_seqlens, max_seqlen = self.get_downsampled_inputs(
@@ -458,9 +452,7 @@ class MiniCPMV46VisionModel(BaseMegatronVisionModule):
                 hidden_states, packed_seq_params, split, self.config.num_layers
             )
         else:
-            hidden_states = self._forward_encoder_segment(
-                hidden_states, packed_seq_params, 0, self.config.num_layers
-            )
+            hidden_states = self._forward_encoder_segment(hidden_states, packed_seq_params, 0, self.config.num_layers)
 
         last_hidden_state = self.post_layernorm(hidden_states)
         return last_hidden_state[:, 0, :].contiguous(), target_sizes, []

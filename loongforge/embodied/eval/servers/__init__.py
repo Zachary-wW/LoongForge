@@ -15,9 +15,11 @@ def __getattr__(name):
     # Lazy re-exports to avoid circular imports between servers/ and factories/.
     if name in ("PI05ModelFactory", "LoongForgePI05Policy"):
         from loongforge.embodied.eval.factories.pi05_factory import PI05ModelFactory, LoongForgePI05Policy
+
         return {"PI05ModelFactory": PI05ModelFactory, "LoongForgePI05Policy": LoongForgePI05Policy}[name]
     if name in ("MODEL_FACTORY_REGISTRY", "register_factory", "build_model_spec"):
         import loongforge.embodied.eval.factories.registry as _reg
+
         return getattr(_reg, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

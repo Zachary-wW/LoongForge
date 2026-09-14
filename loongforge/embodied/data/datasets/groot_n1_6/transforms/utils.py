@@ -44,6 +44,7 @@ except ImportError:
 
 class ActionRepresentation(Enum):
     """Action representation types."""
+
     RELATIVE = "relative"
     DELTA = "delta"
     ABSOLUTE = "absolute"
@@ -51,12 +52,14 @@ class ActionRepresentation(Enum):
 
 class ActionType(Enum):
     """Action types."""
+
     EEF = "eef"
     NON_EEF = "non_eef"
 
 
 class ActionFormat(Enum):
     """Action formats."""
+
     DEFAULT = "default"
     XYZ_ROT6D = "xyz+rot6d"
     XYZ_ROTVEC = "xyz+rotvec"
@@ -64,6 +67,7 @@ class ActionFormat(Enum):
 
 class EmbodimentTag(Enum):
     """Embodiment tags."""
+
     ROBOCASA_PANDA_OMRON = "robocasa_panda_omron"
     GR1 = "gr1"
     BEHAVIOR_R1_PRO = "behavior_r1_pro"
@@ -76,6 +80,7 @@ class EmbodimentTag(Enum):
 
 class ActionConfig:
     """Action configuration class."""
+
     def __init__(
         self,
         rep: ActionRepresentation | str,
@@ -98,6 +103,7 @@ class ActionConfig:
 
 class ModalityConfig:
     """Modality configuration class."""
+
     def __init__(
         self,
         delta_indices: list[int],
@@ -148,9 +154,7 @@ def normalize_values_minmax(values: np.ndarray, params: dict) -> np.ndarray:
     max_vals = params["max"]
     normalized = np.zeros_like(values)
     mask = ~np.isclose(max_vals, min_vals)
-    normalized[..., mask] = (values[..., mask] - min_vals[..., mask]) / (
-        max_vals[..., mask] - min_vals[..., mask]
-    )
+    normalized[..., mask] = (values[..., mask] - min_vals[..., mask]) / (max_vals[..., mask] - min_vals[..., mask])
     normalized[..., mask] = 2 * normalized[..., mask] - 1
     return normalized
 
@@ -364,6 +368,7 @@ def build_image_transformations_albumentations(
 
 class LetterBoxTransform:
     """Letterbox transform for maintaining aspect ratio"""
+
     def __call__(self, img: torch.Tensor) -> torch.Tensor:
         *leading_dims, c, h, w = img.shape
         if h == w:
@@ -384,9 +389,7 @@ class LetterBoxTransform:
             output_shape = leading_dims + [c, max_dim, max_dim]
             padded_img = padded_img.reshape(output_shape)
         else:
-            padded_img = transforms.functional.pad(
-                img, padding=[pad_left, pad_top, pad_right, pad_bottom], fill=0
-            )
+            padded_img = transforms.functional.pad(img, padding=[pad_left, pad_top, pad_right, pad_bottom], fill=0)
         return padded_img
 
 
@@ -402,13 +405,8 @@ def build_image_transformations(
     if isinstance(color_jitter_params, str):
         parts = color_jitter_params.strip().split()
         if len(parts) % 2 != 0:
-            raise ValueError(
-                "color_jitter_params string must contain key/value pairs, got: "
-                f"{color_jitter_params}"
-            )
-        color_jitter_params = {
-            parts[i]: float(parts[i + 1]) for i in range(0, len(parts), 2)
-        }
+            raise ValueError(f"color_jitter_params string must contain key/value pairs, got: {color_jitter_params}")
+        color_jitter_params = {parts[i]: float(parts[i + 1]) for i in range(0, len(parts), 2)}
     if image_target_size is None:
         image_target_size = [shortest_image_edge, shortest_image_edge]
 
@@ -424,11 +422,7 @@ def build_image_transformations(
         transforms.Resize(size=image_target_size),
     ]
     if random_rotation_angle is not None and random_rotation_angle != 0:
-        transform_list.append(
-            transforms.RandomRotation(
-                degrees=[-random_rotation_angle, random_rotation_angle]
-            )
-        )
+        transform_list.append(transforms.RandomRotation(degrees=[-random_rotation_angle, random_rotation_angle]))
     if color_jitter_params is not None:
         transform_list.append(transforms.ColorJitter(**color_jitter_params))
     train_image_transform = transforms.Compose(transform_list)
@@ -698,9 +692,7 @@ def compute_relative_action_stats(dataset, embodiment_tag: str) -> dict[str, dic
     all_relative_chunks = {jg: [] for jg in relative_joint_groups}
 
     episode_data_dict = (
-        dataset.hf_dataset.to_pandas()
-        if hasattr(dataset.hf_dataset, "to_pandas")
-        else dataset.hf_dataset
+        dataset.hf_dataset.to_pandas() if hasattr(dataset.hf_dataset, "to_pandas") else dataset.hf_dataset
     )
     unique_episodes = episode_data_dict["episode_index"].unique()
     for episode_idx in unique_episodes:
@@ -814,9 +806,7 @@ def convert_lerobot_stats_to_processor_format(
 
     if needs_relative_stats:
         if "relative_action" not in dataset_stats:
-            raise ValueError(
-                f"Embodiment '{embodiment_tag}' requires relative_action statistics."
-            )
+            raise ValueError(f"Embodiment '{embodiment_tag}' requires relative_action statistics.")
 
         statistics[embodiment_tag]["relative_action"] = {}
         for joint_group, action_config in zip(action_modality.modality_keys, action_configs, strict=False):

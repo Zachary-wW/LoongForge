@@ -5,6 +5,7 @@
 HF Checkpoint Online Saving for Training
 Implements online saving of model to HF checkpoint format based on tools/dist_checkpoint modules
 """
+
 import os
 import sys
 from typing import Optional
@@ -23,6 +24,7 @@ from tools.dist_checkpoint.core.topo_sharder import TopoSharder
 from tools.dist_checkpoint.core.tp_gather import TPGather
 from tools.dist_checkpoint.checkpoint.hf_checkpoint_converter import HfCheckpointConverter
 from tools.dist_checkpoint.utils import time_checkpoint_operation
+
 # Import the utility function for merging checkpoints
 from tools.convert_checkpoint.utils.utils import make_hf_sub_checkpoints, get_etp_map, check_all_done
 from tools.convert_checkpoint.utils.config_utils import get_yaml_config
@@ -61,6 +63,7 @@ def _consolidate_pp_checkpoints(save_hf_path: str, pp_size: int, original_hf_pat
     except Exception as e:
         print_rank_0(f"Error during checkpoint consolidation: {e}")
         import traceback
+
         traceback.print_exc()
         raise
 
@@ -78,10 +81,10 @@ def _consolidate_pp_checkpoints(save_hf_path: str, pp_size: int, original_hf_pat
             if os.path.exists(dst_file):
                 continue
             # Skip safetensors files (we already have consolidated versions)
-            if filename.endswith('.safetensors'):
+            if filename.endswith(".safetensors"):
                 continue
             # Skip index files (we already created merged index)
-            if filename.endswith('.index.json'):
+            if filename.endswith(".index.json"):
                 continue
 
             try:
@@ -140,21 +143,21 @@ def save_hf_checkpoint_online(
 
     tp_size: int = args.tensor_model_parallel_size
     pp_size: int = args.pipeline_model_parallel_size
-    ep_size = getattr(args, 'expert_model_parallel_size', None)
-    etp_size = getattr(args, 'expert_tensor_parallel_size', None)
+    ep_size = getattr(args, "expert_model_parallel_size", None)
+    etp_size = getattr(args, "expert_tensor_parallel_size", None)
 
     # Set GPU device for NCCL backend
     if torch.cuda.is_available():
-        local_rank = int(os.environ.get('LOCAL_RANK', 0))
+        local_rank = int(os.environ.get("LOCAL_RANK", 0))
         torch.cuda.set_device(local_rank)
 
     if iters is None:
         save_hf_path = args.save_hf_path
     else:
         save_hf_path = f"{args.save_hf_path}/iter_{iters}"
-    print_rank_0("="*80)
+    print_rank_0("=" * 80)
     print_rank_0("Saving HF checkpoint with online gathering")
-    print_rank_0("="*80)
+    print_rank_0("=" * 80)
     print_rank_0(f"Save path: {save_hf_path}")
     print_rank_0(f"World size: {world_size}")
     if ep_size is not None and ep_size > 1:
@@ -183,7 +186,7 @@ def save_hf_checkpoint_online(
 
     mem_before = 0.0
     if torch.cuda.is_available():
-        mem_before = torch.cuda.memory_allocated() / (1024 ** 3)
+        mem_before = torch.cuda.memory_allocated() / (1024**3)
         torch.cuda.reset_peak_memory_stats()
 
     unwrapped_model = unwrap_model(model)
@@ -196,14 +199,22 @@ def save_hf_checkpoint_online(
         model_state_dict = [m.state_dict() for m in unwrapped_model]
 
     if torch.cuda.is_available():
-        peak_mem_gb = torch.cuda.max_memory_allocated() / (1024 ** 3)
-        mem_after = torch.cuda.memory_allocated() / (1024 ** 3)
-        print_rank_0(f"State_dict extracted. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → After={mem_after:.2f}GB, Change={mem_after-mem_before:+.2f}GB")
+        peak_mem_gb = torch.cuda.max_memory_allocated() / (1024**3)
+        mem_after = torch.cuda.memory_allocated() / (1024**3)
+        print_rank_0(
+            f"State_dict extracted. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
+        )
 
-    c_config = get_yaml_config(parser.config_file, parser.convert_file, for_vlm=(parser.vision_patch_convert_file is not None))
-    c_vision_patch_config = get_yaml_config(
-        parser.config_file, parser.vision_patch_convert_file,
-        adapter_convert_file=parser.adapter_convert_file) if parser.vision_patch_convert_file is not None else None
+    c_config = get_yaml_config(
+        parser.config_file, parser.convert_file, for_vlm=(parser.vision_patch_convert_file is not None)
+    )
+    c_vision_patch_config = (
+        get_yaml_config(
+            parser.config_file, parser.vision_patch_convert_file, adapter_convert_file=parser.adapter_convert_file
+        )
+        if parser.vision_patch_convert_file is not None
+        else None
+    )
 
     # Step 4: Initialize TPGather
     print_rank_0("Initializing TPGather...")
@@ -213,7 +224,7 @@ def save_hf_checkpoint_online(
     print_rank_0("Gathering state_dicts within TP group...")
     mem_before = 0.0
     if torch.cuda.is_available():
-        mem_before = torch.cuda.memory_allocated() / (1024 ** 3)
+        mem_before = torch.cuda.memory_allocated() / (1024**3)
         torch.cuda.reset_peak_memory_stats()
 
     if num_vpp_stages == 1:
@@ -229,9 +240,11 @@ def save_hf_checkpoint_online(
         all_ckpt_empty = all(len(inner_dict) == 0 for outer_list in gathered_state_dicts for inner_dict in outer_list)
 
     if torch.cuda.is_available():
-        peak_mem_gb = torch.cuda.max_memory_allocated() / (1024 ** 3)
-        mem_after = torch.cuda.memory_allocated() / (1024 ** 3)
-        print_rank_0(f"State_dicts gathered within TP group. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → After={mem_after:.2f}GB, Change={mem_after-mem_before:+.2f}GB")
+        peak_mem_gb = torch.cuda.max_memory_allocated() / (1024**3)
+        mem_after = torch.cuda.memory_allocated() / (1024**3)
+        print_rank_0(
+            f"State_dicts gathered within TP group. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
+        )
 
     if all_ckpt_empty:
         dist.barrier()
@@ -245,13 +258,14 @@ def save_hf_checkpoint_online(
         print_rank_0("Preparing mcore_dict...")
         mem_before = 0.0
         if torch.cuda.is_available():
-            mem_before = torch.cuda.memory_allocated() / (1024 ** 3)
+            mem_before = torch.cuda.memory_allocated() / (1024**3)
             torch.cuda.reset_peak_memory_stats()
 
         if num_vpp_stages == 1:
             # Non-VPP: gathered_state_dicts is List[state_dict]
-            assert gathered_state_dicts is not None and isinstance(gathered_state_dicts, list), \
+            assert gathered_state_dicts is not None and isinstance(gathered_state_dicts, list), (
                 "gathered_state_dicts should be a list for tp_rank == 0"
+            )
             assert len(gathered_state_dicts) > 0, "gathered_state_dicts should not be empty"
 
             # For dense models: {pp_rank: {tp_idx: {"model": state_dict, ...}}}
@@ -268,14 +282,15 @@ def save_hf_checkpoint_online(
                 mcore_dict = {pp_rank: tp_shards}
             else:
                 # MoE model: need to organize by EP rank
-                if etp_rank is not None and tp_size is not None and ep_size is not None \
-                        and etp_size is not None and etp_size > 0:
+                if (
+                    etp_rank is not None
+                    and tp_size is not None
+                    and ep_size is not None
+                    and etp_size is not None
+                    and etp_size > 0
+                ):
                     # ETP enabled: use tp_to_ep mapping
-                    _, tp_to_ep = get_etp_map(
-                        tp_size,
-                        ep_size,
-                        etp_size
-                    )
+                    _, tp_to_ep = get_etp_map(tp_size, ep_size, etp_size)
                     # Group tp_shards by their corresponding EP rank
                     ep_shards = {}
                     ep_ids = []
@@ -302,12 +317,15 @@ def save_hf_checkpoint_online(
                     mcore_dict = {pp_rank: {ep_rank: tp_shards}}
         else:
             # VPP: gathered_state_dicts is List[List[state_dict]]
-            assert gathered_state_dicts is not None and isinstance(gathered_state_dicts, list), \
+            assert gathered_state_dicts is not None and isinstance(gathered_state_dicts, list), (
                 "gathered_state_dicts should be a list for tp_rank == 0"
-            assert len(gathered_state_dicts) == num_vpp_stages, \
+            )
+            assert len(gathered_state_dicts) == num_vpp_stages, (
                 f"gathered_state_dicts should have {num_vpp_stages} VPP stages"
-            assert all(isinstance(g, list) and len(g) > 0 for g in gathered_state_dicts), \
+            )
+            assert all(isinstance(g, list) and len(g) > 0 for g in gathered_state_dicts), (
                 "Each VPP stage should contain a non-empty list of state_dicts"
+            )
 
             # Transpose: from [vpp_stage][tp_rank] to [tp_rank][vpp_stage]
             num_tp = len(gathered_state_dicts[0])
@@ -326,14 +344,15 @@ def save_hf_checkpoint_online(
                 mcore_dict = {pp_rank: tp_shards}
             else:
                 # MoE model: need to organize by EP rank
-                if etp_rank is not None and tp_size is not None and ep_size is not None \
-                        and etp_size is not None and etp_size > 0:
+                if (
+                    etp_rank is not None
+                    and tp_size is not None
+                    and ep_size is not None
+                    and etp_size is not None
+                    and etp_size > 0
+                ):
                     # ETP enabled: use tp_to_ep mapping
-                    _, tp_to_ep = get_etp_map(
-                        tp_size,
-                        ep_size,
-                        etp_size
-                    )
+                    _, tp_to_ep = get_etp_map(tp_size, ep_size, etp_size)
                     # Group tp_shards by their corresponding EP rank
                     ep_shards = {}
                     ep_ids = []
@@ -372,9 +391,11 @@ def save_hf_checkpoint_online(
         hf_converter = HfCheckpointConverter(parallel_config, c_config, vision_patch_config=c_vision_patch_config)
 
         if torch.cuda.is_available():
-            peak_mem_gb = torch.cuda.max_memory_allocated() / (1024 ** 3)
-            mem_after = torch.cuda.memory_allocated() / (1024 ** 3)
-            print_rank_0(f"Mcore_dict prepared. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → After={mem_after:.2f}GB, Change={mem_after-mem_before:+.2f}GB")
+            peak_mem_gb = torch.cuda.max_memory_allocated() / (1024**3)
+            mem_after = torch.cuda.memory_allocated() / (1024**3)
+            print_rank_0(
+                f"Mcore_dict prepared. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
+            )
 
         # Create save directory
         os.makedirs(save_hf_path, exist_ok=True)
@@ -383,17 +404,20 @@ def save_hf_checkpoint_online(
         print_rank_0("Converting to HF format and saving...")
         mem_before = 0.0
         if torch.cuda.is_available():
-            mem_before = torch.cuda.memory_allocated() / (1024 ** 3)
+            mem_before = torch.cuda.memory_allocated() / (1024**3)
             torch.cuda.reset_peak_memory_stats()
         try:
             hf_converter.save_hf_ckpt(mcore_dict, save_hf_path)
             if torch.cuda.is_available():
-                peak_mem_gb = torch.cuda.max_memory_allocated() / (1024 ** 3)
-                mem_after = torch.cuda.memory_allocated() / (1024 ** 3)
-                print_rank_0(f"HF checkpoint saved successfully. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → After={mem_after:.2f}GB, Change={mem_after-mem_before:+.2f}GB")
+                peak_mem_gb = torch.cuda.max_memory_allocated() / (1024**3)
+                mem_after = torch.cuda.memory_allocated() / (1024**3)
+                print_rank_0(
+                    f"HF checkpoint saved successfully. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
+                )
         except Exception as e:
             print_rank_0(f"Error saving HF checkpoint: {e}")
             import traceback
+
             traceback.print_exc()
             raise
 
@@ -407,6 +431,6 @@ def save_hf_checkpoint_online(
             original_hf_path=getattr(args, "pretrained_checkpoint", None) or args.load,
         )
 
-    print_rank_0("="*80)
+    print_rank_0("=" * 80)
     print_rank_0("HF checkpoint saved successfully!")
-    print_rank_0("="*80)
+    print_rank_0("=" * 80)

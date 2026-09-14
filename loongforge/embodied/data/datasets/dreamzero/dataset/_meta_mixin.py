@@ -65,12 +65,7 @@ def _calculate_dataset_statistics(
     statistics = {}
     for feature_name in feature_names:
         logger.info("Computing statistics for %s...", feature_name)
-        values = np.vstack(
-            [
-                np.asarray(value, dtype=np.float32)
-                for value in all_low_dim_data[feature_name]
-            ]
-        )
+        values = np.vstack([np.asarray(value, dtype=np.float32) for value in all_low_dim_data[feature_name]])
         statistics[feature_name] = DatasetStatisticalValues(
             mean=np.mean(values, axis=0).tolist(),
             std=np.std(values, axis=0).tolist(),
@@ -223,14 +218,9 @@ class _DreamZeroMetaMixin:
     def _get_lerobot_modality_meta(self) -> LeRobotModalityMetadata:
         """Get the metadata for the LeRobot dataset."""
         if self.use_global_metadata:
-            assert (
-                self.metadata_version is not None
-            ), "metadata_version must be provided if use_global_metadata is True"
+            assert self.metadata_version is not None, "metadata_version must be provided if use_global_metadata is True"
             modality_meta_path = (
-                METADATA_DIR
-                / self.tag.value
-                / self.metadata_version
-                / Path(LE_ROBOT_MODALITY_FILENAME).name
+                METADATA_DIR / self.tag.value / self.metadata_version / Path(LE_ROBOT_MODALITY_FILENAME).name
             )
             assert modality_meta_path.exists(), (
                 f"Please provide a {Path(LE_ROBOT_MODALITY_FILENAME).name} file in "
@@ -241,9 +231,9 @@ class _DreamZeroMetaMixin:
             return modality_meta
         else:
             modality_meta_path = self.dataset_path / LE_ROBOT_MODALITY_FILENAME
-            assert (
-                modality_meta_path.exists()
-            ), f"Please provide a {LE_ROBOT_MODALITY_FILENAME} file in {self.dataset_path}"
+            assert modality_meta_path.exists(), (
+                f"Please provide a {LE_ROBOT_MODALITY_FILENAME} file in {self.dataset_path}"
+            )
             with open(modality_meta_path, "r") as f:
                 modality_meta = LeRobotModalityMetadata.model_validate(json.load(f))
             return modality_meta
@@ -258,15 +248,8 @@ class _DreamZeroMetaMixin:
     def _get_lerobot_stats_meta(self) -> dict[str, DatasetStatisticalValues]:
         """Get the metadata for the LeRobot dataset."""
         if self.use_global_metadata:
-            assert (
-                self.metadata_version is not None
-            ), "metadata_version must be provided if use_global_metadata is True"
-            stats_path = (
-                METADATA_DIR
-                / self.tag.value
-                / self.metadata_version
-                / Path(LE_ROBOT_STATS_FILENAME).name
-            )
+            assert self.metadata_version is not None, "metadata_version must be provided if use_global_metadata is True"
+            stats_path = METADATA_DIR / self.tag.value / self.metadata_version / Path(LE_ROBOT_STATS_FILENAME).name
         else:
             stats_path = self.dataset_path / LE_ROBOT_STATS_FILENAME
         try:
@@ -307,14 +290,9 @@ class _DreamZeroMetaMixin:
         """
         # Determine the path for relative stats file
         if self.use_global_metadata:
-            assert (
-                self.metadata_version is not None
-            ), "metadata_version must be provided if use_global_metadata is True"
+            assert self.metadata_version is not None, "metadata_version must be provided if use_global_metadata is True"
             stats_path = (
-                METADATA_DIR
-                / self.tag.value
-                / self.metadata_version
-                / Path(LEROBOT_RELATIVE_STATS_FILE_NAME).name
+                METADATA_DIR / self.tag.value / self.metadata_version / Path(LEROBOT_RELATIVE_STATS_FILE_NAME).name
             )
             assert stats_path.exists(), (
                 f"Please provide a {Path(LEROBOT_RELATIVE_STATS_FILE_NAME).name} file in "
@@ -340,9 +318,7 @@ class _DreamZeroMetaMixin:
         action_config = self.modality_configs.get("action")
         all_action_keys = action_config.modality_keys if action_config is not None else []
         if not all_action_keys:
-            logger.warning(
-                "No action keys found in modality configs, skipping relative stats calculation"
-            )
+            logger.warning("No action keys found in modality configs, skipping relative stats calculation")
             return {}
 
         # Filter to only the keys that should use relative action
@@ -393,9 +369,7 @@ class _DreamZeroMetaMixin:
         """
         # Determine the path for per-horizon relative stats file
         if self.use_global_metadata:
-            assert (
-                self.metadata_version is not None
-            ), "metadata_version must be provided if use_global_metadata is True"
+            assert self.metadata_version is not None, "metadata_version must be provided if use_global_metadata is True"
             stats_path = (
                 METADATA_DIR
                 / self.tag.value
@@ -424,10 +398,7 @@ class _DreamZeroMetaMixin:
         action_config = self.modality_configs.get("action")
         all_action_keys = action_config.modality_keys if action_config is not None else []
         if not all_action_keys:
-            logger.warning(
-                "No action keys found in modality configs, "
-                "skipping per-horizon relative stats calculation"
-            )
+            logger.warning("No action keys found in modality configs, skipping per-horizon relative stats calculation")
             return {}
 
         # Filter to only the keys that should use relative action
@@ -492,9 +463,7 @@ class _DreamZeroMetaMixin:
         action_start, action_end = action_meta.start, action_meta.end
 
         state_config = self.modality_configs.get("state")
-        state_delta_indices = (
-            state_config.delta_indices if state_config is not None else [0]
-        )
+        state_delta_indices = state_config.delta_indices if state_config is not None else [0]
         action_delta_indices = self.modality_configs["action"].delta_indices
 
         logger.info(
@@ -567,7 +536,6 @@ class _DreamZeroMetaMixin:
                         continue
                     actions = action_data[action_indices]
 
-
                     # Calculate relative actions (action - reference state)
                     relative_actions = actions - ref_state
                     all_relative_actions.extend(relative_actions)
@@ -591,9 +559,7 @@ class _DreamZeroMetaMixin:
             q99=np.quantile(all_relative_actions, 0.99, axis=0).tolist(),
         )
 
-    def _calculate_relative_stats_for_key_per_horizon(
-        self, action_key: str
-    ) -> dict[str, list]:
+    def _calculate_relative_stats_for_key_per_horizon(self, action_key: str) -> dict[str, list]:
         """Calculate relative action statistics for each delta index (horizon step) separately.
 
         Unlike `_calculate_relative_stats_for_key` which pools all horizon steps together,
@@ -628,14 +594,11 @@ class _DreamZeroMetaMixin:
         action_start, action_end = action_meta.start, action_meta.end
 
         state_config = self.modality_configs.get("state")
-        state_delta_indices = (
-            state_config.delta_indices if state_config is not None else [0]
-        )
+        state_delta_indices = state_config.delta_indices if state_config is not None else [0]
         action_delta_indices = self.modality_configs["action"].delta_indices
 
         logger.info(
-            "Calculating per-horizon relative stats for %s: state=%s[%s:%s], action=%s[%s:%s], "
-            "action_delta_indices=%s",
+            "Calculating per-horizon relative stats for %s: state=%s[%s:%s], action=%s[%s:%s], action_delta_indices=%s",
             action_key,
             state_original_key,
             state_start,
@@ -647,9 +610,7 @@ class _DreamZeroMetaMixin:
         )
 
         # Initialize separate lists for each horizon index
-        all_relative_actions_per_horizon: dict[int, list] = {
-            delta_idx: [] for delta_idx in action_delta_indices
-        }
+        all_relative_actions_per_horizon: dict[int, list] = {delta_idx: [] for delta_idx in action_delta_indices}
 
         max_trajs_for_stats = 10000
         traj_ids_to_process = self.trajectory_ids
@@ -750,9 +711,7 @@ class _DreamZeroMetaMixin:
                     step_filter[trajectory_id] = np.setdiff1d(all_indices, indices_to_filter)
         else:
             for trajectory_index, trajectory_id in enumerate(self.trajectory_ids):
-                step_filter[int(trajectory_id)] = np.arange(
-                    self.trajectory_lengths[trajectory_index].item()
-                )
+                step_filter[int(trajectory_id)] = np.arange(self.trajectory_lengths[trajectory_index].item())
         return step_filter
 
     def _get_metadata(self) -> DatasetMetadata:
@@ -767,9 +726,7 @@ class _DreamZeroMetaMixin:
         simplified_modality_meta: dict[str, dict] = {}
         for modality in ["state", "action"]:
             simplified_modality_meta[modality] = {}
-            le_state_action_meta: dict[str, LeRobotStateActionMetadata] = getattr(
-                self.lerobot_modality_meta, modality
-            )
+            le_state_action_meta: dict[str, LeRobotStateActionMetadata] = getattr(self.lerobot_modality_meta, modality)
             for subkey in le_state_action_meta:
                 state_action_dtype = np.dtype(le_state_action_meta[subkey].dtype)
                 if np.issubdtype(state_action_dtype, np.floating):
@@ -779,17 +736,13 @@ class _DreamZeroMetaMixin:
                 simplified_modality_meta[modality][subkey] = {
                     "absolute": le_state_action_meta[subkey].absolute,
                     "rotation_type": le_state_action_meta[subkey].rotation_type,
-                    "shape": [
-                        le_state_action_meta[subkey].end - le_state_action_meta[subkey].start
-                    ],
+                    "shape": [le_state_action_meta[subkey].end - le_state_action_meta[subkey].start],
                     "continuous": continuous,
                 }
 
         # 1.2. Video modalities
         le_info_path = self.dataset_path / LE_ROBOT_INFO_FILENAME
-        assert (
-            le_info_path.exists()
-        ), f"Please provide a {LE_ROBOT_INFO_FILENAME} file in {self.dataset_path}"
+        assert le_info_path.exists(), f"Please provide a {LE_ROBOT_INFO_FILENAME} file in {self.dataset_path}"
         with open(le_info_path, "r") as f:
             le_info = json.load(f)
         simplified_modality_meta["video"] = {}
@@ -835,9 +788,7 @@ class _DreamZeroMetaMixin:
             dataset_statistics[our_modality] = {}
             for subkey in simplified_modality_meta[our_modality]:
                 dataset_statistics[our_modality][subkey] = {}
-                state_action_meta = self.lerobot_modality_meta.get_key_meta(
-                    f"{our_modality}.{subkey}"
-                )
+                state_action_meta = self.lerobot_modality_meta.get_key_meta(f"{our_modality}.{subkey}")
                 assert isinstance(state_action_meta, LeRobotStateActionMetadata)
 
                 # Check if we should use per-horizon relative stats for this action key
@@ -994,7 +945,6 @@ class _DreamZeroMetaMixin:
             if modality in ["lapa_action", "dream_actions", "rl_info", "task_embedding"]:
                 continue
             for key in modality_config.modality_keys:
-
                 if key == "action.task_progress":
                     continue
                 # Skip metadata-based language keys (they don't need modality metadata)
@@ -1006,6 +956,4 @@ class _DreamZeroMetaMixin:
                 try:
                     self.lerobot_modality_meta.get_key_meta(key)
                 except Exception as e:
-                    raise ValueError(
-                        ERROR_MSG_HEADER + f"Unable to find key {key} in modality metadata:\n{e}"
-                    )
+                    raise ValueError(ERROR_MSG_HEADER + f"Unable to find key {key} in modality metadata:\n{e}")

@@ -65,11 +65,7 @@ class GrootN1d6Trainer(FinetuneTrainer):
 
         training_args = self.training_args
         ctx = self.ctx
-        if (
-            ctx.is_distributed
-            and ctx.world_size > 1
-            and training_args.cuda_graph_ddp_sync_in_graph
-        ):
+        if ctx.is_distributed and ctx.world_size > 1 and training_args.cuda_graph_ddp_sync_in_graph:
             self.model = wrap_model(self.model, training_args, ctx)
         else:
             self.model = self.model.to(dtype=resolve_dtype(training_args.dtype), device=ctx.device)

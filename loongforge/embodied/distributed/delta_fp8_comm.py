@@ -32,9 +32,7 @@ DEFAULT_BLOCK = 256
 def require_triton() -> None:
     """Raise if the delta-FP8 kernels cannot run."""
     if triton is None:
-        raise RuntimeError(
-            "--fsdp-delta-fp8-allgather requires Triton to be installed"
-        )
+        raise RuntimeError("--fsdp-delta-fp8-allgather requires Triton to be installed")
 
 
 def _backend_for_device(backend: str, device_type: str) -> str:
@@ -58,41 +56,25 @@ def validate_runtime(device: torch.device, backend: str) -> None:
     device_backend = _backend_for_device(backend_name, device.type)
     context = f"device={device}, backend={backend_name}"
     if device.type != "cuda":
-        raise RuntimeError(
-            "--fsdp-delta-fp8-allgather requires a CUDA device and NCCL; "
-            f"got {context}"
-        )
+        raise RuntimeError(f"--fsdp-delta-fp8-allgather requires a CUDA device and NCCL; got {context}")
     if device_backend != "nccl":
         raise RuntimeError(
             "--fsdp-delta-fp8-allgather requires the NCCL backend; "
             f"got {context} (resolved {device.type}:{device_backend or 'unknown'})"
         )
     if triton is None:
-        raise RuntimeError(
-            "--fsdp-delta-fp8-allgather requires Triton to be installed; "
-            f"got {context}"
-        )
+        raise RuntimeError(f"--fsdp-delta-fp8-allgather requires Triton to be installed; got {context}")
     if tl is None or not hasattr(tl, "float8e4nv"):
-        raise RuntimeError(
-            "--fsdp-delta-fp8-allgather requires Triton FP8 type tl.float8e4nv; "
-            f"got {context}"
-        )
+        raise RuntimeError(f"--fsdp-delta-fp8-allgather requires Triton FP8 type tl.float8e4nv; got {context}")
     if not torch.cuda.is_available():
-        raise RuntimeError(
-            "--fsdp-delta-fp8-allgather requires CUDA to be available; "
-            f"got {context}"
-        )
+        raise RuntimeError(f"--fsdp-delta-fp8-allgather requires CUDA to be available; got {context}")
     if not hasattr(torch, "float8_e4m3fn"):
-        raise RuntimeError(
-            "--fsdp-delta-fp8-allgather requires PyTorch FP8 E4M3 support; "
-            f"got {context}"
-        )
+        raise RuntimeError(f"--fsdp-delta-fp8-allgather requires PyTorch FP8 E4M3 support; got {context}")
     try:
         capability = torch.cuda.get_device_capability(device)
     except Exception as exc:
         raise RuntimeError(
-            "Unable to query CUDA compute capability for "
-            f"--fsdp-delta-fp8-allgather ({context})"
+            f"Unable to query CUDA compute capability for --fsdp-delta-fp8-allgather ({context})"
         ) from exc
     if capability < (8, 9):
         raise RuntimeError(
@@ -105,8 +87,7 @@ def validate_runtime(device: torch.device, backend: str) -> None:
         triton_backend = str(target.backend).lower()
     except Exception as exc:
         raise RuntimeError(
-            "Unable to initialize Triton's CUDA backend for "
-            f"--fsdp-delta-fp8-allgather ({context})"
+            f"Unable to initialize Triton's CUDA backend for --fsdp-delta-fp8-allgather ({context})"
         ) from exc
     if triton_backend != "cuda":
         raise RuntimeError(
@@ -241,9 +222,7 @@ def dequantize_add(y, quantized, scales, shard_numel, world_size, block=DEFAULT_
     """Add all ranks' dequantized deltas into the persistent reference."""
     require_triton()
     num_blocks = (shard_numel + block - 1) // block
-    _dequantize_add_kernel[(num_blocks, world_size)](
-        y, quantized, scales, shard_numel, num_blocks, BLOCK=block
-    )
+    _dequantize_add_kernel[(num_blocks, world_size)](y, quantized, scales, shard_numel, num_blocks, BLOCK=block)
 
 
 def quantize_delta_into(x, yref, quantized, scales, block=DEFAULT_BLOCK):

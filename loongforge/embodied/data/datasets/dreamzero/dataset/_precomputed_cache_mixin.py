@@ -46,10 +46,7 @@ class _DreamZeroPrecomputedCacheMixin:
         """Return whether missing/invalid precomputed cache features should raise."""
         cfg = self.precomputed_cache_config
         return bool(
-            cfg.strict
-            or cfg.video_latents.required
-            or cfg.first_frame_latents.required
-            or cfg.prompt_embs.required
+            cfg.strict or cfg.video_latents.required or cfg.first_frame_latents.required or cfg.prompt_embs.required
         )
 
     def _decode_first_video_frame_only(self) -> bool:
@@ -140,10 +137,7 @@ class _DreamZeroPrecomputedCacheMixin:
 
         cache_dir_raw = str(cfg.cache_dir or "").strip()
         if not cache_dir_raw:
-            raise ValueError(
-                "precomputed cache artifact validation requires "
-                "precomputed_cache.cache_dir"
-            )
+            raise ValueError("precomputed cache artifact validation requires precomputed_cache.cache_dir")
         artifact = DreamZeroPrecomputedFeatureArtifact.load(
             cache_dir=cache_dir_raw,
             manifest=str(cfg.manifest or "").strip() or None,
@@ -227,9 +221,7 @@ class _DreamZeroPrecomputedCacheMixin:
             path = self._precomputed_cache_path(index, trajectory_id, base_index)
             if path is None:
                 if self._precomputed_cache_strict():
-                    raise ValueError(
-                        "precomputed_cache.enabled=true requires precomputed_cache.cache_dir"
-                    )
+                    raise ValueError("precomputed_cache.enabled=true requires precomputed_cache.cache_dir")
                 return data
             if not path.exists():
                 if self._precomputed_cache_strict():

@@ -67,18 +67,14 @@ def expand_exclude_modules(patterns: list[str], num_layers: int) -> list[str]:
     expanded: list[str] = []
     for pattern in patterns:
         if ".layers.*." in pattern:
-            expanded.extend(
-                pattern.replace(".layers.*.", f".layers.{i}.")
-                for i in range(num_layers)
-            )
+            expanded.extend(pattern.replace(".layers.*.", f".layers.{i}.") for i in range(num_layers))
         else:
             expanded.append(pattern)
 
     deduped: list[str] = []
     for item in sorted(set(expanded)):
         covered_by_broader_pattern = any(
-            other != item and "*" in other and fnmatch.fnmatchcase(item, other)
-            for other in expanded
+            other != item and "*" in other and fnmatch.fnmatchcase(item, other) for other in expanded
         )
         if not covered_by_broader_pattern:
             deduped.append(item)
@@ -137,10 +133,10 @@ def patch_kimi_init_weights_for_modelopt(root: Path) -> None:
             "            if module.bias is not None:\n"
             "                module.bias.data.zero_()\n",
             "        if isinstance(module, nn.Linear):\n"
-            "            if not hasattr(module, \"weight\"):\n"
+            '            if not hasattr(module, "weight"):\n'
             "                return\n"
             "            module.weight.data.normal_(mean=0.0, std=std)\n"
-            "            if getattr(module, \"bias\", None) is not None:\n"
+            '            if getattr(module, "bias", None) is not None:\n'
             "                module.bias.data.zero_()\n",
         ),
         (
@@ -149,10 +145,10 @@ def patch_kimi_init_weights_for_modelopt(root: Path) -> None:
             "            if module.bias is not None:\n"
             "                module.bias.data.zero_()\n",
             "        if isinstance(module, (nn.Linear, nn.Conv2d)):\n"
-            "            if not hasattr(module, \"weight\"):\n"
+            '            if not hasattr(module, "weight"):\n'
             "                return\n"
             "            module.weight.data.normal_(mean=0.0, std=std)\n"
-            "            if getattr(module, \"bias\", None) is not None:\n"
+            '            if getattr(module, "bias", None) is not None:\n'
             "                module.bias.data.zero_()\n",
         ),
         (
@@ -161,7 +157,7 @@ def patch_kimi_init_weights_for_modelopt(root: Path) -> None:
             "            if module.padding_idx is not None:\n"
             "                module.weight.data[module.padding_idx].zero_()\n",
             "        elif isinstance(module, nn.Embedding):\n"
-            "            if not hasattr(module, \"weight\"):\n"
+            '            if not hasattr(module, "weight"):\n'
             "                return\n"
             "            module.weight.data.normal_(mean=0.0, std=std)\n"
             "            if module.padding_idx is not None:\n"
@@ -444,9 +440,7 @@ def apply_official_recipe_to_hf_ptq(hf_ptq, args: argparse.Namespace, recipe: di
     if args.qformat != expected_qformat:
         raise SystemExit(f"Official recipe expects --qformat {expected_qformat}, got {args.qformat}")
     if args.kv_cache_qformat != expected_kv:
-        raise SystemExit(
-            f"Official recipe expects --kv_cache_qformat {expected_kv}, got {args.kv_cache_qformat}"
-        )
+        raise SystemExit(f"Official recipe expects --kv_cache_qformat {expected_kv}, got {args.kv_cache_qformat}")
     if quant.get("quant_algo") != "NVFP4" or quant.get("group_size") != 16:
         raise SystemExit(f"Unsupported Kimi NVFP4 recipe: {quant}")
     if quant.get("kv_cache_quant_algo") != "FP8":
@@ -562,9 +556,7 @@ def enable_kimi_moe_all_expert_warmup(model, max_tokens: int, every_forward: boo
 
             gate = self.gate
             original_topk = getattr(gate, _topk_attr)
-            original_topk_group = (
-                getattr(gate, _topk_group_attr) if _topk_group_attr is not None else None
-            )
+            original_topk_group = getattr(gate, _topk_group_attr) if _topk_group_attr is not None else None
 
             try:
                 setattr(gate, _topk_attr, _n_experts)
@@ -688,9 +680,7 @@ def ensure_nvfp4_weight_amax(module_name: str, module, weight_name: str = "weigh
     import torch
 
     def usable_amax(value) -> bool:
-        return value is not None and not (
-            isinstance(value, torch.Tensor) and getattr(value, "is_meta", False)
-        )
+        return value is not None and not (isinstance(value, torch.Tensor) and getattr(value, "is_meta", False))
 
     quantizer_attr = "weight_quantizer" if weight_name == "weight" else f"{weight_name}_weight_quantizer"
     weight_quantizer = getattr(module, quantizer_attr, None)
@@ -703,9 +693,7 @@ def ensure_nvfp4_weight_amax(module_name: str, module, weight_name: str = "weigh
     existing_export_amax = getattr(weight_quantizer, "_amax", None)
     has_global_amax = hasattr(weight_quantizer, "global_amax")
     existing_global_amax = getattr(weight_quantizer, "global_amax", None) if has_global_amax else None
-    if usable_amax(existing_export_amax) and (
-        not has_global_amax or usable_amax(existing_global_amax)
-    ):
+    if usable_amax(existing_export_amax) and (not has_global_amax or usable_amax(existing_global_amax)):
         return False
 
     existing_amax = existing_export_amax
@@ -721,9 +709,7 @@ def ensure_nvfp4_weight_amax(module_name: str, module, weight_name: str = "weigh
                 if isinstance(weight, torch.Tensor) and not getattr(weight, "is_meta", False)
                 else torch.device("cpu")
             )
-            weight_quantizer._amax = torch.tensor(
-                float(existing_amax), dtype=torch.float32, device=target_device
-            )
+            weight_quantizer._amax = torch.tensor(float(existing_amax), dtype=torch.float32, device=target_device)
         if has_global_amax and not usable_amax(existing_global_amax):
             weight_quantizer.global_amax = weight_quantizer._amax.detach().float().max()
         return True
@@ -786,9 +772,7 @@ def ensure_nvfp4_input_amax(
     import torch
 
     def usable_amax(value) -> bool:
-        return value is not None and not (
-            isinstance(value, torch.Tensor) and getattr(value, "is_meta", False)
-        )
+        return value is not None and not (isinstance(value, torch.Tensor) and getattr(value, "is_meta", False))
 
     input_quantizer = _input_quantizer_for_weight(module, weight_name)
     if input_quantizer is None or not getattr(input_quantizer, "is_enabled", False):
@@ -809,9 +793,7 @@ def ensure_nvfp4_input_amax(
     else:
         target_device = torch.device("cpu")
 
-    if fallback_amax is None or (
-        isinstance(fallback_amax, torch.Tensor) and getattr(fallback_amax, "is_meta", False)
-    ):
+    if fallback_amax is None or (isinstance(fallback_amax, torch.Tensor) and getattr(fallback_amax, "is_meta", False)):
         amax = torch.tensor(0.5, dtype=torch.float32, device=target_device)
         source = "fallback"
     elif isinstance(fallback_amax, torch.Tensor):
@@ -825,8 +807,7 @@ def ensure_nvfp4_input_amax(
         amax = torch.clamp(amax, min=torch.finfo(torch.float32).tiny)
     input_quantizer.amax = amax
     print(
-        f"Filled missing NVFP4 input amax for {module_name}.{weight_name} from {source}: "
-        f"{amax.max().item():.6f}",
+        f"Filled missing NVFP4 input amax for {module_name}.{weight_name} from {source}: {amax.max().item():.6f}",
         flush=True,
     )
     return True
@@ -912,9 +893,7 @@ def patch_export_missing_nvfp4_weight_amax(hf_ptq) -> None:
     """Patch ModelOpt export to auto-fill missing NVFP4 weight/input amax."""
     unified_export_hf = importlib.import_module("modelopt.torch.export.unified_export_hf")
     original_export_weight = unified_export_hf._export_quantized_weight
-    original_requantize_resmooth = getattr(
-        unified_export_hf, "requantize_resmooth_fused_llm_layers", None
-    )
+    original_requantize_resmooth = getattr(unified_export_hf, "requantize_resmooth_fused_llm_layers", None)
     active_export_models: tuple[Any, ...] = ()
 
     def export_quantized_weight_with_kimi_amax_fix(*args, **kwargs):
@@ -938,9 +917,7 @@ def patch_export_missing_nvfp4_weight_amax(hf_ptq) -> None:
             materialize_accelerate_offload_for_export(*models)
             return result
 
-        unified_export_hf.requantize_resmooth_fused_llm_layers = (
-            requantize_resmooth_then_materialize
-        )
+        unified_export_hf.requantize_resmooth_fused_llm_layers = requantize_resmooth_then_materialize
 
     original = hf_ptq.export_quantized
 
@@ -1106,9 +1083,7 @@ def verify_output_metadata(export_path: Path, recipe: dict[str, Any], excludes: 
     text_config = config.get("text_config") or {}
     if output_config.get("text_model_type") and text_config.get("model_type") != output_config["text_model_type"]:
         raise SystemExit(f"Unexpected text_config.model_type: {text_config.get('model_type')}")
-    if output_config.get("remove_torch_dtype", True) and (
-        "torch_dtype" in config or "torch_dtype" in text_config
-    ):
+    if output_config.get("remove_torch_dtype", True) and ("torch_dtype" in config or "torch_dtype" in text_config):
         raise SystemExit("Output config still has torch_dtype metadata.")
 
 

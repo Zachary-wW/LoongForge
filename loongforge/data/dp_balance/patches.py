@@ -65,9 +65,7 @@ def parse_path(module_path, function_name, create_dummy):
         try:
             importlib.import_module(path)
         except ModuleNotFoundError as e:
-            if not parent or not hasattr(
-                importlib.import_module(parent), modules[i - 1]
-            ):
+            if not parent or not hasattr(importlib.import_module(parent), modules[i - 1]):
                 if not create_dummy:
                     raise ModuleNotFoundError(e) from e
 
@@ -91,18 +89,12 @@ def parse_path(module_path, function_name, create_dummy):
                 else:
                     raise RuntimeError(f"no exist {function_name} of {module}")
 
-    if function_name is not None and not hasattr(
-        sys.modules[module_path], function_name
-    ):
+    if function_name is not None and not hasattr(sys.modules[module_path], function_name):
         setattr(sys.modules[module_path], function_name, None)
 
     return (
         sys.modules[module_path],
-        (
-            getattr(sys.modules[module_path], function_name)
-            if function_name is not None
-            else None
-        ),
+        (getattr(sys.modules[module_path], function_name) if function_name is not None else None),
     )
 
 
@@ -163,9 +155,7 @@ def set_patch_func(state, new_func, force_patch=False):
     Raises:
         RuntimeError: If a patch already exists and force_patch=False.
     """
-    if hasattr(new_func, "__name__") and new_func.__name__.endswith(
-        ("wrapper", "decorator")
-    ):
+    if hasattr(new_func, "__name__") and new_func.__name__.endswith(("wrapper", "decorator")):
         state["wrappers"].append(new_func)
     else:
         if state["patch_func"] and not force_patch:
@@ -225,9 +215,7 @@ def apply_patch(state):
 PATCHES = {}
 
 
-def register_patch(
-    orig_func_name, new_func=None, force_patch=False, create_dummy=False
-):
+def register_patch(orig_func_name, new_func=None, force_patch=False, create_dummy=False):
     """
     Register or update a patch for a target function.
 

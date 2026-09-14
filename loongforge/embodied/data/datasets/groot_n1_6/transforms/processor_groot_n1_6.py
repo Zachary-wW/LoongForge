@@ -144,9 +144,7 @@ def _asset_loading_kwargs(transformers_loading_kwargs: dict[str, Any]) -> dict[s
         "use_auth_token",
     }
     return {
-        key: value
-        for key, value in transformers_loading_kwargs.items()
-        if key in allowed_keys and value is not None
+        key: value for key, value in transformers_loading_kwargs.items() if key in allowed_keys and value is not None
     }
 
 
@@ -190,6 +188,7 @@ class StateActionProcessor(object):
     The class is used by ``Gr00tN1d6Processor`` to prepare model inputs during
     training/evaluation and to decode actions back to physical scale.
     """
+
     def __init__(
         self,
         modality_configs: dict[str, dict[str, ModalityConfig]],
@@ -307,9 +306,7 @@ class StateActionProcessor(object):
 
         for joint_group in self.modality_configs[embodiment_tag]["state"].modality_keys:
             if joint_group not in state:
-                raise KeyError(
-                    f"Joint group '{joint_group}' not found in state dict for embodiment '{embodiment_tag}'"
-                )
+                raise KeyError(f"Joint group '{joint_group}' not found in state dict for embodiment '{embodiment_tag}'")
 
             if sin_cos_keys and joint_group in sin_cos_keys:
                 normalized_values[joint_group] = apply_sin_cos_encoding(state[joint_group])
@@ -462,16 +459,12 @@ class StateActionProcessor(object):
                             else reference_state[:, -1:]
                         )
                         if ref_state_slice.shape[-1] < action_dim:
-                            padding = np.zeros(
-                                (ref_state_slice.shape[0], 1, action_dim - ref_state_slice.shape[-1])
-                            )
+                            padding = np.zeros((ref_state_slice.shape[0], 1, action_dim - ref_state_slice.shape[-1]))
                             ref_state_slice = np.concatenate([ref_state_slice, padding], axis=-1)
                         unnormalized_values[key] = relative_action + ref_state_slice
                     elif reference_state.ndim == 1:
                         ref_state_slice = (
-                            reference_state[:action_dim]
-                            if reference_state.shape[-1] >= action_dim
-                            else reference_state
+                            reference_state[:action_dim] if reference_state.shape[-1] >= action_dim else reference_state
                         )
                         if ref_state_slice.shape[-1] < action_dim:
                             padding = np.zeros(action_dim - ref_state_slice.shape[-1])
@@ -505,6 +498,7 @@ class StateActionProcessor(object):
 
 class Gr00tN1d6DataCollator:
     """Data collator for Gr00tN1d6 model."""
+
     def __init__(
         self,
         model_name: str,
@@ -556,7 +550,9 @@ class Gr00tN1d6DataCollator:
                 if self.model_type == "eagle":
                     image_inputs, _ = self.processor.process_vision_info([v["conversation"] for v in values])
                 vlm_inputs = self.processor(
-                    text=text_list, images=image_inputs, return_tensors="pt",
+                    text=text_list,
+                    images=image_inputs,
+                    return_tensors="pt",
                     padding="max_length" if self.max_length else True,
                     max_length=self.max_length,
                     truncation=self.max_length is not None,
@@ -564,8 +560,7 @@ class Gr00tN1d6DataCollator:
                 )
                 # Detect truncation: if any sample has attention_mask all-1 with
                 # max_length set, it was truncated (no pad tokens added).
-                if (self.max_length is not None and not self._truncation_warned
-                        and "attention_mask" in vlm_inputs):
+                if self.max_length is not None and not self._truncation_warned and "attention_mask" in vlm_inputs:
                     attn_mask = vlm_inputs["attention_mask"]
                     num_truncated = int((attn_mask.sum(dim=-1) == attn_mask.shape[-1]).sum())
                     if num_truncated > 0:

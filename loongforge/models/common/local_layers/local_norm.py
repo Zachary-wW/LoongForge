@@ -36,12 +36,9 @@ class FusedRMSNorm(ApexFusedRMSNorm):
         eps=1e-5,
         elementwise_affine=True,
     ):
-
         if not HAVE_FUSED_RMS_NORM:
             # TODO: Add pytorch only rms norm
-            raise ValueError(
-                f"Apex must currently be installed to use FusedRMSNorm op."
-            )
+            raise ValueError(f"Apex must currently be installed to use FusedRMSNorm op.")
 
         super().__init__(hidden_size, eps=eps, elementwise_affine=elementwise_affine)
 
@@ -74,9 +71,7 @@ class LocalNorm:
                     eps=eps,
                 )
             else:
-                assert (
-                    HAVE_FUSED_LAYER_NORM
-                ), "Apex must currently be installed to use FusedLayerNorm op."
+                assert HAVE_FUSED_LAYER_NORM, "Apex must currently be installed to use FusedLayerNorm op."
                 instance = ApexFusedLayerNorm(
                     hidden_size,
                     eps=eps,
@@ -93,4 +88,3 @@ class LocalNorm:
             raise Exception("Only LayerNorm and RMSNorm are curently supported")
 
         return instance
-

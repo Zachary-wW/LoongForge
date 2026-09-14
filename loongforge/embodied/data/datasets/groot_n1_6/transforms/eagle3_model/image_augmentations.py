@@ -59,9 +59,7 @@ def apply_with_replay(transform, images, replay=None):
                 # Subsequent images - use replay for consistent transforms
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore", category=UserWarning)
-                    augmented_image = transform.replay(
-                        image=np.array(img), saved_augmentations=current_replay
-                    )
+                    augmented_image = transform.replay(image=np.array(img), saved_augmentations=current_replay)
             img_array = augmented_image["image"]
         else:
             # Regular Compose transform - no replay functionality
@@ -96,33 +94,23 @@ class FractionalRandomCrop(A.DualTransform):
         uint8, float32
     """
 
-    def __init__(
-        self, crop_fraction: float = 0.9, p: float = 1.0, always_apply: bool | None = None
-    ):
+    def __init__(self, crop_fraction: float = 0.9, p: float = 1.0, always_apply: bool | None = None):
         """Initialize FractionalRandomCrop transform."""
         super().__init__(p=p, always_apply=always_apply)
         if not 0.0 < crop_fraction <= 1.0:
             raise ValueError("crop_fraction must be between 0.0 and 1.0")
         self.crop_fraction = crop_fraction
 
-    def apply(
-        self, img: np.ndarray, crop_coords: tuple[int, int, int, int], **params
-    ) -> np.ndarray:
+    def apply(self, img: np.ndarray, crop_coords: tuple[int, int, int, int], **params) -> np.ndarray:
         """Apply crop to image."""
         x_min, y_min, x_max, y_max = crop_coords
         return img[y_min:y_max, x_min:x_max]
 
-    def apply_to_bboxes(
-        self, bboxes: np.ndarray, crop_coords: tuple[int, int, int, int], **params
-    ) -> np.ndarray:
+    def apply_to_bboxes(self, bboxes: np.ndarray, crop_coords: tuple[int, int, int, int], **params) -> np.ndarray:
         """Apply crop to bounding boxes."""
-        return A.augmentations.crops.functional.crop_bboxes_by_coords(
-            bboxes, crop_coords, params["shape"]
-        )
+        return A.augmentations.crops.functional.crop_bboxes_by_coords(bboxes, crop_coords, params["shape"])
 
-    def apply_to_keypoints(
-        self, keypoints: np.ndarray, crop_coords: tuple[int, int, int, int], **params
-    ) -> np.ndarray:
+    def apply_to_keypoints(self, keypoints: np.ndarray, crop_coords: tuple[int, int, int, int], **params) -> np.ndarray:
         """Apply crop to keypoints."""
         return A.augmentations.crops.functional.crop_keypoints_by_coords(keypoints, crop_coords)
 
@@ -168,33 +156,23 @@ class FractionalCenterCrop(A.DualTransform):
         uint8, float32
     """
 
-    def __init__(
-        self, crop_fraction: float = 0.9, p: float = 1.0, always_apply: bool | None = None
-    ):
+    def __init__(self, crop_fraction: float = 0.9, p: float = 1.0, always_apply: bool | None = None):
         """Initialize FractionalCenterCrop transform."""
         super().__init__(p=p, always_apply=always_apply)
         if not 0.0 < crop_fraction <= 1.0:
             raise ValueError("crop_fraction must be between 0.0 and 1.0")
         self.crop_fraction = crop_fraction
 
-    def apply(
-        self, img: np.ndarray, crop_coords: tuple[int, int, int, int], **params
-    ) -> np.ndarray:
+    def apply(self, img: np.ndarray, crop_coords: tuple[int, int, int, int], **params) -> np.ndarray:
         """Apply crop to image."""
         x_min, y_min, x_max, y_max = crop_coords
         return img[y_min:y_max, x_min:x_max]
 
-    def apply_to_bboxes(
-        self, bboxes: np.ndarray, crop_coords: tuple[int, int, int, int], **params
-    ) -> np.ndarray:
+    def apply_to_bboxes(self, bboxes: np.ndarray, crop_coords: tuple[int, int, int, int], **params) -> np.ndarray:
         """Apply crop to bounding boxes."""
-        return A.augmentations.crops.functional.crop_bboxes_by_coords(
-            bboxes, crop_coords, params["shape"]
-        )
+        return A.augmentations.crops.functional.crop_bboxes_by_coords(bboxes, crop_coords, params["shape"])
 
-    def apply_to_keypoints(
-        self, keypoints: np.ndarray, crop_coords: tuple[int, int, int, int], **params
-    ) -> np.ndarray:
+    def apply_to_keypoints(self, keypoints: np.ndarray, crop_coords: tuple[int, int, int, int], **params) -> np.ndarray:
         """Apply crop to keypoints."""
         return A.augmentations.crops.functional.crop_keypoints_by_coords(keypoints, crop_coords)
 
@@ -266,9 +244,7 @@ class LetterBoxPad(A.DualTransform):
         """
         if pad_top == 0 and pad_bottom == 0 and pad_left == 0 and pad_right == 0:
             return img
-        return cv2.copyMakeBorder(
-            img, pad_top, pad_bottom, pad_left, pad_right, cv2.BORDER_CONSTANT, value=0
-        )
+        return cv2.copyMakeBorder(img, pad_top, pad_bottom, pad_left, pad_right, cv2.BORDER_CONSTANT, value=0)
 
     def get_params_dependent_on_data(self, params, data) -> dict[str, int]:
         """
@@ -428,16 +404,12 @@ class LetterBoxTransform:
             padded_img = padded_img.reshape(output_shape)
         else:
             # Simple case: just (C, H, W)
-            padded_img = transforms.functional.pad(
-                img, padding=[pad_left, pad_top, pad_right, pad_bottom], fill=0
-            )
+            padded_img = transforms.functional.pad(img, padding=[pad_left, pad_top, pad_right, pad_bottom], fill=0)
 
         return padded_img
 
 
-def build_image_transformations(
-    image_target_size, image_crop_size, random_rotation_angle, color_jitter_params
-):
+def build_image_transformations(image_target_size, image_crop_size, random_rotation_angle, color_jitter_params):
     """
     Build torchvision-based image transformations.
 
@@ -459,9 +431,7 @@ def build_image_transformations(
         transforms.Resize(size=image_target_size),
     ]
     if random_rotation_angle is not None and random_rotation_angle != 0:
-        transform_list.append(
-            transforms.RandomRotation(degrees=[-random_rotation_angle, random_rotation_angle])
-        )
+        transform_list.append(transforms.RandomRotation(degrees=[-random_rotation_angle, random_rotation_angle]))
     if color_jitter_params is not None:
         transform_list.append(transforms.ColorJitter(**color_jitter_params))
     train_image_transform = transforms.Compose(transform_list)

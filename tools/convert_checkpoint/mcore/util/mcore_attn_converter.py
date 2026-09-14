@@ -1,7 +1,7 @@
 # Copyright 2026 The LoongForge Authors.
 # SPDX-License-Identifier: Apache-2.0
 
-""" Mcore_checkpoint converter for megatron lm. """
+"""Mcore_checkpoint converter for megatron lm."""
 
 import io
 import torch
@@ -9,7 +9,8 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-class McoreAttnGateQkvConverter():
+
+class McoreAttnGateQkvConverter:
     def __init__(self, c_config):
         self.c_config = c_config
         margs = self.c_config.get_args("mcore")
@@ -30,7 +31,7 @@ class McoreAttnGateQkvConverter():
     def chunk_gqkv(self, gqkv, tp):
         if tp == 1:
             return [gqkv]
-        
+
         split_arg_list = [
             self.q_dim,
             self.kv_dim,
@@ -49,7 +50,7 @@ class McoreAttnGateQkvConverter():
 
 class McoreMixerAttnConverter:
     """
-        McoreBase
+    McoreBase
     """
 
     def __init__(self, c_config):
@@ -66,21 +67,25 @@ class McoreMixerAttnConverter:
         self.mixer_key_head_dim = cargs.get("mixer_key_head_dim", hidden_size // self.heads)
         self.mixer_value_head_dim = cargs.get("mixer_value_head_dim", hidden_size // self.heads)
 
-
     def chunk_mixer_in_proj_qkvz(self, qkvz, tp):
         if tp == 1:
             q, k, v, z = self.get_qkvz(qkvz, tp)
             return [qkvz]
         split_size_list = [
-            self.mixer_key_head_dim, 
-            self.mixer_key_head_dim, 
-            self.mixer_value_head_dim * self.mixer_num_value_heads // self.mixer_num_key_heads, 
-            self.mixer_value_head_dim * self.mixer_num_value_heads // self.mixer_num_key_heads
+            self.mixer_key_head_dim,
+            self.mixer_key_head_dim,
+            self.mixer_value_head_dim * self.mixer_num_value_heads // self.mixer_num_key_heads,
+            self.mixer_value_head_dim * self.mixer_num_value_heads // self.mixer_num_key_heads,
         ]
         q, k, v, z = torch.split(
-            qkvz.reshape(self.mixer_num_key_heads, 2 * self.mixer_key_head_dim + 2 * self.mixer_value_head_dim * self.mixer_num_value_heads // self.mixer_num_key_heads, -1),
+            qkvz.reshape(
+                self.mixer_num_key_heads,
+                2 * self.mixer_key_head_dim
+                + 2 * self.mixer_value_head_dim * self.mixer_num_value_heads // self.mixer_num_key_heads,
+                -1,
+            ),
             split_size_list,
-            dim=1
+            dim=1,
         )
         q_s = torch.chunk(q, tp, dim=0)
         k_s = torch.chunk(k, tp, dim=0)
@@ -94,7 +99,9 @@ class McoreMixerAttnConverter:
     def chunk_mixer_in_proj_ba(self, ba, tp):
         if tp == 1:
             return [ba]
-        ba1, ba2 = ba.reshape(self.mixer_num_key_heads, 2 * self.mixer_num_value_heads // self.mixer_num_key_heads, -1).chunk(chunks=2, dim=1)
+        ba1, ba2 = ba.reshape(
+            self.mixer_num_key_heads, 2 * self.mixer_num_value_heads // self.mixer_num_key_heads, -1
+        ).chunk(chunks=2, dim=1)
         ba1_s = torch.chunk(ba1, tp, dim=0)
         ba2_s = torch.chunk(ba2, tp, dim=0)
         ba_s = []

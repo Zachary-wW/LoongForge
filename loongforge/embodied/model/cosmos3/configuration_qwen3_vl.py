@@ -17,6 +17,7 @@ from transformers.modeling_rope_utils import rope_config_validation
 
 class Qwen3VLVisionConfig(PretrainedConfig):
     """Configuration for Qwen3-VL vision encoder."""
+
     model_type = "qwen3_vl"
     base_config_key = "vision_config"
 
@@ -52,8 +53,9 @@ class Qwen3VLVisionConfig(PretrainedConfig):
         self.out_hidden_size = out_hidden_size
         self.num_position_embeddings = num_position_embeddings
         self.initializer_range = initializer_range
-        self.deepstack_visual_indexes = (deepstack_visual_indexes
-            if deepstack_visual_indexes is not None else [8, 16, 24])
+        self.deepstack_visual_indexes = (
+            deepstack_visual_indexes if deepstack_visual_indexes is not None else [8, 16, 24]
+        )
 
 
 class Qwen3VLTextConfig(PretrainedConfig):

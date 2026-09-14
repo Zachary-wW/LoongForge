@@ -10,10 +10,7 @@ import torch
 from megatron.core import parallel_state, tensor_parallel
 from megatron.core.transformer.module import MegatronModule
 from megatron.core.process_groups_config import ProcessGroupCollection
-from megatron.core.transformer.moe.moe_layer import (
-    MoESubmodules,
-    MoELayer
-)
+from megatron.core.transformer.moe.moe_layer import MoESubmodules, MoELayer
 from megatron.core.transformer.moe.moe_utils import get_default_pg_collection
 from megatron.core.transformer.spec_utils import ModuleSpec, build_module
 from megatron.core import parallel_state
@@ -26,8 +23,9 @@ from .ernie_router import TopKRouter
 
 
 @dataclass
-class  MultiTypeMoeSubmodules:
+class MultiTypeMoeSubmodules:
     """MoE Layer Submodule spec"""
+
     vision_moe_layer: Union[ModuleSpec, type] = None
     text_moe_layer: Union[ModuleSpec, type] = None
     shared_experts: Union[ModuleSpec, type] = None
@@ -35,21 +33,18 @@ class  MultiTypeMoeSubmodules:
 
 class ErnieDispatcher(MoEAlltoAllTokenDispatcher):
     """Ernie Dispatcher"""
+
     def token_dispatch(self, permutated_local_input_tokens, permuted_probs):
         """
         Token dispatch
         """
         # Perform expert parallel AlltoAll communication
-        self.tokens_per_expert = self._maybe_dtoh_and_synchronize(
-            "before_ep_alltoall", self.tokens_per_expert
-        )
+        self.tokens_per_expert = self._maybe_dtoh_and_synchronize("before_ep_alltoall", self.tokens_per_expert)
         if self.ep_size > 1:
             global_input_tokens = all_to_all(
                 self.ep_group, permutated_local_input_tokens, self.output_splits, self.input_splits
             )
-            global_probs = all_to_all(
-                self.ep_group, permuted_probs, self.output_splits, self.input_splits
-            )
+            global_probs = all_to_all(self.ep_group, permuted_probs, self.output_splits, self.input_splits)
         else:
             global_input_tokens = permutated_local_input_tokens
             global_probs = permuted_probs
@@ -58,6 +53,7 @@ class ErnieDispatcher(MoEAlltoAllTokenDispatcher):
 
 class ErnieMoeLayer(MoELayer):
     """MoE Layer for Ernie"""
+
     def __init__(
         self,
         config: TransformerConfig,
@@ -77,11 +73,11 @@ class ErnieMoeLayer(MoELayer):
 
         self.router = TopKRouter(config=router_config, pg_collection=pg_collection)
         self.token_dispatcher = ErnieDispatcher(
-                self.num_local_experts,
-                self.local_expert_indices,
-                config=self.config,
-                pg_collection=pg_collection,
-            )
+            self.num_local_experts,
+            self.local_expert_indices,
+            config=self.config,
+            pg_collection=pg_collection,
+        )
 
     def build_token_weights(self, hidden_states, expert_id):
         """Build token weights for dispatch.
@@ -106,14 +102,13 @@ class ErnieMoeLayer(MoELayer):
         sorted_pos = torch.arange(num_rows * k, dtype=torch.int32, device=device)
 
         # Compute (k_idx, token_idx) for each element in the sorted order
-        token_idx = sorted_expanded_token_ids // k   # [num_rows*k]
-        k_idx     = sorted_expanded_token_ids % k    # [num_rows*k]
+        token_idx = sorted_expanded_token_ids // k  # [num_rows*k]
+        k_idx = sorted_expanded_token_ids % k  # [num_rows*k]
 
         scatter_index = torch.full((k, num_rows), -1, dtype=torch.int32, device=device)
         scatter_index[k_idx, token_idx] = sorted_pos
 
         return scatter_index
-
 
     def router_and_preprocess(self, hidden_states: torch.Tensor):
         """Compute and preprocess token routing for dispatch.
@@ -127,9 +122,7 @@ class ErnieMoeLayer(MoELayer):
         probs, routing_map, raw_probs, top_indices = self.router(hidden_states)
         # scatter_index is the origin position of the dispatched tokens
         scatter_index = self.build_token_weights(hidden_states, top_indices)
-        hidden_states, probs = self.token_dispatcher.dispatch_preprocess(
-            hidden_states, routing_map, probs
-        )
+        hidden_states, probs = self.token_dispatcher.dispatch_preprocess(hidden_states, routing_map, probs)
         return hidden_states, probs, residual, raw_probs, scatter_index
 
     def forward(self, hidden_states: torch.Tensor, token_type_ids: torch.Tensor):
@@ -169,12 +162,14 @@ class ErnieMoeLayer(MoELayer):
 
             dispatched_input, probs = self.dispatch(hidden_states, probs)
             dispatched_input, tokens_per_expert, permuted_probs = self.pre_routed_experts_compute(
-                dispatched_input, probs)
+                dispatched_input, probs
+            )
 
             if ep_size > 1:
                 # Standard EP path: use routing probabilities for combine
                 expert_output, mlp_bias = self.routed_experts_compute(
-                    dispatched_input, tokens_per_expert, permuted_probs)
+                    dispatched_input, tokens_per_expert, permuted_probs
+                )
                 output = self.post_routed_experts_compute(expert_output)
                 output = self.token_dispatcher.token_combine(output)
                 output = self.token_dispatcher.combine_postprocess(output)
@@ -187,7 +182,8 @@ class ErnieMoeLayer(MoELayer):
                 #       training implementation.
                 permuted_probs = torch.ones_like(permuted_probs)
                 expert_output, mlp_bias = self.routed_experts_compute(
-                    dispatched_input, tokens_per_expert, permuted_probs)
+                    dispatched_input, tokens_per_expert, permuted_probs
+                )
 
                 expert_output = expert_output[scatter_index.T.reshape(-1)]
                 reshaped_outs = expert_output.reshape([-1, self.config.moe_router_topk, h])
@@ -211,18 +207,21 @@ class ErnieMoeLayer(MoELayer):
 
             dispatched_input, probs = self.dispatch(hidden_states, probs)
             dispatched_input, tokens_per_expert, permuted_probs = self.pre_routed_experts_compute(
-                dispatched_input, probs)
+                dispatched_input, probs
+            )
 
             if ep_size > 1:
                 expert_output, mlp_bias = self.routed_experts_compute(
-                    dispatched_input, tokens_per_expert, permuted_probs)
+                    dispatched_input, tokens_per_expert, permuted_probs
+                )
                 output = self.post_routed_experts_compute(expert_output)
                 output = self.token_dispatcher.token_combine(output)
                 output = self.token_dispatcher.combine_postprocess(output)
             else:
                 permuted_probs = torch.ones_like(permuted_probs)
                 expert_output, mlp_bias = self.routed_experts_compute(
-                    dispatched_input, tokens_per_expert, permuted_probs)
+                    dispatched_input, tokens_per_expert, permuted_probs
+                )
                 expert_output = expert_output[scatter_index.T.reshape(-1)]
                 reshaped_outs = expert_output.reshape([-1, self.config.moe_router_topk, h])
                 raw_probs = raw_probs.reshape([-1, 1, self.config.moe_router_topk])
@@ -237,7 +236,7 @@ class ErnieMoeLayer(MoELayer):
                     tensor_parallel.random.get_cuda_rng_tracker,
                     parallel_state.get_tensor_model_parallel_group(),
                     hidden_states,
-                    token_type_ids
+                    token_type_ids,
                 )
             else:
                 output, mlp_bias = tensor_parallel.checkpoint(custom_forward, False, hidden_states, token_type_ids)
@@ -249,14 +248,11 @@ class ErnieMoeLayer(MoELayer):
                     tensor_parallel.random.get_cuda_rng_tracker,
                     parallel_state.get_tensor_model_parallel_group(),
                     hidden_states,
-                    token_type_ids
+                    token_type_ids,
                 )
             else:
                 output, mlp_bias = tensor_parallel.checkpoint(
-                   custom_forward_exclude_shared_experts, 
-                   False, 
-                   hidden_states,
-                   token_type_ids
+                    custom_forward_exclude_shared_experts, False, hidden_states, token_type_ids
                 )
             if self.use_shared_expert and not self.shared_expert_overlap:
                 output = output + self.shared_experts_compute(hidden_states)
@@ -270,7 +266,7 @@ class ErnieMoeLayer(MoELayer):
 class ErnieMultiTypeMoE(MegatronModule):
     """Multimodal Mixture of Experts layer for text and vision modalities.
 
-    Routes tokens to specialized experts based on modality type and merges 
+    Routes tokens to specialized experts based on modality type and merges
     outputs. Part of ERNIE 4.5's multimodal MoE architecture.
 
     Args:
@@ -278,6 +274,7 @@ class ErnieMultiTypeMoE(MegatronModule):
         submodules: Expert network module configuration.
         layer_number: Layer index in the Transformer stack.
     """
+
     def __init__(
         self,
         config: TransformerConfig,
@@ -307,7 +304,7 @@ class ErnieMultiTypeMoE(MegatronModule):
         # output = torch.where(token_type_ids.unsqueeze(-1), lm_output, mm_output)
 
         shared_output = self.shared_experts(hidden_states)
-        
+
         moe_output = torch.zeros_like(hidden_states)
         mask = token_type_ids.squeeze(0).bool()  # [1,839] → [839]
         moe_output[~mask] = lm_output  # [23, 2560]

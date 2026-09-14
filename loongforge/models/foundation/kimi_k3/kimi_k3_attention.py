@@ -40,10 +40,7 @@ from .kimi_k3_ops import RMSNorm, kda, sum_grads_across_tp
 def _linear(module: nn.Module, inputs: torch.Tensor) -> torch.Tensor:
     output, bias = module(inputs)
     if bias is not None:
-        raise ValueError(
-            "Kimi K3 requires bias-free projections, "
-            f"got bias from {type(module).__name__}"
-        )
+        raise ValueError(f"Kimi K3 requires bias-free projections, got bias from {type(module).__name__}")
     return output
 
 
@@ -95,9 +92,7 @@ class KimiK3Attention(MegatronModule):
         self.cp_comm_type = cp_comm_type
 
         if pg_collection is None:
-            pg_collection = ProcessGroupCollection.use_mpu_process_groups(
-                required_pgs=["tp", "cp"]
-            )
+            pg_collection = ProcessGroupCollection.use_mpu_process_groups(required_pgs=["tp", "cp"])
         elif not hasattr(pg_collection, "tp") or not hasattr(pg_collection, "cp"):
             raise ValueError("KimiK3Attention requires TP and CP process groups")
         self.pg_collection = pg_collection
@@ -162,9 +157,7 @@ class KimiK3Attention(MegatronModule):
         dtype = config.params_dtype
         self.num_heads = config.kimi_linear_num_heads
         if self.num_heads % self.tp_size:
-            raise ValueError(
-                f"KDA heads {self.num_heads} must be divisible by TP size {self.tp_size}"
-            )
+            raise ValueError(f"KDA heads {self.num_heads} must be divisible by TP size {self.tp_size}")
         self.local_num_heads = self.num_heads // self.tp_size
         self.head_dim = config.kimi_linear_head_dim
         self.projection_size = self.num_heads * self.head_dim
@@ -191,12 +184,8 @@ class KimiK3Attention(MegatronModule):
         self.g_proj = self._column_linear(hidden_size, self.projection_size)
 
         # Stored in FP32 for checkpoint compatibility, then cast with the model.
-        self.A_log = nn.Parameter(
-            torch.empty(self.local_num_heads, dtype=torch.float32, device=device)
-        )
-        self.dt_bias = nn.Parameter(
-            torch.empty(self.local_projection_size, dtype=torch.float32, device=device)
-        )
+        self.A_log = nn.Parameter(torch.empty(self.local_num_heads, dtype=torch.float32, device=device))
+        self.dt_bias = nn.Parameter(torch.empty(self.local_projection_size, dtype=torch.float32, device=device))
         self.A_log._keep_in_float32 = True
         self.dt_bias._keep_in_float32 = True
         set_tensor_model_parallel_attributes(self.A_log, True, 0, 1)
@@ -219,9 +208,7 @@ class KimiK3Attention(MegatronModule):
         dtype = config.params_dtype
         self.num_heads = config.num_attention_heads
         if self.num_heads % self.tp_size:
-            raise ValueError(
-                f"MLA heads {self.num_heads} must be divisible by TP size {self.tp_size}"
-            )
+            raise ValueError(f"MLA heads {self.num_heads} must be divisible by TP size {self.tp_size}")
         self.local_num_heads = self.num_heads // self.tp_size
         self.q_lora_rank = config.q_lora_rank
         self.kv_lora_rank = config.kv_lora_rank
@@ -231,28 +218,16 @@ class KimiK3Attention(MegatronModule):
         self.q_head_dim = self.qk_nope_head_dim + self.qk_extra_head_dim
 
         self.q_a_proj = self._duplicated_linear(hidden_size, self.q_lora_rank)
-        self.q_a_layernorm = RMSNorm(self.q_lora_rank, config.layernorm_epsilon).to(
-            device=device, dtype=dtype
-        )
-        self.q_b_proj = self._column_linear(
-            self.q_lora_rank, self.num_heads * self.q_head_dim
-        )
-        self.kv_a_proj_with_mqa = self._duplicated_linear(
-            hidden_size, self.kv_lora_rank + self.qk_extra_head_dim
-        )
-        self.kv_a_layernorm = RMSNorm(self.kv_lora_rank, config.layernorm_epsilon).to(
-            device=device, dtype=dtype
-        )
+        self.q_a_layernorm = RMSNorm(self.q_lora_rank, config.layernorm_epsilon).to(device=device, dtype=dtype)
+        self.q_b_proj = self._column_linear(self.q_lora_rank, self.num_heads * self.q_head_dim)
+        self.kv_a_proj_with_mqa = self._duplicated_linear(hidden_size, self.kv_lora_rank + self.qk_extra_head_dim)
+        self.kv_a_layernorm = RMSNorm(self.kv_lora_rank, config.layernorm_epsilon).to(device=device, dtype=dtype)
         self.kv_b_proj = self._column_linear(
             self.kv_lora_rank,
             self.num_heads * (self.qk_nope_head_dim + self.v_head_dim),
         )
-        self.g_proj = self._column_linear(
-            hidden_size, self.num_heads * self.v_head_dim
-        )
-        self.o_proj = self._row_linear(
-            self.num_heads * self.v_head_dim, hidden_size
-        )
+        self.g_proj = self._column_linear(hidden_size, self.num_heads * self.v_head_dim)
+        self.o_proj = self._row_linear(self.num_heads * self.v_head_dim, hidden_size)
 
         self.core_attention = TEDotProductAttention(
             config=self.config,
@@ -274,9 +249,7 @@ class KimiK3Attention(MegatronModule):
     ) -> ShardedStateDict:
         """Return attention state with explicit KDA TP sharding."""
         metadata = ensure_metadata_has_dp_cp_group(metadata)
-        sharded_state_dict = super().sharded_state_dict(
-            prefix, sharded_offsets, metadata
-        )
+        sharded_state_dict = super().sharded_state_dict(prefix, sharded_offsets, metadata)
         if not self.is_kda:
             return sharded_state_dict
 
@@ -298,9 +271,7 @@ class KimiK3Attention(MegatronModule):
         packed_seq_params: PackedSeqParams | None,
     ) -> torch.Tensor:
         x = hidden_states.transpose(0, 1)
-        cu_seqlens = (
-            packed_seq_params.cu_seqlens_q if packed_seq_params is not None else None
-        )
+        cu_seqlens = packed_seq_params.cu_seqlens_q if packed_seq_params is not None else None
         if packed_seq_params is not None and cu_seqlens is None:
             raise ValueError("Packed KDA input requires cu_seqlens_q")
 
@@ -333,9 +304,7 @@ class KimiK3Attention(MegatronModule):
             "b s (h d) -> b s h d",
             h=self.local_num_heads,
         )
-        output = self.o_norm(
-            output.reshape(-1, self.head_dim), gate.reshape(-1, self.head_dim)
-        )
+        output = self.o_norm(output.reshape(-1, self.head_dim), gate.reshape(-1, self.head_dim))
         output = output.view(*gate.shape).flatten(-2)
         return _linear(self.o_proj, output.to(hidden_states.dtype)).transpose(0, 1)
 

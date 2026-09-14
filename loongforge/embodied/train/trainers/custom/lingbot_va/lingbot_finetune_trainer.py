@@ -53,9 +53,7 @@ def _map_loss_log_dict(log_loss_dict, *, backward_loss, gradient_accumulation_st
         if metric_key == "action_loss":
             metric_key = "lingbot_logged_action_loss"
         mapped_log_dict[metric_key] = value
-    mapped_log_dict["action_loss"] = backward_loss.detach() * float(
-        max(1, int(gradient_accumulation_steps))
-    )
+    mapped_log_dict["action_loss"] = backward_loss.detach() * float(max(1, int(gradient_accumulation_steps)))
     return mapped_log_dict
 
 
@@ -80,22 +78,16 @@ class LingBotFinetuneTrainer(FinetuneTrainer):
 
     def _wrap_model_for_training(self):
         if self.training_args.distributed_strategy != "fsdp":
-            raise RuntimeError(
-                "LingBot native nested FSDP2 requires embodied FSDP strategy"
-            )
+            raise RuntimeError("LingBot native nested FSDP2 requires embodied FSDP strategy")
         from loongforge.embodied.model.lingbot_va.lingbot_fsdp2_adapter import (
             wrap_lingbot_torch_nested_fsdp2,
         )
 
-        self.model = wrap_lingbot_torch_nested_fsdp2(
-            self.model, self.training_args, self.ctx
-        )
+        self.model = wrap_lingbot_torch_nested_fsdp2(self.model, self.training_args, self.ctx)
 
     def _build_optimizer(self):
         if self.training_args.distributed_strategy != "fsdp":
-            raise RuntimeError(
-                "LingBot native nested FSDP2 requires embodied FSDP strategy"
-            )
+            raise RuntimeError("LingBot native nested FSDP2 requires embodied FSDP strategy")
 
         from loongforge.embodied.model.lingbot_va.lingbot_fsdp2_adapter import (
             apply_lingbot_fsdp2_tuning,
@@ -106,17 +98,13 @@ class LingBotFinetuneTrainer(FinetuneTrainer):
         optimizer = super()._build_optimizer()
         if feature_enabled("LINGBOT_FSDP_RESHARD"):
             reshard_module_count = sum(
-                1
-                for module in self.model.modules()
-                if hasattr(module, "set_reshard_after_backward")
+                1 for module in self.model.modules() if hasattr(module, "set_reshard_after_backward")
             )
             reshard_mode = "framework-default"
         else:
-            self._lingbot_post_step_reshard_hook, reshard_module_count = (
-                register_lingbot_post_step_reshard(
-                    self.model,
-                    optimizer,
-                )
+            self._lingbot_post_step_reshard_hook, reshard_module_count = register_lingbot_post_step_reshard(
+                self.model,
+                optimizer,
             )
             reshard_mode = "post-step"
         if self.ctx is not None and self.ctx.is_main:
@@ -145,9 +133,7 @@ class LingBotFinetuneTrainer(FinetuneTrainer):
         """
         threshold = self.training_args.loss_spike_threshold
         with self._stage_timers("backward-compute"):
-            loss, raw_loss, invalid, spiked = _COMPILED_DEVICE_LOSS_GUARD(
-                loss, grad_accum, threshold
-            )
+            loss, raw_loss, invalid, spiked = _COMPILED_DEVICE_LOSS_GUARD(loss, grad_accum, threshold)
             self._lingbot_loss_guard_records.append(
                 (
                     raw_loss,
@@ -158,9 +144,7 @@ class LingBotFinetuneTrainer(FinetuneTrainer):
                             key,
                             value.detach()
                             if isinstance(value, torch.Tensor)
-                            else torch.as_tensor(
-                                value, device=loss.device, dtype=torch.float32
-                            ),
+                            else torch.as_tensor(value, device=loss.device, dtype=torch.float32),
                         )
                         for key, value in log_loss_dict.items()
                     ),
@@ -225,9 +209,7 @@ class LingBotFinetuneTrainer(FinetuneTrainer):
         # the averaged loss logs.
         self._lingbot_loss_guard_records.clear()
         log_dict = super()._forward_backward()
-        self._finish_device_loss_guard(
-            log_dict, self.training_args.gradient_accumulation_steps
-        )
+        self._finish_device_loss_guard(log_dict, self.training_args.gradient_accumulation_steps)
         return log_dict
 
     def _train_forward(self, batch) -> Tuple[torch.Tensor, dict]:
@@ -238,7 +220,6 @@ class LingBotFinetuneTrainer(FinetuneTrainer):
             backward_loss=loss,
             gradient_accumulation_steps=self.training_args.gradient_accumulation_steps,
         )
-
 
     def _configure_manual_gc(self) -> None:
         """Suppress expensive full GC while preserving young-generation cleanup."""

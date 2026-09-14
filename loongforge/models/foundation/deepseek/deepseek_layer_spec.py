@@ -22,7 +22,7 @@ from megatron.core.transformer.transformer_block import (
 from megatron.core.transformer.transformer_layer import (
     TransformerLayer,
     get_transformer_layer_offset,
-    TransformerLayerSubmodules
+    TransformerLayerSubmodules,
 )
 from megatron.core.transformer.multi_latent_attention import (
     MLASelfAttention,
@@ -37,6 +37,7 @@ from megatron.core.enums import Fp8Recipe
 from loongforge.models.dispatch import multiacc_modules
 from loongforge.utils import get_args
 
+
 def _get_deepseek_layer_with_te_spec(
     num_experts: Optional[int] = None,
     moe_grouped_gemm: Optional[bool] = True,
@@ -44,7 +45,7 @@ def _get_deepseek_layer_with_te_spec(
     experimental_attention_variant: Optional[str] = None,
 ) -> ModuleSpec:
     """Get the transformer layer spec for deepseek
-    
+
     Args:
         experimental_attention_variant (str, optional): The type of experimental attention variant.
                                                         Defaults to None.
@@ -57,10 +58,12 @@ def _get_deepseek_layer_with_te_spec(
     # Default specs for attention module and its submodules, which can be overridden by experimental attention variants.
     mla_attention_module = MLASelfAttention
     core_attention = multiacc_modules.DotProductAttention
-    linear_q_up_proj = (multiacc_modules.TELayerNormColumnParallelLinear if qk_layernorm
-                        else multiacc_modules.TEColumnParallelLinear)
-    linear_kv_up_proj = (multiacc_modules.TELayerNormColumnParallelLinear if qk_layernorm
-                         else multiacc_modules.TEColumnParallelLinear)
+    linear_q_up_proj = (
+        multiacc_modules.TELayerNormColumnParallelLinear if qk_layernorm else multiacc_modules.TEColumnParallelLinear
+    )
+    linear_kv_up_proj = (
+        multiacc_modules.TELayerNormColumnParallelLinear if qk_layernorm else multiacc_modules.TEColumnParallelLinear
+    )
     q_layernorm = IdentityOp
     kv_layernorm = IdentityOp
 
@@ -77,6 +80,7 @@ def _get_deepseek_layer_with_te_spec(
                     DSAttention,
                     DSAttentionSubmodules,
                 )
+
                 indexer_module = DSAIndexer
                 indexer_submodules = DSAIndexerSubmodules
                 attention_module = DSAttention
@@ -90,6 +94,7 @@ def _get_deepseek_layer_with_te_spec(
                     DSAttentionFusedSubmodules,
                     MLASelfAttentionFused,
                 )
+
                 indexer_module = DSAIndexerFused
                 indexer_submodules = DSAIndexerFusedSubmodules
                 attention_module = DSAttentionFused
@@ -112,14 +117,12 @@ def _get_deepseek_layer_with_te_spec(
             )
             linear_q_up_proj = multiacc_modules.TEColumnParallelLinear
             linear_kv_up_proj = multiacc_modules.TEColumnParallelLinear
-            q_layernorm = (multiacc_modules.TENorm if qk_layernorm else IdentityOp)
-            kv_layernorm = (multiacc_modules.TENorm if qk_layernorm else IdentityOp)
+            q_layernorm = multiacc_modules.TENorm if qk_layernorm else IdentityOp
+            kv_layernorm = multiacc_modules.TENorm if qk_layernorm else IdentityOp
 
         # Currently not support other experimental attention variants.
         else:
-            raise ValueError(
-                f"Invalid experimental attention variant: {experimental_attention_variant}"
-            )
+            raise ValueError(f"Invalid experimental attention variant: {experimental_attention_variant}")
 
     attention = ModuleSpec(
         module=mla_attention_module,
@@ -146,14 +149,11 @@ def _get_deepseek_layer_with_te_spec(
             pre_mlp_layernorm=multiacc_modules.TENorm,
             mlp=mlp,
             mlp_bda=multiacc_modules.get_bias_dropout_add,
-        )
+        ),
     )
 
 
-def _get_mlp_module_spec(
-    num_experts: int=None,
-    moe_grouped_gemm: bool=False
-) -> ModuleSpec:
+def _get_mlp_module_spec(num_experts: int = None, moe_grouped_gemm: bool = False) -> ModuleSpec:
     """Helper function to get module spec for MLP/MoE"""
 
     if num_experts is None:
@@ -206,14 +206,12 @@ def _get_mlp_module_spec(
 
 
 def get_deepseek_decoder_block_and_mtp_spec(
-    config: TransformerConfig, 
+    config: TransformerConfig,
     vp_stage: int = None,
 ) -> Tuple[TransformerBlockSubmodules, Optional[ModuleSpec]]:
     """Get the deepseek decoder block and multi-token prediction layer spec."""
     assert config.num_moe_experts > 0, "Only support MOE when using DeepSeek"
-    assert (
-        config.multi_latent_attention
-    ), "Only support multi-latent attention when using DeepSeek"
+    assert config.multi_latent_attention, "Only support multi-latent attention when using DeepSeek"
 
     block_spec = None
     mtp_block_spec = None
@@ -237,18 +235,10 @@ def get_deepseek_decoder_block_and_mtp_spec(
     # In FP8 training, replace `linear_q_down_proj` and `linear_kv_down_proj`
     # with TELinear to support tensor parallelism
     if config.fp8 and config.fp8_recipe == Fp8Recipe.blockwise:
-        dense_layer_spec.submodules.self_attention.submodules.linear_q_down_proj = (
-            multiacc_modules.TELinear
-        )
-        dense_layer_spec.submodules.self_attention.submodules.linear_kv_down_proj = (
-            multiacc_modules.TELinear
-        )
-        moe_layer_spec.submodules.self_attention.submodules.linear_q_down_proj = (
-            multiacc_modules.TELinear
-        )
-        moe_layer_spec.submodules.self_attention.submodules.linear_kv_down_proj = (
-            multiacc_modules.TELinear
-        )
+        dense_layer_spec.submodules.self_attention.submodules.linear_q_down_proj = multiacc_modules.TELinear
+        dense_layer_spec.submodules.self_attention.submodules.linear_kv_down_proj = multiacc_modules.TELinear
+        moe_layer_spec.submodules.self_attention.submodules.linear_q_down_proj = multiacc_modules.TELinear
+        moe_layer_spec.submodules.self_attention.submodules.linear_kv_down_proj = multiacc_modules.TELinear
 
     # Parse config.moe_layer_freq to determine the pattern of expert/dense layers.
     # 0 stands for dense layers, 1 stands for expert layers.
@@ -260,10 +250,7 @@ def get_deepseek_decoder_block_and_mtp_spec(
         config.moe_layer_freq = list(config.moe_layer_freq)
 
     if isinstance(config.moe_layer_freq, int):
-        moe_layer_pattern = [
-            1 if (i % config.moe_layer_freq == 0) else 0
-            for i in range(config.num_layers)
-        ]
+        moe_layer_pattern = [1 if (i % config.moe_layer_freq == 0) else 0 for i in range(config.num_layers)]
     elif isinstance(config.moe_layer_freq, list):
         moe_layer_pattern = config.moe_layer_freq
         assert len(moe_layer_pattern) == config.num_layers, (
@@ -272,9 +259,7 @@ def get_deepseek_decoder_block_and_mtp_spec(
             f"current moe layer pattern: {config.moe_layer_freq}"
         )
     else:
-        raise ValueError(
-            f"Invalid moe_layer_freq: {type(config.moe_layer_freq)}, {config.moe_layer_freq}"
-        )
+        raise ValueError(f"Invalid moe_layer_freq: {type(config.moe_layer_freq)}, {config.moe_layer_freq}")
 
     # Create the layer specs for the model.
     layer_specs = []
@@ -304,24 +289,24 @@ def get_deepseek_decoder_block_and_mtp_spec(
     # Block spec.
     block_spec = TransformerBlockSubmodules(
         layer_specs=local_layer_specs,
-        layer_norm=multiacc_modules.TENorm, # TODO: Whether the Local Norm should be compatible
+        layer_norm=multiacc_modules.TENorm,  # TODO: Whether the Local Norm should be compatible
     )
 
     # MTP spec
     if config.mtp_num_layers is not None:
-        if hasattr(block_spec, 'layer_specs') and len(block_spec.layer_specs) == 0:
-                # Get the decoder layer spec explicitly if no decoder layer in the last stage,
-                # Only happens with block spec (TransformerBlockSubmodules) when using MoE.
-                transformer_layer_spec_for_mtp = _get_deepseek_layer_with_te_spec(
-                    num_experts=config.num_moe_experts,
-                    moe_grouped_gemm=config.moe_grouped_gemm,
-                    qk_layernorm=config.qk_layernorm,
-                    experimental_attention_variant=config.experimental_attention_variant,
-                )
+        if hasattr(block_spec, "layer_specs") and len(block_spec.layer_specs) == 0:
+            # Get the decoder layer spec explicitly if no decoder layer in the last stage,
+            # Only happens with block spec (TransformerBlockSubmodules) when using MoE.
+            transformer_layer_spec_for_mtp = _get_deepseek_layer_with_te_spec(
+                num_experts=config.num_moe_experts,
+                moe_grouped_gemm=config.moe_grouped_gemm,
+                qk_layernorm=config.qk_layernorm,
+                experimental_attention_variant=config.experimental_attention_variant,
+            )
         else:
             transformer_layer_spec_for_mtp = block_spec
-        
-        # TODO: use get_gpt_mtp_block_spec or not? 
+
+        # TODO: use get_gpt_mtp_block_spec or not?
         mtp_block_spec = get_gpt_mtp_block_spec(
             config, transformer_layer_spec_for_mtp, use_transformer_engine=use_te, vp_stage=vp_stage
         )

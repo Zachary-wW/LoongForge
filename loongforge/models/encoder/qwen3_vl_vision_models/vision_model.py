@@ -37,20 +37,18 @@ from loongforge.models.common import BaseMegatronVisionModule
 from loongforge.models.utils import import_module
 from loongforge.utils import get_model_config
 
-from loongforge.models.encoder.base_vision_models.base_vision_model import (
-    BaseVisionModel,
-    PatchEmbed
-)
-from .qwen3_vl_config import Qwen3VisionModelConfig  
+from loongforge.models.encoder.base_vision_models.base_vision_model import BaseVisionModel, PatchEmbed
+from .qwen3_vl_config import Qwen3VisionModelConfig
 from ..qwen2_vl_vision_models.adapter import Adapter
 
 
 class Qwen3VisionModel(BaseVisionModel):
-    """ VisionModel With LayerNorm (for Qwen3-VL) """
+    """VisionModel With LayerNorm (for Qwen3-VL)"""
 
     config_class = Qwen3VisionModelConfig
 
-    def __init__(self,
+    def __init__(
+        self,
         config: TransformerConfig,
         vp_stage: Optional[int] = None,
     ) -> None:
@@ -63,13 +61,13 @@ class Qwen3VisionModel(BaseVisionModel):
         )
         self.pos_embed = torch.nn.Embedding(config.num_position_embeddings, config.hidden_size)
         self.num_grid_per_side = int(config.num_position_embeddings**0.5)
-        
+
         # DeepStack configuration for Qwen3-VL
-        if hasattr(config, 'deepstack_visual_indexes'):
+        if hasattr(config, "deepstack_visual_indexes"):
             self.deepstack_visual_indexes = config.deepstack_visual_indexes
         else:
             self.deepstack_visual_indexes = [8, 16, 24]  # Default Qwen3-VL layers
-        
+
         # Create deepstack_merger_list in vision_model
         model_config = get_model_config()
         self.deepstack_merger_list = torch.nn.ModuleList(
@@ -84,7 +82,7 @@ class Qwen3VisionModel(BaseVisionModel):
             ]
         )
 
-        if hasattr(config, 'freeze') and config.freeze:
+        if hasattr(config, "freeze") and config.freeze:
             self.freeze()
 
     def fast_pos_embed_interpolate(self, image_grid_thw):
@@ -210,19 +208,22 @@ class Qwen3VisionModel(BaseVisionModel):
             dtype=image_grid_thw.dtype if torch.jit.is_tracing() else torch.int32,
         )
         cu_seqlens = F.pad(cu_seqlens, (1, 0), value=0)
-        
+
         x = x[:, None, :].contiguous()  # [s, h] -> [s, 1, h]
         x, deepstack_feature_lists = self.decoder(
             x,
-            packed_seq_params=[PackedSeqParams(
-                qkv_format="thd",
-                cu_seqlens_q=cu_seqlens,
-                cu_seqlens_kv=cu_seqlens,
-            ) for i in range(self.config.num_layers)],
+            packed_seq_params=[
+                PackedSeqParams(
+                    qkv_format="thd",
+                    cu_seqlens_q=cu_seqlens,
+                    cu_seqlens_kv=cu_seqlens,
+                )
+                for i in range(self.config.num_layers)
+            ],
             rotary_pos_emb=rotary_pos_emb,
             attention_mask=None,
             deepstack_visual_indexes=self.deepstack_visual_indexes,
-            deepstack_merger_list=self.deepstack_merger_list
+            deepstack_merger_list=self.deepstack_merger_list,
         )
 
         x = x[:, 0, :].contiguous()  # [s, 1, h] -> [s, h]

@@ -41,6 +41,7 @@ from megatron.training.utils import print_rank_0
 
 logger = logging.getLogger(__name__)
 
+
 def _is_model_section(section_key: str) -> bool:
     """Check if a checkpoint section contains model parameters.
 
@@ -57,6 +58,8 @@ def _is_model_section(section_key: str) -> bool:
         and section_key[5:].isdigit()  # to match virtual pipeline state dict handling
     )
     return is_single_model or is_pipeline_model
+
+
 def apply_peft_adapter_filter_to_state_dict(state_dict: dict[str], peft_class: Any) -> dict[str, Any]:
     """Filter state dict to contain only PEFT adapter parameters in model sections.
 
@@ -85,6 +88,7 @@ def apply_peft_adapter_filter_to_state_dict(state_dict: dict[str], peft_class: A
         )
         for checkpoint_section_key, checkpoint_section_value in state_dict.items()
     }
+
 
 def apply_peft_transformation(peft, base_model: list[MegatronModule]) -> list[MegatronModule]:
     """Apply PEFT transformation to the base model.
@@ -116,6 +120,7 @@ def apply_peft_transformation(peft, base_model: list[MegatronModule]) -> list[Me
     print_rank_0(f"  Trainable percentage: {100 * trainable_params / total_params:.2f}%")
 
     return transformed_model
+
 
 class UnavailableError(Exception):
     """Error thrown if a symbol is unavailable due to an issue importing it"""
@@ -292,6 +297,7 @@ class UnavailableMeta(type):
     def __len__(cls):
         raise UnavailableError(cls._msg)
 
+
 def safe_import(module, *, msg=None, alt=None) -> Tuple[object, bool]:
     """A function used to import modules that may not be available.
 
@@ -325,6 +331,7 @@ def safe_import(module, *, msg=None, alt=None) -> Tuple[object, bool]:
         return UnavailableMeta(module.rsplit(".")[-1], (), {"_msg": msg}), False
     else:
         return alt, False
+
 
 def safe_import_from(module, symbol, *, msg=None, alt=None, fallback_module=None) -> Tuple[object, bool]:
     """A function used to import symbols from modules that may not be available.
@@ -371,6 +378,7 @@ def safe_import_from(module, symbol, *, msg=None, alt=None, fallback_module=None
         return UnavailableMeta(symbol, (), {"_msg": msg}), False
     else:
         return alt, False
+
 
 TEColumnParallelLinear, HAVE_TE_COL_LINEAR = safe_import_from(
     "megatron.core.extensions.transformer_engine", "TEColumnParallelLinear"

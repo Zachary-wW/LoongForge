@@ -5,6 +5,7 @@ HF Checkpoint Comparison Utilities
 
 Provides tools for comparing two HF checkpoints and generating detailed reports.
 """
+
 import os
 import json
 from pathlib import Path
@@ -17,6 +18,7 @@ import torch
 @dataclass
 class ComparisonMetrics:
     """Metrics from checkpoint comparison"""
+
     num_baseline: int = 0
     num_roundtrip: int = 0
     identical_keys: int = 0
@@ -55,14 +57,14 @@ def load_hf_weights(hf_path: str) -> Dict[str, torch.Tensor]:
     hf_path = Path(hf_path)
 
     # Try safetensors first
-    safetensors_files = sorted([
-        f for f in os.listdir(hf_path)
-        if f.endswith('.safetensors') and not f.startswith('model-')
-    ])
+    safetensors_files = sorted(
+        [f for f in os.listdir(hf_path) if f.endswith(".safetensors") and not f.startswith("model-")]
+    )
 
     if safetensors_files:
         try:
             from safetensors.torch import load_file
+
             for sf_file in safetensors_files:
                 file_path = hf_path / sf_file
                 file_weights = load_file(file_path)
@@ -72,14 +74,11 @@ def load_hf_weights(hf_path: str) -> Dict[str, torch.Tensor]:
 
     # Fallback to pytorch_model.bin
     if not weights:
-        pytorch_files = sorted([
-            f for f in os.listdir(hf_path)
-            if f.startswith('pytorch_model') and f.endswith('.bin')
-        ])
+        pytorch_files = sorted([f for f in os.listdir(hf_path) if f.startswith("pytorch_model") and f.endswith(".bin")])
 
         for pt_file in pytorch_files:
             file_path = hf_path / pt_file
-            file_weights = torch.load(file_path, map_location='cpu')
+            file_weights = torch.load(file_path, map_location="cpu")
             weights.update(file_weights)
 
     if not weights:
@@ -109,16 +108,16 @@ def compare_checkpoints(
     metrics = ComparisonMetrics()
 
     # Load baseline
-    if baseline_path.endswith('.pkl'):
-        baseline_weights = torch.load(baseline_path, map_location='cpu')
+    if baseline_path.endswith(".pkl"):
+        baseline_weights = torch.load(baseline_path, map_location="cpu")
     else:
         baseline_weights = load_hf_weights(baseline_path)
 
     metrics.num_baseline = len(baseline_weights)
 
     # Load roundtripped
-    if roundtrip_path.endswith('.pkl'):
-        roundtrip_weights = torch.load(roundtrip_path, map_location='cpu')
+    if roundtrip_path.endswith(".pkl"):
+        roundtrip_weights = torch.load(roundtrip_path, map_location="cpu")
     else:
         roundtrip_weights = load_hf_weights(roundtrip_path)
 
@@ -142,11 +141,13 @@ def compare_checkpoints(
 
         # Check shape
         if baseline_tensor.shape != roundtrip_tensor.shape:
-            metrics.shape_mismatches.append({
-                'key': key,
-                'baseline': tuple(baseline_tensor.shape),
-                'roundtrip': tuple(roundtrip_tensor.shape),
-            })
+            metrics.shape_mismatches.append(
+                {
+                    "key": key,
+                    "baseline": tuple(baseline_tensor.shape),
+                    "roundtrip": tuple(roundtrip_tensor.shape),
+                }
+            )
             continue
 
         # Check values
@@ -155,9 +156,9 @@ def compare_checkpoints(
         mean_diff = diff.mean().item()
 
         largest_diffs[key] = {
-            'max': max_diff,
-            'mean': mean_diff,
-            'numel': baseline_tensor.numel(),
+            "max": max_diff,
+            "mean": mean_diff,
+            "numel": baseline_tensor.numel(),
         }
 
         # Categorize
@@ -177,21 +178,13 @@ def compare_checkpoints(
         metrics.mean_abs_diff = all_diffs_tensor.mean().item()
 
     # Keep top 10 largest differences
-    sorted_diffs = sorted(
-        largest_diffs.items(),
-        key=lambda x: x[1]['max'],
-        reverse=True
-    )
+    sorted_diffs = sorted(largest_diffs.items(), key=lambda x: x[1]["max"], reverse=True)
     metrics.largest_diffs = dict(sorted_diffs[:10])
 
     return metrics
 
 
-def save_comparison_report(
-    metrics: ComparisonMetrics,
-    output_path: str,
-    verbose: bool = True
-) -> None:
+def save_comparison_report(metrics: ComparisonMetrics, output_path: str, verbose: bool = True) -> None:
     """
     Save comparison report to JSON
 
@@ -202,14 +195,14 @@ def save_comparison_report(
     """
     # Convert to dict for JSON serialization
     report_dict = asdict(metrics)
-    report_dict['max_abs_diff'] = float(report_dict['max_abs_diff'])
-    report_dict['mean_abs_diff'] = float(report_dict['mean_abs_diff'])
+    report_dict["max_abs_diff"] = float(report_dict["max_abs_diff"])
+    report_dict["mean_abs_diff"] = float(report_dict["mean_abs_diff"])
 
     # Save to file
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(output_path, 'w') as f:
+    with open(output_path, "w") as f:
         json.dump(report_dict, f, indent=2)
 
     if verbose:
@@ -264,30 +257,23 @@ def print_comparison_summary(metrics: ComparisonMetrics) -> None:
 
     if metrics.largest_diffs:
         print(f"\nLargest value differences:")
-        for key, diff_info in sorted(
-            metrics.largest_diffs.items(),
-            key=lambda x: x[1]['max'],
-            reverse=True
-        )[:5]:
+        for key, diff_info in sorted(metrics.largest_diffs.items(), key=lambda x: x[1]["max"], reverse=True)[:5]:
             print(f"  - {key}: max={diff_info['max']:.2e}, mean={diff_info['mean']:.2e}")
 
     print()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description='Compare two HF checkpoints')
-    parser.add_argument('--baseline', type=str, required=True,
-                        help='Path to baseline checkpoint (dir or pkl)')
-    parser.add_argument('--roundtrip', type=str, required=True,
-                        help='Path to roundtripped checkpoint (dir or pkl)')
-    parser.add_argument('--output', type=str, default='./comparison_report.json',
-                        help='Output path for comparison report')
-    parser.add_argument('--atol', type=float, default=1e-8,
-                        help='Absolute tolerance for exact match')
-    parser.add_argument('--rtol', type=float, default=1e-5,
-                        help='Relative tolerance for exact match')
+    parser = argparse.ArgumentParser(description="Compare two HF checkpoints")
+    parser.add_argument("--baseline", type=str, required=True, help="Path to baseline checkpoint (dir or pkl)")
+    parser.add_argument("--roundtrip", type=str, required=True, help="Path to roundtripped checkpoint (dir or pkl)")
+    parser.add_argument(
+        "--output", type=str, default="./comparison_report.json", help="Output path for comparison report"
+    )
+    parser.add_argument("--atol", type=float, default=1e-8, help="Absolute tolerance for exact match")
+    parser.add_argument("--rtol", type=float, default=1e-5, help="Relative tolerance for exact match")
 
     args = parser.parse_args()
 

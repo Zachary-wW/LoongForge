@@ -15,6 +15,7 @@ Contains:
   while sharing data ingestion, warmup, shape tracking, loss allreduce, and
   iteration accounting.
 """
+
 from __future__ import annotations
 
 import logging
@@ -85,13 +86,9 @@ def shapes_match(shape_a, shape_b):
     if isinstance(shape_a, torch.Size) and isinstance(shape_b, torch.Size):
         return shape_a == shape_b
     elif isinstance(shape_a, dict) and isinstance(shape_b, dict):
-        return shape_a.keys() == shape_b.keys() and all(
-            shapes_match(shape_a[k], shape_b[k]) for k in shape_a
-        )
+        return shape_a.keys() == shape_b.keys() and all(shapes_match(shape_a[k], shape_b[k]) for k in shape_a)
     elif isinstance(shape_a, (tuple, list)) and isinstance(shape_b, (tuple, list)):
-        return len(shape_a) == len(shape_b) and all(
-            shapes_match(a, b) for a, b in zip(shape_a, shape_b)
-        )
+        return len(shape_a) == len(shape_b) and all(shapes_match(a, b) for a, b in zip(shape_a, shape_b))
     return shape_a == shape_b
 
 
@@ -136,8 +133,7 @@ class StaticBufferLoader:
                 )
                 self._buffers[slot_idx] = copy_tensors_in_struct(batch)
                 raise RuntimeError(
-                    f"Static buffer reallocated at slot {slot_idx} after CUDA graph capture; "
-                    "graph must be re-captured."
+                    f"Static buffer reallocated at slot {slot_idx} after CUDA graph capture; graph must be re-captured."
                 ) from e
 
         return self._buffers[slot_idx]
@@ -223,7 +219,7 @@ class BaseCudaGraphWrapper(torch.nn.Module):
         if model is None:
             return
         for mc in model:
-            if hasattr(mc, 'zero_grad_buffer'):
+            if hasattr(mc, "zero_grad_buffer"):
                 mc.zero_grad_buffer()
             else:
                 mc.zero_grad()
@@ -231,6 +227,7 @@ class BaseCudaGraphWrapper(torch.nn.Module):
     def _cache_model_config(self, model):
         if self._config is None and model is not None:
             from megatron.core.pipeline_parallel.schedules import get_model_config
+
             m = model[0] if isinstance(model, list) else model
             self._config = get_model_config(m)
 

@@ -65,8 +65,7 @@ VIDEO_RES_SIZE_INFO: Dict[str, Dict[str, Tuple[int, int]]] = {
 _VIEWPOINT_TEMPLATES: Dict[str, str] = {
     "ego_view": "This video is captured from a first-person perspective looking at the scene.",
     "third_person_view": (
-        "This video is captured from a third-person perspective "
-        "looking towards the agent from the front."
+        "This video is captured from a third-person perspective looking towards the agent from the front."
     ),
     "wrist_view": "This video is captured from a wrist-mounted camera.",
     "concat_view": "This video contains concatenated views from multiple camera perspectives.",
@@ -84,8 +83,7 @@ def _find_closest_target_size(h: int, w: int, resolution: str) -> Tuple[int, int
     """
     if resolution not in VIDEO_RES_SIZE_INFO:
         raise ValueError(
-            f"resolution={resolution!r} not in VIDEO_RES_SIZE_INFO; "
-            f"available: {list(VIDEO_RES_SIZE_INFO)}"
+            f"resolution={resolution!r} not in VIDEO_RES_SIZE_INFO; available: {list(VIDEO_RES_SIZE_INFO)}"
         )
     candidates = VIDEO_RES_SIZE_INFO[resolution]
     input_ratio = h / w
@@ -135,9 +133,7 @@ def _reflection_pad_to_target(
     * Use edge-pad when padding exceeds spatial dim, else reflection-pad.
     """
     orig_h, orig_w = video.shape[-2:]
-    orig_h_resized, orig_w_resized = _resized_hw(
-        orig_h, orig_w, target_w, target_h, keep_aspect_ratio
-    )
+    orig_h_resized, orig_w_resized = _resized_hw(orig_h, orig_w, target_w, target_h, keep_aspect_ratio)
 
     if orig_h_resized != orig_h or orig_w_resized != orig_w:
         video = transforms_F.resize(
@@ -229,16 +225,18 @@ def build_cosmos3_transforms(ctx: TransformBuilderContext):
     # process; torch.are_deterministic_algorithms_enabled() is unreliable inside
     # spawned DataLoader workers).
     cfg_dropout_rate = 0.0 if training_args.deterministic_mode else data_cfg.cfg_dropout_rate
-    return [Cosmos3ActionTransform(
-        tokenizer_path=training_args.tokenizer_path,
-        max_text_tokens=data_cfg.max_text_tokens,
-        max_action_dim=model_cfg.max_action_dim,
-        action_chunk_length=data_cfg.action_chunk_length,
-        temporal_compression=model_cfg.vae_temporal_compression,
-        cfg_dropout_rate=cfg_dropout_rate,
-        target_h=data_cfg.target_h,
-        target_w=data_cfg.target_w,
-    )]
+    return [
+        Cosmos3ActionTransform(
+            tokenizer_path=training_args.tokenizer_path,
+            max_text_tokens=data_cfg.max_text_tokens,
+            max_action_dim=model_cfg.max_action_dim,
+            action_chunk_length=data_cfg.action_chunk_length,
+            temporal_compression=model_cfg.vae_temporal_compression,
+            cfg_dropout_rate=cfg_dropout_rate,
+            target_h=data_cfg.target_h,
+            target_w=data_cfg.target_w,
+        )
+    ]
 
 
 class Cosmos3ActionTransform(BaseTransform):
@@ -294,8 +292,8 @@ class Cosmos3ActionTransform(BaseTransform):
         # stack plus the analytic concat_view shape, so every decision below is
         # made from shapes and the pixel ops move into the deferred pipeline.
         video_stack = data.get("video_stack")
-        video = data.get("video")                         # [3, T, H, W] uint8 or None
-        action: torch.Tensor = data["action"]             # [chunk+1, 8] float
+        video = data.get("video")  # [3, T, H, W] uint8 or None
+        action: torch.Tensor = data["action"]  # [chunk+1, 8] float
         caption: str = data.get("ai_caption", "")
         viewpoint = data.get("viewpoint", "concat_view")
         fps = data.get("conditioning_fps", torch.tensor(15.0))
@@ -321,9 +319,7 @@ class Cosmos3ActionTransform(BaseTransform):
             # Deferred: same geometry, decided from shapes; pixels are resized and
             # padded by DeferredVideoTail on the model device.
             orig_h_resized, orig_w_resized = _resized_hw(h, w, target_w, target_h)
-        image_size = torch.tensor(
-            [target_h, target_w, orig_h_resized, orig_w_resized], dtype=torch.float
-        )
+        image_size = torch.tensor([target_h, target_w, orig_h_resized, orig_w_resized], dtype=torch.float)
 
         # 3. Caption augmentor chain (cosmos ". " separator semantics).
         # cfg_dropout_rate is forced to 0.0 under deterministic mode at build time.

@@ -60,13 +60,9 @@ def _adapter_mapping(config: dict) -> dict:
 
 def test_qwen2_vl_and_qwen2_5_vl_use_separate_norm_mappings():
     qwen2_config = _load_yaml(PROJECTOR_CONFIG_DIR / "qwen2_vl_mlp_adapter.yaml")
-    qwen2_convert = _load_yaml(
-        PROJECTOR_CONFIG_DIR / "ckpt_convert" / "qwen2_vl_mlp_adapter_convert.yaml"
-    )
+    qwen2_convert = _load_yaml(PROJECTOR_CONFIG_DIR / "ckpt_convert" / "qwen2_vl_mlp_adapter_convert.yaml")
     qwen2_5_config = _load_yaml(PROJECTOR_CONFIG_DIR / "qwen_mlp_adapter.yaml")
-    qwen2_5_convert = _load_yaml(
-        PROJECTOR_CONFIG_DIR / "ckpt_convert" / "qwen_mlp_adapter_convert.yaml"
-    )
+    qwen2_5_convert = _load_yaml(PROJECTOR_CONFIG_DIR / "ckpt_convert" / "qwen_mlp_adapter_convert.yaml")
 
     assert qwen2_config["normalization"] == "LayerNorm"
     assert qwen2_config["model_type"] == "qwen2_vl_adapter"
@@ -94,21 +90,15 @@ def test_normalization_overrides_explicitly_bind_projector_mapping():
 
 
 def test_qwen3_family_configs_explicitly_use_qwen3_projector_mapping():
-    qwen3_convert = _load_yaml(
-        PROJECTOR_CONFIG_DIR / "ckpt_convert" / "qwen_3_mlp_adapter_convert.yaml"
-    )
+    qwen3_convert = _load_yaml(PROJECTOR_CONFIG_DIR / "ckpt_convert" / "qwen_3_mlp_adapter_convert.yaml")
 
     for family, config_names in QWEN3_PROJECTOR_CONFIGS.items():
         for config_name in config_names:
-            projector = _load_effective_projector(
-                MODEL_CONFIG_DIR / family / config_name
-            )
+            projector = _load_effective_projector(MODEL_CONFIG_DIR / family / config_name)
 
             assert projector["normalization"] == "LayerNorm", config_name
             assert projector["add_bias_linear"] is True, config_name
-            assert projector["convert_file"].endswith(
-                "qwen_3_mlp_adapter_convert.yaml"
-            ), config_name
+            assert projector["convert_file"].endswith("qwen_3_mlp_adapter_convert.yaml"), config_name
 
             if family == "qwen3_vl":
                 assert projector["model_type"] == "qwen3_vl_adapter", config_name
@@ -124,12 +114,8 @@ def test_qwen3_family_configs_explicitly_use_qwen3_projector_mapping():
 
 
 def test_llava_onevision_config_explicitly_uses_layernorm_projector_mapping():
-    projector = _load_effective_projector(
-        MODEL_CONFIG_DIR / "llava_onevision" / "llava_onevision_1_5_4b.yaml"
-    )
-    llava_convert = _load_yaml(
-        PROJECTOR_CONFIG_DIR / "ckpt_convert" / "llava_mlp_adapter_convert.yaml"
-    )
+    projector = _load_effective_projector(MODEL_CONFIG_DIR / "llava_onevision" / "llava_onevision_1_5_4b.yaml")
+    llava_convert = _load_yaml(PROJECTOR_CONFIG_DIR / "ckpt_convert" / "llava_mlp_adapter_convert.yaml")
 
     assert projector["normalization"] == "LayerNorm"
     assert projector["add_bias_linear"] is True

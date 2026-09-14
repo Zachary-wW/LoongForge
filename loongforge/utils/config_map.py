@@ -95,7 +95,6 @@ MODEL_CONFIG_REGISTRY = {
         "config_path": "configs/models/llama3",
         "config_name": "llama3_1_405b",
     },
-
     # qwen
     "qwen-1.8b": {
         "config_path": "configs/models/qwen",
@@ -225,19 +224,16 @@ MODEL_CONFIG_REGISTRY = {
         "config_path": "configs/models/qwen3",
         "config_name": "qwen3_coder_30b_a3b",
     },
-
     # qwen3-next-80b-a3b
     "qwen3-next-80b-a3b": {
         "config_path": "configs/models/qwen3_next",
         "config_name": "qwen3_next_80b_a3b",
     },
-
     # Kimi K3 multimodal model
     "kimi-k3": {
         "config_path": "configs/models/kimi_k3",
         "config_name": "kimi_k3",
     },
-
     # qwen3.5
     "qwen3.5-0.8b": {
         "config_path": "configs/models/qwen3.5",
@@ -271,7 +267,6 @@ MODEL_CONFIG_REGISTRY = {
         "config_path": "configs/models/qwen3.5",
         "config_name": "qwen3_5_397b_a17b",
     },
-
     # qwen3.6
     "qwen3.6-27b": {
         "config_path": "configs/models/qwen3.6",
@@ -281,13 +276,11 @@ MODEL_CONFIG_REGISTRY = {
         "config_path": "configs/models/qwen3.6",
         "config_name": "qwen3_6_35b_a3b",
     },
-
     # qwen3.8
     "qwen3.8-27b": {
         "config_path": "configs/models/qwen3.8",
         "config_name": "qwen3_8_27b",
     },
-
     # kimi-k2.x
     "kimi-k2.5": {
         "config_path": "configs/models/kimi_k2.5",
@@ -297,7 +290,6 @@ MODEL_CONFIG_REGISTRY = {
         "config_path": "configs/models/kimi_k2.6",
         "config_name": "kimi_k2_6",
     },
-
     # qwen2.5-vl
     "qwen2.5-vl-3b": {
         "config_path": "configs/models/qwen2.5vl",
@@ -319,7 +311,6 @@ MODEL_CONFIG_REGISTRY = {
         "config_path": "configs/models/qwen2.5vl",
         "config_name": "qwen2_5_vl_72b",
     },
-
     # internvl 2.5
     "internvl2.5-8b": {
         "config_path": "configs/models/internvl2.5",
@@ -337,7 +328,6 @@ MODEL_CONFIG_REGISTRY = {
         "config_path": "configs/models/internvl2.5",
         "config_name": "internvl2_5_78b",
     },
-
     # internvl 3.5
     "internvl3.5-8b": {
         "config_path": "configs/models/internvl3.5",
@@ -359,13 +349,11 @@ MODEL_CONFIG_REGISTRY = {
         "config_path": "configs/models/internvl3.5",
         "config_name": "internvl3_5_241b_a28b",
     },
-
     # llavaov 1.5
     "llava-onevision-1.5-4b": {
         "config_path": "configs/models/llava_onevision",
         "config_name": "llava_onevision_1_5_4b",
     },
-
     # qwen3-vl
     "qwen3-vl-30b-a3b": {
         "config_path": "configs/models/qwen3_vl",
@@ -375,13 +363,11 @@ MODEL_CONFIG_REGISTRY = {
         "config_path": "configs/models/qwen3_vl",
         "config_name": "qwen3_vl_235b_a22b",
     },
-
     # minicpm-v
     "minicpm-v-4.6": {
         "config_path": "configs/models/minicpm_v_4_6",
         "config_name": "minicpm_v_4_6",
     },
-
     # wan
     "wan2-1-i2v": {
         "config_path": "configs/models/wan",
@@ -391,19 +377,16 @@ MODEL_CONFIG_REGISTRY = {
         "config_path": "configs/models/wan",
         "config_name": "wan2_2_i2v",
     },
-
     # qwen image
     "qwen-image-edit-2511": {
         "config_path": "configs/models/qwen_image",
         "config_name": "qwen_image_edit_2511",
     },
-
     # mimo
     "mimo": {
         "config_path": "configs/models/mimo",
         "config_name": "mimo_7b",
     },
-
     # minimax
     "minimax2.1-230b": {
         "config_path": "configs/models/minimax",
@@ -417,7 +400,6 @@ MODEL_CONFIG_REGISTRY = {
         "config_path": "configs/models/minimax",
         "config_name": "minimax_m2_7",
     },
-
     # ernie4.5-vl
     "ernie4.5-28b-a3b-base": {
         "config_path": "configs/models/ernie4.5vl",
@@ -461,7 +443,7 @@ def get_config_from_model_name(model_name: str):
     entry = MODEL_CONFIG_REGISTRY[name]
 
     current_file = Path(__file__).resolve()
-    project_root = current_file.parent.parent.parent   # LoongForge root dir
+    project_root = current_file.parent.parent.parent  # LoongForge root dir
 
     abs_config_path = str(project_root / entry["config_path"])
 

@@ -35,10 +35,7 @@ from loongforge.embodied.data.datasets.wall_oss_0_5.transforms.data_configuratio
     WallOss05DataConfig,
 )
 
-_CONFIGS_DIR = (
-    Path(__file__).resolve().parent.parent.parent.parent
-    / "configs" / "models" / "embodied"
-)
+_CONFIGS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "configs" / "models" / "embodied"
 
 
 @dataclass(frozen=True)
@@ -51,41 +48,24 @@ class ModelSchema:
 
 
 MODEL_SCHEMA = {
-    "lingbot_va_robotwin": ModelSchema(
-        "lingbot_va_robotwin.yaml", LingBotVAModelConfig, LingBotVADataConfig
-    ),
-    "lingbot_va_libero": ModelSchema(
-        "lingbot_va_libero.yaml", LingBotVAModelConfig, LingBotVADataConfig
-    ),
+    "lingbot_va_robotwin": ModelSchema("lingbot_va_robotwin.yaml", LingBotVAModelConfig, LingBotVADataConfig),
+    "lingbot_va_libero": ModelSchema("lingbot_va_libero.yaml", LingBotVAModelConfig, LingBotVADataConfig),
     "pi05": ModelSchema("pi05.yaml", Pi05ModelConfig, Pi05DataConfig),
     "groot_n1_6": ModelSchema("groot_n1_6.yaml", GrootN1d6ModelConfig, GrootN1d6DataConfig),
     "xvla": ModelSchema("xvla.yaml", XvlaModelConfig, XvlaDataConfig),
     "fastwam": ModelSchema("fastwam.yaml", FastWAMModelConfig, FastWAMDataConfig),
     "groot_n1_7": ModelSchema("groot_n1_7.yaml", GrootN1d7Config, GrootN1d7DataConfig),
     "cosmos3_nano": ModelSchema("cosmos3/nano.yaml", Cosmos3ModelConfig, Cosmos3DroidConfig),
-    "dreamzero_lora_wan22_5b": ModelSchema(
-        "dreamzero_wan22_5b.yaml", DreamZeroConfig, DreamZeroDataConfig
-    ),
-    "dreamzero_full_wan22_5b": ModelSchema(
-        "dreamzero_wan22_5b.yaml", DreamZeroConfig, DreamZeroDataConfig
-    ),
-    "dreamzero_lora_wan21_14b": ModelSchema(
-        "dreamzero_wan21_14b.yaml", DreamZeroConfig, DreamZeroDataConfig
-    ),
-    "dreamzero_full_wan21_14b": ModelSchema(
-        "dreamzero_wan21_14b.yaml", DreamZeroConfig, DreamZeroDataConfig
-    ),
-    "dreamzero_libero_wan22_5b": ModelSchema(
-        "dreamzero_libero_wan22_5b.yaml", DreamZeroConfig, DreamZeroDataConfig
-    ),
-    "dreamzero_agibot_wan21_14b": ModelSchema(
-        "dreamzero_agibot_wan21_14b.yaml", DreamZeroConfig, DreamZeroDataConfig
-    ),
-    "dreamzero_yam_wan21_14b": ModelSchema(
-        "dreamzero_yam_wan21_14b.yaml", DreamZeroConfig, DreamZeroDataConfig
-    ),
+    "dreamzero_lora_wan22_5b": ModelSchema("dreamzero_wan22_5b.yaml", DreamZeroConfig, DreamZeroDataConfig),
+    "dreamzero_full_wan22_5b": ModelSchema("dreamzero_wan22_5b.yaml", DreamZeroConfig, DreamZeroDataConfig),
+    "dreamzero_lora_wan21_14b": ModelSchema("dreamzero_wan21_14b.yaml", DreamZeroConfig, DreamZeroDataConfig),
+    "dreamzero_full_wan21_14b": ModelSchema("dreamzero_wan21_14b.yaml", DreamZeroConfig, DreamZeroDataConfig),
+    "dreamzero_libero_wan22_5b": ModelSchema("dreamzero_libero_wan22_5b.yaml", DreamZeroConfig, DreamZeroDataConfig),
+    "dreamzero_agibot_wan21_14b": ModelSchema("dreamzero_agibot_wan21_14b.yaml", DreamZeroConfig, DreamZeroDataConfig),
+    "dreamzero_yam_wan21_14b": ModelSchema("dreamzero_yam_wan21_14b.yaml", DreamZeroConfig, DreamZeroDataConfig),
     "wall_oss_0_5": ModelSchema("wall_oss_0_5.yaml", WallOss05ModelConfig, WallOss05DataConfig),
 }
+
 
 def get_model_schema(model_name: str) -> ModelSchema:
     """Look up the ModelSchema for a model name."""

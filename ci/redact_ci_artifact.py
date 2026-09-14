@@ -67,9 +67,7 @@ ALLOWED_JSON_KEYS = {
 }
 
 URL_RE = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
-ABSOLUTE_PATH_RE = re.compile(
-    r"(?<![A-Za-z0-9_])/(?:[A-Za-z0-9._-]+/)+[A-Za-z0-9._@+%=-]+"
-)
+ABSOLUTE_PATH_RE = re.compile(r"(?<![A-Za-z0-9_])/(?:[A-Za-z0-9._-]+/)+[A-Za-z0-9._@+%=-]+")
 HOST_RE = re.compile(
     r"(?<!/)\b(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+"
     r"[A-Za-z]{2,63}\b|"
@@ -78,18 +76,24 @@ HOST_RE = re.compile(
     re.IGNORECASE,
 )
 _device_names = tuple(
-    ''.join(parts)
+    "".join(parts)
     for parts in (
-        ('NVI', 'DIA'), ('A', 'MD'), ('INT', 'EL'), ('KUN', 'LUNXIN'),
-        ('ASC', 'END'), ('CU', 'DA'), ('RO', 'CM'), ('G', 'PU'),
+        ("NVI", "DIA"),
+        ("A", "MD"),
+        ("INT", "EL"),
+        ("KUN", "LUNXIN"),
+        ("ASC", "END"),
+        ("CU", "DA"),
+        ("RO", "CM"),
+        ("G", "PU"),
     )
 )
-_device_prefix = '|'.join(re.escape(name) for name in _device_names)
-_device_paths = ('nvi' + 'dia', 'd' + 'ri', 'k' + 'fd')
-_device_path_prefix = '|'.join(re.escape(name) for name in _device_paths)
-_gpu_uuid_prefix = 'G' + 'PU-'
-_architecture_names = ('amp' + 'ere', 'black' + 'well')
-_architecture_prefix = '|'.join(re.escape(name) for name in _architecture_names)
+_device_prefix = "|".join(re.escape(name) for name in _device_names)
+_device_paths = ("nvi" + "dia", "d" + "ri", "k" + "fd")
+_device_path_prefix = "|".join(re.escape(name) for name in _device_paths)
+_gpu_uuid_prefix = "G" + "PU-"
+_architecture_names = ("amp" + "ere", "black" + "well")
+_architecture_prefix = "|".join(re.escape(name) for name in _architecture_names)
 DEVICE_RE = re.compile(
     rf"\b(?:{_device_prefix})[ -][A-Za-z0-9][A-Za-z0-9 .:_/-]{{1,80}}\b|"
     rf"\b(?:{_architecture_prefix})\b|"
@@ -141,11 +145,7 @@ def redact_json(text: str) -> str:
     payload = json.loads(text)
     if not isinstance(payload, dict):
         raise ValueError("JSON artifact must contain an object")
-    filtered = {
-        key: _redact_json_value(value)
-        for key, value in payload.items()
-        if key in ALLOWED_JSON_KEYS
-    }
+    filtered = {key: _redact_json_value(value) for key, value in payload.items() if key in ALLOWED_JSON_KEYS}
     return json.dumps(filtered, ensure_ascii=True, sort_keys=True) + "\n"
 
 

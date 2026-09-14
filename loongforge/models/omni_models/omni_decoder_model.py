@@ -24,7 +24,6 @@ class OmniDecoderModel(BaseDecoderModelMixin):
         self.config = config
         self.modality: List[str] = []
 
-
     def forward_loss(
         self,
         decoder_inputs: Dict[str, torch.Tensor],
@@ -38,7 +37,7 @@ class OmniDecoderModel(BaseDecoderModelMixin):
         """Freeze decoder model parameters.
 
         Args:
-            modality (str, optional): Specific modality to freeze ('image', 'video', 'audio'). 
+            modality (str, optional): Specific modality to freeze ('image', 'video', 'audio').
                 If None, freeze all modality decoders.
         """
         pass

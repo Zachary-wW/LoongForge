@@ -80,9 +80,7 @@ def main() -> None:
 
     with pack_plan.open("w", encoding="utf-8") as out:
         for media_type in MEDIA_TYPES:
-            for index, (sample_ids, sample_token_lens, total_token_len) in enumerate(
-                iter_media_bins(cfg, media_type)
-            ):
+            for index, (sample_ids, sample_token_lens, total_token_len) in enumerate(iter_media_bins(cfg, media_type)):
                 if not sample_ids:
                     continue
                 if len(sample_ids) != len(sample_token_lens):
@@ -104,9 +102,7 @@ def main() -> None:
                 if samples is not None:
                     for sample_id, token_len in zip(sample_ids, sample_token_lens):
                         if sample_id not in samples:
-                            raise KeyError(
-                                f"Sample {sample_id} from {media_type} bins not found in manifest"
-                            )
+                            raise KeyError(f"Sample {sample_id} from {media_type} bins not found in manifest")
                         sample_media_type = samples[sample_id].media_type
                         if sample_media_type != media_type:
                             raise ValueError(
@@ -116,8 +112,7 @@ def main() -> None:
                         manifest_token_len = samples[sample_id].token_len
                         if manifest_token_len != token_len:
                             raise ValueError(
-                                f"Token length mismatch for {sample_id}: "
-                                f"bin={token_len}, manifest={manifest_token_len}"
+                                f"Token length mismatch for {sample_id}: bin={token_len}, manifest={manifest_token_len}"
                             )
                 pack_id = f"{media_type}_pack_{index:08d}"
                 out.write(

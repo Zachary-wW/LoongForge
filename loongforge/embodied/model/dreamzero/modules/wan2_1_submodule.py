@@ -22,18 +22,18 @@ from .rope_3d import (
 
 
 __all__ = [
-    'WanRMSNorm',
-    'WanLayerNorm',
-    'WanSelfAttention',
-    'WanT2VCrossAttention',
-    'WanGanCrossAttention',
-    'WanI2VCrossAttention',
-    'WAN_CROSSATTENTION_CLASSES',
-    'MLPProj',
-    'sinusoidal_embedding_1d',
-    'rope_params',
-    'rope_apply',
-    'rope_action_apply',
+    "WanRMSNorm",
+    "WanLayerNorm",
+    "WanSelfAttention",
+    "WanT2VCrossAttention",
+    "WanGanCrossAttention",
+    "WanI2VCrossAttention",
+    "WAN_CROSSATTENTION_CLASSES",
+    "MLPProj",
+    "sinusoidal_embedding_1d",
+    "rope_params",
+    "rope_apply",
+    "rope_action_apply",
 ]
 
 
@@ -67,12 +67,7 @@ class WanLayerNorm(nn.LayerNorm):
 class WanSelfAttention(nn.Module):
     """Non-causal self-attention block with RoPE and optional QK RMSNorm."""
 
-    def __init__(self,
-                 dim,
-                 num_heads,
-                 window_size=(-1, -1),
-                 qk_norm=True,
-                 eps=1e-6):
+    def __init__(self, dim, num_heads, window_size=(-1, -1), qk_norm=True, eps=1e-6):
         assert dim % num_heads == 0
         super().__init__()
         self.dim = dim
@@ -113,7 +108,8 @@ class WanSelfAttention(nn.Module):
             k=rope_apply(k, None, freqs),
             v=v,
             k_lens=seq_lens,
-            window_size=self.window_size)
+            window_size=self.window_size,
+        )
 
         # output
         x = x.flatten(2)
@@ -189,19 +185,13 @@ class WanGanCrossAttention(WanSelfAttention):
 class WanI2VCrossAttention(WanSelfAttention):
     """Image-to-video cross-attention combining text and image context."""
 
-    def __init__(self,
-                 dim,
-                 num_heads,
-                 window_size=(-1, -1),
-                 qk_norm=True,
-                 eps=1e-6):
+    def __init__(self, dim, num_heads, window_size=(-1, -1), qk_norm=True, eps=1e-6):
         super().__init__(dim, num_heads, window_size, qk_norm, eps)
 
         self.k_img = nn.Linear(dim, dim)
         self.v_img = nn.Linear(dim, dim)
         # self.alpha = nn.Parameter(torch.zeros((1, )))
-        self.norm_k_img = WanRMSNorm(
-            dim, eps=eps) if qk_norm else nn.Identity()
+        self.norm_k_img = WanRMSNorm(dim, eps=eps) if qk_norm else nn.Identity()
 
     def forward(self, x, context, crossattn_cache=None):
         r"""
@@ -241,8 +231,8 @@ class WanI2VCrossAttention(WanSelfAttention):
 
 
 WAN_CROSSATTENTION_CLASSES = {
-    't2v_cross_attn': WanT2VCrossAttention,
-    'i2v_cross_attn': WanI2VCrossAttention,
+    "t2v_cross_attn": WanT2VCrossAttention,
+    "i2v_cross_attn": WanI2VCrossAttention,
 }
 
 
@@ -253,9 +243,12 @@ class MLPProj(torch.nn.Module):
         super().__init__()
 
         self.proj = torch.nn.Sequential(
-            torch.nn.LayerNorm(in_dim), torch.nn.Linear(in_dim, in_dim),
-            torch.nn.GELU(), torch.nn.Linear(in_dim, out_dim),
-            torch.nn.LayerNorm(out_dim))
+            torch.nn.LayerNorm(in_dim),
+            torch.nn.Linear(in_dim, in_dim),
+            torch.nn.GELU(),
+            torch.nn.Linear(in_dim, out_dim),
+            torch.nn.LayerNorm(out_dim),
+        )
 
     def forward(self, image_embeds):
         """Project CLIP image embeddings into extra context tokens."""

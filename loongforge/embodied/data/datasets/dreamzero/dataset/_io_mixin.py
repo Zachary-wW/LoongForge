@@ -40,26 +40,19 @@ class _DreamZeroIOMixin:
     def get_parquet_path(self, trajectory_id: int) -> Path:
         """Get the parquet path for a trajectory."""
         chunk_index = self.get_episode_chunk(trajectory_id)
-        return self.dataset_path / self.data_path_pattern.format(
-            episode_chunk=chunk_index, episode_index=trajectory_id
-        )
+        return self.dataset_path / self.data_path_pattern.format(episode_chunk=chunk_index, episode_index=trajectory_id)
 
     def get_trajectory_data(self, trajectory_id: int) -> pd.DataFrame:
         """Return trajectory parquet data through the IO-owned one-entry cache."""
         trajectory_id = int(trajectory_id)
-        if (
-            self._trajectory_cache.trajectory_id == trajectory_id
-            and self._trajectory_cache.data is not None
-        ):
+        if self._trajectory_cache.trajectory_id == trajectory_id and self._trajectory_cache.data is not None:
             return self._trajectory_cache.data
 
         parquet_path = self._resolve_trajectory_parquet_path(trajectory_id)
         try:
             data = pd.read_parquet(parquet_path)
         except Exception as exc:
-            raise RuntimeError(
-                f"Failed to load trajectory {trajectory_id} from {parquet_path}"
-            ) from exc
+            raise RuntimeError(f"Failed to load trajectory {trajectory_id} from {parquet_path}") from exc
         self._trajectory_cache.trajectory_id = trajectory_id
         self._trajectory_cache.data = data
         return data
@@ -73,14 +66,10 @@ class _DreamZeroIOMixin:
         parquet_path = self.get_parquet_path(trajectory_id)
         if parquet_path.exists():
             return parquet_path
-        parquet_files = sorted(
-            self.dataset_path.glob(f"data/*/episode_{trajectory_id:06d}.parquet")
-        )
+        parquet_files = sorted(self.dataset_path.glob(f"data/*/episode_{trajectory_id:06d}.parquet"))
         if parquet_files:
             return parquet_files[0]
-        raise FileNotFoundError(
-            f"Parquet file not found for trajectory {trajectory_id}: {parquet_path}"
-        )
+        raise FileNotFoundError(f"Parquet file not found for trajectory {trajectory_id}: {parquet_path}")
 
     def get_trajectory_index(self, trajectory_id: int) -> int:
         """Get the index of the trajectory in the dataset by the trajectory ID.
@@ -110,8 +99,7 @@ class _DreamZeroIOMixin:
         if not self.discard_bad_trajectories:
             return set()
         return {
-            int(trajectory_id)
-            for trajectory_id in self._lerobot_info_meta.get("discarded_episode_indices", []) or []
+            int(trajectory_id) for trajectory_id in self._lerobot_info_meta.get("discarded_episode_indices", []) or []
         }
 
     def get_flat_index_for_step(self, trajectory_id: int, base_index: int) -> int | None:
@@ -231,10 +219,7 @@ class _DreamZeroIOMixin:
         le_video_meta = self.lerobot_info_meta.get("features", {}).get(original_key, {})
         if le_video_meta.get("dtype") == "image" and original_key in trajectory_data.columns:
             return np.stack(
-                [
-                    self._decode_parquet_image_cell(trajectory_data[original_key].iloc[int(idx)])
-                    for idx in step_indices
-                ],
+                [self._decode_parquet_image_cell(trajectory_data[original_key].iloc[int(idx)]) for idx in step_indices],
                 axis=0,
             )
         video_path = self.get_video_path(trajectory_id, key)
@@ -252,13 +237,13 @@ class _DreamZeroIOMixin:
             video_backend_kwargs=self.video_backend_kwargs,
         )
         # except:
-            # self.video_backend = "torchvision_av"
-            # return get_frames_by_timestamps(
-            #     video_path.as_posix(),
-            #     video_timestamp,
-            #     video_backend=self.video_backend,
-            #     video_backend_kwargs=self.video_backend_kwargs,
-            # )
+        # self.video_backend = "torchvision_av"
+        # return get_frames_by_timestamps(
+        #     video_path.as_posix(),
+        #     video_timestamp,
+        #     video_backend=self.video_backend,
+        #     video_backend_kwargs=self.video_backend_kwargs,
+        # )
 
     @staticmethod
     def _decode_parquet_image_cell(cell) -> np.ndarray:

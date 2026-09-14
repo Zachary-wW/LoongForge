@@ -5,11 +5,11 @@
 # coding=utf-8
 # Copyright 2025-2026 The Moonshot AI Team, DeepSeek-AI, and HuggingFace Inc. team. All rights reserved.
 #
-# The code is based on llava (llava/modeling_llava.py) and DeepSeek-V3 (DeepSeek-V3/modeling_deepseek.py), 
+# The code is based on llava (llava/modeling_llava.py) and DeepSeek-V3 (DeepSeek-V3/modeling_deepseek.py),
 # but modified for Kimi-K2.5.
 #
 # Licensing Information:
-# - Code derived from llava (llava/modeling_llava.py) and DeepSeek-V3 (DeepSeek-V3/modeling_deepseek.py) is licensed 
+# - Code derived from llava (llava/modeling_llava.py) and DeepSeek-V3 (DeepSeek-V3/modeling_deepseek.py) is licensed
 # under the Apache License, Version 2.0.
 # - Other parts of the code are licensed under the MIT License.
 #
@@ -124,9 +124,7 @@ class Learnable2DInterpPosEmbDivided(nn.Module):
         self.weight = nn.Parameter(torch.empty(height, width, dim))
         self.register_buffer(
             "time_weight",
-            torch.from_numpy(get_1d_sincos_pos_embed(self.dim, self.num_frames))
-            .float()
-            .unsqueeze(1),
+            torch.from_numpy(get_1d_sincos_pos_embed(self.dim, self.num_frames)).float().unsqueeze(1),
             persistent=False,
         )
 
@@ -153,9 +151,7 @@ class Learnable2DInterpPosEmbDivided(nn.Module):
             if t == 1:
                 pos_emb_3d = pos_emb_2d
             else:
-                pos_emb_3d = (
-                    pos_emb_2d.unsqueeze(0).repeat(t, 1, 1) + self.time_weight[0:t]
-                )
+                pos_emb_3d = pos_emb_2d.unsqueeze(0).repeat(t, 1, 1) + self.time_weight[0:t]
 
             pos_embs.append(pos_emb_3d.reshape(-1, pos_emb_3d.shape[-1]))
 
@@ -179,15 +175,9 @@ def tpool_patch_merger(
         # Reshape along self.merge_kernel_size and concat to the last dimension
         kernel_height, kernel_width = merge_kernel_size
         new_height, new_width = h // kernel_height, w // kernel_width
-        reshaped_seq = seq.view(
-            t, new_height, kernel_height, new_width, kernel_width, d_model
-        )
-        reshaped_seq = (
-            reshaped_seq.permute(0, 1, 3, 2, 4, 5).contiguous().mean(dim=0)
-        )  # temporal pooling
-        padded_seq = reshaped_seq.view(
-            new_height * new_width, kernel_height * kernel_width, -1
-        )
+        reshaped_seq = seq.view(t, new_height, kernel_height, new_width, kernel_width, d_model)
+        reshaped_seq = reshaped_seq.permute(0, 1, 3, 2, 4, 5).contiguous().mean(dim=0)  # temporal pooling
+        padded_seq = reshaped_seq.view(new_height * new_width, kernel_height * kernel_width, -1)
         outputs.append(padded_seq)
         pre_sum += t * h * w
 
@@ -210,14 +200,10 @@ class MoonVision3dPatchEmbed(nn.Module):
         pos_emb_interpolation_mode: str = "bicubic",
     ) -> None:
         super().__init__()
-        assert isinstance(
-            patch_size, int | Sequence
-        ), f"Invalid patch_size type: {type(patch_size)}"
+        assert isinstance(patch_size, int | Sequence), f"Invalid patch_size type: {type(patch_size)}"
         if isinstance(patch_size, int):
             patch_size = (patch_size, patch_size)
-        assert (
-            len(patch_size) == 2
-        ), f"Expected patch_size to be a tuple of 2, got {patch_size}"
+        assert len(patch_size) == 2, f"Expected patch_size to be a tuple of 2, got {patch_size}"
         self.patch_size = patch_size
         self.in_channels = in_dim
 
@@ -263,7 +249,7 @@ class Rope2DPosEmbRepeated(nn.Module):
     This class is intended to be used in the following way:
     1. Before training, create an instance of Rope2DPosEmb. This instance will hold the precomputed cis.
     2. Before each forward pass, call `get_freqs_cis_by_*` to get the `freqs_cis` tensor for this iteration.
-    3. During the forward pass, pass the `freqs_cis` tensor to each attention layer, and call `apply` just 
+    3. During the forward pass, pass the `freqs_cis` tensor to each attention layer, and call `apply` just
         before each attention operation.The rope is shared across all attention layers and all heads.
 
     Refs:
@@ -304,25 +290,19 @@ class Rope2DPosEmbRepeated(nn.Module):
         flat_pos = torch.arange(0, N).float().to(device)
         x_pos = flat_pos % self.max_width
         y_pos = flat_pos // self.max_width
-        dim_range = (
-            torch.arange(0, self.dim, 4)[: (self.dim // 4)].float().to(device)
-        )  # C/4
+        dim_range = torch.arange(0, self.dim, 4)[: (self.dim // 4)].float().to(device)  # C/4
         freqs = 1.0 / (self.theta_base ** (dim_range / self.dim))
         x_freqs = torch.outer(x_pos, freqs).float()  # N, C/4
         y_freqs = torch.outer(y_pos, freqs).float()  # N, C/4
         x_cis = torch.polar(torch.ones_like(x_freqs), x_freqs)  # N, C/4
         y_cis = torch.polar(torch.ones_like(y_freqs), y_freqs)  # N, C/4
         # N, C/4, 2
-        freqs_cis = torch.cat(
-            [x_cis.unsqueeze(dim=-1), y_cis.unsqueeze(dim=-1)], dim=-1
-        )
+        freqs_cis = torch.cat([x_cis.unsqueeze(dim=-1), y_cis.unsqueeze(dim=-1)], dim=-1)
         # max_height, max_width, C/2
         freqs_cis = freqs_cis.reshape(self.max_height, self.max_width, -1)
         return freqs_cis
 
-    def get_freqs_cis(
-        self, grid_thws: torch.Tensor, device: torch.device
-    ) -> torch.Tensor:
+    def get_freqs_cis(self, grid_thws: torch.Tensor, device: torch.device) -> torch.Tensor:
         """
         Args:
             grid_thws (torch.Tensor): grid time, height and width
@@ -331,23 +311,16 @@ class Rope2DPosEmbRepeated(nn.Module):
             freqs_cis: tensor of shape (sum(t * height * width), dim//2)
         """
         if not hasattr(self, "freqs_cis"):
-            self.register_buffer(
-                "freqs_cis", self._precompute_freqs_cis(device), persistent=False
-            )
+            self.register_buffer("freqs_cis", self._precompute_freqs_cis(device), persistent=False)
 
         shapes = grid_thws.tolist()
-        assert all(
-            1 <= h <= self.max_height and 1 <= w <= self.max_width for t, h, w in shapes
-        ), (
+        assert all(1 <= h <= self.max_height and 1 <= w <= self.max_width for t, h, w in shapes), (
             shapes,
             self.max_height,
             self.max_width,
         )
         freqs_cis = torch.cat(
-            [
-                self.freqs_cis[:h, :w].reshape(-1, self.dim // 2).repeat(t, 1)
-                for t, h, w in shapes
-            ],
+            [self.freqs_cis[:h, :w].reshape(-1, self.dim // 2).repeat(t, 1) for t, h, w in shapes],
             dim=0,
         )
         return freqs_cis
@@ -365,9 +338,9 @@ class MoonVisionModel(BaseVisionModel):
         vp_stage: Optional[int] = None,
     ) -> None:
         super().__init__(config, vp_stage=vp_stage)
-        assert (
-            video_attn_type == "spatial_temporal"
-        ), f'video_attn_type must be "spatial_temporal", got {video_attn_type}'
+        assert video_attn_type == "spatial_temporal", (
+            f'video_attn_type must be "spatial_temporal", got {video_attn_type}'
+        )
         self.video_attn_type = video_attn_type
         self.merge_kernel_size = config.merge_kernel_size
         self.patch_size = config.patch_size
@@ -408,9 +381,7 @@ class MoonVisionModel(BaseVisionModel):
     def forward(self, x: torch.Tensor, image_grid_thw: torch.Tensor) -> torch.Tensor:
         """Forward pass for Moon Vision Model."""
 
-        assert (
-            image_grid_thw.ndim == 2
-        ), f"grid_thws should be 2D, got {image_grid_thw.ndim}"
+        assert image_grid_thw.ndim == 2, f"grid_thws should be 2D, got {image_grid_thw.ndim}"
         assert image_grid_thw.size(1) == 3, f"No support for thw: {image_grid_thw}"
 
         target_dtype = self.patch_embed.proj.weight.dtype
@@ -420,15 +391,11 @@ class MoonVisionModel(BaseVisionModel):
         x = self.patch_embed(x, image_grid_thw)
 
         # encoder
-        rope_freqs_cis = self.rope_2d.get_freqs_cis(
-            grid_thws=image_grid_thw, device=x.device
-        )
+        rope_freqs_cis = self.rope_2d.get_freqs_cis(grid_thws=image_grid_thw, device=x.device)
 
         lengths = torch.cat(
             (
-                torch.zeros(
-                    1, dtype=image_grid_thw.dtype, device=image_grid_thw.device
-                ),
+                torch.zeros(1, dtype=image_grid_thw.dtype, device=image_grid_thw.device),
                 image_grid_thw[:, 0] * image_grid_thw[:, 1] * image_grid_thw[:, 2],
             )
         )
@@ -456,12 +423,8 @@ class MoonVisionModel(BaseVisionModel):
 
         x = x[:, 0, :].contiguous()  # [s, 1, h] -> [s, h]
 
-        if (
-            self.merge_type == "sd2_tpool"
-        ):  # spatial downsampling 2x with temporal pooling all
-            x = tpool_patch_merger(
-                x, image_grid_thw, merge_kernel_size=self.merge_kernel_size
-            )
+        if self.merge_type == "sd2_tpool":  # spatial downsampling 2x with temporal pooling all
+            x = tpool_patch_merger(x, image_grid_thw, merge_kernel_size=self.merge_kernel_size)
         else:
             raise NotImplementedError(f"Not support {self.merge_type}")
 

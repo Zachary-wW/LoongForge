@@ -20,9 +20,10 @@ class ErnieVisionConfig(BaseModelConfig):
     TransformerConfig required fields are derived from the ViT-specific
     fields (embed_dim, num_heads, mlp_ratio) in __post_init__.
     """
+
     # ---- ViT-specific fields ----
     num_layers: int = 32
-    embed_dim: int = 1280          # ViT hidden dimension
+    embed_dim: int = 1280  # ViT hidden dimension
     in_channels: int = 3
     mlp_ratio: float = 4.0
     patch_size: int = 14
@@ -71,8 +72,8 @@ class ErnieVisionConfig(BaseModelConfig):
 
 @dataclass
 class ErnieAdapterConfig(BaseModelConfig):
-    """configuration for adapter model
-    """
+    """configuration for adapter model"""
+
     in_dim: int = None
     out_dim: int = None
     rms_norm_eps: float = None

@@ -57,10 +57,7 @@ def test_ci_summary_omits_locations_and_snippets(capsys):
 
 def test_ci_summary_clean_result(capsys):
     sensitive_scan.report_ci_summary([], strict=True)
-    assert capsys.readouterr().out == (
-        "sensitive-scan: 0 error(s), 0 warning(s), 0 total\n"
-        "sensitive-scan: PASS\n"
-    )
+    assert capsys.readouterr().out == ("sensitive-scan: 0 error(s), 0 warning(s), 0 total\nsensitive-scan: PASS\n")
 
 
 def test_history_fixture_is_scanned_without_printing_private_values(monkeypatch, capsys):

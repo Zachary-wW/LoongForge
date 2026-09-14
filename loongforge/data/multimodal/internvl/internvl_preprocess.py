@@ -157,10 +157,7 @@ class InternvlPreprocess:
         self.dynamic_image_size = args.dynamic_image_size
         self.min_dynamic_patch = args.min_dynamic_patch
         self.template_name = args.conv_style
-        self.num_image_token = int(
-            (args.force_image_size // args.patch_size) ** 2
-            * (args.down_sample_ratio**2)
-        )
+        self.num_image_token = int((args.force_image_size // args.patch_size) ** 2 * (args.down_sample_ratio**2))
         self.group_by_length = args.group_by_length and not args.packing_sft_data
         self.packing_sft_data = args.packing_sft_data
         self.tokenizer = tokenizer
@@ -177,9 +174,7 @@ class InternvlPreprocess:
         # Ensure the first conversation contains a video placeholder
         first_turn_idx = 1 if data_item["texts"][0]["value"] == "system" else 0
         if "<video>" not in data_item["texts"][first_turn_idx]["value"]:
-            data_item["texts"][first_turn_idx]["value"] = (
-                "<video>\n" + data_item["texts"][first_turn_idx]["value"]
-            )
+            data_item["texts"][first_turn_idx]["value"] = "<video>\n" + data_item["texts"][first_turn_idx]["value"]
 
         # Get the video file path
         video_file = data_item["videos"]
@@ -196,12 +191,10 @@ class InternvlPreprocess:
         )
 
         # Generate special tokens for each video frame
-        special_tokens = "\n".join(
-            ["Frame-{}: <image>".format(i + 1) for i in range(len(image_list))]
+        special_tokens = "\n".join(["Frame-{}: <image>".format(i + 1) for i in range(len(image_list))])
+        data_item["texts"][first_turn_idx]["value"] = data_item["texts"][first_turn_idx]["value"].replace(
+            "<video>\n", special_tokens + "\n"
         )
-        data_item["texts"][first_turn_idx]["value"] = data_item["texts"][
-            first_turn_idx
-        ]["value"].replace("<video>\n", special_tokens + "\n")
 
         # Transform each frame image and stack them into a tensor
         transform = self.build_transform(
@@ -253,8 +246,7 @@ class InternvlPreprocess:
         first_turn_idx = 1 if data_item["texts"][0]["value"] == "system" else 0
         if "<image>" not in data_item["texts"][first_turn_idx]["value"]:
             data_item["texts"][first_turn_idx]["value"] = (
-                "<image>\n" * len(data_item["image"])
-                + data_item["texts"][first_turn_idx]["value"]
+                "<image>\n" * len(data_item["image"]) + data_item["texts"][first_turn_idx]["value"]
             )
 
         image_tiles, num_tiles = [], []
@@ -302,9 +294,7 @@ class InternvlPreprocess:
 
         position_ids.masked_fill_(ret["attention_mask"] == 0, 1)
         image_end_token_id = self.tokenizer.convert_tokens_to_ids(IMG_END_TOKEN)
-        assert (
-            ret["input_ids"][0] == image_end_token_id
-        ).sum() == num_image, (
+        assert (ret["input_ids"][0] == image_end_token_id).sum() == num_image, (
             f"image tokens are truncated, this dataset is {self.ds_name}"
         )
         # Create the final return dictionary
@@ -341,9 +331,7 @@ class InternvlPreprocess:
         num_patches = pixel_values.size(0)
 
         # Ensure there is only one patch
-        assert (
-            num_patches == 1
-        ), f"The number of patches should be 1, but got {num_patches}."
+        assert num_patches == 1, f"The number of patches should be 1, but got {num_patches}."
         # Select the appropriate preprocessing function based on the template name
         use_pretrain = data_item["texts"][0]["from"] == "pretrain"
         preprocess_function = self.get_preprocess_function(use_pretrain=use_pretrain)
@@ -399,9 +387,7 @@ class InternvlPreprocess:
         )
         return transform
 
-    def build_transform(
-        self, is_train, input_size, pad2square=False, normalize_type="imagenet"
-    ):
+    def build_transform(self, is_train, input_size, pad2square=False, normalize_type="imagenet"):
         """Build transform for image"""
         if normalize_type == "imagenet":
             MEAN, STD = IMAGENET_MEAN, IMAGENET_STD
@@ -414,15 +400,8 @@ class InternvlPreprocess:
         if is_train:  # use data augumentation
             transform = T.Compose(
                 [
-                    T.Lambda(
-                        lambda img: img.convert("RGB") if img.mode != "RGB" else img
-                    ),
-                    T.RandomChoice(
-                        [
-                            T.Lambda(jpeg_degrade_functions[quality])
-                            for quality in qualities
-                        ]
-                    ),
+                    T.Lambda(lambda img: img.convert("RGB") if img.mode != "RGB" else img),
+                    T.RandomChoice([T.Lambda(jpeg_degrade_functions[quality]) for quality in qualities]),
                     T.Resize(
                         (input_size, input_size),
                         interpolation=InterpolationMode.BICUBIC,
@@ -435,9 +414,7 @@ class InternvlPreprocess:
             if pad2square is False:  # now we use this transform function by default
                 transform = T.Compose(
                     [
-                        T.Lambda(
-                            lambda img: img.convert("RGB") if img.mode != "RGB" else img
-                        ),
+                        T.Lambda(lambda img: img.convert("RGB") if img.mode != "RGB" else img),
                         T.Resize(
                             (input_size, input_size),
                             interpolation=InterpolationMode.BICUBIC,
@@ -449,14 +426,8 @@ class InternvlPreprocess:
             else:
                 transform = T.Compose(
                     [
-                        T.Lambda(
-                            lambda img: img.convert("RGB") if img.mode != "RGB" else img
-                        ),
-                        T.Lambda(
-                            lambda img: expand2square(
-                                img, tuple(int(x * 255) for x in MEAN)
-                            )
-                        ),
+                        T.Lambda(lambda img: img.convert("RGB") if img.mode != "RGB" else img),
+                        T.Lambda(lambda img: expand2square(img, tuple(int(x * 255) for x in MEAN))),
                         T.Resize(
                             (input_size, input_size),
                             interpolation=InterpolationMode.BICUBIC,
@@ -515,9 +486,7 @@ class InternvlPreprocess:
                             f"{IMG_CONTEXT_TOKEN * num_image_token_list[current_image_idx]}"
                             f"{IMG_END_TOKEN}"
                         )
-                        conversation["value"] = conversation["value"].replace(
-                            "<image>", image_tokens, 1
-                        )
+                        conversation["value"] = conversation["value"].replace("<image>", image_tokens, 1)
                         current_image_idx += 1
                 new_conversations.append(conversation)
             conversations = new_conversations
@@ -529,12 +498,10 @@ class InternvlPreprocess:
             roles.append("system")
         for conversation in conversations:
             if conversation["from"] == "human":
-                batches.append(f'<|im_start|>user\n{conversation["value"]}<|im_end|>\n')
+                batches.append(f"<|im_start|>user\n{conversation['value']}<|im_end|>\n")
                 roles.append("human")
             elif conversation["from"] == "gpt":
-                batches.append(
-                    f'<|im_start|>assistant\n{conversation["value"]}<|im_end|>\n'
-                )
+                batches.append(f"<|im_start|>assistant\n{conversation['value']}<|im_end|>\n")
                 roles.append("gpt")
             else:
                 raise NotImplementedError
@@ -555,9 +522,7 @@ class InternvlPreprocess:
             input_ids = [item[1:] for item in input_ids]
 
         final_input_ids, final_targets = [], []
-        ignore_ids = tokenizer(
-            "<|im_start|>assistant\n", return_tensors="np"
-        ).input_ids[0]
+        ignore_ids = tokenizer("<|im_start|>assistant\n", return_tensors="np").input_ids[0]
         ignore_len = ignore_ids.shape[0] - 1 if add_bos_token else ignore_ids.shape[0]
         for role, input_id in zip(roles, input_ids):
             final_input_ids.append(input_id)
@@ -565,27 +530,19 @@ class InternvlPreprocess:
                 final_targets.append(np.full(input_id.shape, IGNORE_TOKEN_ID))  # ignore
             elif role == "gpt":
                 target = input_id.copy()
-                target[:ignore_len] = (
-                    IGNORE_TOKEN_ID  # ignore loss for `<|im_start|>assistant\n`
-                )
+                target[:ignore_len] = IGNORE_TOKEN_ID  # ignore loss for `<|im_start|>assistant\n`
                 target[-1:] = IGNORE_TOKEN_ID  # ignore loss for `\n`
                 final_targets.append(target)
             else:
                 raise NotImplementedError
-        input_ids = torch.tensor(np.concatenate(final_input_ids))[
-            : tokenizer.model_max_length
-        ]
-        targets = torch.tensor(np.concatenate(final_targets))[
-            : tokenizer.model_max_length
-        ]
+        input_ids = torch.tensor(np.concatenate(final_input_ids))[: tokenizer.model_max_length]
+        targets = torch.tensor(np.concatenate(final_targets))[: tokenizer.model_max_length]
 
         padding = False if group_by_length or is_packing_enabled else True
         if padding:
             current_length = input_ids.size(0)
             padding_length = tokenizer.model_max_length - current_length
-            input_ids = F.pad(
-                input_ids, (0, padding_length), value=tokenizer.pad_token_id
-            )
+            input_ids = F.pad(input_ids, (0, padding_length), value=tokenizer.pad_token_id)
             targets = F.pad(targets, (0, padding_length), value=IGNORE_TOKEN_ID)
 
         input_ids = input_ids.unsqueeze(0)
@@ -633,9 +590,7 @@ class InternvlPreprocess:
                             f"{IMG_START_TOKEN}"
                             f"{IMG_CONTEXT_TOKEN * num_image_token_list[current_image_idx]}{IMG_END_TOKEN}"
                         )
-                        conversation["value"] = conversation["value"].replace(
-                            "<image>", image_tokens, 1
-                        )
+                        conversation["value"] = conversation["value"].replace("<image>", image_tokens, 1)
                         current_image_idx += 1
                 new_conversations.append(conversation)
             conversations = new_conversations
@@ -647,19 +602,13 @@ class InternvlPreprocess:
             roles.append("system")
         for conversation in conversations:
             if conversation["from"] == "human":
-                batches.append(
-                    f'<|start|>user<|message|>{conversation["value"]}<|end|>'
-                )
+                batches.append(f"<|start|>user<|message|>{conversation['value']}<|end|>")
                 roles.append("human")
             elif conversation["from"] == "gpt":
-                batches.append(
-                    f'<|start|>assistant<|channel|>final<|message|>{conversation["value"]}<|return|>'
-                )
+                batches.append(f"<|start|>assistant<|channel|>final<|message|>{conversation['value']}<|return|>")
                 roles.append("gpt")
             elif conversation["from"] == "function":
-                batches.append(
-                    f'<|start|>tool<|message|>{conversation["value"]}<|end|>'
-                )
+                batches.append(f"<|start|>tool<|message|>{conversation['value']}<|end|>")
                 roles.append("function")
             else:
                 raise NotImplementedError(f"Invalid role: {conversation['from']}")
@@ -689,27 +638,19 @@ class InternvlPreprocess:
                 final_targets.append(np.full(input_id.shape, IGNORE_TOKEN_ID))  # ignore
             elif role == "gpt":
                 target = input_id.copy()
-                target[:ignore_len] = (
-                    IGNORE_TOKEN_ID  # ignore loss for `<|start|>assistant`
-                )
+                target[:ignore_len] = IGNORE_TOKEN_ID  # ignore loss for `<|start|>assistant`
                 final_targets.append(target)
             else:
                 raise NotImplementedError
-        input_ids = torch.tensor(np.concatenate(final_input_ids))[
-            : tokenizer.model_max_length
-        ]
-        targets = torch.tensor(np.concatenate(final_targets))[
-            : tokenizer.model_max_length
-        ]
+        input_ids = torch.tensor(np.concatenate(final_input_ids))[: tokenizer.model_max_length]
+        targets = torch.tensor(np.concatenate(final_targets))[: tokenizer.model_max_length]
 
         # padding = False if group_by_length or is_packing_enabled else True
         padding = False
         if padding:
             current_length = input_ids.size(0)
             padding_length = tokenizer.model_max_length - current_length
-            input_ids = F.pad(
-                input_ids, (0, padding_length), value=tokenizer.pad_token_id
-            )
+            input_ids = F.pad(input_ids, (0, padding_length), value=tokenizer.pad_token_id)
             targets = F.pad(targets, (0, padding_length), value=IGNORE_TOKEN_ID)
 
         input_ids = input_ids.unsqueeze(0)
@@ -825,9 +766,7 @@ class InternvlPreprocess:
             attention_mask=input_ids.ne(tokenizer.pad_token_id),
         )
 
-    def find_closest_aspect_ratio(
-        self, aspect_ratio, target_ratios, width, height, image_size
-    ):
+    def find_closest_aspect_ratio(self, aspect_ratio, target_ratios, width, height, image_size):
         """Find closest aspect ratio"""
         best_ratio_diff = float("inf")
         best_ratio = (1, 1)
@@ -843,9 +782,7 @@ class InternvlPreprocess:
                     best_ratio = ratio
         return best_ratio
 
-    def dynamic_preprocess(
-        self, image, min_num=1, max_num=6, image_size=448, use_thumbnail=False
-    ):
+    def dynamic_preprocess(self, image, min_num=1, max_num=6, image_size=448, use_thumbnail=False):
         """Dynamic preprocess"""
         orig_width, orig_height = image.size
         aspect_ratio = orig_width / orig_height
@@ -928,9 +865,7 @@ class InternvlPreprocess:
         elif "fps" in sample:  # fps0.5, sequentially sample frames at 0.5 fps
             output_fps = float(sample[3:])
             duration = float(vlen) / input_fps
-            delta = (
-                1 / output_fps
-            )  # gap between frames, this is also the clip length each frame represents
+            delta = 1 / output_fps  # gap between frames, this is also the clip length each frame represents
             frame_seconds = np.arange(0 + delta / 2, duration + delta / 2, delta)
             frame_indices = np.around(frame_seconds * input_fps).astype(int)
             frame_indices = [e for e in frame_indices if e < vlen]
@@ -941,9 +876,10 @@ class InternvlPreprocess:
             raise ValueError
         return frame_indices
 
-    def read_frames_decord_opencv(self, av_decoder, num_frames, sample='rand',
-        fix_start=None, client=None, clip=None, min_num_frames=4):
-        """ read_frames_decord """
+    def read_frames_decord_opencv(
+        self, av_decoder, num_frames, sample="rand", fix_start=None, client=None, clip=None, min_num_frames=4
+    ):
+        """read_frames_decord"""
         cap = cv2.VideoCapture(av_decoder.stream, cv2.CAP_FFMPEG, [])
 
         vlen = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -979,13 +915,13 @@ class InternvlPreprocess:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 if (target_width, target_height) != (original_width, original_height):
                     frame = cv2.resize(frame, (target_width, target_height))
-            
+
             # Convert numpy array to PIL Image
             pil_frame = Image.fromarray(frame)
             frame_list.append(pil_frame)
 
         cap.release()
-        
+
         return frame_list
 
     def get_cu_seqlens_and_indexes(
@@ -1015,9 +951,7 @@ class InternvlPreprocess:
             num_effective_tokens = (curr_labels != IGNORE_TOKEN_ID).sum().item()
             loss_weight.extend([len2weight(num_effective_tokens)] * num_tokens)
 
-        assert len(indexes) == data_index.size(
-            0
-        ), f"{len(indexes)=}, {data_index.size(0)=}"
+        assert len(indexes) == data_index.size(0), f"{len(indexes)=}, {data_index.size(0)=}"
 
         loss_weight = torch.tensor(loss_weight, dtype=torch.float32)
         return cu_seqlens, indexes, loss_weight
@@ -1032,9 +966,7 @@ class InternvlPreprocess:
         pad_image_flags = torch.tensor([0] * num_pad_images, dtype=torch.long)
 
         packed_sample.imgs = packed_sample.imgs + pad_images
-        packed_sample.image_flags = torch.cat(
-            [packed_sample.image_flags, pad_image_flags]
-        )
+        packed_sample.image_flags = torch.cat([packed_sample.image_flags, pad_image_flags])
 
         return packed_sample
 

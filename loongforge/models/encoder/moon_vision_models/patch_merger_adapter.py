@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Patch Merger MLP Adapter"""
+
 import torch
 from typing import Union
 from megatron.core.transformer.spec_utils import build_module
@@ -12,6 +13,7 @@ from .moon_vision_config import KimiK3PatchMergerConfig, PatchMergerMLPAdapterCo
 
 class PatchMergerMLP(BaseMegatronModule):
     """Merge 2x2 MoonViT patches and project them to the language hidden size."""
+
     config_class = PatchMergerMLPAdapterConfig
 
     def __init__(
@@ -75,26 +77,19 @@ class PatchMergerMLP(BaseMegatronModule):
             skip_weight_param_allocation=False,
         )
 
-        if hasattr(config, 'freeze') and config.freeze:
+        if hasattr(config, "freeze") and config.freeze:
             self.freeze()
 
-    def forward(
-        self, x: Union[torch.Tensor, list, tuple], window_index: torch.LongTensor = None
-    ) -> torch.Tensor:
+    def forward(self, x: Union[torch.Tensor, list, tuple], window_index: torch.LongTensor = None) -> torch.Tensor:
         """Forward pass."""
 
         # Support list/tuple input
         if isinstance(x, (list, tuple)):
-            return [
-                self._forward_single(item, window_index)
-                for item in x
-            ]
+            return [self._forward_single(item, window_index) for item in x]
 
         return self._forward_single(x, window_index)
 
-    def _forward_single(
-        self, x: torch.Tensor, window_index: torch.LongTensor = None
-    ) -> torch.Tensor:
+    def _forward_single(self, x: torch.Tensor, window_index: torch.LongTensor = None) -> torch.Tensor:
         """Forward pass for single tensor."""
         B = x.shape[0]
 
@@ -141,9 +136,7 @@ class KimiK3PatchMerger(BaseMegatronModule):
         self.activation_func = config.activation_func
         self.post_norm = torch.nn.RMSNorm(output_size, eps=config.layernorm_epsilon)
 
-    def forward(
-        self, x: Union[torch.Tensor, list, tuple], window_index=None
-    ) -> torch.Tensor:
+    def forward(self, x: Union[torch.Tensor, list, tuple], window_index=None) -> torch.Tensor:
         del window_index
         if isinstance(x, (list, tuple)):
             lengths = [item.shape[0] for item in x]

@@ -137,9 +137,7 @@ def _build_stateful_dataloader(
     seed = training_args.seed
     seed_workers = training_args.dataloader_seed_workers
     drop_last = training_args.batch_drop_last
-    prefetch_factor = (
-        training_args.dataloader_prefetch_factor if num_workers > 0 else None
-    )
+    prefetch_factor = training_args.dataloader_prefetch_factor if num_workers > 0 else None
     if isinstance(dataset, IterableDataset):
         return StatefulDataLoader(
             dataset,
@@ -217,6 +215,5 @@ def _build_dataset(model_cfg, data_cfg, training_args, dataset_format: str):
         return build_dummy_dataset(model_cfg, data_cfg, training_args)
 
     raise ValueError(
-        f"Unknown dataset_format: '{dataset_format}'. "
-        f"Supported: lerobot_datasets, hdf5_datasets, dummy_datasets"
+        f"Unknown dataset_format: '{dataset_format}'. Supported: lerobot_datasets, hdf5_datasets, dummy_datasets"
     )

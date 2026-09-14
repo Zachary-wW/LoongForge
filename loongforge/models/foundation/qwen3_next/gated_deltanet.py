@@ -69,6 +69,7 @@ class Qwen3NextRMSNormGated(nn.Module):
         eps (float, optional): Numerical stability parameter, default to 1e-6
         **kwargs: Other optional parameters
     """
+
     def __init__(self, hidden_size, eps=1e-6, **kwargs):
         super().__init__()
         self.weight = nn.Parameter(torch.ones(hidden_size))
@@ -95,13 +96,14 @@ class Qwen3NextRMSNorm(torch.nn.Module):
 
     Interface matches TENorm for compatibility with Megatron-Core build_module.
     """
+
     def __init__(self, config: TransformerConfig, hidden_size: int, eps: float = 1e-5):
         super().__init__()
         self.config = config
         self.eps = eps
         # Initialize weight to zeros (Zero-Centered), matching HuggingFace Qwen3NextRMSNorm
         self.weight = torch.nn.Parameter(torch.zeros(hidden_size))
-        setattr(self.weight, 'sequence_parallel', self.config.sequence_parallel)
+        setattr(self.weight, "sequence_parallel", self.config.sequence_parallel)
 
     def _norm(self, x):
         return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
@@ -120,6 +122,7 @@ class GatedDeltaNetSubmodules:
     """
     Contains the module specs for the input linear, output norm, and output linear layers.
     """
+
     in_proj_qkvz: Union[ModuleSpec, type] = IdentityOp
     in_proj_ba: Union[ModuleSpec, type] = IdentityOp
     out_norm: Union[ModuleSpec, type] = IdentityOp
@@ -131,6 +134,7 @@ class GatedDeltaNet(HuggingFaceModule):
     GDN layer takes input with size [s, b, h]
     and returns output of the same size.
     """
+
     def __init__(
         self,
         config: TransformerConfig,
@@ -142,7 +146,7 @@ class GatedDeltaNet(HuggingFaceModule):
         use_qk_l2norm: bool = True,
         A_init_range: Tuple[float, float] = (0, 16),
         pg_collection: ProcessGroupCollection = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Args:
@@ -223,11 +227,10 @@ class GatedDeltaNet(HuggingFaceModule):
         if self.tp_size > 1:
             setattr(self.dt_bias, "average_gradients_across_tp_domain", True)
             setattr(self.A_log, "average_gradients_across_tp_domain", True)
-        
-        self.out_norm = ( 
-            Qwen3NextRMSNormGated(
-                self.value_head_dim, eps=self.config.layernorm_epsilon
-            ) if FusedRMSNormGated is None 
+
+        self.out_norm = (
+            Qwen3NextRMSNormGated(self.value_head_dim, eps=self.config.layernorm_epsilon)
+            if FusedRMSNormGated is None
             else FusedRMSNormGated(
                 self.value_head_dim,
                 eps=self.config.layernorm_epsilon,
@@ -249,7 +252,8 @@ class GatedDeltaNet(HuggingFaceModule):
             2 * self.key_head_dim + 2 * self.value_head_dim * self.num_value_heads // self.num_key_heads,
         )
         new_tensor_shape_ba = mixed_ba.size()[:-1] + (
-            self.num_key_heads, 2 * self.num_value_heads // self.num_key_heads
+            self.num_key_heads,
+            2 * self.num_value_heads // self.num_key_heads,
         )
 
         mixed_qkvz = mixed_qkvz.view(*new_tensor_shape_qkvz)
@@ -269,7 +273,7 @@ class GatedDeltaNet(HuggingFaceModule):
         b = b.reshape(b.size(0), b.size(1), self.num_value_heads)
         a = a.reshape(a.size(0), a.size(1), self.num_value_heads)
         return query, key, value, z, b, a
-    
+
     def apply_mask_to_padding_states(self, hidden_states, attention_mask):
         """
         Tunes out the hidden states for padding tokens according to the attention mask
@@ -319,21 +323,19 @@ class GatedDeltaNet(HuggingFaceModule):
         inference_context = deprecate_inference_params(inference_context, inference_params)
         if self.sequence_parallel and self.tp_size > 1:
             hidden_states = gather_from_sequence_parallel_region(hidden_states)
-        
+
         cu_seqlens = None if packed_seq_params is None else packed_seq_params.cu_seqlens_q
         cu_seqlens_cpu = None if packed_seq_params is None else packed_seq_params.cu_seqlens_cpu
-        hidden_states = hidden_states.transpose(0, 1).contiguous() # [S, B, D] -> [B, S, D]
+        hidden_states = hidden_states.transpose(0, 1).contiguous()  # [S, B, D] -> [B, S, D]
         if attention_mask is not None:
-            if attention_mask.dim() >= 3 and attention_mask.shape[2] > 1: # [B, 1, S, S]
-                attention_mask = (~attention_mask).sum(dim=(1, 2)) > 0 # [B, S]
+            if attention_mask.dim() >= 3 and attention_mask.shape[2] > 1:  # [B, 1, S, S]
+                attention_mask = (~attention_mask).sum(dim=(1, 2)) > 0  # [B, S]
             else:
-                attention_mask = ~(attention_mask.squeeze(1).squeeze(1)) # [B, S]
+                attention_mask = ~(attention_mask.squeeze(1).squeeze(1))  # [B, S]
         hidden_states = self.apply_mask_to_padding_states(hidden_states, attention_mask)
-        
+
         if inference_context is not None:
-            assert (
-                inference_context.is_static_batching()
-            ), "GDN does not currently support dynamic inference batching."
+            assert inference_context.is_static_batching(), "GDN does not currently support dynamic inference batching."
             assert not self.config.sequence_parallel
             # TODO: support inference
             raise NotImplementedError("GDN does not support inference for now.")
@@ -341,15 +343,14 @@ class GatedDeltaNet(HuggingFaceModule):
         # Input projection
         projected_states_qkvz = self.in_proj_qkvz(hidden_states)
         projected_states_ba = self.in_proj_ba(hidden_states)
-        
+
         query, key, value, z, beta, alpha = self.fix_query_key_value_ordering(
-            projected_states_qkvz,
-            projected_states_ba
+            projected_states_qkvz, projected_states_ba
         )
         query, key, value = (x.reshape(x.shape[0], x.shape[1], -1) for x in (query, key, value))
 
         qkv = torch.cat((query, key, value), dim=-1)
-        
+
         nvtx_range_push(suffix="conv1d")
         qkv = causal_conv1d(
             x=qkv,
@@ -360,7 +361,7 @@ class GatedDeltaNet(HuggingFaceModule):
             cu_seqlens_cpu=cu_seqlens_cpu,
         )[0]
         nvtx_range_pop(suffix="conv1d")
-        
+
         # Split qkv into query, key, and value
         query, key, value = torch.split(
             qkv,
@@ -384,7 +385,7 @@ class GatedDeltaNet(HuggingFaceModule):
         g = -self.A_log.float().exp() * F.softplus(alpha.float() + self.dt_bias)  # In fp32
         beta = beta.sigmoid()
         nvtx_range_pop(suffix="g_and_beta")
-        
+
         nvtx_range_push(suffix="gated_delta_rule")
         core_attn_out, _ = chunk_gated_delta_rule(
             query,
@@ -399,7 +400,7 @@ class GatedDeltaNet(HuggingFaceModule):
             cu_seqlens_cpu=cu_seqlens_cpu,
         )
         nvtx_range_pop(suffix="gated_delta_rule")
-        
+
         # RMSNorm
         nvtx_range_push(suffix="gated_norm")
         z_shape_og = z.shape
@@ -410,18 +411,18 @@ class GatedDeltaNet(HuggingFaceModule):
 
         norm_out = norm_out.reshape(z_shape_og)
         norm_out = norm_out.reshape(norm_out.shape[0], norm_out.shape[1], -1)
-        
+
         # Output projection
         nvtx_range_push(suffix="out_proj")
         out = self.out_proj(norm_out)
         nvtx_range_pop(suffix="out_proj")
-        
-        out = out.transpose(0, 1).contiguous() # [B, S, D] -> [S, B, D]
+
+        out = out.transpose(0, 1).contiguous()  # [B, S, D] -> [S, B, D]
 
         if self.sequence_parallel and self.tp_size > 1:
             out = reduce_scatter_to_sequence_parallel_region(out) / self.tp_size
         return out, None
-    
+
     def backward_dw(self):
         """Execute weight gradient computation for all linear layers."""
         self._backward_in_proj_qkvz()

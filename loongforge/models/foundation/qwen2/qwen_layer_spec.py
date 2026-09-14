@@ -49,9 +49,7 @@ def get_qwen2_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
     """
     # To simplify the code, temporarily remove the compatibility with MoE/MLA.
     # If there is a new version in the future, add and test it separately.
-    assert (
-        not config.multi_latent_attention
-    ), "Not supporting multi-latent attention for Qwen model yet."
+    assert not config.multi_latent_attention, "Not supporting multi-latent attention for Qwen model yet."
 
     mlp = _get_mlp_module_spec()
 
@@ -59,8 +57,7 @@ def get_qwen2_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
     # we instead use the Apex implementation.
     qk_norm = (
         multiacc_modules.TENorm
-        if is_te_min_version("1.9.0")
-        and config.normalization in ["LayerNorm", "RMSNorm"]
+        if is_te_min_version("1.9.0") and config.normalization in ["LayerNorm", "RMSNorm"]
         else multiacc_modules.LocalNorm
     )
 
@@ -81,9 +78,7 @@ def get_qwen2_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
                 ),
             ),
             self_attn_bda=multiacc_modules.get_bias_dropout_add,
-            pre_mlp_layernorm=(
-                multiacc_modules.TENorm if config.num_moe_experts else IdentityOp
-            ),
+            pre_mlp_layernorm=(multiacc_modules.TENorm if config.num_moe_experts else IdentityOp),
             mlp=mlp,
             mlp_bda=multiacc_modules.get_bias_dropout_add,
         ),
@@ -95,9 +90,7 @@ def _rotate_half(x):
     return torch.cat((-x2, x1), dim=-1)
 
 
-def _apply_mrope_bshd(
-    t, freq, config, cu_seqlens=None, mrope_section=[16, 24, 24], mscale: float = 1.0
-):
+def _apply_mrope_bshd(t, freq, config, cu_seqlens=None, mrope_section=[16, 24, 24], mscale: float = 1.0):
     """Applies Rotary Position Embedding with Multimodal Sections to the query and key tensors
     (https://qwenlm.github.io/blog/qwen2-vl/).
     Args:
@@ -132,11 +125,7 @@ def apply_mrope(
 ):
     """mrope"""
     if cu_seqlens is not None:
-        cp_size = (
-            cp_group.size()
-            if cp_group is not None
-            else parallel_state.get_context_parallel_world_size()
-        )
+        cp_size = cp_group.size() if cp_group is not None else parallel_state.get_context_parallel_world_size()
         cu_seqlens = cu_seqlens // cp_size
         seqlens = (cu_seqlens[1:] - cu_seqlens[:-1]).tolist()
 
@@ -163,8 +152,7 @@ def get_qwen2_vl_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
     """
     qk_norm = (
         multiacc_modules.TENorm
-        if is_te_min_version("1.9.0")
-        and config.normalization in ["LayerNorm", "RMSNorm"]
+        if is_te_min_version("1.9.0") and config.normalization in ["LayerNorm", "RMSNorm"]
         else multiacc_modules.LocalNorm
     )
     return ModuleSpec(

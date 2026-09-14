@@ -64,28 +64,25 @@ def register_model_trainer(
 def build_model_trainer(args):
     """create model trainer"""
     config = get_hydra_config()
-    
-    if hasattr(config, "model_type") and config.model_type in \
-            (set(constants.LanguageModelFamilies.names()) |
-             set(constants.CustomModelFamilies.names()) |
-             set(constants.VisionLanguageActionModelFamilies.names())):
+
+    if hasattr(config, "model_type") and config.model_type in (
+        set(constants.LanguageModelFamilies.names())
+        | set(constants.CustomModelFamilies.names())
+        | set(constants.VisionLanguageActionModelFamilies.names())
+    ):
         model_family = config.model_type
     else:
-        if not hasattr(config, 'model'):
+        if not hasattr(config, "model"):
             raise ValueError("Invalid model configuration structure")
         model_family = config.model.model_type
     # get model family trainer
     if model_family not in MODEL_FAMILY_TRAINER_FACTORY:
-        raise ValueError(
-            f"Not found trainer for family: {model_family}"
-        )
+        raise ValueError(f"Not found trainer for family: {model_family}")
 
     if args.training_phase not in MODEL_FAMILY_TRAINER_FACTORY[model_family]:
         raise ValueError(
             f"Loongforge not support {args.training_phase} phase for {args.model_name} (family: {model_family})"
         )
 
-    trainer = MODEL_FAMILY_TRAINER_FACTORY[model_family][
-        args.training_phase
-    ]
+    trainer = MODEL_FAMILY_TRAINER_FACTORY[model_family][args.training_phase]
     return trainer(args)

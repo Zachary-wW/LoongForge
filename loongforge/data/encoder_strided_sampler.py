@@ -62,9 +62,20 @@ class EncoderStridedSampler:
     sync with the decoder's DataLoader across steps.
     """
 
-    def __init__(self, dataset, total_samples, consumed_samples, micro_batch_size,
-                 data_parallel_rank, data_parallel_size, data_sharding,
-                 pp_rank, tp_size, model_size, num_real_microbatch):
+    def __init__(
+        self,
+        dataset,
+        total_samples,
+        consumed_samples,
+        micro_batch_size,
+        data_parallel_rank,
+        data_parallel_size,
+        data_sharding,
+        pp_rank,
+        tp_size,
+        model_size,
+        num_real_microbatch,
+    ):
         self.dataset = dataset
         self.total_samples = total_samples
         self.consumed_samples = consumed_samples

@@ -27,7 +27,7 @@ from megatron.core.extensions.transformer_engine import (
     TELayerNormColumnParallelLinear,
     TEDotProductAttention,
     TERowParallelLinear,
-    TENorm
+    TENorm,
 )
 
 from loongforge.models.encoder.qwen3_vl_vision_models.rope_utils import apply_rotary_pos_emb

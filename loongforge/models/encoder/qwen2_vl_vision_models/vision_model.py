@@ -57,18 +57,14 @@ class Qwen2VisionModelWithRMSNorm(BaseVisionModel):
         window_index: list = []
         cu_window_seqlens: list = [0]
         window_index_id = 0
-        vit_merger_window_size = (
-            self.window_size // self.spatial_merge_size // self.patch_size
-        )
+        vit_merger_window_size = self.window_size // self.spatial_merge_size // self.patch_size
 
         for grid_t, grid_h, grid_w in grid_thw:
             llm_grid_h, llm_grid_w = (
                 grid_h // self.spatial_merge_size,
                 grid_w // self.spatial_merge_size,
             )
-            index = torch.arange(grid_t * llm_grid_h * llm_grid_w).reshape(
-                grid_t, llm_grid_h, llm_grid_w
-            )
+            index = torch.arange(grid_t * llm_grid_h * llm_grid_w).reshape(grid_t, llm_grid_h, llm_grid_w)
             pad_h = vit_merger_window_size - llm_grid_h % vit_merger_window_size
             pad_w = vit_merger_window_size - llm_grid_w % vit_merger_window_size
             num_windows_h = (llm_grid_h + pad_h) // vit_merger_window_size
@@ -91,9 +87,7 @@ class Qwen2VisionModelWithRMSNorm(BaseVisionModel):
             index_padded = index_padded.reshape(-1)
             index_new = index_padded[index_padded != -100]
             window_index.append(index_new + window_index_id)
-            cu_seqlens_tmp = (
-                seqlens.cumsum(0) * self.spatial_merge_unit + cu_window_seqlens[-1]
-            )
+            cu_seqlens_tmp = seqlens.cumsum(0) * self.spatial_merge_unit + cu_window_seqlens[-1]
             cu_window_seqlens.extend(cu_seqlens_tmp.tolist())
             window_index_id += (grid_t * llm_grid_h * llm_grid_w).item()
         window_index = torch.cat(window_index, dim=0)
@@ -115,15 +109,11 @@ class Qwen2VisionModelWithRMSNorm(BaseVisionModel):
         x = x.reshape(seq_len // self.spatial_merge_unit, self.spatial_merge_unit, -1)
         x = x[window_index, :, :]
         x = x.reshape(seq_len, -1)
-        rotary_pos_emb = rotary_pos_emb.reshape(
-            seq_len // self.spatial_merge_unit, self.spatial_merge_unit, -1
-        )
+        rotary_pos_emb = rotary_pos_emb.reshape(seq_len // self.spatial_merge_unit, self.spatial_merge_unit, -1)
         rotary_pos_emb = rotary_pos_emb[window_index, :, :]
         rotary_pos_emb = rotary_pos_emb.reshape(seq_len, -1)
 
-        cu_seqlens = torch.repeat_interleave(
-            image_grid_thw[:, 1] * image_grid_thw[:, 2], image_grid_thw[:, 0]
-        ).cumsum(
+        cu_seqlens = torch.repeat_interleave(image_grid_thw[:, 1] * image_grid_thw[:, 2], image_grid_thw[:, 0]).cumsum(
             dim=0,
             # Select dtype based on the following factors:
             #  - FA2 requires that cu_seqlens_q must have dtype int32
@@ -139,16 +129,8 @@ class Qwen2VisionModelWithRMSNorm(BaseVisionModel):
             packed_seq_params=[
                 PackedSeqParams(
                     qkv_format="thd",
-                    cu_seqlens_q=(
-                        cu_seqlens
-                        if i in self.fullatt_block_indexes
-                        else cu_window_seqlens
-                    ),
-                    cu_seqlens_kv=(
-                        cu_seqlens
-                        if i in self.fullatt_block_indexes
-                        else cu_window_seqlens
-                    ),
+                    cu_seqlens_q=(cu_seqlens if i in self.fullatt_block_indexes else cu_window_seqlens),
+                    cu_seqlens_kv=(cu_seqlens if i in self.fullatt_block_indexes else cu_window_seqlens),
                 )
                 for i in range(self.config.num_layers)
             ],

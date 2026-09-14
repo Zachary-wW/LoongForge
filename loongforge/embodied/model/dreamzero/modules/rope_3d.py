@@ -76,27 +76,15 @@ if triton is not None:
         batch_idx = offsets // (HALF_DIM * NUM_HEADS * SEQ_LEN)
 
         even_idx = pair_idx * 2
-        x_even_off = (
-            batch_idx * X_STRIDE_B
-            + seq_idx * X_STRIDE_S
-            + head_idx * X_STRIDE_H
-            + even_idx * X_STRIDE_D
-        )
+        x_even_off = batch_idx * X_STRIDE_B + seq_idx * X_STRIDE_S + head_idx * X_STRIDE_H + even_idx * X_STRIDE_D
         x_odd_off = x_even_off + X_STRIDE_D
-        y_even_off = (
-            batch_idx * Y_STRIDE_B
-            + seq_idx * Y_STRIDE_S
-            + head_idx * Y_STRIDE_H
-            + even_idx * Y_STRIDE_D
-        )
+        y_even_off = batch_idx * Y_STRIDE_B + seq_idx * Y_STRIDE_S + head_idx * Y_STRIDE_H + even_idx * Y_STRIDE_D
         y_odd_off = y_even_off + Y_STRIDE_D
 
         is_base = seq_idx < BASE_SEQ_LEN
         is_action = (seq_idx >= BASE_SEQ_LEN) & (seq_idx < BASE_SEQ_LEN + ACTION_LEN)
         is_state = (
-            (STATE_LEN > 0)
-            & (seq_idx >= BASE_SEQ_LEN + ACTION_LEN)
-            & (seq_idx < BASE_SEQ_LEN + ACTION_LEN + STATE_LEN)
+            (STATE_LEN > 0) & (seq_idx >= BASE_SEQ_LEN + ACTION_LEN) & (seq_idx < BASE_SEQ_LEN + ACTION_LEN + STATE_LEN)
         )
         action_seq = ACTION_OFFSET + seq_idx - BASE_SEQ_LEN
         state_seq = STATE_OFFSET + seq_idx - BASE_SEQ_LEN - ACTION_LEN
@@ -282,12 +270,7 @@ def _rope_apply_polar_fused(
     use_fp64: bool = False,
 ) -> torch.Tensor | None:
     """Attempt the fused Triton RoPE path; return None to fall back to the polar path."""
-    if (
-        triton is None
-        or not enabled
-        or not x.is_cuda
-        or x.shape[-1] % 2 != 0
-    ):
+    if triton is None or not enabled or not x.is_cuda or x.shape[-1] % 2 != 0:
         return None
     base_views = _as_fused_freq_views(freqs)
     if base_views is None:
@@ -356,8 +339,7 @@ def rope_params_polar(max_seq_len: int, dim: int, theta: float = 10000) -> torch
     assert dim % 2 == 0
     freqs = torch.outer(
         torch.arange(max_seq_len),
-        1.0
-        / torch.pow(theta, torch.arange(0, dim, 2).to(torch.float64).div(dim)),
+        1.0 / torch.pow(theta, torch.arange(0, dim, 2).to(torch.float64).div(dim)),
     )
     freqs = torch.polar(torch.ones_like(freqs), freqs)
     return freqs
@@ -391,9 +373,7 @@ def rope_apply_polar(x: torch.Tensor, freqs: torch.Tensor) -> torch.Tensor:
     B, seq_len, n, _ = x.shape
 
     # precompute multipliers
-    x = torch.view_as_complex(
-        x.to(torch.float64).reshape(B, seq_len, n, -1, 2)
-    )
+    x = torch.view_as_complex(x.to(torch.float64).reshape(B, seq_len, n, -1, 2))
 
     # apply rotary embedding
     freqs = freqs.unsqueeze(0)
@@ -425,9 +405,7 @@ def rope_action_apply(
     if action_register_length is not None:
         assert num_action_per_block is not None
         assert num_state_per_block is not None
-        chunk_size = action_register_length // (
-            num_action_per_block + num_state_per_block
-        )
+        chunk_size = action_register_length // (num_action_per_block + num_state_per_block)
         action_len = chunk_size * num_action_per_block
         state_len = chunk_size * num_state_per_block
     fused = _rope_apply_polar_fused(
@@ -466,17 +444,13 @@ def rope_action_apply_polar(
     B, seq_len, n, _ = x.shape
 
     # precompute multipliers
-    x = torch.view_as_complex(
-        x.to(torch.float64).reshape(B, seq_len, n, -1, 2)
-    )
+    x = torch.view_as_complex(x.to(torch.float64).reshape(B, seq_len, n, -1, 2))
 
     if action_register_length is not None:
         assert num_action_per_block is not None
         assert num_state_per_block is not None
 
-        chunk_size = action_register_length // (
-            num_action_per_block + num_state_per_block
-        )
+        chunk_size = action_register_length // (num_action_per_block + num_state_per_block)
 
         freqs_1d_action = _reshape_register_freqs_like(
             freqs_action[: chunk_size * num_action_per_block],
@@ -565,25 +539,17 @@ def causal_rope_action_apply_polar(
     B, seq_len, n, _ = x.shape
 
     # precompute multipliers
-    x = torch.view_as_complex(
-        x.to(torch.float64).reshape(B, seq_len, n, -1, 2)
-    )
+    x = torch.view_as_complex(x.to(torch.float64).reshape(B, seq_len, n, -1, 2))
 
     if action_register_length is not None:
         assert action_register_length == (num_action_per_block + num_state_per_block)
         freqs_action = freqs_action[
-            action_state_index
-            * num_action_per_block : (action_state_index + 1)
-            * num_action_per_block
+            action_state_index * num_action_per_block : (action_state_index + 1) * num_action_per_block
         ]
         freqs_state = freqs_state[
-            action_state_index
-            * num_state_per_block : (action_state_index + 1)
-            * num_state_per_block
+            action_state_index * num_state_per_block : (action_state_index + 1) * num_state_per_block
         ]
-        freqs_1d = torch.cat([freqs_action, freqs_state], dim=0).view(
-            action_register_length, 1, -1
-        )
+        freqs_1d = torch.cat([freqs_action, freqs_state], dim=0).view(action_register_length, 1, -1)
         freqs = torch.cat([freqs, freqs_1d], dim=0)
 
     # apply rotary embedding

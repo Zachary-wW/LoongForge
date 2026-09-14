@@ -13,7 +13,7 @@ from megatron.core.transformer.moe.moe_utils import (
     apply_router_token_dropping,
     compute_routing_scores_for_aux_loss,
     group_limited_topk,
-    apply_random_logits
+    apply_random_logits,
 )
 
 try:
@@ -21,6 +21,7 @@ try:
     from megatron.core.extensions.transformer_engine import (
         fused_topk_with_score_function,
     )
+
     HAVE_TE = True
 except ImportError:
     from unittest.mock import MagicMock
@@ -62,9 +63,7 @@ def topk_routing_with_score_function(
     num_tokens, num_experts = logits.shape
     if fused:
         if not HAVE_TE or fused_topk_with_score_function is None:
-            raise ValueError(
-                "fused_topk_with_score_function is not available. Please install TE >= 2.6.0."
-            )
+            raise ValueError("fused_topk_with_score_function is not available. Please install TE >= 2.6.0.")
         return fused_topk_with_score_function(
             logits=logits,
             topk=topk,
@@ -117,7 +116,7 @@ def topk_routing_with_score_function(
     if scaling_factor:
         probs = probs * scaling_factor
 
-    #note: added normalization at here
+    # note: added normalization at here
     probs = probs / torch.clip(probs.sum(-1, keepdim=True), min=1e-12)
 
     if torch.are_deterministic_algorithms_enabled():
@@ -127,9 +126,7 @@ def topk_routing_with_score_function(
         routing_probs.index_put_((rows, top_indices), probs, accumulate=False)
 
         routing_map = torch.zeros_like(logits, dtype=logits.dtype)
-        routing_map.index_put_(
-            (rows, top_indices), torch.ones_like(probs, dtype=routing_map.dtype), accumulate=False
-        )
+        routing_map.index_put_((rows, top_indices), torch.ones_like(probs, dtype=routing_map.dtype), accumulate=False)
         routing_map = routing_map.bool()
     else:
         # TODO Try using element-wise operations instead of scatter?
@@ -154,6 +151,7 @@ class TopKRouter(MegatronTopKRouter):
         probs: The topk weights used to combined the experts' outputs.
         routing_map: The masked routing map between tokens and experts.
     """
+
     def gating(self, input: torch.Tensor):
         """Forward pass of the router gate.
 
@@ -163,14 +161,14 @@ class TopKRouter(MegatronTopKRouter):
         Returns:
             torch.Tensor: Logits tensor.
         """
-        if self.weight.device.type == 'cpu':
+        if self.weight.device.type == "cpu":
             # move weights to GPU
             self.weight.data = self.weight.data.to(device=torch.cuda.current_device())
         # Convert to specified datatype for routing computation if enabled
         router_dtype = input.dtype
-        if self.config.moe_router_dtype == 'fp32':
+        if self.config.moe_router_dtype == "fp32":
             router_dtype = torch.float32
-        elif self.config.moe_router_dtype == 'fp64':
+        elif self.config.moe_router_dtype == "fp64":
             router_dtype = torch.float64
         logits = torch.nn.functional.linear(input.to(router_dtype), self.weight.to(router_dtype))
         return logits
@@ -226,12 +224,8 @@ class TopKRouter(MegatronTopKRouter):
                 logits, self.topk, self.score_function, fused=self.config.moe_router_fusion
             )
             probs = self._apply_aux_loss(probs, scores_for_aux_loss, routing_map_for_aux_loss)
-            probs = self._apply_seq_aux_loss(
-                probs, scores_for_aux_loss, routing_map_for_aux_loss, seq_length, bsz
-            )
-            probs = self._apply_global_aux_loss(
-                probs, scores_for_aux_loss, routing_map_for_aux_loss
-            )
+            probs = self._apply_seq_aux_loss(probs, scores_for_aux_loss, routing_map_for_aux_loss, seq_length, bsz)
+            probs = self._apply_global_aux_loss(probs, scores_for_aux_loss, routing_map_for_aux_loss)
 
         # Update expert bias and tokens_per_expert
         # Prevent extra local tokens accumulation on evaluation or activation recomputation

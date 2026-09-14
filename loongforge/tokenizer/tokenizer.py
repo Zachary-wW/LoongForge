@@ -18,12 +18,10 @@ if TYPE_CHECKING:
     from loongforge.data import ChatTemplate
 
 
-def _update_tokenizer_with_template(
-    args, tokenizer: AutoTokenizerFromHF, chat_template: "ChatTemplate"
-):
+def _update_tokenizer_with_template(args, tokenizer: AutoTokenizerFromHF, chat_template: "ChatTemplate"):
     """
     Update tokenizer with chat template.
-    
+
     Adapted from https://github.com/hiyouga/LlamaFactory/blob/v0.8.3/src/llamafactory/data/template.py#L341
     """
     stop_words = chat_template.stop_words
@@ -70,22 +68,17 @@ def _update_tokenizer_with_template(
             replace_additional_special_tokens=False,
         )
         print_rank_0(
-            f"WARNING: add stop tokens ({','.join(stop_words)}) to tokenizer, "
-            f" and will add {num_added} new tokens",
+            f"WARNING: add stop tokens ({','.join(stop_words)}) to tokenizer,  and will add {num_added} new tokens",
             args.rank,
         )
 
 
-def build_tokenizer(
-    args, chat_template: Optional["ChatTemplate"] = None
-) -> Optional[MegatronLegacyTokenizer]:
+def build_tokenizer(args, chat_template: Optional["ChatTemplate"] = None) -> Optional[MegatronLegacyTokenizer]:
     """Build tokenizer and chat template if needed."""
     if args.tokenizer_type == "HFTokenizer":
         print_rank_0(f"> Loongforge building {args.tokenizer_type} tokenizer ...", args.rank)
 
-        assert (
-            args.hf_tokenizer_path is not None
-        ), "HFTokenizer requires a tokenizer name or path."
+        assert args.hf_tokenizer_path is not None, "HFTokenizer requires a tokenizer name or path."
 
         tokenizer = AutoTokenizerFromHF(
             name_or_path=args.hf_tokenizer_path,
@@ -101,8 +94,7 @@ def build_tokenizer(
                 replace_additional_special_tokens=False,
             )
             print_rank_0(
-                f"INFO: Added {added_tokens} additional special tokens, "
-                f"include {args.additional_special_tokens}.",
+                f"INFO: Added {added_tokens} additional special tokens, include {args.additional_special_tokens}.",
                 args.rank,
             )
 

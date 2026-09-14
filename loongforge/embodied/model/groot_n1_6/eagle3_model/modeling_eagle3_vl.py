@@ -32,6 +32,7 @@ from collections import defaultdict
 import torch
 import torch.nn.functional as F
 import torch.utils.checkpoint as cp
+
 try:
     from peft import LoraConfig, get_peft_model
 except ImportError:
@@ -108,7 +109,7 @@ def _flash_attention_mask_no_sync(
     and always return the sliced mask (FA2 handles the mask correctly either way).
     """
     if attention_mask is not None:
-        attention_mask = attention_mask[:, kv_offset:kv_offset + kv_length]
+        attention_mask = attention_mask[:, kv_offset : kv_offset + kv_length]
     return attention_mask
 
 
@@ -167,8 +168,7 @@ def _graph_safe_unpad_and_attend(
     num_q_heads = query_states.shape[2]
 
     # Get pre-allocated buffers (created during warmup, reused during capture)
-    bufs = _get_fa2_buffers(batch_size, kv_seq_len, num_q_heads, num_kv_heads, head_dim,
-                            query_states.dtype, device)
+    bufs = _get_fa2_buffers(batch_size, kv_seq_len, num_q_heads, num_kv_heads, head_dim, query_states.dtype, device)
     seq_ids = bufs["seq_ids"]
     pos_in_seq = bufs["pos_in_seq"]
     sort_key = bufs["sort_key"]
@@ -241,10 +241,10 @@ def _is_graph_mode_active() -> bool:
         from loongforge.embodied.train.global_vars import get_training_args
 
         training_args = get_training_args()
-        if (
-            training_args.cuda_graph_impl == "local"
-            and training_args.cuda_graph_scope in {"full_iteration", "per_microbatch"}
-        ):
+        if training_args.cuda_graph_impl == "local" and training_args.cuda_graph_scope in {
+            "full_iteration",
+            "per_microbatch",
+        }:
             return True
     except (ImportError, RuntimeError, AssertionError):
         pass
@@ -360,6 +360,7 @@ def _install_graph_safe_fa2_patch():
     fa_utils._flash_attention_forward = _patched_flash_attention_forward
     # Also patch the local reference in flash_attention.py (imported at module load time)
     import transformers.integrations.flash_attention as flash_attn_integration
+
     flash_attn_integration._flash_attention_forward = _patched_flash_attention_forward
 
 
@@ -450,6 +451,7 @@ class Eagle3VlForConditionalGeneration(Eagle3VlPreTrainedModel, GenerationMixin)
             self.language_model = LlamaForCausalLM(config.text_config)
         elif text_arch == "Phi3ForCausalLM":
             from transformers.models.phi3.modeling_phi3 import Phi3ForCausalLM
+
             self.language_model = Phi3ForCausalLM(config.text_config)
         elif text_arch == "Qwen2ForCausalLM":
             attn_impl = _config_attention_impl(config.text_config)
@@ -583,9 +585,7 @@ class Eagle3VlForConditionalGeneration(Eagle3VlPreTrainedModel, GenerationMixin)
                 num_img_tokens = int(selected.sum())
                 if num_img_tokens != vit_embeds.shape[0]:
                     vit_embeds = vit_embeds[:num_img_tokens]
-            input_embeds.masked_scatter_(
-                selected.unsqueeze(-1).expand_as(input_embeds), vit_embeds
-            )
+            input_embeds.masked_scatter_(selected.unsqueeze(-1).expand_as(input_embeds), vit_embeds)
         else:
             # Keep eager training identical to LeRobot, including the backward path.
             try:
@@ -662,10 +662,7 @@ class Eagle3VlForConditionalGeneration(Eagle3VlPreTrainedModel, GenerationMixin)
         slices = torch.split(vit_embeds.view(-1, C), lengths, dim=0)
 
         # Convert to [C, H, W]
-        features = [
-            sl.transpose(0, 1).reshape(C, h, w) 
-            for sl, (h, w) in zip(slices, shapes, strict=True)
-        ]
+        features = [sl.transpose(0, 1).reshape(C, h, w) for sl, (h, w) in zip(slices, shapes, strict=True)]
 
         # Group by scale and batch unshuffle
         down_feats = [None] * len(features)
@@ -677,9 +674,7 @@ class Eagle3VlForConditionalGeneration(Eagle3VlPreTrainedModel, GenerationMixin)
             # Stack features of same scale
             grp = torch.stack([features[i] for i in idxs], dim=0)
             # Pixel Unshuffle at once
-            out = F.pixel_unshuffle(
-                grp, downscale_factor=int(1 / self.downsample_ratio)
-            )
+            out = F.pixel_unshuffle(grp, downscale_factor=int(1 / self.downsample_ratio))
             out = out.flatten(start_dim=2).transpose(1, 2)
             # Split back to respective positions
             for i, feat in zip(idxs, out, strict=True):
@@ -853,6 +848,8 @@ class Eagle3VlForConditionalGeneration(Eagle3VlPreTrainedModel, GenerationMixin)
     def get_decoder(self):
         """Get decoder."""
         return self.language_model.get_decoder()
+
+
 # =============================================================================
 # Model Loading Helpers
 # =============================================================================
@@ -958,9 +955,7 @@ def load_eagle_model(
             print(f"Created Eagle3 model from repo config class: {eagle_path}")
             return model
         except Exception as e:
-            raise RuntimeError(
-                f"Failed to create custom Eagle model from local config at {eagle_path}."
-            ) from e
+            raise RuntimeError(f"Failed to create custom Eagle model from local config at {eagle_path}.") from e
 
     # For other models, try the standard loading approach
     local_model_path = resolve_eagle_local_path(config.model_name, current_file)
@@ -984,20 +979,15 @@ def load_eagle_model(
             print(f"Created Eagle model from hub config: {config.model_name}")
             return model
         except Exception as e:
-            raise RuntimeError(
-                f"Failed to load Eagle model from HF Hub for '{config.model_name}'."
-            ) from e
+            raise RuntimeError(f"Failed to load Eagle model from HF Hub for '{config.model_name}'.") from e
 
-    has_model_files = (
-        os.path.exists(os.path.join(local_model_path, "config.json"))
-        and (
-            os.path.exists(os.path.join(local_model_path, "model.safetensors"))
-            or os.path.exists(os.path.join(local_model_path, "pytorch_model.bin"))
-            or any(
-                file_name.startswith("model-")
-                for file_name in os.listdir(local_model_path)
-                if file_name.endswith(".safetensors") or file_name.endswith(".bin")
-            )
+    has_model_files = os.path.exists(os.path.join(local_model_path, "config.json")) and (
+        os.path.exists(os.path.join(local_model_path, "model.safetensors"))
+        or os.path.exists(os.path.join(local_model_path, "pytorch_model.bin"))
+        or any(
+            file_name.startswith("model-")
+            for file_name in os.listdir(local_model_path)
+            if file_name.endswith(".safetensors") or file_name.endswith(".bin")
         )
     )
 
@@ -1041,6 +1031,4 @@ def load_eagle_model(
             print(f"Loaded Eagle from local config (no weights): {local_model_path}")
             return model
         except Exception as e:
-            raise RuntimeError(
-                f"Failed to build Eagle model from local config path: {local_model_path}"
-            ) from e
+            raise RuntimeError(f"Failed to build Eagle model from local config path: {local_model_path}") from e

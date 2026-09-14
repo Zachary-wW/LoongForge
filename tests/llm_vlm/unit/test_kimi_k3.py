@@ -42,13 +42,8 @@ def test_situ_matches_closed_form():
     inputs = torch.randn(2, 4, 16, dtype=torch.float32)
     config = SimpleNamespace(activation_situ_beta=2.0, activation_situ_linear_beta=7.0)
     gate, linear = torch.chunk(inputs, 2, dim=-1)
-    expected = (
-        config.activation_situ_beta
-        * torch.tanh(gate / config.activation_situ_beta)
-        * torch.sigmoid(gate)
-    ) * (
-        config.activation_situ_linear_beta
-        * torch.tanh(linear / config.activation_situ_linear_beta)
+    expected = (config.activation_situ_beta * torch.tanh(gate / config.activation_situ_beta) * torch.sigmoid(gate)) * (
+        config.activation_situ_linear_beta * torch.tanh(linear / config.activation_situ_linear_beta)
     )
     torch.testing.assert_close(
         situ_and_mul(inputs, config.activation_situ_beta, config.activation_situ_linear_beta),

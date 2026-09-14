@@ -49,9 +49,7 @@ def _synthetic_context() -> dict:
         "episode_id": "ep0",
         "episode_step": 0,
         "ee_pos": np.array([0.5, -0.3, 0.4], dtype=np.float32),
-        "ee_ori_mat": np.array(
-            [[0.9, 0.1, 0.1], [0.1, 0.9, 0.1], [0.1, 0.1, 0.9]], dtype=np.float32
-        ),
+        "ee_ori_mat": np.array([[0.9, 0.1, 0.1], [0.1, 0.9, 0.1], [0.1, 0.1, 0.9]], dtype=np.float32),
     }
 
 
@@ -72,8 +70,7 @@ def test_registry_keys_are_consistent():
     factory_keys = set(MODEL_FACTORY_REGISTRY)
     builder_keys = set(PAYLOAD_BUILDER_REGISTRY)
     assert factory_keys == builder_keys, (
-        f"factory - builder = {factory_keys - builder_keys}; "
-        f"builder - factory = {builder_keys - factory_keys}"
+        f"factory - builder = {factory_keys - builder_keys}; builder - factory = {builder_keys - factory_keys}"
     )
 
 
@@ -113,9 +110,7 @@ def test_xvla_payload_builder_ee6d_shape_and_layout():
     np.testing.assert_allclose(state[:3], np.array([0.5, -0.3, 0.4]), atol=1e-6)
     # rot6d = concat of first two columns of the synthetic ee_ori_mat
     # [[0.9,0.1,0.1],[0.1,0.9,0.1],[0.1,0.1,0.9]] → [0.9,0.1,0.1, 0.1,0.9,0.1]
-    np.testing.assert_allclose(
-        state[3:9], np.array([0.9, 0.1, 0.1, 0.1, 0.9, 0.1]), atol=1e-6
-    )
+    np.testing.assert_allclose(state[3:9], np.array([0.9, 0.1, 0.1, 0.1, 0.9, 0.1]), atol=1e-6)
     # Gripper is forced to 0.0 in ee6d (matches X-VLA LIBERO client).
     assert float(state[9]) == 0.0
     # Padding zeros.
@@ -169,7 +164,7 @@ def test_yaml_override_respects_type_annotation_whitelist():
     pb = build_payload_builder(
         "xvla",
         yaml_model={
-            "state_encoding": "ee6d",   # annotated → override
+            "state_encoding": "ee6d",  # annotated → override
             "unnorm_key": "custom_key",  # unannotated → goes to _yaml_model, not attr
             "not_a_real_field": "junk",
         },
@@ -211,9 +206,7 @@ def test_xvla_ee6d_calvin_stateful_backfill():
     from loongforge.embodied.eval.adapters.calvin import CalvinAdapter
 
     adapter = CalvinAdapter()
-    robot_obs = np.array(
-        [0.0] * 3 + [0.0, 0.0, 0.0] + [0.0] * 8 + [1.0], dtype=np.float32
-    )
+    robot_obs = np.array([0.0] * 3 + [0.0, 0.0, 0.0] + [0.0] * 8 + [1.0], dtype=np.float32)
     env_obs = {
         "rgb_obs": {
             "rgb_static": np.zeros((256, 256, 3), dtype=np.uint8),
@@ -221,12 +214,8 @@ def test_xvla_ee6d_calvin_stateful_backfill():
         },
         "robot_obs": robot_obs,
     }
-    canonical = adapter.obs_to_canonical(
-        env_obs, {"instruction": "", "episode_id": "ep", "episode_step": 0}
-    )
-    pb = build_payload_builder(
-        "xvla", yaml_model={"state_encoding": "ee6d_calvin", "domain_id": 2}
-    )
+    canonical = adapter.obs_to_canonical(env_obs, {"instruction": "", "episode_id": "ep", "episode_step": 0})
+    pb = build_payload_builder("xvla", yaml_model={"state_encoding": "ee6d_calvin", "domain_id": 2})
     pb.reset("ep")
     kwargs1 = pb.build(canonical, {"benchmark_name": "calvin"})
     # First build uses initial ee6d_calvin from robot_obs.
@@ -253,10 +242,12 @@ def test_xvla_ee6d_widowx_initial_shape():
 
     # Base pose identity, TCP pose at (0.1, 0.2, 0.3) with identity rotation
     # → ee_pos_wrt_base = tcp_pos.
-    encoded = _encode_ee6d_widowx_initial({
-        "base_pose": np.array([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0], dtype=np.float32),
-        "tcp_pose": np.array([0.1, 0.2, 0.3, 1.0, 0.0, 0.0, 0.0], dtype=np.float32),
-    })
+    encoded = _encode_ee6d_widowx_initial(
+        {
+            "base_pose": np.array([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0], dtype=np.float32),
+            "tcp_pose": np.array([0.1, 0.2, 0.3, 1.0, 0.0, 0.0, 0.0], dtype=np.float32),
+        }
+    )
     assert encoded is not None
     assert encoded.shape == (20,)
     np.testing.assert_allclose(encoded[:3], np.array([0.1, 0.2, 0.3]), atol=1e-6)
@@ -272,15 +263,11 @@ def test_maniskill_pi05_passthrough_reads_joint_from_state_raw():
     env_obs = {
         "image": {"base_camera": {"rgb": np.zeros((224, 224, 3), dtype=np.uint8)}},
         "agent": {
-            "qpos": np.array(
-                [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.04, 0.05], dtype=np.float32
-            ),
+            "qpos": np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.04, 0.05], dtype=np.float32),
             "qvel": np.zeros(9, dtype=np.float32),
         },
     }
-    canonical = adapter.obs_to_canonical(
-        env_obs, {"instruction": "pick up", "episode_id": "ep", "episode_step": 0}
-    )
+    canonical = adapter.obs_to_canonical(env_obs, {"instruction": "pick up", "episode_id": "ep", "episode_step": 0})
     pb = build_payload_builder("pi05", yaml_model={"state_encoding": "passthrough"})
     kwargs = pb.build(canonical, {"benchmark_name": "maniskill"})
     assert kwargs["state"].shape == (8,)
@@ -329,8 +316,13 @@ def test_xvla_ee6d_dual_proprio_shape_and_backfill():
     endpose = _robotwin_endpose()
     canonical = {
         "instruction": "adjust bottle",
-        "images": {"primary": np.zeros((10, 10, 3), np.uint8), "left": np.zeros((10, 10, 3), np.uint8),
-                   "right": np.zeros((10, 10, 3), np.uint8), "head": np.zeros((10, 10, 3), np.uint8), "wrist": None},
+        "images": {
+            "primary": np.zeros((10, 10, 3), np.uint8),
+            "left": np.zeros((10, 10, 3), np.uint8),
+            "right": np.zeros((10, 10, 3), np.uint8),
+            "head": np.zeros((10, 10, 3), np.uint8),
+            "wrist": None,
+        },
         "state_raw": {"joint": np.zeros(14, np.float32), "endpose": endpose},
     }
     pb = build_payload_builder("xvla", yaml_model={"state_encoding": "ee6d_dual", "domain_id": 6})
@@ -381,8 +373,13 @@ def test_pi05_aloha_proprio_and_decoder_chunk_cache():
     joint0 = np.linspace(-0.5, 0.5, 14).astype(np.float32)
     canonical = {
         "instruction": "adjust bottle",
-        "images": {"primary": np.zeros((10, 10, 3), np.uint8), "left": np.zeros((10, 10, 3), np.uint8),
-                   "right": np.zeros((10, 10, 3), np.uint8), "head": np.zeros((10, 10, 3), np.uint8), "wrist": None},
+        "images": {
+            "primary": np.zeros((10, 10, 3), np.uint8),
+            "left": np.zeros((10, 10, 3), np.uint8),
+            "right": np.zeros((10, 10, 3), np.uint8),
+            "head": np.zeros((10, 10, 3), np.uint8),
+            "wrist": None,
+        },
         "state_raw": {"joint": joint0, "endpose": None},
     }
     pb = build_payload_builder("pi05", yaml_model={"state_encoding": "aloha_pi"})
@@ -395,15 +392,11 @@ def test_pi05_aloha_proprio_and_decoder_chunk_cache():
     # Fresh chunk: anchor = adapt_to_pi(joint0). Chunk-based [1, 14] -> [1, 14].
     pi_state0 = adapt_to_pi_decode_state(joint0)
     env0 = decoder(raw.reshape(1, -1), {"pi_state": pi_state0, "is_fresh_chunk": True})[0]
-    expected0 = adapt_to_pi_encode_actions(
-        delta_to_absolute_actions(raw, adapt_to_pi_decode_state(joint0))
-    )
+    expected0 = adapt_to_pi_encode_actions(delta_to_absolute_actions(raw, adapt_to_pi_decode_state(joint0)))
     assert np.allclose(env0, expected0, atol=1e-6)
     # Cache hit with a *different* pi_state: anchor must stay at the fresh-chunk state.
     joint1 = joint0 + 0.2
     pi_state1 = adapt_to_pi_decode_state(joint1)
     env1 = decoder(raw.reshape(1, -1), {"pi_state": pi_state1, "is_fresh_chunk": False})[0]
-    expected1 = adapt_to_pi_encode_actions(
-        delta_to_absolute_actions(raw, adapt_to_pi_decode_state(joint0))
-    )
+    expected1 = adapt_to_pi_encode_actions(delta_to_absolute_actions(raw, adapt_to_pi_decode_state(joint0)))
     assert np.allclose(env1, expected1, atol=1e-6)

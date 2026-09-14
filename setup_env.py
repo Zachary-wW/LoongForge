@@ -7,6 +7,7 @@ This script handles cloning, patching, and building TransformerEngine.
 For Megatron-LM, use: git clone --recurse-submodules
 For LoongForge itself, use: uv pip install -e ".[gpu]"
 """
+
 import os
 import subprocess
 import sys
@@ -28,12 +29,9 @@ def run_command(command, cwd=None, shell=True, check=True, env=None):
 
 def main():
     """main process"""
-    parser = argparse.ArgumentParser(
-        description="Setup TransformerEngine for LoongForge.")
-    parser.add_argument("--te-tag", required=True,
-                        help="Tag for TransformerEngine (e.g., v2.9)")
-    parser.add_argument("--workspace", default=os.getcwd(),
-                        help="Workspace root directory")
+    parser = argparse.ArgumentParser(description="Setup TransformerEngine for LoongForge.")
+    parser.add_argument("--te-tag", required=True, help="Tag for TransformerEngine (e.g., v2.9)")
+    parser.add_argument("--workspace", default=os.getcwd(), help="Workspace root directory")
 
     args = parser.parse_args()
 
@@ -54,8 +52,7 @@ def main():
     # 1. Clone TransformerEngine from upstream
     print("\n[1/3] Setting up TransformerEngine...")
     if not os.path.exists(te_path):
-        run_command(
-            f"git clone https://github.com/NVIDIA/TransformerEngine.git {te_path}")
+        run_command(f"git clone https://github.com/NVIDIA/TransformerEngine.git {te_path}")
     else:
         print(f"TransformerEngine already exists at {te_path}")
 

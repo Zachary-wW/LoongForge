@@ -23,11 +23,7 @@ def build_dreamzero_registered_sampler(context: SamplerBuilderContext):
     from .builder import build_dreamzero_sampler
 
     base_dataset = context.dataset._dreamzero_base_dataset
-    sampler_seed = (
-        context.seed
-        if data_cfg.sampler_seed is None
-        else int(data_cfg.sampler_seed)
-    )
+    sampler_seed = context.seed if data_cfg.sampler_seed is None else int(data_cfg.sampler_seed)
     sampler, _ = build_dreamzero_sampler(
         train_dataset=context.dataset,
         base_dataset=base_dataset,

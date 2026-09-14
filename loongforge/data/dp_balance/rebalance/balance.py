@@ -74,11 +74,7 @@ class _MicroBatchLoadTracker:
         """Get accumulated costs, auto-resetting on new iteration."""
         args = get_args()
         iteration = args.curr_iteration
-        if (
-            self._iteration != iteration
-            or self._dp_costs is None
-            or len(self._dp_costs) != dp_size
-        ):
+        if self._iteration != iteration or self._dp_costs is None or len(self._dp_costs) != dp_size:
             self._dp_costs = [0.0] * dp_size
             self._iteration = iteration
         return list(self._dp_costs)
@@ -108,8 +104,7 @@ class _MicroBatchLoadTracker:
         vit_total = self._vit_skip + self._vit_apply
         vlm_total = self._dp_skip + self._dp_apply
         return (
-            f"ViT_rebalance: {self._vit_apply}/{vit_total} applied, "
-            f"VLM_rebalance: {self._dp_apply}/{vlm_total} applied"
+            f"ViT_rebalance: {self._vit_apply}/{vit_total} applied, VLM_rebalance: {self._dp_apply}/{vlm_total} applied"
         )
 
 
@@ -185,9 +180,7 @@ def gather_sample_info_across_dp(local_seq_lengths: torch.Tensor):
     dp_group = get_dp_group_by_device(local_seq_lengths)
     dp_size = dp_group.size()
 
-    all_sample_count_list = [
-        torch.zeros_like(local_sample_num_tensor) for _ in range(dp_size)
-    ]
+    all_sample_count_list = [torch.zeros_like(local_sample_num_tensor) for _ in range(dp_size)]
 
     dist.all_gather(
         all_sample_count_list,
@@ -224,12 +217,8 @@ def gather_sample_info_across_dp(local_seq_lengths: torch.Tensor):
     # --------------------------------
     # Step 3: All-gather padded tensors (merged into single communication)
     # --------------------------------
-    padded_combined = torch.stack(
-        [padded_len.to(torch.int), padded_idx], dim=0
-    )  # [2, max_sample_num]
-    gathered_combined = [
-        torch.zeros_like(padded_combined) for _ in range(dp_size)
-    ]
+    padded_combined = torch.stack([padded_len.to(torch.int), padded_idx], dim=0)  # [2, max_sample_num]
+    gathered_combined = [torch.zeros_like(padded_combined) for _ in range(dp_size)]
 
     dist.all_gather(gathered_combined, padded_combined, group=dp_group)
 
@@ -338,9 +327,7 @@ def solve_sample_dp_reorder_plan(
     items = []
     seq_lens = []
 
-    for sample_len, local_idx, src_rank in zip(
-        global_sample_lengths, local_sample_index, sample_src_dp_rank
-    ):
+    for sample_len, local_idx, src_rank in zip(global_sample_lengths, local_sample_index, sample_src_dp_rank):
         seq_len = int(sample_len)
         cost = float(cost_fn(float(sample_len)))
         items.append((cost, seq_len, int(local_idx), int(src_rank)))
@@ -353,15 +340,10 @@ def solve_sample_dp_reorder_plan(
 
     # Total load including history from previous micro-batches
     has_history = (
-        cross_micro_batch_balance
-        and dp_historical_costs is not None
-        and any(c > 0 for c in dp_historical_costs)
+        cross_micro_batch_balance and dp_historical_costs is not None and any(c > 0 for c in dp_historical_costs)
     )
     if has_history:
-        total_load_per_dp = [
-            dp_historical_costs[i] + current_load_per_dp[i]
-            for i in range(dp_size)
-        ]
+        total_load_per_dp = [dp_historical_costs[i] + current_load_per_dp[i] for i in range(dp_size)]
     else:
         total_load_per_dp = current_load_per_dp
 
@@ -370,7 +352,6 @@ def solve_sample_dp_reorder_plan(
     max_seq_load = max([item[0] for item in items])
 
     imbalance_ratio = (max_dp_load / dp_average_load) - 1 if dp_average_load > 0 else 0
-    
 
     tag = f"[DP Balance][{caller}] " if caller else "[DP Balance] "
 
@@ -387,10 +368,7 @@ def solve_sample_dp_reorder_plan(
     else:
         trigger_threshold = getattr(args, "dp_balance_trigger_threshold_vlm", 0.2)
 
-    if (
-        max_seq_load > dp_average_load
-        or imbalance_ratio < trigger_threshold
-    ):
+    if max_seq_load > dp_average_load or imbalance_ratio < trigger_threshold:
         _load_tracker.record_skip(caller)
         if verbose:
             skip_reason = (
@@ -463,9 +441,7 @@ def solve_sample_dp_reorder_plan(
         max_r = max(range(dp_size), key=lambda i: dp_costs[i])
         min_r = min(range(dp_size), key=lambda i: dp_costs[i])
 
-        if (dp_costs[max_r] - dp_costs[min_r]) / max(
-            dp_costs[min_r], 1e-6
-        ) < swap_tolerance:
+        if (dp_costs[max_r] - dp_costs[min_r]) / max(dp_costs[min_r], 1e-6) < swap_tolerance:
             break
 
         max_bucket = dp_buckets[max_r]
@@ -495,8 +471,7 @@ def solve_sample_dp_reorder_plan(
 
         # ---- swap
         swap_ok = (not use_pack_constraint) or (
-            dp_pack_lens[max_r] - len_a + len_b <= pack_cap
-            and dp_pack_lens[min_r] - len_b + len_a <= pack_cap
+            dp_pack_lens[max_r] - len_a + len_b <= pack_cap and dp_pack_lens[min_r] - len_b + len_a <= pack_cap
         )
 
         if swap_ok:
@@ -552,10 +527,7 @@ def solve_sample_dp_reorder_plan(
             f"  cumulative: {_load_tracker.get_stats_str()}"
         )
 
-    plan = [
-        [(local_idx, src_rank) for (_, _, local_idx, src_rank) in bucket]
-        for bucket in dp_buckets
-    ]
+    plan = [[(local_idx, src_rank) for (_, _, local_idx, src_rank) in bucket] for bucket in dp_buckets]
     return plan, micro_batch_dp_costs
 
 
@@ -582,14 +554,10 @@ def get_reverse_reorder_plan(dp_reorder_plan, dp_size):
     reverse_plan = [{} for _ in range(dp_size)]
 
     for tgt_dp_rank in range(len(dp_reorder_plan)):
-        for new_idx, (local_idx, src_dp_rank) in enumerate(
-            dp_reorder_plan[tgt_dp_rank]
-        ):
+        for new_idx, (local_idx, src_dp_rank) in enumerate(dp_reorder_plan[tgt_dp_rank]):
             reverse_plan[src_dp_rank][local_idx] = (new_idx, tgt_dp_rank)
 
-    result = [
-        [v for k, v in sorted(d.items(), key=lambda x: x[0])] for d in reverse_plan
-    ]
+    result = [[v for k, v in sorted(d.items(), key=lambda x: x[0])] for d in reverse_plan]
 
     return result
 
@@ -674,9 +642,7 @@ def redistribute_tensor_helper(
                 recv_tensor_lengths[src_dp_rank].append(tmp_length)
 
     # Flatten all tensors to be sent
-    send_tensor = torch.cat(
-        [t.reshape(-1) for row in tensors_to_send for t in row], dim=0
-    )
+    send_tensor = torch.cat([t.reshape(-1) for row in tensors_to_send for t in row], dim=0)
 
     # Allocate receive buffer
     recv_tensor = torch.zeros(
@@ -705,10 +671,7 @@ def redistribute_tensor_helper(
         send_list = list(send_tensor.split(send_splits))
         # Prepare output buffer as list
         recv_list = [
-            torch.empty(
-                recv_splits[i], dtype=send_tensor.dtype, device=send_tensor.device
-            )
-            for i in range(dp_size)
+            torch.empty(recv_splits[i], dtype=send_tensor.dtype, device=send_tensor.device) for i in range(dp_size)
         ]
         # Perform all-to-all communication with gradient support
         # all_to_all expects: all_to_all(output_list, input_list, group=group)
@@ -796,6 +759,7 @@ def reorder_data_for_internvl(data):
         Reordered data batch with samples redistributed across DP ranks.
     """
     from megatron.training import get_args
+
     args = get_args()
     local_sample_list = depack_data_for_intern_vl(data)
     local_pixel_values = []
@@ -852,31 +816,42 @@ def reorder_data_for_internvl(data):
         dtype=torch.int,
         device=local_input_ids[0].device,
     )
-    llm_global_lengths, llm_local_idx, llm_src_rank = (
-        gather_sample_info_across_dp(llm_lengths)
-    )
+    llm_global_lengths, llm_local_idx, llm_src_rank = gather_sample_info_across_dp(llm_lengths)
     redistributed_input_ids = redistribute_tensor_helper(
-        local_input_ids, dp_reorder_plan,
-        llm_global_lengths, llm_local_idx, llm_src_rank,
+        local_input_ids,
+        dp_reorder_plan,
+        llm_global_lengths,
+        llm_local_idx,
+        llm_src_rank,
         reconstruct_llm_for_internvl,
     )
     redistributed_labels = redistribute_tensor_helper(
-        local_labels, dp_reorder_plan,
-        llm_global_lengths, llm_local_idx, llm_src_rank,
+        local_labels,
+        dp_reorder_plan,
+        llm_global_lengths,
+        llm_local_idx,
+        llm_src_rank,
         reconstruct_llm_for_internvl,
     )
     redistributed_loss_weights = redistribute_tensor_helper(
-        local_loss_weights, dp_reorder_plan,
-        llm_global_lengths, llm_local_idx, llm_src_rank,
+        local_loss_weights,
+        dp_reorder_plan,
+        llm_global_lengths,
+        llm_local_idx,
+        llm_src_rank,
         reconstruct_llm_for_internvl,
     )
 
     # pixel_values and image_flags have different element counts, gather separately
     redistributed_pixel_values = redistribute_tensors(
-        local_pixel_values, dp_reorder_plan, reconstruct_pixel_values_for_internvl,
+        local_pixel_values,
+        dp_reorder_plan,
+        reconstruct_pixel_values_for_internvl,
     )
     redistributed_image_flags = redistribute_tensors(
-        local_image_flags, dp_reorder_plan, reconstruct_image_flags_for_internvl,
+        local_image_flags,
+        dp_reorder_plan,
+        reconstruct_image_flags_for_internvl,
     )
 
     redistributed_samples = []
@@ -977,9 +952,7 @@ def reorder_data_for_vlm(data):
             dtype=torch.int,
             device=tensor_list[0].device,
         )
-        global_lengths, local_idx, src_rank = gather_sample_info_across_dp(
-            local_lengths
-        )
+        global_lengths, local_idx, src_rank = gather_sample_info_across_dp(local_lengths)
         return redistribute_tensor_helper(
             tensor_list,
             dp_reorder_plan,
@@ -995,22 +968,29 @@ def reorder_data_for_vlm(data):
         dtype=torch.int,
         device=local_tokens[0].device,
     )
-    llm_global_lengths, llm_local_idx, llm_src_rank = (
-        gather_sample_info_across_dp(llm_lengths)
-    )
+    llm_global_lengths, llm_local_idx, llm_src_rank = gather_sample_info_across_dp(llm_lengths)
     redistributed_tokens = redistribute_tensor_helper(
-        local_tokens, dp_reorder_plan,
-        llm_global_lengths, llm_local_idx, llm_src_rank,
+        local_tokens,
+        dp_reorder_plan,
+        llm_global_lengths,
+        llm_local_idx,
+        llm_src_rank,
         reconstruct_llm_for_vlm,
     )
     redistributed_labels = redistribute_tensor_helper(
-        local_labels, dp_reorder_plan,
-        llm_global_lengths, llm_local_idx, llm_src_rank,
+        local_labels,
+        dp_reorder_plan,
+        llm_global_lengths,
+        llm_local_idx,
+        llm_src_rank,
         reconstruct_llm_for_vlm,
     )
     redistributed_attn_mask = redistribute_tensor_helper(
-        local_attn_mask, dp_reorder_plan,
-        llm_global_lengths, llm_local_idx, llm_src_rank,
+        local_attn_mask,
+        dp_reorder_plan,
+        llm_global_lengths,
+        llm_local_idx,
+        llm_src_rank,
         reconstruct_llm_for_vlm,
     )
 

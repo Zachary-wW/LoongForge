@@ -39,9 +39,7 @@ class InternVLDataSample(object):
         self.image_flags = image_flags
 
 
-def depack_data_for_intern_vl(
-    data: Dict[str, torch.Tensor]
-) -> List[InternVLDataSample]:
+def depack_data_for_intern_vl(data: Dict[str, torch.Tensor]) -> List[InternVLDataSample]:
     """
     De-pack a packed batch into a list of InternVLDataSample objects.
 
@@ -87,9 +85,7 @@ def depack_data_for_intern_vl(
 
     if filtered_image_flags:
         filtered_image_flags = torch.stack(filtered_image_flags, dim=0)
-        filtered_pixel_values = (
-            torch.stack(filtered_pixel_values, dim=0) if filtered_pixel_values else None
-        )
+        filtered_pixel_values = torch.stack(filtered_pixel_values, dim=0) if filtered_pixel_values else None
     else:
         filtered_image_flags = None
         filtered_pixel_values = None
@@ -98,9 +94,7 @@ def depack_data_for_intern_vl(
     # 2) Slice packed tensors into per-sample segments
     # ------------------------------------------------
     img_size = get_args().force_image_size
-    img_context_token_id = get_tokenizer().tokenizer.convert_tokens_to_ids(
-        IMG_CONTEXT_TOKEN
-    )
+    img_context_token_id = get_tokenizer().tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN)
 
     for j in range(len(attention_mask) - 1):
         start_idx = int(attention_mask[j].item())
@@ -187,17 +181,11 @@ def pack_data_for_intern_vl(
     pixel_values = torch.cat(pixel_values_list, dim=0) if pixel_values_list else None
     image_flags = torch.cat(image_flags_list, dim=0) if image_flags_list else None
 
-    input_ids = (
-        torch.cat(input_ids_list, dim=1) if input_ids_list else torch.empty((0, 0))
-    )
+    input_ids = torch.cat(input_ids_list, dim=1) if input_ids_list else torch.empty((0, 0))
 
     labels = torch.cat(labels_list, dim=1) if labels_list else torch.empty((0, 0))
 
-    loss_weights = (
-        torch.cat(loss_weights_list, dim=1)
-        if loss_weights_list
-        else torch.empty((0, 0))
-    )
+    loss_weights = torch.cat(loss_weights_list, dim=1) if loss_weights_list else torch.empty((0, 0))
 
     position_ids = torch.tensor(
         position_ids,
@@ -263,9 +251,7 @@ def depack_data_for_vlm(data):
       - images / videos are concatenated in sample order
       - cu_lengths defines text boundaries
     """
-    assert (
-        data.get("images") is not None or data.get("pixel_values_videos") is not None
-    ), (
+    assert data.get("images") is not None or data.get("pixel_values_videos") is not None, (
         "No visual inputs found in batch data. "
         "Expected key 'images' or 'pixel_values_videos', "
         f"but got keys: {list(data.keys())}."
@@ -307,9 +293,7 @@ def depack_data_for_vlm(data):
             img_len = int(img_t * img_h * img_w)
 
             assert images.shape[0] >= image_cursor + img_len, (
-                f"Image tokens not enough for sample {i}: "
-                f"need {img_len}, "
-                f"got {images.shape[0] - image_cursor}"
+                f"Image tokens not enough for sample {i}: need {img_len}, got {images.shape[0] - image_cursor}"
             )
 
             pixel_values_images = images[image_cursor : image_cursor + img_len]

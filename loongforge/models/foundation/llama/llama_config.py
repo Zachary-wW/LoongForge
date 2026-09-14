@@ -6,6 +6,7 @@
 from dataclasses import dataclass
 from loongforge.models.common import BaseModelConfig
 
+
 @dataclass
 class LLaMAConfig(BaseModelConfig):
     """configuration for llama model
@@ -30,4 +31,3 @@ class LLaMAConfig(BaseModelConfig):
     add_qkv_bias: bool = False
     qk_layernorm: bool = False
     untie_embeddings_and_output_weights: bool = True
-

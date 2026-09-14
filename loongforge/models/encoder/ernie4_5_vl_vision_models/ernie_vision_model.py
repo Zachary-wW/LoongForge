@@ -56,9 +56,7 @@ class PatchEmbed(nn.Module):
         self.patch_size = patch_size
         self.in_channels = in_channels
         self.embed_dim = embed_dim
-        self.proj = nn.Linear(
-            in_channels * patch_size * patch_size, embed_dim, bias=False
-        )
+        self.proj = nn.Linear(in_channels * patch_size * patch_size, embed_dim, bias=False)
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         """
@@ -83,9 +81,7 @@ class VisionRotaryEmbedding(nn.Module):
             theta (float, optional): the frequency factor. Defaults to 10000.0.
         """
         super().__init__()
-        self.inv_freq = 1.0 / theta ** (
-            torch.arange(start=0, end=dim, step=2, dtype=torch.float32) / dim
-        )
+        self.inv_freq = 1.0 / theta ** (torch.arange(start=0, end=dim, step=2, dtype=torch.float32) / dim)
 
     def forward(self, seqlen: int) -> torch.Tensor:
         """
@@ -117,16 +113,10 @@ class VariableResolutionResamplerModel(nn.Module):
         # compress 2d conv(picture) to 1d
         self.spatial_dim = self.in_dim * self.spatial_conv_size * self.spatial_conv_size
         # compress 3d conv(video) to 1d
-        self.temporal_dim = (
-            self.in_dim
-            * self.spatial_conv_size
-            * self.spatial_conv_size
-            * self.temporal_conv_size
-        )
+        self.temporal_dim = self.in_dim * self.spatial_conv_size * self.spatial_conv_size * self.temporal_conv_size
 
         # using unique name space start with "mm_resampler_"
         with UniqueNameGuard("mm_resampler_") as guard:
-
             self.spatial_linear = nn.Sequential(
                 nn.Linear(self.spatial_dim, self.spatial_dim),
                 nn.GELU(),
@@ -142,7 +132,6 @@ class VariableResolutionResamplerModel(nn.Module):
                     nn.LayerNorm(self.spatial_dim, eps=1e-6),
                 )
 
-
     def spatial_conv_reshape(self, x, spatial_conv_size):
         """
         reshape before linear to imitation conv
@@ -151,7 +140,7 @@ class VariableResolutionResamplerModel(nn.Module):
         x = x.reshape([-1, C * (spatial_conv_size**2)])
         return x
 
-    def forward(self, x,  grid_thw):
+    def forward(self, x, grid_thw):
         """
         x: image_features
         grid_thw: [B_image, 3]
@@ -179,21 +168,15 @@ class VariableResolutionResamplerModel(nn.Module):
             grid_hw_after_conv = grid_hw.prod(-1) // (self.spatial_conv_size**2)
 
             tokens_per_img_or_vid = grid_thw_cpu.prod(-1) // (self.spatial_conv_size**2)
-            batch_offset = np.empty(
-                tokens_per_img_or_vid.size, dtype=tokens_per_img_or_vid.dtype
-            )
+            batch_offset = np.empty(tokens_per_img_or_vid.size, dtype=tokens_per_img_or_vid.dtype)
             batch_offset[0] = 0
             batch_offset[1:] = tokens_per_img_or_vid.cumsum()[:-1]
 
-            assert (
-                self.temporal_conv_size == 2
-            ), f"Hard Code: temporal_conv_size==2, got:{self.temporal_conv_size}"
+            assert self.temporal_conv_size == 2, f"Hard Code: temporal_conv_size==2, got:{self.temporal_conv_size}"
 
             # TODO: support any temporal conv size
             slice_offsets = []
-            for temporoal_size, spatial_size, b_offset in zip(
-                grid_t, grid_hw_after_conv, batch_offset
-            ):
+            for temporoal_size, spatial_size, b_offset in zip(grid_t, grid_hw_after_conv, batch_offset):
                 for temp_offset in range(0, temporoal_size, 2):
                     slice_offsets.append(
                         np.arange(
@@ -201,26 +184,18 @@ class VariableResolutionResamplerModel(nn.Module):
                             b_offset + (temp_offset + 1) * spatial_size,
                         )
                     )
-            slice_offsets = torch.tensor(np.concatenate(slice_offsets, axis=-1)).to(
-                x.device
-            )
+            slice_offsets = torch.tensor(np.concatenate(slice_offsets, axis=-1)).to(x.device)
 
             slice_offsets2 = []
-            for temporoal_size, spatial_size, b_offset in zip(
-                grid_t, grid_hw_after_conv, batch_offset
-            ):
-                for temp_offset in range(
-                    1 if temporoal_size > 1 else 0, temporoal_size, 2
-                ):
+            for temporoal_size, spatial_size, b_offset in zip(grid_t, grid_hw_after_conv, batch_offset):
+                for temp_offset in range(1 if temporoal_size > 1 else 0, temporoal_size, 2):
                     slice_offsets2.append(
                         np.arange(
                             b_offset + (temp_offset) * spatial_size,
                             b_offset + (temp_offset + 1) * spatial_size,
                         )
                     )
-            slice_offsets2 = torch.tensor(np.concatenate(slice_offsets2, axis=-1)).to(
-                x.device
-            )
+            slice_offsets2 = torch.tensor(np.concatenate(slice_offsets2, axis=-1)).to(x.device)
 
             x_timestep_1 = torch.index_select(x, dim=0, index=slice_offsets)
             x_timestep_2 = torch.index_select(x, dim=0, index=slice_offsets2)
@@ -286,10 +261,10 @@ class ErnieVisionModel(BaseMegatronVisionModule):
             in_channels=config.in_channels,
         )
 
-        if hasattr(config, 'freeze') and config.freeze:
+        if hasattr(config, "freeze") and config.freeze:
             for name, param in self.named_parameters():
                 # resampler_model is the only part that needs to be updated in encoder
-                if 'resampler_model' not in name:
+                if "resampler_model" not in name:
                     param.requires_grad = False
 
     def set_input_tensor(self, input_tensor: torch.Tensor) -> None:
@@ -302,7 +277,7 @@ class ErnieVisionModel(BaseMegatronVisionModule):
         """
         if not isinstance(input_tensor, list):
             input_tensor = [input_tensor]
-        assert len(input_tensor) == 1, 'input_tensor should only be length 1'
+        assert len(input_tensor) == 1, "input_tensor should only be length 1"
         self.decoder.set_input_tensor(input_tensor[0])
 
     def preprocess(self, images, grid_thw):
@@ -350,17 +325,13 @@ class ErnieVisionModel(BaseMegatronVisionModule):
 
         pos_ids = np.concatenate(pos_ids, axis=0)
         if num_pad > 0:
-            pos_ids = np.concatenate(
-                [pos_ids, np.zeros((num_pad, 2), dtype=pos_ids.dtype)]
-            )
+            pos_ids = np.concatenate([pos_ids, np.zeros((num_pad, 2), dtype=pos_ids.dtype)])
         max_grid_size = np.amax(grid_hw_array[:, 1:])
         rotary_pos_emb_full = self.rotary_pos_emb(max_grid_size)
         rotary_pos_emb = rotary_pos_emb_full[pos_ids].flatten(start_dim=1)
         return rotary_pos_emb
 
-    def forward(
-        self, hidden_states: torch.Tensor, image_grid_thw: torch.Tensor, num_pad=0
-    ) -> torch.Tensor:
+    def forward(self, hidden_states: torch.Tensor, image_grid_thw: torch.Tensor, num_pad=0) -> torch.Tensor:
         """
         Args:
             hidden_states (torch.Tensor): image input tensor, shape [S, C*P*P], uint8
@@ -380,9 +351,9 @@ class ErnieVisionModel(BaseMegatronVisionModule):
         rotary_pos_emb = rotary_pos_emb.to(hidden_states.device).float()
 
         # ---- cu_seqlens for varlen attention ----
-        cu_seqlens = torch.repeat_interleave(
-            image_grid_thw[:, 1] * image_grid_thw[:, 2], image_grid_thw[:, 0]
-        ).cumsum(dim=0, dtype=torch.int32)
+        cu_seqlens = torch.repeat_interleave(image_grid_thw[:, 1] * image_grid_thw[:, 2], image_grid_thw[:, 0]).cumsum(
+            dim=0, dtype=torch.int32
+        )
 
         if num_pad > 0:
             cu_seqlens = F.pad(cu_seqlens, (1, 1), value=0)

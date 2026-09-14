@@ -13,7 +13,8 @@ from megatron.core.transformer.transformer_block import TransformerBlock
 
 
 class WanTransformerBlock(TransformerBlock):
-    """"TransformerBlock for wan"""
+    """ "TransformerBlock for wan"""
+
     def _checkpointed_forward(
         self,
         hidden_states,
@@ -41,21 +42,15 @@ class WanTransformerBlock(TransformerBlock):
             )
 
         def custom(start: int, end: int):
-            def custom_forward(
-                hidden_states, attention_mask, context, context_mask, rotary_pos_emb, timestep_mod
-            ):
+            def custom_forward(hidden_states, attention_mask, context, context_mask, rotary_pos_emb, timestep_mod):
                 for index in range(start, end):
                     layer = self._get_layer(index)
 
                     if use_inner_quantization_context:
                         if self.config.fp8:
-                            inner_quantization_context = get_fp8_context(
-                                self.config, layer.layer_number - 1
-                            )
+                            inner_quantization_context = get_fp8_context(self.config, layer.layer_number - 1)
                         elif self.config.fp4:
-                            inner_quantization_context = get_fp4_context(
-                                self.config, layer.layer_number - 1
-                            )
+                            inner_quantization_context = get_fp4_context(self.config, layer.layer_number - 1)
                         else:
                             inner_quantization_context = nullcontext()
                     else:
@@ -111,9 +106,7 @@ class WanTransformerBlock(TransformerBlock):
         if self.config.recompute_method == "uniform":
             layer_idx = 0
             while layer_idx < self.num_layers_per_pipeline_rank:
-                hidden_states, context = checkpoint_handler(
-                    custom(layer_idx, layer_idx + self._recompute_num_layers)
-                )
+                hidden_states, context = checkpoint_handler(custom(layer_idx, layer_idx + self._recompute_num_layers))
                 layer_idx += self._recompute_num_layers
         elif self.config.recompute_method == "block":
             recompute_skip_num_layers = 0
@@ -138,4 +131,3 @@ class WanTransformerBlock(TransformerBlock):
             raise ValueError("Invalid activation recompute method.")
 
         return hidden_states
-

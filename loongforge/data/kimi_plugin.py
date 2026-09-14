@@ -131,7 +131,7 @@ class KimiPlugin(MMPlugin):
         Returns:
             Number of tokens for this image/video chunk
         """
-        if hasattr(grid_thw, 'tolist'):
+        if hasattr(grid_thw, "tolist"):
             t, h, w = grid_thw.tolist()
         else:
             t, h, w = grid_thw
@@ -160,9 +160,9 @@ class KimiPlugin(MMPlugin):
             return mm_inputs
 
         # Use Kimi's media processor
-        media_processor = getattr(processor, 'media_processor', None)
+        media_processor = getattr(processor, "media_processor", None)
         if media_processor is None:
-            media_processor = getattr(processor, 'image_processor', None)
+            media_processor = getattr(processor, "image_processor", None)
 
         if media_processor is None:
             raise ValueError("Processor must have media_processor or image_processor")
@@ -174,7 +174,7 @@ class KimiPlugin(MMPlugin):
                 image_resolution=getattr(processor, "image_resolution", 2048),
             )
             # Build medias list for Kimi processor
-            medias = [{'type': 'image', 'image': img} for img in images]
+            medias = [{"type": "image", "image": img} for img in images]
 
             # Process through Kimi processor
             processed = processor(
@@ -191,7 +191,7 @@ class KimiPlugin(MMPlugin):
         if len(videos) != 0:
             # For videos, Kimi splits them into chunks
             # This is typically handled by the processor
-            medias = [{'type': 'video', 'video': vid} for vid in videos]
+            medias = [{"type": "video", "video": vid} for vid in videos]
 
             processed = processor(
                 text="",
@@ -210,9 +210,7 @@ class KimiPlugin(MMPlugin):
 
         return mm_inputs
 
-    def _build_image_placeholder(
-        self, num_tokens: int, image_size: Optional[Tuple[int, int]] = None
-    ) -> str:
+    def _build_image_placeholder(self, num_tokens: int, image_size: Optional[Tuple[int, int]] = None) -> str:
         """Build image placeholder string with correct number of tokens.
 
         Format: <|media_begin|>image<|media_content|>...<|media_content|><|media_end|>
@@ -283,15 +281,11 @@ class KimiPlugin(MMPlugin):
                     )
 
                 # Compute number of tokens for this image
-                num_tokens = self._compute_num_tokens_from_grid_thw(
-                    image_grid_thw[num_image_tokens]
-                )
+                num_tokens = self._compute_num_tokens_from_grid_thw(image_grid_thw[num_image_tokens])
 
                 # Build placeholder string
                 image = images[num_image_tokens]
-                placeholder = self._build_image_placeholder(
-                    num_tokens, image.size if self.include_image_size else None
-                )
+                placeholder = self._build_image_placeholder(num_tokens, image.size if self.include_image_size else None)
 
                 content = content.replace(Placeholder.IMAGE, placeholder, 1)
                 num_image_tokens += 1
@@ -306,9 +300,7 @@ class KimiPlugin(MMPlugin):
 
                 # For video, Kimi splits into chunks with timestamps
                 # Here we handle as single chunk for simplicity
-                num_tokens = self._compute_num_tokens_from_grid_thw(
-                    video_grid_thw[num_video_tokens]
-                )
+                num_tokens = self._compute_num_tokens_from_grid_thw(video_grid_thw[num_video_tokens])
 
                 # Build video chunk placeholder (without timestamp for now)
                 placeholder = self._build_video_chunk_placeholder(num_tokens)

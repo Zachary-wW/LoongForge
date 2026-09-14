@@ -35,7 +35,6 @@ class DataCollatorForSupervisedDataset:
     collator: object = None
 
     def __post_init__(self):
-
         self.collator = DataCollatorForSeq2Seq(
             self.tokenizer,
             model=self.model,
@@ -73,39 +72,26 @@ class DataCollatorForSupervisedDataset:
             base_len = self.chunkpipe_base_length
             bridge_len = self.chunkpipe_mtp_num_layers
             for feature in features:
-                bridge_inputs.append(feature["input_ids"][base_len:base_len + bridge_len])
-                bridge_labels.append(feature["labels"][base_len:base_len + bridge_len])
-                bridge_attention_masks.append(feature["attention_mask"][base_len:base_len + bridge_len])
+                bridge_inputs.append(feature["input_ids"][base_len : base_len + bridge_len])
+                bridge_labels.append(feature["labels"][base_len : base_len + bridge_len])
+                bridge_attention_masks.append(feature["attention_mask"][base_len : base_len + bridge_len])
                 if "loss_mask" in feature:
-                    bridge_loss_masks.append(feature["loss_mask"][base_len:base_len + bridge_len])
+                    bridge_loss_masks.append(feature["loss_mask"][base_len : base_len + bridge_len])
                     feature["loss_mask"] = feature["loss_mask"][:base_len]
                 feature["input_ids"] = feature["input_ids"][:base_len]
                 feature["labels"] = feature["labels"][:base_len]
                 feature["attention_mask"] = feature["attention_mask"][:base_len]
 
         # padding loss mask here
-        loss_mask = (
-            [feature["loss_mask"] for feature in features]
-            if "loss_mask" in features[0].keys()
-            else None
-        )
+        loss_mask = [feature["loss_mask"] for feature in features] if "loss_mask" in features[0].keys() else None
 
-        if (
-            loss_mask is not None
-            and self.padding
-            and self.padding != PaddingStrategy.DO_NOT_PAD
-        ):
+        if loss_mask is not None and self.padding and self.padding != PaddingStrategy.DO_NOT_PAD:
             max_loss_length = max(len(l) for l in loss_mask)
-            if (
-                self.padding == PaddingStrategy.MAX_LENGTH
-                and self.max_length is not None
-            ):
+            if self.padding == PaddingStrategy.MAX_LENGTH and self.max_length is not None:
                 max_loss_length = self.max_length
             if self.pad_to_multiple_of is not None:
                 max_loss_length = (
-                    (max_loss_length + self.pad_to_multiple_of - 1)
-                    // self.pad_to_multiple_of
-                    * self.pad_to_multiple_of
+                    (max_loss_length + self.pad_to_multiple_of - 1) // self.pad_to_multiple_of * self.pad_to_multiple_of
                 )
 
             padding_side = self.tokenizer.padding_side
@@ -119,13 +105,9 @@ class DataCollatorForSupervisedDataset:
                             feature["loss_mask"] = remainder + feature["loss_mask"]
                     else:
                         if padding_side == "right":
-                            feature["loss_mask"] = np.concatenate(
-                                [feature["loss_mask"], remainder]
-                            ).astype(np.int64)
+                            feature["loss_mask"] = np.concatenate([feature["loss_mask"], remainder]).astype(np.int64)
                         else:
-                            feature["loss_mask"] = np.concatenate(
-                                [remainder, feature["loss_mask"]]
-                            ).astype(np.int64)
+                            feature["loss_mask"] = np.concatenate([remainder, feature["loss_mask"]]).astype(np.int64)
 
         # default only padding labels
         result = self.collator(features, return_tensors)
@@ -157,7 +139,7 @@ class DataCollatorForSupervisedDataset:
                 )
 
         # Add chunk_group_size back — needed by scheduler for chunkpipe SFT
-        if chunk_group_sizes is not None:  
+        if chunk_group_sizes is not None:
             result["chunk_group_size"] = torch.tensor(chunk_group_sizes, dtype=torch.long)
 
         if group_total_tokens is not None:

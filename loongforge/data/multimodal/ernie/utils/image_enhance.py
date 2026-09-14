@@ -15,13 +15,16 @@
 """
 image enhance
 """
+
 import copy
 import random
 from typing import List
 
 import cv2
+
 try:
     import imgaug
+
     IMGAUG_AVAILABLE = True
     import imgaug as ia
     import imgaug.augmenters as iaa
@@ -272,15 +275,11 @@ class DocumentEffect:
         return new_quads, meta
 
     @classmethod
-    def perspective_meta(
-        cls, pxs=None, percents=None, aligns=((-1, 1), (-1, 1), (-1, 1), (-1, 1))
-    ):
+    def perspective_meta(cls, pxs=None, percents=None, aligns=((-1, 1), (-1, 1), (-1, 1), (-1, 1))):
         """generate perspective args"""
         meta = {
             "pxs": pxs,
-            "percents": tuple(
-                np.random.uniform(percent[0], percent[1]) for percent in percents
-            ),
+            "percents": tuple(np.random.uniform(percent[0], percent[1]) for percent in percents),
             "aligns": tuple(np.random.uniform(align[0], align[1]) for align in aligns),
         }
         return meta
@@ -588,9 +587,9 @@ class EffectIterator:
         samplers: list of sampler
         """
         self.args = args["args"]
-        assert len(self.args) == len(functions) and len(self.args) == len(
-            samplers
-        ), "args, functions, samplers length should be equal."
+        assert len(self.args) == len(functions) and len(self.args) == len(samplers), (
+            "args, functions, samplers length should be equal."
+        )
         self.functions = functions
         self.samplers = samplers
         self.probs = [_["prob"] for _ in self.args]
@@ -598,9 +597,7 @@ class EffectIterator:
     def sample(self) -> List[dict]:
         """sample one effect"""
         meta = []
-        for prob, funcs, sampler, args in zip(
-            self.probs, self.functions, self.samplers, self.args
-        ):
+        for prob, funcs, sampler, args in zip(self.probs, self.functions, self.samplers, self.args):
             if np.random.rand() < prob:
                 sub_meta = {}
                 if args["args"] is None:
@@ -663,9 +660,7 @@ def random_resize_image(img: PIL.Image.Image, random_resize_factor: int = 1):
     Returns:
         img: image after random resize
     """
-    assert (
-        random_resize_factor > 0
-    ), f"random_resize_factor = {random_resize_factor} =< 0 "
+    assert random_resize_factor > 0, f"random_resize_factor = {random_resize_factor} =< 0 "
 
     if random_resize_factor != 1:
         # Random ReSize
@@ -687,12 +682,8 @@ def init_document_effect(config: dict):
     ]
     doc_samplers = [
         # DocumentEffect.rotate_meta,
-        lambda weights, args: DocumentEffect.rotate_meta(
-            **Selector.sample(args, weights)
-        ),
-        lambda weights, args: DocumentEffect.perspective_meta(
-            **Selector.sample(args, weights)
-        ),
+        lambda weights, args: DocumentEffect.rotate_meta(**Selector.sample(args, weights)),
+        lambda weights, args: DocumentEffect.perspective_meta(**Selector.sample(args, weights)),
     ]
     document_effect = EffectIterator(config, doc_functions, doc_samplers)
     return document_effect
@@ -763,9 +754,7 @@ class ImageEnhance:
         return img_meta
 
     @staticmethod
-    def apply_effect(
-        img: PIL.Image.Image, effect_augs: List[List], random_resize_factor=1
-    ):
+    def apply_effect(img: PIL.Image.Image, effect_augs: List[List], random_resize_factor=1):
         """apply effect"""
 
         # random resize
@@ -784,9 +773,7 @@ class ImageEnhance:
                         img = np.array(img).astype(np.float32)
 
                     with RandomSeedContext(seed):
-                        img = getattr(eval(cls_name), func_name)([img], effect["args"])[
-                            0
-                        ][0]
+                        img = getattr(eval(cls_name), func_name)([img], effect["args"])[0][0]
 
             if isinstance(img, np.ndarray):
                 img = img.astype(np.uint8)
@@ -852,17 +839,13 @@ class ImageEnhance:
         ] + meta_info["image_info"][0]["image_enhance_augs"]
         return meta_info
 
-    def generate_augment_strategies(
-        self, meta_info, dataset_type, random_seed, operator_types=None
-    ):
+    def generate_augment_strategies(self, meta_info, dataset_type, random_seed, operator_types=None):
         """generate augment strategies"""
         if operator_types is None:
             operator_types = []
         with RandomSeedContext(random_seed):
             # Init effector
-            self.document_effect = init_document_effect(
-                self.config["document"]["effect"]
-            )
+            self.document_effect = init_document_effect(self.config["document"]["effect"])
             self.image_effect = init_image_effect(self.config["effect"])
             self.image_effect_ocr = init_image_effect(self.config["effect_ocr"])
 
@@ -870,25 +853,18 @@ class ImageEnhance:
             operator_types = copy.deepcopy(operator_types)
 
             if "transform" in operator_types:
-                assert (
-                    dataset_type == "image-text_location-pair"
-                ), "transform only support image-text_location-pair"
-                assert (
-                    len(meta_info["image_info"]) == 1
-                ), f"transform only support single image, now we have {len(meta_info['image_info'])} images"
+                assert dataset_type == "image-text_location-pair", "transform only support image-text_location-pair"
+                assert len(meta_info["image_info"]) == 1, (
+                    f"transform only support single image, now we have {len(meta_info['image_info'])} images"
+                )
 
             transform_augs = None
             for image_info in meta_info["image_info"]:
                 augs = []
                 for operator_type in operator_types:
-                    assert (
-                        operator_type in self.func_map
-                    ), f"operator {operator_type} is not supported"
+                    assert operator_type in self.func_map, f"operator {operator_type} is not supported"
                     if operator_type == "transform":
-
-                        assert (
-                            transform_augs is None
-                        ), "one sample can only have one transform_augs"
+                        assert transform_augs is None, "one sample can only have one transform_augs"
                         transform_augs = self.func_map[operator_type]()
                     else:
                         augs.extend(self.func_map[operator_type]())

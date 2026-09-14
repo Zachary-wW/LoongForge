@@ -145,52 +145,74 @@ def _check(name, out):
     g = GOLDEN[name]
     assert fp["shape"] == g["shape"], f"{name} shape {fp['shape']} != {g['shape']}"
     for k in ("sum", "absum", "mean", "std"):
-        assert math.isclose(fp[k], g[k], rel_tol=_RTOL, abs_tol=_ATOL), (
-            f"{name} {k}: got {fp[k]!r}, golden {g[k]!r}"
-        )
+        assert math.isclose(fp[k], g[k], rel_tol=_RTOL, abs_tol=_ATOL), f"{name} {k}: got {fp[k]!r}, golden {g[k]!r}"
     for got, ref in zip(fp["samples"], g["samples"]):
-        assert abs(got - ref) <= _SAMPLE_ATOL, (
-            f"{name} sample: got {got!r}, golden {ref!r}"
-        )
+        assert abs(got - ref) <= _SAMPLE_ATOL, f"{name} sample: got {got!r}, golden {ref!r}"
 
 
 # Golden reference fingerprints (generated with GEN_GOLDEN=1; deterministic).
 GOLDEN = {
     "channel_attention": {
-        "shape": [108, 3136, 256], "sum": 266978.46875, "absum": 7444820.5,
-        "mean": 0.003079189918935299, "std": 0.10788076370954514,
+        "shape": [108, 3136, 256],
+        "sum": 266978.46875,
+        "absum": 7444820.5,
+        "mean": 0.003079189918935299,
+        "std": 0.10788076370954514,
         "samples": [0.0101318359375, 0.083984375, -0.134765625, 0.138671875, -0.142578125],
     },
     "window_autocast": {
-        "shape": [108, 3136, 256], "sum": 249310.375, "absum": 3563130.0,
-        "mean": 0.002875415375456214, "std": 0.05013841390609741,
+        "shape": [108, 3136, 256],
+        "sum": 249310.375,
+        "absum": 3563130.0,
+        "mean": 0.002875415375456214,
+        "std": 0.05013841390609741,
         "samples": [-0.000720977783203125, 0.07373046875, -0.044189453125, -0.05419921875, 0.03466796875],
     },
     "window_flash": {
-        "shape": [108, 3136, 256], "sum": 249310.375, "absum": 3563130.0,
-        "mean": 0.002875415375456214, "std": 0.05013841390609741,
+        "shape": [108, 3136, 256],
+        "sum": 249310.375,
+        "absum": 3563130.0,
+        "mean": 0.002875415375456214,
+        "std": 0.05013841390609741,
         "samples": [-0.000720977783203125, 0.07373046875, -0.044189453125, -0.05419921875, 0.03466796875],
     },
     "florence_sdpa": {
-        "shape": [36, 100, 1024], "sum": -414.38348388671875, "absum": 120949.1484375,
-        "mean": -0.00011240871390327811, "std": 0.041057098656892776,
+        "shape": [36, 100, 1024],
+        "sum": -414.38348388671875,
+        "absum": 120949.1484375,
+        "mean": -0.00011240871390327811,
+        "std": 0.041057098656892776,
         "samples": [-0.047119140625, 0.014892578125, -0.049072265625, -0.056396484375, 0.0091552734375],
     },
     "florence_sdpa_matches": {
-        "shape": [36, 100, 1024], "sum": -414.38348388671875, "absum": 120949.1484375,
-        "mean": -0.00011240871390327811, "std": 0.041057098656892776,
+        "shape": [36, 100, 1024],
+        "sum": -414.38348388671875,
+        "absum": 120949.1484375,
+        "mean": -0.00011240871390327811,
+        "std": 0.041057098656892776,
         "samples": [-0.047119140625, 0.014892578125, -0.049072265625, -0.056396484375, 0.0091552734375],
     },
     "transformer_attention": {
-        "shape": [36, 262, 1024], "sum": 8224.578125, "absum": 236925.046875,
-        "mean": 0.0008515494409948587, "std": 0.03047892078757286,
+        "shape": [36, 262, 1024],
+        "sum": 8224.578125,
+        "absum": 236925.046875,
+        "mean": 0.0008515494409948587,
+        "std": 0.03047892078757286,
         "samples": [-0.06494140625, -0.033935546875, -0.030029296875, -0.04931640625, -0.05810546875],
     },
     "transformer_fused_matches": {
-        "shape": [36, 262, 1024], "sum": 8230.7236328125, "absum": 236923.3125,
-        "mean": 0.0008521857671439648, "std": 0.030478641390800476,
-        "samples": [-0.06519979238510132, -0.033736322075128555, -0.03014635480940342,
-                    -0.04931625723838806, -0.057972926646471024],
+        "shape": [36, 262, 1024],
+        "sum": 8230.7236328125,
+        "absum": 236923.3125,
+        "mean": 0.0008521857671439648,
+        "std": 0.030478641390800476,
+        "samples": [
+            -0.06519979238510132,
+            -0.033736322075128555,
+            -0.03014635480940342,
+            -0.04931625723838806,
+            -0.057972926646471024,
+        ],
     },
 }
 
@@ -273,8 +295,8 @@ def test_florence2_sdpa_attention_forward():
         out, attn_weights, past = m(h, attention_mask=None, output_attentions=False)
 
     assert tuple(out.shape) == spec["hidden_shape"]
-    assert attn_weights is None          # SDPA path returns no weights
-    assert past is None                  # is_decoder=False -> no cache
+    assert attn_weights is None  # SDPA path returns no weights
+    assert past is None  # is_decoder=False -> no cache
     _finite("Florence2SdpaAttention", out.float())
     _check("florence_sdpa", out)
 
@@ -304,12 +326,16 @@ def test_florence2_sdpa_matches_eager():
 def test_transformer_attention_forward():
     spec = CAPTURED["TransformerAttention"]
     _seed()
-    m = ActionAttention(
-        dim=spec["init"]["dim"],
-        num_heads=spec["init"]["num_heads"],
-        qkv_bias=spec["init"]["qkv_bias"],
-        qk_norm=spec["init"]["qk_norm"],
-    ).to(DEVICE).eval()
+    m = (
+        ActionAttention(
+            dim=spec["init"]["dim"],
+            num_heads=spec["init"]["num_heads"],
+            qkv_bias=spec["init"]["qkv_bias"],
+            qk_norm=spec["init"]["qk_norm"],
+        )
+        .to(DEVICE)
+        .eval()
+    )
     x = _randn(spec["x_shape"], torch.float32)
 
     with torch.no_grad(), torch.autocast(DEVICE, dtype=AUTOCAST_DTYPE):
@@ -324,12 +350,16 @@ def test_transformer_attention_fused_matches_manual():
     """SDPA (fused, fp32) path must match the manual softmax attention path."""
     spec = CAPTURED["TransformerAttention"]
     _seed()
-    m = ActionAttention(
-        dim=spec["init"]["dim"],
-        num_heads=spec["init"]["num_heads"],
-        qkv_bias=spec["init"]["qkv_bias"],
-        qk_norm=spec["init"]["qk_norm"],
-    ).to(DEVICE).eval()
+    m = (
+        ActionAttention(
+            dim=spec["init"]["dim"],
+            num_heads=spec["init"]["num_heads"],
+            qkv_bias=spec["init"]["qkv_bias"],
+            qk_norm=spec["init"]["qk_norm"],
+        )
+        .to(DEVICE)
+        .eval()
+    )
     x = _randn(spec["x_shape"], torch.float32)
 
     with torch.no_grad():
@@ -347,13 +377,17 @@ def test_transformer_attention_flash_matches_manual():
     """FlashAttention-2 (bf16 autocast) must match the manual softmax path."""
     spec = CAPTURED["TransformerAttention"]
     _seed()
-    m = ActionAttention(
-        dim=spec["init"]["dim"],
-        num_heads=spec["init"]["num_heads"],
-        qkv_bias=spec["init"]["qkv_bias"],
-        qk_norm=spec["init"]["qk_norm"],
-        use_fa2=True,
-    ).to(DEVICE).eval()
+    m = (
+        ActionAttention(
+            dim=spec["init"]["dim"],
+            num_heads=spec["init"]["num_heads"],
+            qkv_bias=spec["init"]["qkv_bias"],
+            qk_norm=spec["init"]["qk_norm"],
+            use_fa2=True,
+        )
+        .to(DEVICE)
+        .eval()
+    )
     x = _randn(spec["x_shape"], torch.float32)
 
     with torch.no_grad(), torch.autocast(DEVICE, dtype=AUTOCAST_DTYPE):

@@ -316,16 +316,13 @@ class FastWAMIDM(FastWAMJoint):
 
         if action is not None:
             logger.warning(
-                "`FastWAMIDM.infer_joint` ignores `action` input; "
-                "video is denoised in a standalone first stage."
+                "`FastWAMIDM.infer_joint` ignores `action` input; video is denoised in a standalone first stage."
             )
 
         if input_image.ndim == 3:
             input_image = input_image.unsqueeze(0)
         if input_image.ndim != 4 or input_image.shape[0] != 1 or input_image.shape[1] != 3:
-            raise ValueError(
-                f"`input_image` must have shape [1,3,H,W] or [3,H,W], got {tuple(input_image.shape)}"
-            )
+            raise ValueError(f"`input_image` must have shape [1,3,H,W] or [3,H,W], got {tuple(input_image.shape)}")
         _, _, height, width = input_image.shape
         checked_h, checked_w, checked_t = self._check_resize_height_width(height, width, num_video_frames)
         if (checked_h, checked_w) != (height, width):
@@ -333,9 +330,7 @@ class FastWAMIDM(FastWAMJoint):
                 f"`input_image` must be resized before infer, expected multiples of 16 but got HxW=({height},{width})"
             )
         if checked_t != num_video_frames:
-            raise ValueError(
-                f"`num_video_frames` must satisfy T % 4 == 1, got {num_video_frames}"
-            )
+            raise ValueError(f"`num_video_frames` must satisfy T % 4 == 1, got {num_video_frames}")
 
         if proprio is not None:
             if self.proprio_dim is None:
@@ -425,9 +420,7 @@ class FastWAMIDM(FastWAMJoint):
             latents_video[:, :, 0:1] = first_frame_latents.clone()
 
         # Stage 2: freeze denoised video as cond and denoise action via video K/V cache.
-        timestep_video_cond = torch.zeros(
-            (latents_video.shape[0],), dtype=latents_video.dtype, device=self.device
-        )
+        timestep_video_cond = torch.zeros((latents_video.shape[0],), dtype=latents_video.dtype, device=self.device)
         video_pre_cond = self.video_expert.pre_dit(
             x=latents_video,
             timestep=timestep_video_cond,

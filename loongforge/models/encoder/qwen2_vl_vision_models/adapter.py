@@ -7,7 +7,7 @@ import torch
 from dataclasses import dataclass
 from typing import Union
 from megatron.core.transformer.transformer_config import TransformerConfig
-from megatron.core.transformer.spec_utils import  build_module
+from megatron.core.transformer.spec_utils import build_module
 from .qwen2_vl_config import MLPAdapterConfig
 from loongforge.models.common import BaseMegatronModule
 from loongforge.models.utils import import_module
@@ -70,18 +70,12 @@ class Adapter(BaseMegatronModule):
             parallel_mode=None,
             skip_weight_param_allocation=False,
         )
-        if hasattr(config, 'freeze') and config.freeze:
+        if hasattr(config, "freeze") and config.freeze:
             self.freeze()
-            
-    def forward(
-        self, x: torch.Tensor, window_index: torch.LongTensor = None
-    ) -> torch.Tensor:
+
+    def forward(self, x: torch.Tensor, window_index: torch.LongTensor = None) -> torch.Tensor:
         """Forward pass."""
-        x = self.layernorm(
-            x.view(-1, self.hidden_size)
-            if self.use_postshuffle_norm
-            else x
-        ).view(-1, self.hidden_size)
+        x = self.layernorm(x.view(-1, self.hidden_size) if self.use_postshuffle_norm else x).view(-1, self.hidden_size)
         x, _ = self.linear_fc1(x)
         x = self.activation_func(x)
         x, _ = self.linear_fc2(x)

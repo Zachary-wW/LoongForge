@@ -17,9 +17,21 @@ pytestmark = pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is r
 
 
 def _reference_update(
-        params, grads, exp_avgs, exp_avg_sqs, *, decay_factor, beta2,
-        first_moment_weight, second_moment_weight, eps,
-        bias_correction1, bias_correction2_sqrt, lr, grad_scale=1.0):
+    params,
+    grads,
+    exp_avgs,
+    exp_avg_sqs,
+    *,
+    decay_factor,
+    beta2,
+    first_moment_weight,
+    second_moment_weight,
+    eps,
+    bias_correction1,
+    bias_correction2_sqrt,
+    lr,
+    grad_scale=1.0,
+):
     for param, grad, exp_avg, exp_avg_sq in zip(params, grads, exp_avgs, exp_avg_sqs):
         p = param.float() * decay_factor
         g = grad.float() * grad_scale
@@ -98,7 +110,10 @@ def test_capturable_step_matches_reference():
     step = int(args["step"].item())
     lr = float(args["lr"].item())
     _reference_update(
-        expected, grads, expected_m, expected_v,
+        expected,
+        grads,
+        expected_m,
+        expected_v,
         decay_factor=1.0 - lr * args["weight_decay"],
         beta2=args["beta2"],
         first_moment_weight=args["first_moment_weight"],
@@ -127,7 +142,10 @@ def test_capturable_grad_scaled_step_matches_reference():
     step = int(args["step"].item())
     lr = float(args["lr"].item())
     _reference_update(
-        expected, grads, expected_m, expected_v,
+        expected,
+        grads,
+        expected_m,
+        expected_v,
         decay_factor=1.0 - lr * args["weight_decay"],
         beta2=args["beta2"],
         first_moment_weight=args["first_moment_weight"],
@@ -145,16 +163,25 @@ def test_capturable_grad_scaled_step_matches_reference():
 def test_adamw_rejects_empty_tensor_list():
     with pytest.raises(RuntimeError, match="at least one parameter"):
         eager_step(
-            [], [], [], [], decay_factor=1.0, beta2=0.9,
-            first_moment_weight=0.1, second_moment_weight=0.1,
-            eps=1e-8, bias_correction1=1.0,
-            bias_correction2_sqrt=1.0, lr=1e-3,
+            [],
+            [],
+            [],
+            [],
+            decay_factor=1.0,
+            beta2=0.9,
+            first_moment_weight=0.1,
+            second_moment_weight=0.1,
+            eps=1e-8,
+            bias_correction1=1.0,
+            bias_correction2_sqrt=1.0,
+            lr=1e-3,
         )
 
 
 # ---------------------------------------------------------------------------
 # Extended AdamW tests (numerical precision verification)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("eps", [1e-5, 1e-6, 1e-8])
 def test_eager_step_epsilon_sensitivity(eps):
@@ -167,9 +194,14 @@ def test_eager_step_epsilon_sensitivity(eps):
     expected_m = [t.clone() for t in exp_avgs]
     expected_v = [t.clone() for t in exp_avg_sqs]
     args = dict(
-        decay_factor=0.999, beta2=0.91, first_moment_weight=0.1,
-        second_moment_weight=0.09, eps=eps,
-        bias_correction1=0.9, bias_correction2_sqrt=0.95, lr=1e-3,
+        decay_factor=0.999,
+        beta2=0.91,
+        first_moment_weight=0.1,
+        second_moment_weight=0.09,
+        eps=eps,
+        bias_correction1=0.9,
+        bias_correction2_sqrt=0.95,
+        lr=1e-3,
     )
     eager_step(actual, grads, actual_m, actual_v, **args)
     _reference_update(expected, grads, expected_m, expected_v, **args)
@@ -187,13 +219,17 @@ def test_eager_step_near_zero_exp_avg_sq():
     # exp_avg_sq very close to zero
     exp_avg_sqs = [torch.full_like(p, 1e-30) for p in params]
     args = dict(
-        decay_factor=1.0, beta2=0.999, first_moment_weight=0.1,
-        second_moment_weight=0.001, eps=1e-8,
-        bias_correction1=1.0, bias_correction2_sqrt=1.0, lr=1e-3,
+        decay_factor=1.0,
+        beta2=0.999,
+        first_moment_weight=0.1,
+        second_moment_weight=0.001,
+        eps=1e-8,
+        bias_correction1=1.0,
+        bias_correction2_sqrt=1.0,
+        lr=1e-3,
     )
     eager_step(
-        [p.clone() for p in params], grads,
-        [m.clone() for m in exp_avgs], [v.clone() for v in exp_avg_sqs], **args
+        [p.clone() for p in params], grads, [m.clone() for m in exp_avgs], [v.clone() for v in exp_avg_sqs], **args
     )
     # Just verify no exception and no NaN/Inf in result
     result = [p.clone() for p in params]
@@ -212,9 +248,14 @@ def test_eager_step_large_tensors():
     exp_avg = torch.randn(N, device="cuda", dtype=torch.float32, generator=gen)
     exp_avg_sq = torch.rand(N, device="cuda", dtype=torch.float32, generator=gen).add_(0.01)
     args = dict(
-        decay_factor=0.9999, beta2=0.999, first_moment_weight=0.1,
-        second_moment_weight=0.001, eps=1e-8,
-        bias_correction1=0.9, bias_correction2_sqrt=0.999, lr=1e-3,
+        decay_factor=0.9999,
+        beta2=0.999,
+        first_moment_weight=0.1,
+        second_moment_weight=0.001,
+        eps=1e-8,
+        bias_correction1=0.9,
+        bias_correction2_sqrt=0.999,
+        lr=1e-3,
     )
     actual_p = param.clone()
     actual_m = exp_avg.clone()
@@ -238,9 +279,14 @@ def test_eager_step_multi_tensor_consistency():
     exp_avgs = [torch.randn_like(p) for p in params]
     exp_avg_sqs = [torch.rand_like(p).add_(0.01) for p in params]
     args = dict(
-        decay_factor=0.9995, beta2=0.95, first_moment_weight=0.15,
-        second_moment_weight=0.05, eps=1e-6,
-        bias_correction1=0.85, bias_correction2_sqrt=0.92, lr=2e-3,
+        decay_factor=0.9995,
+        beta2=0.95,
+        first_moment_weight=0.15,
+        second_moment_weight=0.05,
+        eps=1e-6,
+        bias_correction1=0.85,
+        bias_correction2_sqrt=0.92,
+        lr=2e-3,
     )
     # Joint multi-tensor call
     joint_p = [p.clone() for p in params]
@@ -270,9 +316,14 @@ def test_eager_step_bias_correction2_sensitivity(bias_correction2_sqrt):
     expected_m = [t.clone() for t in exp_avgs]
     expected_v = [t.clone() for t in exp_avg_sqs]
     args = dict(
-        decay_factor=1.0, beta2=0.9, first_moment_weight=0.1,
-        second_moment_weight=0.1, eps=1e-8,
-        bias_correction1=1.0, bias_correction2_sqrt=bias_correction2_sqrt, lr=1e-3,
+        decay_factor=1.0,
+        beta2=0.9,
+        first_moment_weight=0.1,
+        second_moment_weight=0.1,
+        eps=1e-8,
+        bias_correction1=1.0,
+        bias_correction2_sqrt=bias_correction2_sqrt,
+        lr=1e-3,
     )
     eager_step(actual, grads, actual_m, actual_v, **args)
     _reference_update(expected, grads, expected_m, expected_v, **args)

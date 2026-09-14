@@ -66,9 +66,7 @@ def build_mp_policy(training_args, model: nn.Module | None = None) -> MixedPreci
     # Local import to break the train/__init__ -> trainers -> this module cycle.
     from loongforge.embodied.train.training_args import parse_dtype_from_str
 
-    authored_mixed_dtype = (
-        is_mixed_param_dtype(model, trainable_only=False) if model is not None else False
-    )
+    authored_mixed_dtype = is_mixed_param_dtype(model, trainable_only=False) if model is not None else False
     if training_args.fsdp_unshard_param_dtype is not None:
         unshard_param_dtype = parse_dtype_from_str(training_args.fsdp_unshard_param_dtype)
     elif authored_mixed_dtype:
@@ -80,12 +78,10 @@ def build_mp_policy(training_args, model: nn.Module | None = None) -> MixedPreci
         # "unset" follows --dtype rather than "no cast".
         unshard_param_dtype = parse_dtype_from_str(training_args.dtype)
     reduce_dtype = (
-        parse_dtype_from_str(training_args.fsdp_reduce_dtype)
-        if training_args.fsdp_reduce_dtype is not None else None
+        parse_dtype_from_str(training_args.fsdp_reduce_dtype) if training_args.fsdp_reduce_dtype is not None else None
     )
     output_dtype = (
-        parse_dtype_from_str(training_args.fsdp_output_dtype)
-        if training_args.fsdp_output_dtype is not None else None
+        parse_dtype_from_str(training_args.fsdp_output_dtype) if training_args.fsdp_output_dtype is not None else None
     )
     mp_policy = MixedPrecisionPolicy(
         param_dtype=unshard_param_dtype,
@@ -95,7 +91,10 @@ def build_mp_policy(training_args, model: nn.Module | None = None) -> MixedPreci
     )
     logger.info(
         "FSDP2 runtime: unshard_param_dtype=%s reduce_dtype=%s output_dtype=%s cast_forward_inputs=%s",
-        unshard_param_dtype, reduce_dtype, output_dtype, training_args.fsdp_cast_forward_inputs,
+        unshard_param_dtype,
+        reduce_dtype,
+        output_dtype,
+        training_args.fsdp_cast_forward_inputs,
     )
     return mp_policy
 
@@ -168,8 +167,7 @@ def build_ignored_params(training_args, model: nn.Module, ctx: DistributedContex
     ignored_by_id = {
         id(param): param
         for name, param in named_parameters
-        if param.ndim == 0
-        or any(key in name for key in training_args.fsdp_ignored_param_names)
+        if param.ndim == 0 or any(key in name for key in training_args.fsdp_ignored_param_names)
     }
 
     frozen_class_names = set(training_args.fsdp_ignore_frozen_module_classes or [])
@@ -191,21 +189,16 @@ def build_ignored_params(training_args, model: nn.Module, ctx: DistributedContex
     unmatched_class_names = frozen_class_names - matched_class_names
     if unmatched_class_names:
         raise ValueError(
-            "FSDP ignored frozen module classes matched no modules: "
-            + ", ".join(sorted(unmatched_class_names))
+            "FSDP ignored frozen module classes matched no modules: " + ", ".join(sorted(unmatched_class_names))
         )
-    empty_class_names = {
-        name for name, param_ids in frozen_param_ids_by_class.items() if not param_ids
-    }
+    empty_class_names = {name for name, param_ids in frozen_param_ids_by_class.items() if not param_ids}
     if empty_class_names:
         raise ValueError(
-            "FSDP ignored frozen module classes matched no parameters: "
-            + ", ".join(sorted(empty_class_names))
+            "FSDP ignored frozen module classes matched no parameters: " + ", ".join(sorted(empty_class_names))
         )
 
     ignored_params = [
-        (parameter_names.get(param_id, f"<parameter:{param_id}>"), param)
-        for param_id, param in ignored_by_id.items()
+        (parameter_names.get(param_id, f"<parameter:{param_id}>"), param) for param_id, param in ignored_by_id.items()
     ]
     trainable = [name for name, param in ignored_params if param.requires_grad]
     if trainable:
@@ -222,9 +215,7 @@ def build_ignored_params(training_args, model: nn.Module, ctx: DistributedContex
     if training_args.fsdp_ignored_frozen_param_dtype is not None:
         from loongforge.embodied.train.training_args import parse_dtype_from_str
 
-        ignored_frozen_dtype = parse_dtype_from_str(
-            training_args.fsdp_ignored_frozen_param_dtype
-        )
+        ignored_frozen_dtype = parse_dtype_from_str(training_args.fsdp_ignored_frozen_param_dtype)
 
     # fully_shard does not move ignored params to the device, so do it here.
     # Meta tensors cannot be materialized generically: argument validation
@@ -233,34 +224,26 @@ def build_ignored_params(training_args, model: nn.Module, ctx: DistributedContex
         for param in ignored:
             target_dtype = (
                 ignored_frozen_dtype
-                if id(param) in frozen_param_ids
-                and torch.is_floating_point(param)
-                and ignored_frozen_dtype is not None
+                if id(param) in frozen_param_ids and torch.is_floating_point(param) and ignored_frozen_dtype is not None
                 else param.dtype
             )
-            if not param.is_meta and (
-                param.device != ctx.device or param.dtype != target_dtype
-            ):
+            if not param.is_meta and (param.device != ctx.device or param.dtype != target_dtype):
                 param.data = param.to(device=ctx.device, dtype=target_dtype)
 
     if ignored_params:
         logger.info(
             "FSDP2 ignores %d frozen parameters: %s",
-            len(ignored_params), ", ".join(n for n, _ in ignored_params[:8]),
+            len(ignored_params),
+            ", ".join(n for n, _ in ignored_params[:8]),
         )
     if frozen_param_ids:
-        frozen_params = [
-            param for param in ignored if id(param) in frozen_param_ids
-        ]
-        ignored_bytes = sum(
-            param.numel() * param.element_size() for param in frozen_params
-        )
+        frozen_params = [param for param in ignored if id(param) in frozen_param_ids]
+        ignored_bytes = sum(param.numel() * param.element_size() for param in frozen_params)
         logger.info(
-            "FSDP2 leaves %d frozen module parameters replicated "
-            "(%d elements, %.2f GiB, dtype=%s) from modules: %s",
+            "FSDP2 leaves %d frozen module parameters replicated (%d elements, %.2f GiB, dtype=%s) from modules: %s",
             len(frozen_params),
             sum(param.numel() for param in frozen_params),
-            ignored_bytes / (1024 ** 3),
+            ignored_bytes / (1024**3),
             ignored_frozen_dtype or "original",
             ", ".join(matched_module_names),
         )
@@ -305,18 +288,17 @@ def build_fsdp_device_mesh(training_args, ctx: DistributedContext):
 
     if ctx.world_size % shard_size != 0:
         raise ValueError(
-            f"HSDP requires world_size divisible by hsdp_shard_size, "
-            f"got {ctx.world_size} % {shard_size} != 0."
+            f"HSDP requires world_size divisible by hsdp_shard_size, got {ctx.world_size} % {shard_size} != 0."
         )
 
     replica_size = ctx.world_size // shard_size
     if replica_size == 1:
-        logger.warning(
-            "--hsdp-shard-size with one replica group is equivalent to plain FSDP."
-        )
+        logger.warning("--hsdp-shard-size with one replica group is equivalent to plain FSDP.")
     if is_rank_zero():
         logger.info("Using HSDP 2D mesh: replica=%d, shard=%d.", replica_size, shard_size)
 
     return init_device_mesh(
-        "cuda", (replica_size, shard_size), mesh_dim_names=("replica", "shard"),
+        "cuda",
+        (replica_size, shard_size),
+        mesh_dim_names=("replica", "shard"),
     )

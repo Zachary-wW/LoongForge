@@ -42,9 +42,7 @@ class XVLAModelFactory:
         pretrained_path = str(Path(server_args.ckpt_path).expanduser()) if server_args.ckpt_path else ""
         tokenizer_path = server_args.tokenizer_path or pretrained_path
         resolved_device = torch.device(
-            server_args.device
-            if torch.cuda.is_available() or not server_args.device.startswith("cuda")
-            else "cpu"
+            server_args.device if torch.cuda.is_available() or not server_args.device.startswith("cuda") else "cpu"
         )
 
         model = build_model(model_cfg)

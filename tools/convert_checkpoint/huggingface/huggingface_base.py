@@ -49,11 +49,12 @@ from convert_checkpoint.common.common_checkpoint import (
     LAYER_DEPEND_ON_KEY,
     LAYER_IS_DICT_FOR_EXPERT,
     LAYER_NEED_TRANSPOSE,
-    LAYER_DTYPE
+    LAYER_DTYPE,
 )
 
 from convert_checkpoint.huggingface.util.hf_attn_converter import HfAttnQkvConverter, HfAttnGateQkvConverter
 from convert_checkpoint.huggingface.util.hf_mixer_attn_converter import HfMixerAttnConverter
+
 
 def is_dsv4_hybrid_config(c_config):
     if c_config is None:
@@ -68,9 +69,10 @@ def is_dsv4_hybrid_config(c_config):
         or module_args.get("experimental_attention_variant") == "dsv4_hybrid"
     )
 
+
 class HuggingfaceBase:
     """
-        HuggingfaceBase
+    HuggingfaceBase
     """
 
     @staticmethod
@@ -225,9 +227,19 @@ class HuggingfaceBase:
             dtype = None
         return hf_name, is_direct_name, is_dict_for_expert, need_transpose, no_layer_id, depend_on_key, dtype
 
-    #========from commmon to hf===========
-    def common_to_hf(self, name, c_ckpt, h_dict, layer_id=None, hf_layer_id=None,
-                     layer_prefix=None, expert_name=None, transformer=None, spec_name=None):
+    # ========from commmon to hf===========
+    def common_to_hf(
+        self,
+        name,
+        c_ckpt,
+        h_dict,
+        layer_id=None,
+        hf_layer_id=None,
+        layer_prefix=None,
+        expert_name=None,
+        transformer=None,
+        spec_name=None,
+    ):
         spec_name = name if spec_name is None or spec_name not in self.name_map else spec_name
         is_valid_name = spec_name in self.name_map and self.name_map[spec_name] is not None
         if not is_valid_name:
@@ -240,43 +252,87 @@ class HuggingfaceBase:
         transformer = self.transformer if transformer is None else transformer
 
         if name in [ROTARY_EMB_INV_FREQ, ATTENTION_ROTARY_EMB_INV_FREQ]:
-            assert self.use_rotary_position_embeddings, \
-                    f"mcore args.use_rotary_position_embeddings is required to be set to True \
+            assert self.use_rotary_position_embeddings, (
+                f"mcore args.use_rotary_position_embeddings is required to be set to True \
                     since we capture the rotary_emb op"
-        hf_name, is_direct_name, is_dict_for_expert, need_transpose, no_layer_id, depend_on_key, _ = \
-                self.get_hf_name_and_args(self.name_map[spec_name])
+            )
+        hf_name, is_direct_name, is_dict_for_expert, need_transpose, no_layer_id, depend_on_key, _ = (
+            self.get_hf_name_and_args(self.name_map[spec_name])
+        )
         if hf_layer_id is None or no_layer_id:
             if is_direct_name:
                 hf_weight_path = hf_name
             else:
                 hf_weight_path = f"{hf_name}.{WEIGHT}"
-            hf_bias_path = self.name_map[f"{spec_name}.{BIAS}"] \
-                    if f"{spec_name}.{BIAS}" in self.name_map else f"{hf_name}.{BIAS}"
+            hf_bias_path = (
+                self.name_map[f"{spec_name}.{BIAS}"] if f"{spec_name}.{BIAS}" in self.name_map else f"{hf_name}.{BIAS}"
+            )
             hf_weight_scale_path = f"{hf_name}.{self.weight_scale_suffix}"
             # Clone MTP word embedding to avoid shared memory with main embedding
-            
+
             if is_dsv4_hybrid_config(self.c_config) and name == MTP_WORD_EMBEDDING:
                 weight = weight.clone()
-            self.update_tensor(h_dict, hf_weight_path, weight, hf_bias_path=hf_bias_path, bias=bias,
-                    hf_weight_scale_path=hf_weight_scale_path, weight_scale=weight_scale)
+            self.update_tensor(
+                h_dict,
+                hf_weight_path,
+                weight,
+                hf_bias_path=hf_bias_path,
+                bias=bias,
+                hf_weight_scale_path=hf_weight_scale_path,
+                weight_scale=weight_scale,
+            )
         else:
             if name == ATTENTION_QUERY_KEY_VALUE:
                 hf_prefix_path = self._build_path(transformer, layer_prefix, hf_layer_id)
-                self.update_list_to_hf(h_dict, name, hf_prefix_path, weight, bias, weight_scale, self.hf_attn_converter.split_attn_qkv)
+                self.update_list_to_hf(
+                    h_dict, name, hf_prefix_path, weight, bias, weight_scale, self.hf_attn_converter.split_attn_qkv
+                )
             elif name == ATTENTION_QUERY_GATE_KEY_VALUE:
                 hf_prefix_path = self._build_path(transformer, layer_prefix, hf_layer_id)
-                self.update_list_to_hf(h_dict, name, hf_prefix_path, weight, bias, weight_scale, self.hf_attn_gate_converter.split_attn_qgkv)
+                self.update_list_to_hf(
+                    h_dict,
+                    name,
+                    hf_prefix_path,
+                    weight,
+                    bias,
+                    weight_scale,
+                    self.hf_attn_gate_converter.split_attn_qgkv,
+                )
             elif name == MIXER_ATT_IN_PROJ:
                 hf_prefix_path = self._build_path(transformer, layer_prefix, hf_layer_id)
-                self.update_list_to_hf(h_dict, name, hf_prefix_path, weight, bias, weight_scale, self.hf_mixer_attn_converter.split_mixer_in_proj)
+                self.update_list_to_hf(
+                    h_dict,
+                    name,
+                    hf_prefix_path,
+                    weight,
+                    bias,
+                    weight_scale,
+                    self.hf_mixer_attn_converter.split_mixer_in_proj,
+                )
             elif name == MIXER_ATT_IN_PROJ_QKVZ and isinstance(self.name_map.get(name), (list, ListConfig)):
                 hf_prefix_path = self._build_path(transformer, layer_prefix, hf_layer_id)
-                self.update_list_to_hf(h_dict, name, hf_prefix_path, weight, bias, weight_scale, self.hf_mixer_attn_converter.split_qkvz_to_qkv_z)
+                self.update_list_to_hf(
+                    h_dict,
+                    name,
+                    hf_prefix_path,
+                    weight,
+                    bias,
+                    weight_scale,
+                    self.hf_mixer_attn_converter.split_qkvz_to_qkv_z,
+                )
             elif name == MIXER_ATT_IN_PROJ_BA and isinstance(self.name_map.get(name), (list, ListConfig)):
                 hf_prefix_path = self._build_path(transformer, layer_prefix, hf_layer_id)
-                self.update_list_to_hf(h_dict, name, hf_prefix_path, weight, bias, weight_scale, self.hf_mixer_attn_converter.split_ba_to_b_a)
+                self.update_list_to_hf(
+                    h_dict,
+                    name,
+                    hf_prefix_path,
+                    weight,
+                    bias,
+                    weight_scale,
+                    self.hf_mixer_attn_converter.split_ba_to_b_a,
+                )
             elif name == MLP_DENSE_H_TO_4H:
-                hf_prefix_path= self._build_path(transformer, layer_prefix, hf_layer_id)
+                hf_prefix_path = self._build_path(transformer, layer_prefix, hf_layer_id)
                 self.update_h_to_4h(h_dict, name, hf_prefix_path, weight, bias, weight_scale)
             elif expert_name == MOE_SHARED_EXPERT:
                 if expert_name not in self.name_map:
@@ -287,29 +343,41 @@ class HuggingfaceBase:
                 if expert_name is None:
                     hf_prefix_path = self._build_path(transformer, layer_prefix, hf_layer_id, hf_name)
                 else:
-                    hf_prefix_path = self._build_path(transformer, layer_prefix, hf_layer_id, self.name_map[expert_name])
+                    hf_prefix_path = self._build_path(
+                        transformer, layer_prefix, hf_layer_id, self.name_map[expert_name]
+                    )
                 if is_direct_name:
                     hf_weight_path = hf_prefix_path
                 else:
                     hf_weight_path = f"{hf_prefix_path}.{WEIGHT}"
                 bias_name = f"{name}.{BIAS}"
-                hf_bias_path = self._build_path(transformer, layer_prefix, hf_layer_id, self.name_map[bias_name]) \
-                        if bias_name in self.name_map else f"{hf_prefix_path}.{BIAS}"
+                hf_bias_path = (
+                    self._build_path(transformer, layer_prefix, hf_layer_id, self.name_map[bias_name])
+                    if bias_name in self.name_map
+                    else f"{hf_prefix_path}.{BIAS}"
+                )
                 hf_weight_scale_path = f"{hf_prefix_path}.{self.weight_scale_suffix}"
                 if self.num_padded_heads != 0:
                     if name == ATTENTION_DENSE:
-                        weight = weight[:, :self.heads * self.hidden_size_per_head].contiguous()
+                        weight = weight[:, : self.heads * self.hidden_size_per_head].contiguous()
                     elif name in [ATTENTION_QNORM, ATTENTION_KNORM]:
-                        weight = weight[:self.heads * self.hidden_size_per_head].contiguous()
+                        weight = weight[: self.heads * self.hidden_size_per_head].contiguous()
                 if name == MTP_WORD_EMBEDDING:
                     weight = weight.clone()
-                self.update_tensor(h_dict, hf_weight_path, weight, hf_bias_path=hf_bias_path, bias=bias,
-                        hf_weight_scale_path=hf_weight_scale_path, weight_scale=weight_scale)
-
+                self.update_tensor(
+                    h_dict,
+                    hf_weight_path,
+                    weight,
+                    hf_bias_path=hf_bias_path,
+                    bias=bias,
+                    hf_weight_scale_path=hf_weight_scale_path,
+                    weight_scale=weight_scale,
+                )
 
     # === update tensor to huggingface state_dict begin ===
-    def update_tensor(self, h_dict, hf_weight_path, weight, hf_bias_path=None, bias=None,
-                      hf_weight_scale_path=None, weight_scale=None):
+    def update_tensor(
+        self, h_dict, hf_weight_path, weight, hf_bias_path=None, bias=None, hf_weight_scale_path=None, weight_scale=None
+    ):
         if weight is None:
             return
         weight, weight_scale = self._materialize_fp8_weight_if_needed(weight, weight_scale)
@@ -330,7 +398,7 @@ class HuggingfaceBase:
         weight_scale_list = func(tag_names, weight_scale) if weight_scale is not None else None
         for i in range(len(tag_names)):
             tag_name = tag_names[i]
-            hf_path= f"{hf_prefix_path}.{tag_name}"
+            hf_path = f"{hf_prefix_path}.{tag_name}"
             if weight_list is not None:
                 h_dict[f"{hf_path}.{WEIGHT}"] = weight_list[i]
             if bias_list is not None:
@@ -341,7 +409,9 @@ class HuggingfaceBase:
     def update_h_to_4h(self, h_dict, name, hf_prefix_path, weight, bias, weight_scale, expert_id=None):
         if weight is None:
             return
-        hf_name, is_direct_name, is_dict_for_expert, need_transpose, _, _, _ = self.get_hf_name_and_args(self.name_map[name])
+        hf_name, is_direct_name, is_dict_for_expert, need_transpose, _, _, _ = self.get_hf_name_and_args(
+            self.name_map[name]
+        )
         weight, weight_scale = self._materialize_fp8_weight_if_needed(weight, weight_scale)
         weight = weight.t() if need_transpose else weight
         names = hf_name if isinstance(hf_name, (list, ListConfig)) else [hf_name]
@@ -354,7 +424,9 @@ class HuggingfaceBase:
             hf_weight_path = f"{hf_path}.{WEIGHT}" if not is_direct_name else hf_path
             if is_dict_for_expert:
                 assert expert_id is not None, "expert_id must be specified when is_dict_for_expert"
-                h_dict[hf_weight_path] = {LAYER_IS_DICT_FOR_EXPERT: True} if hf_weight_path not in h_dict else h_dict[hf_weight_path]
+                h_dict[hf_weight_path] = (
+                    {LAYER_IS_DICT_FOR_EXPERT: True} if hf_weight_path not in h_dict else h_dict[hf_weight_path]
+                )
                 h_dict[hf_weight_path][expert_id] = weight_list[i] if weight_list is not None else None
             else:
                 h_dict[hf_weight_path] = weight_list[i] if weight_list is not None else None
@@ -363,10 +435,22 @@ class HuggingfaceBase:
                 h_dict[f"{hf_path}.{BIAS}"] = bias_list[i]
             if weight_scale_list is not None:
                 h_dict[f"{hf_path}.{self.weight_scale_suffix}"] = weight_scale_list[i]
+
     # === update tensor to huggingface state_dict end ===
 
     # ====== from hf to common ========
-    def hf_to_common(self, name, c_ckpt, h_dict, layer_id=None, hf_layer_id=None, layer_prefix=None, expert_name=None, transformer=None, spec_name=None):
+    def hf_to_common(
+        self,
+        name,
+        c_ckpt,
+        h_dict,
+        layer_id=None,
+        hf_layer_id=None,
+        layer_prefix=None,
+        expert_name=None,
+        transformer=None,
+        spec_name=None,
+    ):
         layer_prefix = self.layer_prefix if layer_prefix is None else layer_prefix
         transformer = self.transformer if transformer is None else transformer
         spec_name = name if spec_name is None or spec_name not in self.name_map else spec_name
@@ -375,13 +459,27 @@ class HuggingfaceBase:
             layer_id = None
         common_key = CommonCheckpoint.get_key(name, layer_id=layer_id)
         if is_valid_name:
-            hf_name, is_direct_name, _, _, no_layer_id, depend_on_key, _ = \
-                    self.get_hf_name_and_args(self.name_map[spec_name])
+            hf_name, is_direct_name, _, _, no_layer_id, depend_on_key, _ = self.get_hf_name_and_args(
+                self.name_map[spec_name]
+            )
             if depend_on_key is not None:
                 assert depend_on_key in self.name_map, f"depend_on_key {depend_on_key} is not in self.name_map"
-                d_hf_name, is_direct_name_2, no_layer_id_2, _, _, _, _ = self.get_hf_name_and_args(self.name_map[depend_on_key])
-                depend_weight, _, _ = self.get_weight(depend_on_key, h_dict, layer_id, hf_layer_id, layer_prefix,
-                                                      expert_name, transformer, d_hf_name, is_direct_name_2, no_layer_id_2, True)
+                d_hf_name, is_direct_name_2, no_layer_id_2, _, _, _, _ = self.get_hf_name_and_args(
+                    self.name_map[depend_on_key]
+                )
+                depend_weight, _, _ = self.get_weight(
+                    depend_on_key,
+                    h_dict,
+                    layer_id,
+                    hf_layer_id,
+                    layer_prefix,
+                    expert_name,
+                    transformer,
+                    d_hf_name,
+                    is_direct_name_2,
+                    no_layer_id_2,
+                    True,
+                )
                 if depend_weight is None:
                     return
         else:
@@ -392,13 +490,37 @@ class HuggingfaceBase:
                 hf_name = self.name_map[WORD_EMBEDDINGS]
             is_direct_name = False
             no_layer_id = False
-        weight, bias, weight_scale = self.get_weight(name, h_dict, layer_id, hf_layer_id, layer_prefix,
-                                                     expert_name, transformer, hf_name, is_direct_name,
-                                                     no_layer_id, is_valid_name, spec_name=spec_name)
+        weight, bias, weight_scale = self.get_weight(
+            name,
+            h_dict,
+            layer_id,
+            hf_layer_id,
+            layer_prefix,
+            expert_name,
+            transformer,
+            hf_name,
+            is_direct_name,
+            no_layer_id,
+            is_valid_name,
+            spec_name=spec_name,
+        )
         c_ckpt.set(common_key, weight, bias, weight_scale)
 
-    def get_weight(self, name, h_dict, layer_id, hf_layer_id, layer_prefix, expert_name,
-                   transformer, hf_name, is_direct_name, no_layer_id, is_valid_name, spec_name=None):
+    def get_weight(
+        self,
+        name,
+        h_dict,
+        layer_id,
+        hf_layer_id,
+        layer_prefix,
+        expert_name,
+        transformer,
+        hf_name,
+        is_direct_name,
+        no_layer_id,
+        is_valid_name,
+        spec_name=None,
+    ):
         weight = None
         bias = None
         weight_scale = None
@@ -408,35 +530,52 @@ class HuggingfaceBase:
                     hf_weight_path = hf_name
                 else:
                     hf_weight_path = f"{hf_name}.{WEIGHT}"
-                hf_bias_path = self.name_map[f"{name}.{BIAS}"] \
-                        if f"{name}.{BIAS}" in self.name_map else f"{hf_name}.{BIAS}"
+                hf_bias_path = (
+                    self.name_map[f"{name}.{BIAS}"] if f"{name}.{BIAS}" in self.name_map else f"{hf_name}.{BIAS}"
+                )
                 hf_weight_scale_path = f"{hf_name}.{self.weight_scale_suffix}"
                 weight, bias, weight_scale = self.get_from_state_dict(
-                        h_dict, hf_weight_path, hf_bias_path=hf_bias_path, hf_weight_scale_path=hf_weight_scale_path)
-            if (name == WORD_EMBEDDINGS_FOR_HEAD or name == MTP_WORD_EMBEDDING) and weight is None and WORD_EMBEDDINGS in self.name_map:
+                    h_dict, hf_weight_path, hf_bias_path=hf_bias_path, hf_weight_scale_path=hf_weight_scale_path
+                )
+            if (
+                (name == WORD_EMBEDDINGS_FOR_HEAD or name == MTP_WORD_EMBEDDING)
+                and weight is None
+                and WORD_EMBEDDINGS in self.name_map
+            ):
                 hf_name, _, _, _, _, _, _ = self.get_hf_name_and_args(self.name_map[WORD_EMBEDDINGS])
                 hf_weight_path = f"{hf_name}.{WEIGHT}"
                 weight, bias, weight_scale = self.get_from_state_dict(h_dict, hf_weight_path)
         else:
             if name in [ROTARY_EMB_INV_FREQ, ATTENTION_ROTARY_EMB_INV_FREQ]:
-                assert self.use_rotary_position_embeddings == True, \
-                        f"mcore args.use_rotary_position_embeddings is required to be set to True \
+                assert self.use_rotary_position_embeddings == True, (
+                    f"mcore args.use_rotary_position_embeddings is required to be set to True \
                         since we capture the rotary_emb op"
+                )
             if name == ATTENTION_QUERY_KEY_VALUE:
                 hf_prefix_path = self._build_path(transformer, layer_prefix, hf_layer_id)
-                weight, bias, weight_scale = self.get_list_from_state_dict(name, h_dict, hf_prefix_path, self.hf_attn_converter.cat_attn_qkv)
+                weight, bias, weight_scale = self.get_list_from_state_dict(
+                    name, h_dict, hf_prefix_path, self.hf_attn_converter.cat_attn_qkv
+                )
             elif name == ATTENTION_QUERY_GATE_KEY_VALUE:
                 hf_prefix_path = self._build_path(transformer, layer_prefix, hf_layer_id)
-                weight, bias, weight_scale = self.get_list_from_state_dict(name, h_dict, hf_prefix_path, self.hf_attn_gate_converter.cat_attn_qgkv)
+                weight, bias, weight_scale = self.get_list_from_state_dict(
+                    name, h_dict, hf_prefix_path, self.hf_attn_gate_converter.cat_attn_qgkv
+                )
             elif name == MIXER_ATT_IN_PROJ:
                 hf_prefix_path = self._build_path(transformer, layer_prefix, hf_layer_id)
-                weight, bias, weight_scale = self.get_list_from_state_dict(name, h_dict, hf_prefix_path, self.hf_mixer_attn_converter.cat_mixer_in_proj)
+                weight, bias, weight_scale = self.get_list_from_state_dict(
+                    name, h_dict, hf_prefix_path, self.hf_mixer_attn_converter.cat_mixer_in_proj
+                )
             elif name == MIXER_ATT_IN_PROJ_QKVZ and isinstance(self.name_map.get(name), (list, ListConfig)):
                 hf_prefix_path = self._build_path(transformer, layer_prefix, hf_layer_id)
-                weight, bias, weight_scale = self.get_list_from_state_dict(name, h_dict, hf_prefix_path, self.hf_mixer_attn_converter.cat_qkv_z_to_qkvz)
+                weight, bias, weight_scale = self.get_list_from_state_dict(
+                    name, h_dict, hf_prefix_path, self.hf_mixer_attn_converter.cat_qkv_z_to_qkvz
+                )
             elif name == MIXER_ATT_IN_PROJ_BA and isinstance(self.name_map.get(name), (list, ListConfig)):
                 hf_prefix_path = self._build_path(transformer, layer_prefix, hf_layer_id)
-                weight, bias, weight_scale = self.get_list_from_state_dict(name, h_dict, hf_prefix_path, self.hf_mixer_attn_converter.cat_b_a_to_ba)
+                weight, bias, weight_scale = self.get_list_from_state_dict(
+                    name, h_dict, hf_prefix_path, self.hf_mixer_attn_converter.cat_b_a_to_ba
+                )
             elif name == MLP_DENSE_H_TO_4H:
                 hf_prefix_path = self._build_path(transformer, layer_prefix, hf_layer_id)
                 weight, bias, weight_scale = self.get_h_to_4h_from_state_dict(name, h_dict, hf_prefix_path)
@@ -449,17 +588,23 @@ class HuggingfaceBase:
                 if expert_name is None:
                     hf_prefix_path = self._build_path(transformer, layer_prefix, hf_layer_id, hf_name)
                 else:
-                    hf_prefix_path = self._build_path(transformer, layer_prefix, hf_layer_id, self.name_map[expert_name])
+                    hf_prefix_path = self._build_path(
+                        transformer, layer_prefix, hf_layer_id, self.name_map[expert_name]
+                    )
                 if is_direct_name:
                     hf_weight_path = hf_prefix_path
                 else:
                     hf_weight_path = f"{hf_prefix_path}.{WEIGHT}"
                 bias_name = f"{name}.{BIAS}"
-                hf_bias_path = self._build_path(transformer, layer_prefix, hf_layer_id, self.name_map[bias_name]) \
-                        if bias_name in self.name_map else f"{hf_prefix_path}.{BIAS}"
+                hf_bias_path = (
+                    self._build_path(transformer, layer_prefix, hf_layer_id, self.name_map[bias_name])
+                    if bias_name in self.name_map
+                    else f"{hf_prefix_path}.{BIAS}"
+                )
                 hf_weight_scale_path = f"{hf_prefix_path}.{self.weight_scale_suffix}"
                 weight, bias, weight_scale = self.get_from_state_dict(
-                        h_dict, hf_weight_path, hf_bias_path=hf_bias_path, hf_weight_scale_path=hf_weight_scale_path)
+                    h_dict, hf_weight_path, hf_bias_path=hf_bias_path, hf_weight_scale_path=hf_weight_scale_path
+                )
                 if ATTENTION_ROTARY_EMB_INV_FREQ == name and weight is None:
                     weight = 1.0 / (self.rotary_base ** (torch.arange(0, self.head_dim, 2).float() / self.head_dim))
                 # For attention padded heads
@@ -480,7 +625,7 @@ class HuggingfaceBase:
         bias_list = []
         weight_scale_list = []
         for tag_name in tag_names:
-            hf_path= f"{hf_prefix_path}.{tag_name}"
+            hf_path = f"{hf_prefix_path}.{tag_name}"
             if f"{hf_path}.{WEIGHT}" in h_dict:
                 weight_list.append(h_dict[f"{hf_path}.{WEIGHT}"])
             if f"{hf_path}.{BIAS}" in h_dict:
@@ -493,13 +638,15 @@ class HuggingfaceBase:
         return weight, bias, weight_scale
 
     def get_h_to_4h_from_state_dict(self, name, h_dict, hf_prefix_path, expert_id=None):
-        hf_name, is_direct_name, is_dict_for_expert, need_transpose, _, _, _ = self.get_hf_name_and_args(self.name_map[name])
+        hf_name, is_direct_name, is_dict_for_expert, need_transpose, _, _, _ = self.get_hf_name_and_args(
+            self.name_map[name]
+        )
         hf_names = hf_name if isinstance(hf_name, (list, ListConfig)) else [hf_name]
         weight_list = []
         bias_list = []
         weight_scale_list = []
         for hf_name in hf_names:
-            hf_path= f"{hf_prefix_path}.{hf_name}"
+            hf_path = f"{hf_prefix_path}.{hf_name}"
             hf_weight_path = f"{hf_path}.{WEIGHT}" if not is_direct_name else hf_path
             hf_bias_path = f"{hf_path}.{BIAS}"
             if f"{name}.{BIAS}" in self.name_map:
@@ -527,10 +674,10 @@ class HuggingfaceBase:
         padded_dim = self.num_padded_heads * self.hidden_size_per_head * 1
         if name == ATTENTION_DENSE:
             padded_tensor = torch.zeros((weight.shape[0], padded_dim), dtype=weight.dtype, device=weight.device)
-            padded_tensor[:, :weight.shape[-1]] = weight
+            padded_tensor[:, : weight.shape[-1]] = weight
             weight = padded_tensor
         elif name in [ATTENTION_QNORM, ATTENTION_KNORM]:
             padded_tensor = torch.zeros(padded_dim, dtype=weight.dtype, device=weight.device)
-            padded_tensor[:weight.shape[0]] = weight
+            padded_tensor[: weight.shape[0]] = weight
             weight = padded_tensor
         return weight

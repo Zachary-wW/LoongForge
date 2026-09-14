@@ -31,20 +31,14 @@ def _result(**overrides):
 
 
 def test_condense_warning_matches_metric_pattern():
-    note = (
-        "throughput: actual_mean=4.40 baseline_mean=14.47 degraded 69.6% > 5% "
-        "(soft check, warning only)"
-    )
+    note = "throughput: actual_mean=4.40 baseline_mean=14.47 degraded 69.6% > 5% (soft check, warning only)"
     assert summarize._condense_warning(note) == "throughput degraded 69.6%"
 
 
 def test_condense_warning_keeps_direction_for_time_metrics():
     # baseline.py reports a direction-normalised degradation magnitude, so a
     # leading "-" would render this 248% slowdown as an improvement.
-    note = (
-        "elapsed_time_ms: actual_mean=10.00 baseline_mean=2.87 degraded 248.4% > 5% "
-        "(soft check, warning only)"
-    )
+    note = "elapsed_time_ms: actual_mean=10.00 baseline_mean=2.87 degraded 248.4% > 5% (soft check, warning only)"
     assert summarize._condense_warning(note) == "elapsed_time_ms degraded 248.4%"
 
 

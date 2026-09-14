@@ -51,9 +51,7 @@ class MiniCPMV46TaskEncoder(VLMTaskEncoder):
             [],
             self.processor,
         )
-        input_ids = torch.tensor(
-            self.tokenizer.tokenize(messages[0]["content"], add_special_tokens=False)
-        )
+        input_ids = torch.tensor(self.tokenizer.tokenize(messages[0]["content"], add_special_tokens=False))
         target = input_ids.clone()
         image_processor = getattr(self.processor, "image_processor", None)
         use_image_id = getattr(

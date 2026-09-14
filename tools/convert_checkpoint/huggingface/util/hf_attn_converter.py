@@ -8,11 +8,10 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-from convert_checkpoint.utils.utils import (
-    transpose_shape0
-)
+from convert_checkpoint.utils.utils import transpose_shape0
 
-class HfAttnQkvConverter():
+
+class HfAttnQkvConverter:
     def __init__(self, c_config):
         self.c_config = c_config
         margs = self.c_config.get_args("mcore")
@@ -36,10 +35,10 @@ class HfAttnQkvConverter():
         # transpose value in shape[0] for llama
         assert self.heads % self.num_key_value_heads == 0
         num_repeats = self.heads // self.num_key_value_heads
-        num_splits = num_repeats + 2 # repeats*Q + K + V
+        num_splits = num_repeats + 2  # repeats*Q + K + V
 
         if self.num_padded_heads != 0:
-            value = value[:self.heads * self.hidden_size_per_head * num_splits].contiguous()
+            value = value[: self.heads * self.hidden_size_per_head * num_splits].contiguous()
 
         if not self.transpose_query_key_value:
             assert len(qkv_names) == 1
@@ -56,6 +55,7 @@ class HfAttnQkvConverter():
                 value_list = [q, k, v]
 
         return value_list
+
     # common_to_hf attn qkv end
 
     # hf_to_common attn_qkv begin
@@ -79,16 +79,16 @@ class HfAttnQkvConverter():
 
         if self.num_padded_heads != 0:
             padded_dim = self.num_padded_heads * self.hidden_size_per_head * 3
-            padded_tensor = torch.zeros((padded_dim, value.shape[-1]),
-                                        dtype=value.dtype, device=value.device)
-            padded_tensor[:value.shape[0], :] = value
+            padded_tensor = torch.zeros((padded_dim, value.shape[-1]), dtype=value.dtype, device=value.device)
+            padded_tensor[: value.shape[0], :] = value
             value = padded_tensor
 
         return value
+
     # hf_to_common attn_qkv end
 
 
-class HfAttnGateQkvConverter():
+class HfAttnGateQkvConverter:
     def __init__(self, c_config):
         self.c_config = c_config
         margs = self.c_config.get_args("mcore")
@@ -106,15 +106,15 @@ class HfAttnGateQkvConverter():
         self.q_dim = 2 * self.num_querys_per_group * self.head_dim
         self.kv_dim = self.head_dim
 
-
     # common_to_hf gated_selfattn begin
     def split_attn_qgkv(self, qkv_names, value):
         attn_proj_weight = value.reshape((self.num_key_value_heads, -1, self.hidden_size))
-        q = attn_proj_weight[:, :self.q_dim, :].reshape(-1, self.hidden_size).clone()
-        k = attn_proj_weight[:, self.q_dim: -self.kv_dim, :].reshape(-1, self.hidden_size).clone()
-        v = attn_proj_weight[:, -self.kv_dim:, :].reshape(-1, self.hidden_size).clone()
+        q = attn_proj_weight[:, : self.q_dim, :].reshape(-1, self.hidden_size).clone()
+        k = attn_proj_weight[:, self.q_dim : -self.kv_dim, :].reshape(-1, self.hidden_size).clone()
+        v = attn_proj_weight[:, -self.kv_dim :, :].reshape(-1, self.hidden_size).clone()
 
         return q, k, v
+
     # common_to_hf gated_selfattn end
 
     # hf_to_common gated_selfattn begin
@@ -126,11 +126,15 @@ class HfAttnGateQkvConverter():
         k = value_list[1]
         v = value_list[2]
 
-        value = torch.cat([
-            q.reshape((self.num_key_value_heads, -1, self.hidden_size)),
-            k.reshape((self.num_key_value_heads, -1, self.hidden_size)),
-            v.reshape((self.num_key_value_heads, -1, self.hidden_size)),
-        ], dim=1).reshape((-1, self.hidden_size))
+        value = torch.cat(
+            [
+                q.reshape((self.num_key_value_heads, -1, self.hidden_size)),
+                k.reshape((self.num_key_value_heads, -1, self.hidden_size)),
+                v.reshape((self.num_key_value_heads, -1, self.hidden_size)),
+            ],
+            dim=1,
+        ).reshape((-1, self.hidden_size))
 
         return value
+
     # hf_to_common gated_selfattn end

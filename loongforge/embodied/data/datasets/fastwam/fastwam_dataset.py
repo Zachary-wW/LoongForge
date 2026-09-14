@@ -54,9 +54,7 @@ def fastwam_delta_timestamps(dataset: LeRobotV3Dataset, info: Dict[str, Any], fp
     action_horizon = int(dataset._action_horizon)
     observation_delta_indices = list(dataset._strategy_kwargs["observation_delta_indices"])
 
-    image_keys = [
-        k for k, v in info.get("features", {}).items() if v.get("dtype") == "video"
-    ]
+    image_keys = [k for k, v in info.get("features", {}).items() if v.get("dtype") == "video"]
 
     return _build_fastwam_delta_timestamps(
         action_horizon=action_horizon,

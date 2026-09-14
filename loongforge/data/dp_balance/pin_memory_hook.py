@@ -82,6 +82,7 @@ def pin_memory_loop_wrapper(original_pin_memory_loop):
     this wrapper replaces the out_queue with a _ResortQueueProxy that
     transparently applies cross-DP data reordering after pin_memory.
     """
+
     @wraps(original_pin_memory_loop)
     def wrapper(in_queue, out_queue, device_id, done_event, device):
         """Replace out_queue with a _ResortQueueProxy and delegate to the original loop.
@@ -95,9 +96,7 @@ def pin_memory_loop_wrapper(original_pin_memory_loop):
             device: Target torch.device for pin_memory.
         """
         resort_queue = _ResortQueueProxy(out_queue)
-        return original_pin_memory_loop(
-            in_queue, resort_queue, device_id, done_event, device
-        )
+        return original_pin_memory_loop(in_queue, resort_queue, device_id, done_event, device)
 
     return wrapper
 
@@ -142,5 +141,6 @@ def resort_dataset_fn(idx, data):
                 state["warmup_done"] = True
                 data = reorder_data_across_dp(data)
     return idx, data
+
 
 resort_dataset_fn._state = None

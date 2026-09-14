@@ -32,9 +32,7 @@ def _resolve_dcp_dir(ckpt: str) -> str:
         return os.path.join(ckpt, "dcp")
     if os.path.exists(os.path.join(ckpt, ".metadata")):
         return ckpt
-    raise FileNotFoundError(
-        f"No DCP checkpoint found at {ckpt} (expected dcp/.metadata)."
-    )
+    raise FileNotFoundError(f"No DCP checkpoint found at {ckpt} (expected dcp/.metadata).")
 
 
 def _load_full_state_dict(dcp_dir: str) -> dict:
@@ -55,9 +53,7 @@ def _load_full_state_dict(dcp_dir: str) -> dict:
         top_keys.add(k.split(".", 1)[0])
 
     if "model" not in top_keys:
-        raise RuntimeError(
-            f"DCP checkpoint at {dcp_dir} has no 'model' key (found {sorted(top_keys)})."
-        )
+        raise RuntimeError(f"DCP checkpoint at {dcp_dir} has no 'model' key (found {sorted(top_keys)}).")
 
     # DCP only fills entries that already exist in the destination dict, so we
     # pre-allocate tensor placeholders from metadata for every "model.*" key.
@@ -66,7 +62,7 @@ def _load_full_state_dict(dcp_dir: str) -> dict:
     for full_key, meta in metadata.state_dict_metadata.items():
         if not full_key.startswith("model."):
             continue
-        sub_key = full_key[len("model."):]
+        sub_key = full_key[len("model.") :]
         if isinstance(meta, TensorStorageMetadata):
             model_sd[sub_key] = torch.empty(meta.size, dtype=meta.properties.dtype)
         elif isinstance(meta, BytesStorageMetadata):
@@ -98,10 +94,8 @@ def _save_pt(sd: dict, out_path: str):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--ckpt", required=True,
-                   help="Path to a steps_N directory or its dcp/ subdirectory.")
-    p.add_argument("--out", required=True,
-                   help="Output single-file path (e.g. model.safetensors).")
+    p.add_argument("--ckpt", required=True, help="Path to a steps_N directory or its dcp/ subdirectory.")
+    p.add_argument("--out", required=True, help="Output single-file path (e.g. model.safetensors).")
     p.add_argument("--format", choices=["safetensors", "pt"], default="safetensors")
     args = p.parse_args(argv)
 

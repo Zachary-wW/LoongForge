@@ -61,9 +61,7 @@ def build_action_transform(
         return None
 
     action_stats = (
-        convert_stats(dataset_stats.get("action"))
-        if dataset_stats and data_cfg.action_use_statistics
-        else None
+        convert_stats(dataset_stats.get("action")) if dataset_stats and data_cfg.action_use_statistics else None
     )
 
     return ActionTransform(

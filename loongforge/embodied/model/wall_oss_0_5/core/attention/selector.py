@@ -4,6 +4,7 @@
 # Modified from Wall-X under the Apache-2.0 License.
 
 """selector module."""
+
 from typing import Dict, Optional, Union
 
 import torch
@@ -16,8 +17,8 @@ logger = logging.get_logger(__name__)
 
 
 class AttentionsSelectorMixin:
-
     """AttentionsSelectorMixin."""
+
     @classmethod
     def _autoset_attn_implementation(
         cls,
@@ -43,24 +44,17 @@ class AttentionsSelectorMixin:
         # The `hasattr` here is used as some Transformers tests for some reason do not call PretrainedConfig __init__
         # (e.g. test_no_super_init_config_and_model)
         requested_attn_implementation = None
-        if (
-            hasattr(config, "_attn_implementation_internal")
-            and config._attn_implementation_internal is not None
-        ):
-            if (
-                config._attn_implementation != "flash_attention_2"
-                and use_flash_attention_2
-            ):
+        if hasattr(config, "_attn_implementation_internal") and config._attn_implementation_internal is not None:
+            if config._attn_implementation != "flash_attention_2" and use_flash_attention_2:
                 raise ValueError(
                     f'Both attn_implementation="{config._attn_implementation}" and `use_flash_attention_2=True` were '
-                    f'used when loading the model, which are not compatible.'
+                    f"used when loading the model, which are not compatible."
                     ' We recommend to just use `attn_implementation="flash_attention_2"` when loading the model.'
                 )
 
             if (
                 not isinstance(config._attn_implementation, dict)
-                and config._attn_implementation
-                not in ["eager"] + ALL_ATTENTION_FUNCTIONS.valid_keys()
+                and config._attn_implementation not in ["eager"] + ALL_ATTENTION_FUNCTIONS.valid_keys()
             ):
                 message = (
                     f'Specified `attn_implementation="{config._attn_implementation}"` is not supported. The only '
@@ -71,7 +65,7 @@ class AttentionsSelectorMixin:
                 if cls._supports_sdpa:
                     message += (
                         ', `"attn_implementation=sdpa"` (implementation using '
-                        'torch.nn.functional.scaled_dot_product_attention)'
+                        "torch.nn.functional.scaled_dot_product_attention)"
                     )
                 if cls._supports_flex_attn:
                     message += ', `"attn_implementation=flex_attention"` (implementation using torch\'s flex_attention)'
@@ -83,7 +77,7 @@ class AttentionsSelectorMixin:
 
         if use_flash_attention_2:
             logger.warning_once(
-                'The model was loaded with use_flash_attention_2=True, which is deprecated and may be removed in a '
+                "The model was loaded with use_flash_attention_2=True, which is deprecated and may be removed in a "
                 'future release. Please use `attn_implementation="flash_attention_2"` instead.'
             )
             config._attn_implementation = "flash_attention_2"
@@ -98,16 +92,11 @@ class AttentionsSelectorMixin:
             )
         elif requested_attn_implementation == "flex_attention":
             config = cls._check_and_enable_flex_attn(config, hard_check_only=True)
-        elif (
-            requested_attn_implementation in [None, "sdpa"]
-            and not is_torch_xla_available()
-        ):
+        elif requested_attn_implementation in [None, "sdpa"] and not is_torch_xla_available():
             # use_flash_attention_2 takes priority over SDPA, hence SDPA treated in this elif.
             config = cls._check_and_enable_sdpa(
                 config,
-                hard_check_only=(
-                    False if requested_attn_implementation is None else True
-                ),
+                hard_check_only=(False if requested_attn_implementation is None else True),
             )
 
             if (
@@ -135,9 +124,7 @@ class AttentionsSelectorMixin:
         self, attn_implementation: Optional[str], is_init_check: bool = False, **kwargs
     ) -> str:
         """Check and adjust attn implementation."""
-        assert (
-            attn_implementation
-            in ["eager", "flash_attention_2", "sdpa"]
-            + list(ALL_ATTENTION_FUNCTIONS.valid_keys())
+        assert attn_implementation in ["eager", "flash_attention_2", "sdpa"] + list(
+            ALL_ATTENTION_FUNCTIONS.valid_keys()
         )
         return attn_implementation

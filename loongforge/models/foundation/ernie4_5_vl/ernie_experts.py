@@ -61,7 +61,6 @@ class MLPSubmodules:
 
 
 class ErnieMLP(MLP):
-
     """
     MLP will take the input with h hidden state, project it to 4*h
     hidden dimension, perform nonlinear transformation, and project the
@@ -87,8 +86,14 @@ class ErnieMLP(MLP):
         ffn_hidden_size: int = None,
         tp_group: Optional[torch.distributed.ProcessGroup] = None,
     ):
-        super().__init__(config=config, submodules=submodules, is_expert=is_expert,
-            input_size=input_size, ffn_hidden_size=ffn_hidden_size, tp_group=tp_group)
+        super().__init__(
+            config=config,
+            submodules=submodules,
+            is_expert=is_expert,
+            input_size=input_size,
+            ffn_hidden_size=ffn_hidden_size,
+            tp_group=tp_group,
+        )
 
         # If this is a gated linear unit we double the output width, see https://arxiv.org/pdf/2002.05202.pdf
         ffn_hidden_size = self.config.ffn_hidden_size
@@ -152,15 +157,11 @@ class ErnieMLP(MLP):
                             self.config.activation_func_clamp_value,
                         )
                     else:
-                        raise ValueError(
-                            "Only support fusion of swiglu and quick_gelu with per_token_scale in MLP."
-                        )
+                        raise ValueError("Only support fusion of swiglu and quick_gelu with per_token_scale in MLP.")
                 else:
                     if self.activation_func == F.gelu:
                         if self.config.gated_linear_unit:
-                            intermediate_parallel = bias_geglu_impl(
-                                intermediate_parallel, bias_parallel
-                            )
+                            intermediate_parallel = bias_geglu_impl(intermediate_parallel, bias_parallel)
                         else:
                             assert self.config.add_bias_linear is True
                             intermediate_parallel = bias_gelu_impl(intermediate_parallel, bias_parallel)
@@ -169,9 +170,7 @@ class ErnieMLP(MLP):
                             intermediate_parallel,
                             bias_parallel,
                             self.config.activation_func_fp8_input_store,
-                            self.config.cpu_offloading
-                            and self.config.cpu_offloading_activations
-                            and HAVE_TE,
+                            self.config.cpu_offloading and self.config.cpu_offloading_activations and HAVE_TE,
                         )
                     else:
                         raise ValueError("Only support fusion of gelu and swiglu")
@@ -185,9 +184,7 @@ class ErnieMLP(MLP):
                         if (val := self.config.activation_func_clamp_value) is not None:
                             x_glu = x_glu.clamp(min=None, max=val)
                             x_linear = x_linear.clamp(min=-val, max=val)
-                        return self.config.activation_func(x_glu) * (
-                            x_linear + self.config.glu_linear_offset
-                        )
+                        return self.config.activation_func(x_glu) * (x_linear + self.config.glu_linear_offset)
 
                     intermediate_parallel = glu(intermediate_parallel)
                 else:
@@ -213,9 +210,7 @@ class ErnieMLP(MLP):
             nvtx_range_pop(suffix="linear_fc2")
             self.activation_checkpoint.discard_output_and_register_recompute(output)
         else:
-            intermediate_parallel_0 = bias_act_func(
-                intermediate_parallel_0, bias_parallel
-            )
+            intermediate_parallel_0 = bias_act_func(intermediate_parallel_0, bias_parallel)
             # added_for ernie
             intermediate_parallel = intermediate_parallel_0 * intermediate_parallel_1
             # [s, b, h]
@@ -241,15 +236,13 @@ class ErnieMLP(MLP):
     ) -> ShardedStateDict:
         """Return the sharded state dictionary of the module."""
         sharded_state_dict = {}
-        singleton_local_shards = (metadata or {}).get('singleton_local_shards', False)
+        singleton_local_shards = (metadata or {}).get("singleton_local_shards", False)
         for name, module in self._modules.items():
             sub_sd = module.sharded_state_dict(f"{prefix}{name}.", sharded_offsets, metadata)
             if self.config.gated_linear_unit and (name == "linear_fc1" or name == "linear_fc1_1"):
                 for k, v in sub_sd.items():
                     if k in (f"{prefix}{name}.weight", f"{prefix}{name}.bias"):
-                        sub_sd[k] = apply_swiglu_sharded_factory(
-                            v, sharded_offsets, singleton_local_shards
-                        )
+                        sub_sd[k] = apply_swiglu_sharded_factory(v, sharded_offsets, singleton_local_shards)
             sharded_state_dict.update(sub_sd)
         return sharded_state_dict
 
@@ -272,7 +265,6 @@ class SequentialMLP(MegaSequentialMLP):
         submodules: MLPSubmodules,
         pg_collection: Optional[ProcessGroupCollection] = None,
     ):
-    
         super().__init__(num_local_experts, config=config, submodules=submodules, pg_collection=pg_collection)
         self.num_local_experts = num_local_experts
         self.local_experts = torch.nn.ModuleList()
@@ -308,7 +300,7 @@ class ErnieSharedExpertMLP(ErnieMLP):
         config = deepcopy(config)
         assert config.add_bias_linear is False, "bias is not supported in the shared experts, "
         "please set '--disable-bias-linear' instead."
-        #ernie shared_expert intermediate size may be different from normal_expert
+        # ernie shared_expert intermediate size may be different from normal_expert
         config.ffn_hidden_size = config.moe_intermediate_size[0] * config.moe_num_shared_experts
         # config.ffn_hidden_size = config.moe_shared_expert_intermediate_size
         # TODO(Hepteract): pass pg_collection to MLP after refactoring MLP
@@ -321,7 +313,7 @@ class ErnieSharedExpertMLP(ErnieMLP):
             if config.perform_initialization:
                 config.init_method(self.gate_weight)
             self.gate_weight.data = self.gate_weight.data.to(dtype=config.params_dtype)
-            setattr(self.gate_weight, 'sequence_parallel', self.config.sequence_parallel)
+            setattr(self.gate_weight, "sequence_parallel", self.config.sequence_parallel)
         else:
             self.gate_weight = None
 
@@ -331,8 +323,7 @@ class ErnieSharedExpertMLP(ErnieMLP):
             # Here we set the linear_fc1 to save the original input tensors to avoid the extra
             # memory usage of the quantized tensor.
             shared_experts_recompute = (
-                config.recompute_granularity == 'selective'
-                and "shared_experts" in config.recompute_modules
+                config.recompute_granularity == "selective" and "shared_experts" in config.recompute_modules
             )
             if not shared_experts_recompute:
                 try:
@@ -351,7 +342,7 @@ class ErnieSharedExpertMLP(ErnieMLP):
         if self.config.moe_shared_expert_overlap:
             # disable TP related AG/RS communications in the linear module
             for linear in [self.linear_fc1, self.linear_fc2]:
-                if hasattr(linear, 'parallel_mode'):
+                if hasattr(linear, "parallel_mode"):
                     # TELinear
                     linear.parallel_mode = None
                     linear.ub_overlap_rs_fprop = False

@@ -178,9 +178,7 @@ def _validate_source_dataset(
     required_meta = ("info.json", "tasks.jsonl", "episodes.jsonl")
     missing_meta = [name for name in required_meta if not (dataset_path / "meta" / name).is_file()]
     if missing_meta:
-        raise FileNotFoundError(
-            f"LeRobot metadata is incomplete under {dataset_path / 'meta'}: {missing_meta}"
-        )
+        raise FileNotFoundError(f"LeRobot metadata is incomplete under {dataset_path / 'meta'}: {missing_meta}")
 
     parquet_paths = _dataset_parquet_paths(dataset_path)
     if not parquet_paths:
@@ -203,8 +201,7 @@ def _validate_source_dataset(
     codebase_version = str(info.get("codebase_version", ""))
     if not codebase_version.startswith("v2"):
         raise ValueError(
-            f"DreamZero preparation currently requires LeRobot v2, got "
-            f"codebase_version={codebase_version!r}"
+            f"DreamZero preparation currently requires LeRobot v2, got codebase_version={codebase_version!r}"
         )
     if not info.get("fps"):
         raise ValueError("meta/info.json must contain a positive fps")
@@ -212,16 +209,9 @@ def _validate_source_dataset(
     for field in preset.state + preset.action:
         feature = features.get(field.original_key)
         if feature is None:
-            raise ValueError(
-                f"Preset requires feature {field.original_key!r}, but it is absent from info.json"
-            )
+            raise ValueError(f"Preset requires feature {field.original_key!r}, but it is absent from info.json")
         dimension = _feature_dimension(feature)
-        if (
-            dimension is None
-            or field.start < 0
-            or field.start >= field.end
-            or field.end > dimension
-        ):
+        if dimension is None or field.start < 0 or field.start >= field.end or field.end > dimension:
             raise ValueError(
                 f"Invalid preset slice {field.name}="
                 f"{field.original_key}[{field.start}:{field.end}] "
@@ -230,16 +220,12 @@ def _validate_source_dataset(
 
     for _, original_key in preset.video + preset.annotation:
         if original_key not in features:
-            raise ValueError(
-                f"Preset requires feature {original_key!r}, but it is absent from info.json"
-            )
+            raise ValueError(f"Preset requires feature {original_key!r}, but it is absent from info.json")
 
     video_features = [features[original_key] for _, original_key in preset.video]
     if any(feature.get("dtype") == "video" for feature in video_features):
         if not (dataset_path / "videos").is_dir():
-            raise FileNotFoundError(
-                f"Video-backed dataset is missing directory: {dataset_path / 'videos'}"
-            )
+            raise FileNotFoundError(f"Video-backed dataset is missing directory: {dataset_path / 'videos'}")
 
     return parquet_paths, dataset_complete
 
@@ -261,14 +247,8 @@ def _build_modality_metadata(info: dict, preset: DreamZeroDatasetPreset) -> dict
     return {
         "state": {field.name: _vector_metadata(field, info) for field in preset.state},
         "action": {field.name: _vector_metadata(field, info) for field in preset.action},
-        "video": {
-            name: {"original_key": original_key}
-            for name, original_key in preset.video
-        },
-        "annotation": {
-            name: {"original_key": original_key}
-            for name, original_key in preset.annotation
-        },
+        "video": {name: {"original_key": original_key} for name, original_key in preset.video},
+        "annotation": {name: {"original_key": original_key} for name, original_key in preset.annotation},
     }
 
 
@@ -370,10 +350,7 @@ def _compute_dataset_statistics(
             if values.ndim == 1:
                 values = values[:, None]
             collected[column].append(values)
-    return {
-        column: _summarize(np.concatenate(column_values, axis=0))
-        for column, column_values in collected.items()
-    }
+    return {column: _summarize(np.concatenate(column_values, axis=0)) for column, column_values in collected.items()}
 
 
 def _prepare_dataset_statistics(
@@ -385,9 +362,7 @@ def _prepare_dataset_statistics(
     allow_partial_statistics: bool,
 ) -> None:
     path = meta_dir / "stats.json"
-    columns = tuple(
-        dict.fromkeys(field.original_key for field in preset.state + preset.action)
-    )
+    columns = tuple(dict.fromkeys(field.original_key for field in preset.state + preset.action))
     if path.exists() and not force:
         statistics = _load_json(path)
         if _statistics_are_usable(statistics, columns):
@@ -406,9 +381,7 @@ def _prepare_dataset_statistics(
 
 def _relative_statistics_are_usable(statistics: dict, keys: tuple[str, ...]) -> bool:
     return all(
-        key in statistics
-        and isinstance(statistics[key], dict)
-        and all(name in statistics[key] for name in _STAT_NAMES)
+        key in statistics and isinstance(statistics[key], dict) and all(name in statistics[key] for name in _STAT_NAMES)
         for key in keys
     )
 
@@ -432,53 +405,34 @@ def _compute_relative_statistics(
 ) -> dict:
     state_fields = {field.name: field for field in preset.state}
     action_fields = {field.name: field for field in preset.action}
-    relative_values: dict[str, list[np.ndarray]] = {
-        key: [] for key in preset.relative_action_keys
-    }
+    relative_values: dict[str, list[np.ndarray]] = {key: [] for key in preset.relative_action_keys}
     columns = sorted(
-        {
-            field.original_key
-            for key in preset.relative_action_keys
-            for field in (state_fields[key], action_fields[key])
-        }
+        {field.original_key for key in preset.relative_action_keys for field in (state_fields[key], action_fields[key])}
     )
 
     for parquet_path in tqdm(parquet_paths, desc="Collecting relative-action statistics"):
         frame = pd.read_parquet(parquet_path, columns=columns)
-        arrays = {
-            column: np.stack(frame[column].to_numpy()).astype(np.float32, copy=False)
-            for column in columns
-        }
+        arrays = {column: np.stack(frame[column].to_numpy()).astype(np.float32, copy=False) for column in columns}
         for key in preset.relative_action_keys:
             state_field = state_fields[key]
             action_field = action_fields[key]
-            state = arrays[state_field.original_key][
-                :, state_field.start : state_field.end
-            ]
-            action = arrays[action_field.original_key][
-                :, action_field.start : action_field.end
-            ]
+            state = arrays[state_field.original_key][:, state_field.start : state_field.end]
+            action = arrays[action_field.original_key][:, action_field.start : action_field.end]
             if state.shape[1] != action.shape[1]:
                 raise ValueError(
-                    f"Relative-action dimensions differ for {key}: "
-                    f"state={state.shape[1]}, action={action.shape[1]}"
+                    f"Relative-action dimensions differ for {key}: state={state.shape[1]}, action={action.shape[1]}"
                 )
             usable_length = len(frame) - preset.action_horizon + 1
             if usable_length <= 0:
                 continue
             reference_state = state[:usable_length]
             for offset in range(preset.action_horizon):
-                relative_values[key].append(
-                    action[offset : offset + usable_length] - reference_state
-                )
+                relative_values[key].append(action[offset : offset + usable_length] - reference_state)
 
     missing_keys = [key for key, values in relative_values.items() if not values]
     if missing_keys:
         raise ValueError(f"No relative-action samples were produced for keys: {missing_keys}")
-    return {
-        key: _summarize(np.concatenate(values, axis=0))
-        for key, values in relative_values.items()
-    }
+    return {key: _summarize(np.concatenate(values, axis=0)) for key, values in relative_values.items()}
 
 
 def _prepare_relative_statistics(

@@ -84,11 +84,9 @@ def _nearest_frame_indices_from_timestamps(
     right = np.searchsorted(frame_start_seconds, requested, side="left")
     right = np.clip(right, 0, len(frame_start_seconds) - 1)
     left = np.clip(right - 1, 0, len(frame_start_seconds) - 1)
-    use_right = (
-        np.abs(frame_start_seconds[right] - requested)
-        < np.abs(requested - frame_start_seconds[left])
-    )
+    use_right = np.abs(frame_start_seconds[right] - requested) < np.abs(requested - frame_start_seconds[left])
     return np.where(use_right, right, left).astype(np.int64, copy=False)
+
 
 def _extract_frames_at_timestamps_ffmpeg(video_path: str, timestamps: list[float]) -> np.ndarray:
     """Extract frames at specific timestamps using ffmpeg."""

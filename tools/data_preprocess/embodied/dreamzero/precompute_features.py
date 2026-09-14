@@ -108,9 +108,7 @@ def _load_indices_file(path: Path) -> list[int]:
         payload = json.load(f)
     raw_indices = payload.get("indices") if isinstance(payload, dict) else payload
     if not isinstance(raw_indices, list):
-        raise ValueError(
-            f"indices file must be a JSON list or object with an 'indices' list: {path}"
-        )
+        raise ValueError(f"indices file must be a JSON list or object with an 'indices' list: {path}")
 
     indices: list[int] = []
     for position, raw_index in enumerate(raw_indices):
@@ -118,13 +116,10 @@ def _load_indices_file(path: Path) -> list[int]:
             index = int(raw_index)
         except (TypeError, ValueError) as exc:
             raise ValueError(
-                f"indices file {path} has non-integer value at position {position}: "
-                f"{raw_index!r}"
+                f"indices file {path} has non-integer value at position {position}: {raw_index!r}"
             ) from exc
         if index < 0:
-            raise ValueError(
-                f"indices file {path} has negative index at position {position}: {index}"
-            )
+            raise ValueError(f"indices file {path} has negative index at position {position}: {index}")
         indices.append(index)
     return indices
 
@@ -149,21 +144,15 @@ def _select_dataset_indices(
     stop = min(len(indices), start_index + num_samples)
     selected = indices[start_index:stop]
     if len(set(selected)) != len(selected):
-        raise ValueError(
-            f"indices file contains duplicate indices in selected slice: {indices_file}"
-        )
+        raise ValueError(f"indices file contains duplicate indices in selected slice: {indices_file}")
     out_of_range = [index for index in selected if index >= dataset_len]
     if out_of_range:
         preview = ", ".join(str(index) for index in out_of_range[:8])
-        raise ValueError(
-            f"indices file contains indices outside dataset length {dataset_len}: {preview}"
-        )
+        raise ValueError(f"indices file contains indices outside dataset length {dataset_len}: {preview}")
     return selected
 
 
-def _read_distributed_context(
-    dist_backend: str, device: torch.device
-) -> _DistributedContext:
+def _read_distributed_context(dist_backend: str, device: torch.device) -> _DistributedContext:
     rank = _env_int("RANK", 0)
     world_size = _env_int("WORLD_SIZE", 1)
     local_rank = _env_int("LOCAL_RANK", 0)
@@ -184,9 +173,7 @@ def _read_distributed_context(
     )
 
 
-def _resolve_device(
-    device_arg: str | None, *, local_rank: int, world_size: int
-) -> torch.device:
+def _resolve_device(device_arg: str | None, *, local_rank: int, world_size: int) -> torch.device:
     if device_arg is None:
         if torch.cuda.is_available():
             return torch.device(f"cuda:{local_rank}" if world_size > 1 else "cuda")
@@ -209,9 +196,7 @@ def _init_distributed(context: _DistributedContext, device: torch.device) -> Non
         init_kwargs: dict[str, Any] = {"backend": context.backend}
         if context.backend == "nccl" and device.type == "cuda":
             init_kwargs["device_id"] = (
-                device
-                if device.index is not None
-                else torch.device(f"cuda:{context.local_rank}")
+                device if device.index is not None else torch.device(f"cuda:{context.local_rank}")
             )
         torch.distributed.init_process_group(**init_kwargs)
 
@@ -253,9 +238,7 @@ def main() -> None:
     )
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--num-workers", type=int, default=0)
-    parser.add_argument(
-        "--pin-memory", action=argparse.BooleanOptionalAction, default=True
-    )
+    parser.add_argument("--pin-memory", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--prefetch-factor", type=int, default=None)
     parser.add_argument("--cache-template", default="index_{index:08d}.pt")
     parser.add_argument(
@@ -291,15 +274,11 @@ def main() -> None:
     parser.add_argument("--tokenizer-path", default=None)
     parser.add_argument("--device", default=None)
     parser.add_argument("--dtype", choices=("bf16", "fp32"), default="bf16")
-    parser.add_argument(
-        "--dist-backend", choices=("auto", "nccl", "gloo"), default="auto"
-    )
+    parser.add_argument("--dist-backend", choices=("auto", "nccl", "gloo"), default="auto")
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--compare-existing", action="store_true")
     parser.add_argument("--compare-atol", type=float, default=0.0)
-    parser.add_argument(
-        "--include-video-latents", action=argparse.BooleanOptionalAction, default=True
-    )
+    parser.add_argument("--include-video-latents", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument(
         "--include-first-frame-latents",
         action=argparse.BooleanOptionalAction,
@@ -331,18 +310,12 @@ def main() -> None:
     )
     args = parser.parse_args()
     if args.storage_format == TENSOR_SHARDS_FORMAT and args.compare_existing:
-        raise ValueError(
-            "--compare-existing is only supported with --storage-format=sample_files"
-        )
+        raise ValueError("--compare-existing is only supported with --storage-format=sample_files")
     if args.tensor_shard_size <= 0:
-        raise ValueError(
-            f"--tensor-shard-size must be positive, got {args.tensor_shard_size}"
-        )
+        raise ValueError(f"--tensor-shard-size must be positive, got {args.tensor_shard_size}")
     env_world_size = _env_int("WORLD_SIZE", 1)
     env_local_rank = _env_int("LOCAL_RANK", 0)
-    device = _resolve_device(
-        args.device, local_rank=env_local_rank, world_size=env_world_size
-    )
+    device = _resolve_device(args.device, local_rank=env_local_rank, world_size=env_world_size)
     dist_context = _read_distributed_context(args.dist_backend, device)
     _init_distributed(dist_context, device)
 
@@ -350,9 +323,7 @@ def main() -> None:
     if args.tokenizer_path:
         config.tokenizer_path = args.tokenizer_path
     if not config.tokenizer_path:
-        raise ValueError(
-            "DreamZero VAE precompute requires --tokenizer-path or config.tokenizer_path"
-        )
+        raise ValueError("DreamZero VAE precompute requires --tokenizer-path or config.tokenizer_path")
     include_first_frame_latents = (
         _default_include_first_frame_latents(config)
         if args.include_first_frame_latents is None
@@ -360,16 +331,10 @@ def main() -> None:
     )
     args.include_first_frame_latents = include_first_frame_latents
     include_prompt_embs = (
-        _default_include_prompt_embs(config)
-        if args.include_prompt_embs is None
-        else bool(args.include_prompt_embs)
+        _default_include_prompt_embs(config) if args.include_prompt_embs is None else bool(args.include_prompt_embs)
     )
     args.include_prompt_embs = include_prompt_embs
-    if not (
-        args.include_video_latents
-        or args.include_first_frame_latents
-        or args.include_prompt_embs
-    ):
+    if not (args.include_video_latents or args.include_first_frame_latents or args.include_prompt_embs):
         raise ValueError(
             "at least one feature must be enabled: --include-video-latents, "
             "--include-first-frame-latents, or --include-prompt-embs"
@@ -455,20 +420,14 @@ def main() -> None:
         vae.requires_grad_(False)
     text_encoder = None
     if args.include_prompt_embs:
-        text_encoder = (
-            _build_text_encoder_for_cache(config).to(device=device, dtype=dtype).eval()
-        )
+        text_encoder = _build_text_encoder_for_cache(config).to(device=device, dtype=dtype).eval()
         text_encoder.requires_grad_(False)
 
     local_manifest_path = (
-        _rank_manifest_path(args.output_dir, dist_context.rank, "jsonl")
-        if dist_context.enabled
-        else manifest_path
+        _rank_manifest_path(args.output_dir, dist_context.rank, "jsonl") if dist_context.enabled else manifest_path
     )
     local_csv_path = (
-        _rank_manifest_path(args.output_dir, dist_context.rank, "csv")
-        if dist_context.enabled
-        else csv_path
+        _rank_manifest_path(args.output_dir, dist_context.rank, "csv") if dist_context.enabled else csv_path
     )
 
     stats = _PrecomputeStats()
@@ -518,9 +477,7 @@ def main() -> None:
                 kept_images = []
                 kept_indices = []
                 kept_positions = []
-                for position, (image, dataset_index) in enumerate(
-                    zip(image_batch, batch_indices)
-                ):
+                for position, (image, dataset_index) in enumerate(zip(image_batch, batch_indices)):
                     frame_count = int(image.shape[0])
                     if frame_count == expected_frames:
                         kept_images.append(image)
@@ -537,9 +494,7 @@ def main() -> None:
                     if "text" in batch:
                         batch["text"] = batch["text"].index_select(0, positions)
                     if "text_attention_mask" in batch:
-                        batch["text_attention_mask"] = batch[
-                            "text_attention_mask"
-                        ].index_select(0, positions)
+                        batch["text_attention_mask"] = batch["text_attention_mask"].index_select(0, positions)
             videos = _prepare_videos(image_batch, config, device, dtype)
             with torch.no_grad():
                 latents = None
@@ -576,18 +531,14 @@ def main() -> None:
                         dim=2,
                     )
                     # Match the training image-condition bf16 autocast path.
-                    with torch.amp.autocast(
-                        dtype=torch.bfloat16, device_type=device.type
-                    ):
+                    with torch.amp.autocast(dtype=torch.bfloat16, device_type=device.type):
                         first_frame_latents = vae.encode(first_frame_input)
                 prompt_embs = None
                 if args.include_prompt_embs:
                     if text_encoder is None:
                         raise RuntimeError("text encoder is not initialized")
                     if "text" not in batch or "text_attention_mask" not in batch:
-                        raise KeyError(
-                            "batch is missing text/text_attention_mask for prompt precompute"
-                        )
+                        raise KeyError("batch is missing text/text_attention_mask for prompt precompute")
                     prompt_embs = _encode_prompt_embs_for_cache(
                         text_encoder,
                         batch["text"],
@@ -603,19 +554,11 @@ def main() -> None:
                     trajectory_id,
                     base_index,
                 )
-                sample_latents = (
-                    latents[local_idx].detach().cpu() if latents is not None else None
-                )
+                sample_latents = latents[local_idx].detach().cpu() if latents is not None else None
                 sample_first_frame_latents = (
-                    first_frame_latents[local_idx].detach().cpu()
-                    if first_frame_latents is not None
-                    else None
+                    first_frame_latents[local_idx].detach().cpu() if first_frame_latents is not None else None
                 )
-                sample_prompt_embs = (
-                    prompt_embs[local_idx].detach().cpu()
-                    if prompt_embs is not None
-                    else None
-                )
+                sample_prompt_embs = prompt_embs[local_idx].detach().cpu() if prompt_embs is not None else None
                 _process_write(
                     {
                         "output_dir": args.output_dir,
@@ -632,9 +575,7 @@ def main() -> None:
                     }
                 )
 
-    local_storage = (
-        tensor_shard_writer.close() if tensor_shard_writer is not None else None
-    )
+    local_storage = tensor_shard_writer.close() if tensor_shard_writer is not None else None
     local_elapsed = time.perf_counter() - local_start_time
     selected = len(indices)
     local_compare_summary = stats.compare_summary(args)
@@ -651,9 +592,7 @@ def main() -> None:
         "compared": int(stats.compared),
         "skipped_partial": int(stats.skipped_partial),
         "elapsed_sec": float(local_elapsed),
-        "samples_per_sec": (
-            float(stats.processed / local_elapsed) if local_elapsed > 0 else 0.0
-        ),
+        "samples_per_sec": (float(stats.processed / local_elapsed) if local_elapsed > 0 else 0.0),
         "manifest_jsonl": str(local_manifest_path.name),
         "manifest_csv": str(local_csv_path.name),
         "compare": local_compare_summary,
@@ -667,9 +606,7 @@ def main() -> None:
     cache_files = stats.cache_files
     storage: dict[str, Any] | None = None
     if dist_context.enabled:
-        _write_json_atomic(
-            _rank_summary_path(args.output_dir, dist_context.rank), local_summary
-        )
+        _write_json_atomic(_rank_summary_path(args.output_dir, dist_context.rank), local_summary)
         # Rank0 can only merge once every worker has flushed its local manifest and summary.
         _barrier(dist_context)
         if not dist_context.is_rank0:
@@ -680,13 +617,9 @@ def main() -> None:
         rank_summaries = []
         records: list[dict[str, Any]] = []
         for rank in range(dist_context.world_size):
-            with _rank_summary_path(args.output_dir, rank).open(
-                "r", encoding="utf-8"
-            ) as f:
+            with _rank_summary_path(args.output_dir, rank).open("r", encoding="utf-8") as f:
                 rank_summaries.append(json.load(f))
-            records.extend(
-                _read_jsonl_records(_rank_manifest_path(args.output_dir, rank, "jsonl"))
-            )
+            records.extend(_read_jsonl_records(_rank_manifest_path(args.output_dir, rank, "jsonl")))
         records.sort(
             key=lambda item: (
                 int(item["index"]),
@@ -694,9 +627,7 @@ def main() -> None:
                 int(item["base_index"]),
             )
         )
-        processed_from_summaries = sum(
-            int(item["processed"]) for item in rank_summaries
-        )
+        processed_from_summaries = sum(int(item["processed"]) for item in rank_summaries)
         if len(records) != processed_from_summaries:
             raise ValueError(
                 "distributed precompute manifest row count mismatch: "
@@ -705,9 +636,7 @@ def main() -> None:
         if args.storage_format == TENSOR_SHARDS_FORMAT:
             merged_storage = _merge_tensor_shard_storage(rank_summaries)
             if merged_storage is None:
-                raise ValueError(
-                    "tensor_shards precompute produced no shard storage metadata"
-                )
+                raise ValueError("tensor_shards precompute produced no shard storage metadata")
             storage = _write_tensor_shard_index(
                 output_dir=args.output_dir,
                 records=records,
@@ -742,8 +671,7 @@ def main() -> None:
             )
             if len(records) != processed:
                 raise ValueError(
-                    "single-rank precompute manifest row count mismatch: "
-                    f"records={len(records)}, processed={processed}"
+                    f"single-rank precompute manifest row count mismatch: records={len(records)}, processed={processed}"
                 )
             _write_manifest_files(manifest_path, csv_path, records)
             cache_files = [
@@ -760,9 +688,7 @@ def main() -> None:
         if args.storage_format == TENSOR_SHARDS_FORMAT:
             merged_storage = _merge_tensor_shard_storage(rank_summaries)
             if merged_storage is None:
-                raise ValueError(
-                    "tensor_shards precompute produced no shard storage metadata"
-                )
+                raise ValueError("tensor_shards precompute produced no shard storage metadata")
             storage = _write_tensor_shard_index(
                 output_dir=args.output_dir,
                 records=records,
@@ -788,23 +714,13 @@ def main() -> None:
         "backend": dist_context.backend,
         "batch_size": int(args.batch_size),
         "storage_format": str(args.storage_format),
-        "tensor_shard_size": (
-            int(effective_tensor_shard_size)
-            if effective_tensor_shard_size is not None
-            else None
-        ),
+        "tensor_shard_size": (int(effective_tensor_shard_size) if effective_tensor_shard_size is not None else None),
         "tensor_shard_file_hash": bool(args.tensor_shard_file_hash),
         "num_workers": int(args.num_workers),
         "pin_memory": bool(args.pin_memory) and device.type == "cuda",
-        "prefetch_factor": (
-            int(args.prefetch_factor) if args.prefetch_factor is not None else None
-        ),
+        "prefetch_factor": (int(args.prefetch_factor) if args.prefetch_factor is not None else None),
         "elapsed_sec": precompute_elapsed_sec,
-        "samples_per_sec": (
-            float(processed / precompute_elapsed_sec)
-            if precompute_elapsed_sec > 0
-            else 0.0
-        ),
+        "samples_per_sec": (float(processed / precompute_elapsed_sec) if precompute_elapsed_sec > 0 else 0.0),
         "rank_summaries": rank_summaries,
     }
     storage_files = _tensor_storage_files(storage)
@@ -833,23 +749,19 @@ def main() -> None:
         },
         "config": {
             "config_file": str(args.config_file),
-            "config_sha256": (
-                sha256_file(args.config_file) if args.config_file.exists() else None
-            ),
+            "config_sha256": (sha256_file(args.config_file) if args.config_file.exists() else None),
             "backbone_variant": config.backbone_variant,
             "text_encoder_pretrained_path": config.text_encoder_pretrained_path,
             "text_encoder_pretrained_sha256": (
                 sha256_file(Path(config.text_encoder_pretrained_path))
-                if config.text_encoder_pretrained_path
-                and Path(config.text_encoder_pretrained_path).exists()
+                if config.text_encoder_pretrained_path and Path(config.text_encoder_pretrained_path).exists()
                 else None
             ),
             "vae_class": config.vae_class,
             "vae_pretrained_path": config.vae_pretrained_path,
             "vae_pretrained_sha256": (
                 sha256_file(Path(config.vae_pretrained_path))
-                if config.vae_pretrained_path
-                and Path(config.vae_pretrained_path).exists()
+                if config.vae_pretrained_path and Path(config.vae_pretrained_path).exists()
                 else None
             ),
             "image_height": int(config.image_height),
@@ -880,9 +792,7 @@ def main() -> None:
             "cache_template": args.cache_template,
             "storage_format": str(args.storage_format),
             "tensor_shard_size": (
-                int(effective_tensor_shard_size)
-                if effective_tensor_shard_size is not None
-                else None
+                int(effective_tensor_shard_size) if effective_tensor_shard_size is not None else None
             ),
             "tensor_shard_file_hash": bool(args.tensor_shard_file_hash),
             "dtype": args.dtype,
@@ -890,9 +800,7 @@ def main() -> None:
             "num_samples": int(args.num_samples),
             "indices_file": str(args.indices_file) if args.indices_file else None,
             "indices_file_sha256": (
-                sha256_file(args.indices_file)
-                if args.indices_file is not None and args.indices_file.exists()
-                else None
+                sha256_file(args.indices_file) if args.indices_file is not None and args.indices_file.exists() else None
             ),
             "indices_sha256": json_sha256(indices),
             "use_sample_transform_seed": bool(args.use_sample_transform_seed),
@@ -919,18 +827,12 @@ def main() -> None:
             "cache_files_total_bytes": int(sum(item["bytes"] for item in cache_files)),
             "cache_files_sha256": json_sha256(cache_files),
             "storage_files_count": len(storage_files),
-            "storage_files_total_bytes": int(
-                sum(item["bytes"] for item in storage_files)
-            ),
-            "storage_files_sha256": (
-                json_sha256(storage_files) if storage_files else None
-            ),
+            "storage_files_total_bytes": int(sum(item["bytes"] for item in storage_files)),
+            "storage_files_sha256": (json_sha256(storage_files) if storage_files else None),
         },
     }
     tmp_manifest_path = artifact_manifest_path.with_suffix(".json.tmp")
-    tmp_manifest_path.write_text(
-        json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    tmp_manifest_path.write_text(json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     os.replace(tmp_manifest_path, artifact_manifest_path)
     artifact_sha256 = sha256_file(artifact_manifest_path)
     success_payload = {
@@ -941,9 +843,7 @@ def main() -> None:
         "compare": compare_summary,
     }
     tmp_success_path = success_path.with_suffix(".tmp")
-    tmp_success_path.write_text(
-        json.dumps(success_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    tmp_success_path.write_text(json.dumps(success_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     os.replace(tmp_success_path, success_path)
     _sync_rank0_finalization(dist_context)
 

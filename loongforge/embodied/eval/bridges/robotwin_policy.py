@@ -70,8 +70,7 @@ class ModelClient:
 
         if action_bridge not in _BRIDGE_WIRING:
             raise ValueError(
-                f"Unsupported RoboTwin action_bridge {action_bridge!r}. "
-                f"Supported: {sorted(_BRIDGE_WIRING)}"
+                f"Unsupported RoboTwin action_bridge {action_bridge!r}. Supported: {sorted(_BRIDGE_WIRING)}"
             )
         self.client = PolicyClient(host=host, port=port, timeout=timeout)
         # ee6d_dual / pi05_aloha_14d own the action protocol via the paired
@@ -264,4 +263,3 @@ def eval(TASK_ENV: Any, model: ModelClient, observation: Dict[str, Any]) -> None
         instruction = str(TASK_ENV.get_instruction())
         action = model.step(observation, instruction=instruction, step=TASK_ENV.take_action_cnt)
         TASK_ENV.take_action(action)
-

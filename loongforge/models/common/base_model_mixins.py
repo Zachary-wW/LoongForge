@@ -15,6 +15,7 @@ from transformers import (
     AutoConfig,
 )
 import logging
+
 logger = logging.getLogger(__name__)
 from megatron.core.models.common.vision_module.vision_module import VisionModule
 from megatron.core.transformer.module import MegatronModule
@@ -29,8 +30,7 @@ class BaseMegatronLanguageModule(LanguageModule):
         super().__init__(config=config, pg_collection=pg_collection, **kwargs)
 
     def freeze(self):
-        """Freeze model parameters during training to prevent them from being updated.
-        """
+        """Freeze model parameters during training to prevent them from being updated."""
         for param in self.parameters():
             param.requires_grad = False
 
@@ -53,12 +53,12 @@ class BaseMegatronLanguageModule(LanguageModule):
 
 class BaseMegatronModule(MegatronModule):
     """A Unified Encoder Model Interface Supporting All Modalities."""
+
     def __init__(self, config: AutoConfig, **kwargs):
         super().__init__(config=config, **kwargs)
 
     def freeze(self):
-        """Freeze model parameters during training to prevent them from being updated.
-        """
+        """Freeze model parameters during training to prevent them from being updated."""
         for param in self.parameters():
             param.requires_grad = False
 
@@ -85,10 +85,9 @@ class BaseMegatronVisionModule(MegatronModule):
 
     def __init__(self, config: AutoConfig, **kwargs):
         super().__init__(config=config, **kwargs)
-    
+
     def freeze(self):
-        """Freeze model parameters during training to prevent them from being updated.
-        """
+        """Freeze model parameters during training to prevent them from being updated."""
         for param in self.parameters():
             param.requires_grad = False
 

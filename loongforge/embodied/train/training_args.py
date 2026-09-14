@@ -39,6 +39,7 @@ import torch
 
 logger = logging.getLogger(__name__)
 
+
 # ---------------------------------------------------------------------------
 # Custom CLI value parsers (referenced by field metadata below)
 # ---------------------------------------------------------------------------
@@ -54,13 +55,9 @@ def parse_reshard_after_forward(value: str):
     try:
         int_value = int(value)
     except ValueError as exc:
-        raise argparse.ArgumentTypeError(
-            "expected one of: true, false, none, or an integer greater than 1"
-        ) from exc
+        raise argparse.ArgumentTypeError("expected one of: true, false, none, or an integer greater than 1") from exc
     if int_value <= 1:
-        raise argparse.ArgumentTypeError(
-            "integer reshard_after_forward must be greater than 1"
-        )
+        raise argparse.ArgumentTypeError("integer reshard_after_forward must be greater than 1")
     return int_value
 
 
@@ -81,9 +78,7 @@ def parse_reshard_after_forward_map(raw_map: str):
         if not pair:
             continue
         if "=" not in pair:
-            raise argparse.ArgumentTypeError(
-                "expected comma-separated ClassName=value pairs"
-            )
+            raise argparse.ArgumentTypeError("expected comma-separated ClassName=value pairs")
         class_name, reshard_value = pair.split("=", 1)
         class_name = class_name.strip()
         if not class_name:
@@ -108,9 +103,7 @@ def parse_non_negative_int(value: str) -> int:
     try:
         int_value = int(value)
     except ValueError as exc:
-        raise argparse.ArgumentTypeError(
-            "expected a non-negative integer"
-        ) from exc
+        raise argparse.ArgumentTypeError("expected a non-negative integer") from exc
     if int_value < 0:
         raise argparse.ArgumentTypeError("expected a non-negative integer")
     return int_value
@@ -132,15 +125,8 @@ def parse_module_key_patterns(
     if not normalized_patterns:
         return []
 
-    patterns = [
-        pattern.strip()
-        for pattern in normalized_patterns.split(",")
-        if pattern.strip()
-    ]
-    if any(
-        any(not segment for segment in pattern.split("."))
-        for pattern in patterns
-    ):
+    patterns = [pattern.strip() for pattern in normalized_patterns.split(",") if pattern.strip()]
+    if any(any(not segment for segment in pattern.split(".")) for pattern in patterns):
         raise ValueError(f"{option_name} cannot contain empty segments")
     return patterns
 
@@ -197,6 +183,7 @@ def parse_optional_int_list(raw_value: str | None) -> list[int] | None:
 # To add or change a generic parameter, edit the matching _XxxArgs mixin.
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class _ModelRoutingArgs:
     """Model routing: which YAML / trainer / tokenizer to select."""
@@ -206,31 +193,31 @@ class _ModelRoutingArgs:
         default=None,
         metadata={
             "help": "Model identifier (e.g. 'pi05', 'groot_n1_6'). Selects the "
-                    "ModelConfig/DataConfig classes and default YAML via "
-                    "MODEL_SCHEMA. Required."
+            "ModelConfig/DataConfig classes and default YAML via "
+            "MODEL_SCHEMA. Required."
         },
     )
     config_file: Optional[str] = field(
         default=None,
         metadata={
             "help": "Explicit path to a model YAML config. Overrides the default "
-                    "YAML resolved from --model-name; --model-name is still "
-                    "required to pick the config classes."
+            "YAML resolved from --model-name; --model-name is still "
+            "required to pick the config classes."
         },
     )
     tokenizer_path: Optional[str] = field(
         default=None,
         metadata={
             "help": "Directory or HF repo id of the tokenizer. Exported to the "
-                    "TOKENIZER_PATH env var so the model/data tokenizer loaders "
-                    "can pick it up."
+            "TOKENIZER_PATH env var so the model/data tokenizer loaders "
+            "can pick it up."
         },
     )
     trainer_type: str = field(
         default="FinetuneTrainer",
         metadata={
             "help": "Trainer class to instantiate (e.g. FinetuneTrainer, "
-                    "GrootN1d6Trainer); resolved by the trainer builder registry."
+            "GrootN1d6Trainer); resolved by the trainer builder registry."
         },
     )
 
@@ -241,9 +228,7 @@ class _BasicTrainingArgs:
 
     train_iters: int = field(
         default=150000,
-        metadata={
-            "help": "Total number of optimizer update steps to run before stopping."
-        },
+        metadata={"help": "Total number of optimizer update steps to run before stopping."},
     )
     save_interval: int = field(
         default=10000,
@@ -251,85 +236,67 @@ class _BasicTrainingArgs:
     )
     seed: int = field(
         default=3047,
-        metadata={
-            "help": "Global RNG seed for Python/NumPy/PyTorch and data shuffling "
-                    "(reproducibility)."
-        },
+        metadata={"help": "Global RNG seed for Python/NumPy/PyTorch and data shuffling (reproducibility)."},
     )
     set_seed_by_rank: bool = field(
         default=False,
-        metadata={
-            "help": "If True, seed += torch.distributed.get_rank()"
-        },
+        metadata={"help": "If True, seed += torch.distributed.get_rank()"},
     )
     deterministic_mode: bool = field(
         default=False,
         metadata={
             "help": "Force cuDNN deterministic algorithms. Improves "
-                    "reproducibility at some throughput cost; requires "
-                    "CUBLAS_WORKSPACE_CONFIG to be set."
+            "reproducibility at some throughput cost; requires "
+            "CUBLAS_WORKSPACE_CONFIG to be set."
         },
     )
     disable_tf32: bool = field(
         default=False,
-        metadata={
-            "help": "disable"
-                    "torch.backends.cudnn.allow_tf32"
-                    "torch.backends.cuda.matmul.allow_tf32"
-        },
+        metadata={"help": "disabletorch.backends.cudnn.allow_tf32torch.backends.cuda.matmul.allow_tf32"},
     )
     cudnn_benchmark: bool = field(
         default=False,
         metadata={
             "help": "Let cuDNN autotune convolution algorithms for the shapes it "
-                    "sees (torch.backends.cudnn.benchmark). Worth it for models "
-                    "with a fixed conv shape per step, e.g. the FastWAM VAE "
-                    "encoder; costs a slower first step per new shape. Mutually "
-                    "exclusive with --deterministic-mode."
+            "sees (torch.backends.cudnn.benchmark). Worth it for models "
+            "with a fixed conv shape per step, e.g. the FastWAM VAE "
+            "encoder; costs a slower first step per new shape. Mutually "
+            "exclusive with --deterministic-mode."
         },
     )
     output_dir: str = field(
         default="outputs/default",
-        metadata={
-            "help": "Root directory for checkpoints, logs, and other run artifacts."
-        },
+        metadata={"help": "Root directory for checkpoints, logs, and other run artifacts."},
     )
     gradient_accumulation_steps: int = field(
         default=1,
         metadata={
             "help": "Number of micro-batches accumulated before each optimizer "
-                    "step; effective batch = per_device_batch_size * world_size "
-                    "* this value."
+            "step; effective batch = per_device_batch_size * world_size "
+            "* this value."
         },
     )
     loss_spike_threshold: float = field(
         default=100.0,
         metadata={
             "help": "Loss spike guard threshold. The scaled backward loss "
-                    "(loss / gradient_accumulation_steps) is checked each "
-                    "micro-batch; if it is NaN/Inf or greater than this value, "
-                    "that loss contribution is zeroed before backward and the "
-                    "optimizer iteration is counted as spiked/skipped."
+            "(loss / gradient_accumulation_steps) is checked each "
+            "micro-batch; if it is NaN/Inf or greater than this value, "
+            "that loss contribution is zeroed before backward and the "
+            "optimizer iteration is counted as spiked/skipped."
         },
     )
     manual_gc: bool = field(
         default=False,
-        metadata={
-            "help": "Disable automatic Python GC and collect explicitly after optimizer steps."
-        },
+        metadata={"help": "Disable automatic Python GC and collect explicitly after optimizer steps."},
     )
     manual_gc_interval: int = field(
         default=0,
-        metadata={
-            "help": "Manual GC cadence in steps when --manual-gc is enabled; "
-                    "0 disables periodic collection."
-        },
+        metadata={"help": "Manual GC cadence in steps when --manual-gc is enabled; 0 disables periodic collection."},
     )
     check_for_nan_in_loss_and_grad: bool = field(
         default=True,
-        metadata={
-            "help": "Run host-side NaN/Inf checks on loss and gradients each step."
-        },
+        metadata={"help": "Run host-side NaN/Inf checks on loss and gradients each step."},
     )
 
 
@@ -339,23 +306,20 @@ class _LearningRateArgs:
 
     lr_base: float = field(
         default=2.5e-5,
-        metadata={
-            "help": "Base learning rate applied to all parameters not matched by "
-                    "--lr-group."
-        },
+        metadata={"help": "Base learning rate applied to all parameters not matched by --lr-group."},
     )
     lr_group: Optional[str] = field(
         default=None,
         metadata={
             "help": "Per-module LR overrides in 'module.path=lr' format, "
-                    "comma-separated. Order matters: parameters are assigned to "
-                    "the first matching entry and excluded from all later entries. "
-                    "Child module paths must appear before their parent paths, "
-                    "otherwise the child rule is silently ignored because its "
-                    "parameters have already been consumed by the parent. "
-                    "Example: 'model.paligemma_with_expert.gemma_expert=1e-4,"
-                    "model.paligemma_with_expert=1e-5'. The final catch-all "
-                    "group uses --lr-base."
+            "comma-separated. Order matters: parameters are assigned to "
+            "the first matching entry and excluded from all later entries. "
+            "Child module paths must appear before their parent paths, "
+            "otherwise the child rule is silently ignored because its "
+            "parameters have already been consumed by the parent. "
+            "Example: 'model.paligemma_with_expert.gemma_expert=1e-4,"
+            "model.paligemma_with_expert=1e-5'. The final catch-all "
+            "group uses --lr-base."
         },
     )
     # ============================================================
@@ -509,22 +473,17 @@ class _LearningRateArgs:
                 "lambda_linear",
             ],
             "help": "Learning-rate scheduler name. Most values are passed to "
-                    "transformers.get_scheduler; lambda_linear uses the custom "
-                    "LambdaLinearScheduler."
+            "transformers.get_scheduler; lambda_linear uses the custom "
+            "LambdaLinearScheduler.",
         },
     )
     lr_warmup_iters: int = field(
         default=2000,
-        metadata={
-            "help": "Number of iterations to linearly warm up the LR from 0 to "
-                    "its peak."
-        },
+        metadata={"help": "Number of iterations to linearly warm up the LR from 0 to its peak."},
     )
     lr_decay_iters: Optional[int] = field(
         default=None,
-        metadata={
-            "help": "Number of scheduler decay steps. Defaults to --train-iters when unset."
-        },
+        metadata={"help": "Number of scheduler decay steps. Defaults to --train-iters when unset."},
     )
     min_lr: float = field(
         default=1e-6,
@@ -534,9 +493,9 @@ class _LearningRateArgs:
         default=False,
         metadata={
             "help": "Use the custom cosine LR lambda (warmup + cosine decay to "
-                    "--min-lr) instead of the built-in HF scheduler. Only applies "
-                    "when --lr-decay-style is cosine_with_min_lr or "
-                    "cosine_warmup_with_min_lr."
+            "--min-lr) instead of the built-in HF scheduler. Only applies "
+            "when --lr-decay-style is cosine_with_min_lr or "
+            "cosine_warmup_with_min_lr."
         },
     )
     # ── lambda_linear scheduler params ──
@@ -544,52 +503,48 @@ class _LearningRateArgs:
         default=0.4,
         metadata={
             "help": "lambda_linear: peak LR multiplier (applied after warmup). "
-                    "Only used when --lr-decay-style=lambda_linear."
+            "Only used when --lr-decay-style=lambda_linear."
         },
     )
     lambda_f_min: float = field(
         default=0.0,
         metadata={
             "help": "lambda_linear: minimum LR multiplier (floor of each cycle). "
-                    "Only used when --lr-decay-style=lambda_linear."
+            "Only used when --lr-decay-style=lambda_linear."
         },
     )
     lambda_f_start: float = field(
         default=0.0,
         metadata={
             "help": "lambda_linear: LR multiplier at the start of warmup. "
-                    "Only used when --lr-decay-style=lambda_linear."
+            "Only used when --lr-decay-style=lambda_linear."
         },
     )
     lambda_cycle_length: Optional[int] = field(
         default=10000,
         metadata={
             "help": "lambda_linear: number of steps per cycle. Defaults to "
-                    "--train-iters when unset. "
-                    "Only used when --lr-decay-style=lambda_linear."
+            "--train-iters when unset. "
+            "Only used when --lr-decay-style=lambda_linear."
         },
     )
     # ── polynomial scheduler params ──
     lr_end: float = field(
         default=1e-7,
         metadata={
-            "help": "polynomial: final LR value at the end of decay. "
-                    "Only used when --lr-decay-style=polynomial."
+            "help": "polynomial: final LR value at the end of decay. Only used when --lr-decay-style=polynomial."
         },
     )
     polynomial_power: float = field(
         default=1.0,
-        metadata={
-            "help": "polynomial: power factor of the decay curve. "
-                    "Only used when --lr-decay-style=polynomial."
-        },
+        metadata={"help": "polynomial: power factor of the decay curve. Only used when --lr-decay-style=polynomial."},
     )
     # ── cosine_with_restarts scheduler params ──
     num_cycles: float = field(
         default=1.0,
         metadata={
             "help": "cosine_with_restarts: number of hard restart cycles. "
-                    "Only used when --lr-decay-style=cosine_with_restarts."
+            "Only used when --lr-decay-style=cosine_with_restarts."
         },
     )
 
@@ -602,21 +557,19 @@ class _OptimizerArgs:
         default="AdamW",
         metadata={
             "help": "Optimizer name. Supported: AdamW, TorchFusedAdamW, "
-                    "TEFusedAdamW, ApexFusedAdamW, Adam, SGD, Dmuon. TEFusedAdamW "
-                    "requires TransformerEngine; ApexFusedAdamW requires Apex."
+            "TEFusedAdamW, ApexFusedAdamW, Adam, SGD, Dmuon. TEFusedAdamW "
+            "requires TransformerEngine; ApexFusedAdamW requires Apex."
         },
     )
     clip_grad: float = field(
         default=1.0,
-        metadata={
-            "help": "Max global gradient norm for clipping; <=0 disables clipping."
-        },
+        metadata={"help": "Max global gradient norm for clipping; <=0 disables clipping."},
     )
     weight_decay: float = field(
         default=0.01,
         metadata={
             "help": "Decoupled weight decay coefficient (AdamW, and DMuon's "
-                    "AdamW route; the Muon route uses --dmuon-muon-weight-decay)."
+            "AdamW route; the Muon route uses --dmuon-muon-weight-decay)."
         },
     )
     weight_decay_grouping: str = field(
@@ -624,28 +577,26 @@ class _OptimizerArgs:
         metadata={
             "choices": ["all", "bias_norm"],
             "help": "How weight decay is applied: 'all' applies --weight-decay to every "
-                    "trainable parameter; 'bias_norm' excludes bias and norm parameters.",
+            "trainable parameter; 'bias_norm' excludes bias and norm parameters.",
         },
     )
     adam_beta1: float = field(
         default=0.9,
         metadata={
-            "help": "Adam beta1 — exponential decay rate for the first moment "
-                    "(mean). Also used by DMuon's AdamW route."
+            "help": "Adam beta1 — exponential decay rate for the first moment (mean). Also used by DMuon's AdamW route."
         },
     )
     adam_beta2: float = field(
         default=0.95,
         metadata={
             "help": "Adam beta2 — exponential decay rate for the second moment "
-                    "(variance). Also used by DMuon's AdamW route."
+            "(variance). Also used by DMuon's AdamW route."
         },
     )
     adam_eps: float = field(
         default=1e-8,
         metadata={
-            "help": "Adam epsilon added to the denominator for numerical "
-                    "stability. Also used by DMuon's AdamW route."
+            "help": "Adam epsilon added to the denominator for numerical stability. Also used by DMuon's AdamW route."
         },
     )
     dmuon_muon_lr: float = field(
@@ -668,8 +619,8 @@ class _OptimizerArgs:
         default=1e-3,
         metadata={
             "help": "DMuon AdamW-route learning rate for non-Muon parameters. The "
-                    "remaining AdamW hyper-parameters are shared with "
-                    "--adam-beta1, --adam-beta2, --adam-eps and --weight-decay."
+            "remaining AdamW hyper-parameters are shared with "
+            "--adam-beta1, --adam-beta2, --adam-eps and --weight-decay."
         },
     )
     dmuon_ns_backend: str = field(
@@ -692,29 +643,27 @@ class _OptimizerArgs:
     )
     dmuon_forward_prefetch_depth: int = field(
         default=1,
-        metadata={
-            "help": "Number of subsequent DMuon parameter groups to prefetch "
-                    "during forward execution."
-        },
+        metadata={"help": "Number of subsequent DMuon parameter groups to prefetch during forward execution."},
     )
     dmuon_adamw_foreach: bool = field(
         default=False,
         metadata={
             "help": "Batch the DMuon AdamW update over the FSDP2 symmetric "
-                    "shards into multi-tensor (foreach) kernels instead of "
-                    "updating one tensor at a time. Numerically identical to the "
-                    "scalar path; the DMuon-dedicated parameters keep using it."
+            "shards into multi-tensor (foreach) kernels instead of "
+            "updating one tensor at a time. Numerically identical to the "
+            "scalar path; the DMuon-dedicated parameters keep using it."
         },
     )
     dmuon_adamw_foreach_bucket_mib: float = field(
         default=64.0,
         metadata={
             "help": "Upper bound in MiB on the temporary buffers one foreach "
-                    "AdamW bucket may allocate. Larger buckets mean fewer kernel "
-                    "launches and more peak memory. Requires "
-                    "--dmuon-adamw-foreach."
+            "AdamW bucket may allocate. Larger buckets mean fewer kernel "
+            "launches and more peak memory. Requires "
+            "--dmuon-adamw-foreach."
         },
     )
+
 
 @dataclass(frozen=True)
 class _DataArgs:
@@ -722,10 +671,7 @@ class _DataArgs:
 
     dataset_format: str = field(
         default="lerobot_datasets",
-        metadata={
-            "help": "Dataset backend to use "
-                    "(e.g. lerobot_datasets, hdf5_datasets, dummy_datasets)."
-        },
+        metadata={"help": "Dataset backend to use (e.g. lerobot_datasets, hdf5_datasets, dummy_datasets)."},
     )
     dataset_path: Optional[str] = field(
         default=None,
@@ -735,16 +681,14 @@ class _DataArgs:
         default="default",
         metadata={
             "help": "Under --dataset-format lerobot_datasets: the model-specific "
-                    "dataset build strategy ('default', 'fastwam', "
-                    "'cosmos3_droid', or 'dreamzero'); unknown values fall back "
-                    "to 'default'."
+            "dataset build strategy ('default', 'fastwam', "
+            "'cosmos3_droid', or 'dreamzero'); unknown values fall back "
+            "to 'default'."
         },
     )
     split: str = field(
         default="train",
-        metadata={
-            "help": "Dataset split to load (RLDS), e.g. 'train' or 'train[:95%%]'."
-        },
+        metadata={"help": "Dataset split to load (RLDS), e.g. 'train' or 'train[:95%%]'."},
     )
     lerobotdataset_version: str = field(
         default="v3.0",
@@ -764,37 +708,26 @@ class _DataArgs:
         default=False,
         metadata={
             "help": "Use a streaming/iterable dataset instead of map-style random "
-                    "access (lower memory, no global shuffle)."
+            "access (lower memory, no global shuffle)."
         },
     )
     data_root_dir: Optional[str] = field(
         default=None,
-        metadata={
-            "help": "Root directory containing the datasets referenced by "
-                    "--dataset-mix."
-        },
+        metadata={"help": "Root directory containing the datasets referenced by --dataset-mix."},
     )
     robot_type: Optional[str] = field(
         default=None,
-        metadata={
-            "help": "Robot embodiment type (e.g. libero_franka); selects "
-                    "action/state layout."
-        },
+        metadata={"help": "Robot embodiment type (e.g. libero_franka); selects action/state layout."},
     )
     task_name: str = field(
         default="perform the task",
-        metadata={
-            "help": "Language instruction used as the prompt when the dataset has "
-                    "none (HDF5)."
-        },
+        metadata={"help": "Language instruction used as the prompt when the dataset has none (HDF5)."},
     )
     per_device_batch_size: int = field(
         default=4,
         metadata={"help": "Micro-batch size processed per GPU per forward pass."},
     )
-    num_workers: int = field(
-        default=4,
-        metadata={"help": "Number of DataLoader worker processes per rank."})
+    num_workers: int = field(default=4, metadata={"help": "Number of DataLoader worker processes per rank."})
     dataloader_prefetch_factor: int = field(
         default=2,
         metadata={
@@ -804,8 +737,11 @@ class _DataArgs:
     )
     dataloader_seed_workers: bool = field(
         default=False,
-        metadata={"help": "Set DataLoader worker_init_fn and generator from --seed. "
-                          "Default leaves both unset for baseline precision comparison."})
+        metadata={
+            "help": "Set DataLoader worker_init_fn and generator from --seed. "
+            "Default leaves both unset for baseline precision comparison."
+        },
+    )
     dataloader_multiprocessing_context: Optional[str] = field(
         default=None,
         metadata={
@@ -822,7 +758,7 @@ class _DataArgs:
         metadata={
             "choices": ["cyclic", "block"],
             "help": "How the distributed sampler partitions indices across ranks: "
-                    "'cyclic' (round-robin) or 'block' (contiguous shards).",
+            "'cyclic' (round-robin) or 'block' (contiguous shards).",
         },
     )
     batch_drop_last: bool = field(
@@ -838,8 +774,7 @@ class _DataArgs:
     num_samples: int = field(
         default=100,
         metadata={
-            "help": "Number of synthetic samples to generate. Only effective "
-                    "when --dataset-format=dummy_datasets."
+            "help": "Number of synthetic samples to generate. Only effective when --dataset-format=dummy_datasets."
         },
     )
 
@@ -850,39 +785,29 @@ class _CheckpointArgs:
 
     pretrained_checkpoint: Optional[str] = field(
         default=None,
-        metadata={
-            "help": "Path to pretrained weights to initialize the model from "
-                    "(fine-tuning)."
-        },
+        metadata={"help": "Path to pretrained weights to initialize the model from (fine-tuning)."},
     )
     resume: bool = field(
         default=False,
         metadata={
             "help": "Resume training (weights + optimizer/scheduler/RNG state) "
-                    "from the latest checkpoint in --output-dir."
+            "from the latest checkpoint in --output-dir."
         },
     )
     save_format: str = field(
         default="safetensors",
         metadata={
             "choices": ["safetensors", "pt", "dcp"],
-            "help": "On-disk checkpoint format: safetensors, raw torch .pt, or "
-                    "distributed checkpoint (dcp).",
+            "help": "On-disk checkpoint format: safetensors, raw torch .pt, or distributed checkpoint (dcp).",
         },
     )
     save_training_state: bool = field(
         default=True,
-        metadata={
-            "help": "Also save optimizer, LR scheduler, and RNG state (needed to "
-                    "resume)."
-        },
+        metadata={"help": "Also save optimizer, LR scheduler, and RNG state (needed to resume)."},
     )
     async_save: bool = field(
         default=False,
-        metadata={
-            "help": "Save checkpoints asynchronously in the background (dcp "
-                    "format only)."
-        },
+        metadata={"help": "Save checkpoints asynchronously in the background (dcp format only)."},
     )
 
 
@@ -892,10 +817,7 @@ class _FreezeArgs:
 
     freeze_modules: str = field(
         default="",
-        metadata={
-            "help": "Comma-separated module path prefixes whose parameters are "
-                    "frozen (requires_grad=False)."
-        },
+        metadata={"help": "Comma-separated module path prefixes whose parameters are frozen (requires_grad=False)."},
     )
 
 
@@ -907,7 +829,7 @@ class _LoraArgs:
         default=False,
         metadata={
             "help": "Enable generic PEFT LoRA fine-tuning before distributed "
-                    "wrapping. The model supplies default target modules."
+            "wrapping. The model supplies default target modules."
         },
     )
     lora_r: int = field(
@@ -924,17 +846,11 @@ class _LoraArgs:
     )
     lora_target_modules: Optional[str] = field(
         default=None,
-        metadata={
-            "help": "Comma-separated target module names. Overrides the "
-                    "model-provided defaults."
-        },
+        metadata={"help": "Comma-separated target module names. Overrides the model-provided defaults."},
     )
     lora_modules_to_save: Optional[str] = field(
         default=None,
-        metadata={
-            "help": "Comma-separated modules trained and saved in full. "
-                    "Overrides the model-provided defaults."
-        },
+        metadata={"help": "Comma-separated modules trained and saved in full. Overrides the model-provided defaults."},
     )
     lora_bias: str = field(
         default="none",
@@ -945,9 +861,7 @@ class _LoraArgs:
     )
     lora_init: str = field(
         default="true",
-        metadata={
-            "help": "PEFT init_lora_weights mode, such as true, gaussian, or pissa."
-        },
+        metadata={"help": "PEFT init_lora_weights mode, such as true, gaussian, or pissa."},
     )
 
 
@@ -957,30 +871,22 @@ class _LoggingArgs:
 
     log_interval: int = field(
         default=1,
-        metadata={
-            "help": "Log scalar metrics (loss, LR, throughput) every N iterations."
-        },
+        metadata={"help": "Log scalar metrics (loss, LR, throughput) every N iterations."},
     )
     detail_log_interval: int = field(
         default=20,
-        metadata={
-            "help": "Log detailed per-stage timing breakdown every N iterations."
-        },
+        metadata={"help": "Log detailed per-stage timing breakdown every N iterations."},
     )
     timing_log_level: int = field(
         default=0,
         metadata={
             "choices": [0, 1],
-            "help": "Verbosity of per-stage timing logs: 0 = summary, "
-                    "1 = detailed.",
+            "help": "Verbosity of per-stage timing logs: 0 = summary, 1 = detailed.",
         },
     )
     loss_log_rank: List[int] = field(
         default_factory=lambda: [-1],
-        metadata={
-            "help": "Ranks whose loss is logged; -1 logs the all-reduced mean "
-                    "across ranks."
-        },
+        metadata={"help": "Ranks whose loss is logged; -1 logs the all-reduced mean across ranks."},
     )
     wandb_project: str = field(
         default="loongforge-vla",
@@ -995,17 +901,11 @@ class _LoggingArgs:
     )
     tensorboard_dir: Optional[str] = field(
         default=None,
-        metadata={
-            "help": "Directory for TensorBoard event files; unset disables "
-                    "TensorBoard."
-        },
+        metadata={"help": "Directory for TensorBoard event files; unset disables TensorBoard."},
     )
     tensorboard_queue_size: int = field(
         default=1000,
-        metadata={
-            "help": "Max pending events buffered before the async TensorBoard "
-                    "writer flushes."
-        },
+        metadata={"help": "Max pending events buffered before the async TensorBoard writer flushes."},
     )
 
 
@@ -1019,9 +919,7 @@ class _ProfilerArgs:
     )
     use_nsys_profiler: bool = field(
         default=False,
-        metadata={
-            "help": "Enable NVIDIA Nsight Systems (nsys) profiling range markers."
-        },
+        metadata={"help": "Enable NVIDIA Nsight Systems (nsys) profiling range markers."},
     )
     profile_step_start: int = field(
         default=10,
@@ -1050,59 +948,46 @@ class _CudaGraphArgs:
         metadata={
             "choices": ["none", "local"],
             "help": "CUDA graph capture backend: 'none' disables, 'local' "
-                    "captures the training step to cut per-step launch overhead.",
+            "captures the training step to cut per-step launch overhead.",
         },
     )
     cuda_graph_scope: str = field(
         default="full_iteration",
         metadata={
             "choices": ["full_iteration", "per_microbatch"],
-            "help": "What to capture into the graph: the whole iteration or "
-                    "each micro-batch.",
+            "help": "What to capture into the graph: the whole iteration or each micro-batch.",
         },
     )
     cuda_graph_warmup_steps: int = field(
         default=3,
-        metadata={
-            "help": "Number of eager (uncaptured) warmup iterations before "
-                    "graph capture."
-        },
+        metadata={"help": "Number of eager (uncaptured) warmup iterations before graph capture."},
     )
     cuda_graph_pad_length: Optional[int] = field(
         default=None,
         metadata={
-            "help": "Fixed token sequence length to pad to; required so "
-                    "captured shapes stay static across steps."
+            "help": "Fixed token sequence length to pad to; required so captured shapes stay static across steps."
         },
     )
     cuda_graph_ddp_sync_in_graph: bool = field(
         default=False,
-        metadata={
-            "help": "Capture DDP gradient all-reduce inside the graph instead "
-                    "of running it eagerly."
-        },
+        metadata={"help": "Capture DDP gradient all-reduce inside the graph instead of running it eagerly."},
     )
     cuda_graph_grad_sync_bucket_mb: float = field(
         default=200.0,
-        metadata={
-            "help": "Bucket size (MiB) for the manual gradient all-reduce used "
-                    "with CUDA graphs."
-        },
+        metadata={"help": "Bucket size (MiB) for the manual gradient all-reduce used with CUDA graphs."},
     )
     cuda_graph_grad_sync_impl: str = field(
         default="coalesced",
         metadata={
             "choices": ["flat", "coalesced"],
-            "help": "Manual gradient all-reduce implementation: single flat "
-                    "buffer or coalesced buckets.",
+            "help": "Manual gradient all-reduce implementation: single flat buffer or coalesced buckets.",
         },
     )
     cuda_graph_grad_sync_dtype: str = field(
         default="fp32",
         metadata={
             "choices": ["fp32", "float32", "bf16", "bfloat16"],
-            "help": "Communication dtype for the manual gradient all-reduce "
-                    "(bf16 halves comm volume).",
+            "help": "Communication dtype for the manual gradient all-reduce (bf16 halves comm volume).",
         },
     )
 
@@ -1110,6 +995,7 @@ class _CudaGraphArgs:
 @dataclass(frozen=True)
 class _ActivationCheckpointArgs:
     """activation-checkpoint module selection."""
+
     activation_checkpoint_module_patterns: Optional[list[str]] = field(
         default=None,
         metadata={
@@ -1118,8 +1004,8 @@ class _ActivationCheckpointArgs:
                 option_name="--activation-checkpoint-module-patterns",
             ),
             "help": "Comma-separated qualified module-key patterns to wrap "
-                    "with activation checkpointing. '*' matches one module-key "
-                    "segment.",
+            "with activation checkpointing. '*' matches one module-key "
+            "segment.",
         },
     )
     activation_checkpoint_skip_modules: Optional[list[str]] = field(
@@ -1130,9 +1016,9 @@ class _ActivationCheckpointArgs:
                 option_name="--activation-checkpoint-skip-modules",
             ),
             "help": "Optional comma-separated qualified module-key patterns to "
-                    "exclude from --activation-checkpoint-module-patterns. Same "
-                    "syntax: '*' matches one module-key segment. Every pattern "
-                    "must match at least one selected module."
+            "exclude from --activation-checkpoint-module-patterns. Same "
+            "syntax: '*' matches one module-key segment. Every pattern "
+            "must match at least one selected module.",
         },
     )
 
@@ -1145,16 +1031,14 @@ class _FP8Args:
     fp8: bool = field(
         default=False,
         metadata={
-            "help": "Convert selected nn.Linear modules for FP8 training with "
-                    "the backend selected by --fp8-backend.",
+            "help": "Convert selected nn.Linear modules for FP8 training with the backend selected by --fp8-backend.",
         },
     )
     fp8_backend: str = field(
         default="te",
         metadata={
             "choices": ["te", "torchao"],
-            "help": "FP8 implementation: TransformerEngine (te) or native "
-                    "PyTorch TorchAO (torchao).",
+            "help": "FP8 implementation: TransformerEngine (te) or native PyTorch TorchAO (torchao).",
         },
     )
 
@@ -1166,10 +1050,10 @@ class _FP8Args:
                 option_name="--fp8-module-patterns",
             ),
             "help": "Comma-separated qualified module-key patterns whose "
-                    "nn.Linear descendants are converted for FP8. Unlike "
-                    "--activation-checkpoint-module-patterns, a pattern selects "
-                    "a subtree, not one module. Unset falls back to the model's "
-                    "default_fp8_targets().",
+            "nn.Linear descendants are converted for FP8. Unlike "
+            "--activation-checkpoint-module-patterns, a pattern selects "
+            "a subtree, not one module. Unset falls back to the model's "
+            "default_fp8_targets().",
         },
     )
     fp8_skip_modules: Optional[list[str]] = field(
@@ -1180,10 +1064,10 @@ class _FP8Args:
                 option_name="--fp8-skip-modules",
             ),
             "help": "Optional comma-separated qualified module-key patterns to "
-                    "exclude from --fp8-module-patterns. Use this to keep "
-                    "numerically sensitive layers (vision towers, action "
-                    "projections) out of FP8. Every pattern must match at least "
-                    "one selected layer.",
+            "exclude from --fp8-module-patterns. Use this to keep "
+            "numerically sensitive layers (vision towers, action "
+            "projections) out of FP8. Every pattern must match at least "
+            "one selected layer.",
         },
     )
     fp8_min_dim: int = field(
@@ -1191,8 +1075,8 @@ class _FP8Args:
         metadata={
             "cli_type": parse_positive_int,
             "help": "Only convert layers whose max(in_features, out_features) "
-                    "reaches this size. Smaller GEMMs are slower in FP8 than in "
-                    "bf16, so converting them costs throughput.",
+            "reaches this size. Smaller GEMMs are slower in FP8 than in "
+            "bf16, so converting them costs throughput.",
         },
     )
 
@@ -1202,9 +1086,9 @@ class _FP8Args:
         metadata={
             "choices": ["blockwise", "current", "delayed", "mxfp8"],
             "help": "TransformerEngine FP8 scaling recipe: blockwise "
-                    "(Float8BlockScaling), "
-                    "current (Float8CurrentScaling), delayed (DelayedScaling), "
-                    "or mxfp8 (MXFP8BlockScaling microscaling).",
+            "(Float8BlockScaling), "
+            "current (Float8CurrentScaling), delayed (DelayedScaling), "
+            "or mxfp8 (MXFP8BlockScaling microscaling).",
         },
     )
     fp8_te_format: Optional[str] = field(
@@ -1212,10 +1096,10 @@ class _FP8Args:
         metadata={
             "choices": ["e4m3", "e5m2", "hybrid"],
             "help": "TransformerEngine-only FP8 data format override. Unset preserves each "
-                    "TransformerEngine recipe's native default: E4M3 for "
-                    "blockwise and HYBRID for current/delayed/mxfp8. E5M2 "
-                    "requires a TransformerEngine recipe that supports pure "
-                    "E5M2 and is not supported by MXFP8.",
+            "TransformerEngine recipe's native default: E4M3 for "
+            "blockwise and HYBRID for current/delayed/mxfp8. E5M2 "
+            "requires a TransformerEngine recipe that supports pure "
+            "E5M2 and is not supported by MXFP8.",
         },
     )
     fp8_te_margin: int = field(
@@ -1223,8 +1107,8 @@ class _FP8Args:
         metadata={
             "cli_type": parse_non_negative_int,
             "help": "TransformerEngine DelayedScaling only: power-of-two safety "
-                    "margin used when "
-                    "computing scale = FP8_MAX / (amax * 2**margin).",
+            "margin used when "
+            "computing scale = FP8_MAX / (amax * 2**margin).",
         },
     )
     fp8_te_amax_history_len: int = field(
@@ -1232,8 +1116,8 @@ class _FP8Args:
         metadata={
             "cli_type": parse_positive_int,
             "help": "TransformerEngine DelayedScaling only: number of historical "
-                    "amax values "
-                    "retained for scale computation.",
+            "amax values "
+            "retained for scale computation.",
         },
     )
     fp8_te_amax_compute_algo: str = field(
@@ -1241,32 +1125,30 @@ class _FP8Args:
         metadata={
             "choices": ["max", "most_recent"],
             "help": "TransformerEngine DelayedScaling only: choose the largest "
-                    "historical amax "
-                    "or the most recently observed value.",
+            "historical amax "
+            "or the most recently observed value.",
         },
     )
     fp8_te_reduce_amax: bool = field(
         default=True,
         metadata={
             "help": "TransformerEngine DelayedScaling only: reduce amax across "
-                    "the fp8 process "
-                    "group so data-parallel ranks use synchronized scales.",
+            "the fp8 process "
+            "group so data-parallel ranks use synchronized scales.",
         },
     )
     fp8_te_current_use_power_2_scales: bool = field(
         default=False,
         metadata={
-            "help": "TransformerEngine Float8CurrentScaling only: constrain "
-                    "scaling factors to "
-                    "powers of two.",
+            "help": "TransformerEngine Float8CurrentScaling only: constrain scaling factors to powers of two.",
         },
     )
     fp8_te_block_use_f32_scales: bool = field(
         default=False,
         metadata={
             "help": "TransformerEngine Float8BlockScaling only: allow "
-                    "unconstrained FP32 scales "
-                    "instead of the default power-of-two scales.",
+            "unconstrained FP32 scales "
+            "instead of the default power-of-two scales.",
         },
     )
     fp8_te_block_backward_override: Optional[str] = field(
@@ -1274,9 +1156,9 @@ class _FP8Args:
         metadata={
             "choices": ["high_precision", "dequantized"],
             "help": "TransformerEngine Float8BlockScaling only: override "
-                    "backward precision. Unset preserves the default behavior; "
-                    "high_precision keeps high-precision backward operands; "
-                    "dequantized dequantizes saved operands before backward.",
+            "backward precision. Unset preserves the default behavior; "
+            "high_precision keeps high-precision backward operands; "
+            "dequantized dequantizes saved operands before backward.",
         },
     )
 
@@ -1286,43 +1168,42 @@ class _FP8Args:
         metadata={
             "choices": ["tensorwise", "rowwise", "rowwise_with_gw_hp"],
             "help": "TorchAO Float8Linear recipe. Tensorwise is fastest; "
-                    "rowwise improves outlier handling; rowwise_with_gw_hp "
-                    "keeps grad-weight GEMM in high precision.",
+            "rowwise improves outlier handling; rowwise_with_gw_hp "
+            "keeps grad-weight GEMM in high precision.",
         },
     )
     fp8_torchao_pad_inner_dim: bool = field(
         default=True,
         metadata={
             "help": "TorchAO only: zero-pad unaligned GEMM inner dimensions. "
-                    "Enabled by default so Linear K/hidden dimensions that are "
-                    "not 16-aligned can use the scaled GEMM. This does not pad "
-                    "the flattened token/batch M dimension.",
+            "Enabled by default so Linear K/hidden dimensions that are "
+            "not 16-aligned can use the scaled GEMM. This does not pad "
+            "the flattened token/batch M dimension.",
         },
     )
     fp8_torchao_fsdp_float8_all_gather: bool = field(
         default=False,
         metadata={
             "help": "TorchAO tensorwise + FSDP only: cast weight shards to FP8 "
-                    "for all-gather to reduce communication bandwidth.",
+            "for all-gather to reduce communication bandwidth.",
         },
     )
+
+
 @dataclass(frozen=True)
 class _DistributedArgs:
     """Parallelism strategy (FSDP/DDP), dtype, ZeRO, and meta-device init."""
 
     init_on_meta: bool = field(
         default=False,
-        metadata={"help": "Allocate all params on 'meta' device."
-                          "Then weights are loaded into the sharded DTensors."
-        }
+        metadata={"help": "Allocate all params on 'meta' device.Then weights are loaded into the sharded DTensors."},
     )
 
     distributed_strategy: str = field(
         default="fsdp",
         metadata={
             "choices": ["ddp", "fsdp"],
-            "help": "Parallelism strategy: DDP (replicate) or FSDP2 "
-                    "(fully sharded).",
+            "help": "Parallelism strategy: DDP (replicate) or FSDP2 (fully sharded).",
         },
     )
     hsdp_shard_size: Optional[int] = field(
@@ -1330,10 +1211,10 @@ class _DistributedArgs:
         metadata={
             "cli_type": parse_positive_int,
             "help": "Enable HSDP and set the second 2D mesh dimension size. "
-                    "The first mesh dimension replicates parameters across "
-                    "groups, and this dimension shards parameters within "
-                    "each group. Must divide the distributed world size. "
-                    "Unset uses regular 1D FSDP.",
+            "The first mesh dimension replicates parameters across "
+            "groups, and this dimension shards parameters within "
+            "each group. Must divide the distributed world size. "
+            "Unset uses regular 1D FSDP.",
         },
     )
     fsdp_reshard_default: Any = field(
@@ -1341,10 +1222,10 @@ class _DistributedArgs:
         metadata={
             "cli_type": parse_reshard_after_forward,
             "help": "Default FSDP2 reshard_after_forward policy: "
-                    "true|false|none|int>1. Controls whether params are "
-                    "re-sharded after forward to save memory. Does not apply to "
-                    "the root group, which FSDP2 always keeps unsharded after "
-                    "forward.",
+            "true|false|none|int>1. Controls whether params are "
+            "re-sharded after forward to save memory. Does not apply to "
+            "the root group, which FSDP2 always keeps unsharded after "
+            "forward.",
         },
     )
     fsdp_reshard_module_overrides: Any = field(
@@ -1352,15 +1233,15 @@ class _DistributedArgs:
         metadata={
             "cli_type": parse_reshard_after_forward_map,
             "help": "Comma-separated ClassName=value overrides for FSDP "
-                    "reshard_after_forward, e.g. GemmaMLP=false,Linear=true.",
+            "reshard_after_forward, e.g. GemmaMLP=false,Linear=true.",
         },
     )
     fsdp_ignored_param_names: List[str] = field(
         default_factory=list,
         metadata={
             "help": "Parameter-name substrings excluded from FSDP sharding; "
-                    "matched params stay replicated on every rank. Frozen params "
-                    "only. Example: q_proj lm_head",
+            "matched params stay replicated on every rank. Frozen params "
+            "only. Example: q_proj lm_head",
         },
     )
     fsdp_wrap_modules: Optional[list[str]] = field(
@@ -1368,9 +1249,9 @@ class _DistributedArgs:
         metadata={
             "cli_type": parse_class_names,
             "help": "Comma-separated module class names that define exact FSDP "
-                    "units. Activation-checkpoint wrappers are matched by their "
-                    "wrapped module class. When set, automatic unit selection "
-                    "is disabled."
+            "units. Activation-checkpoint wrappers are matched by their "
+            "wrapped module class. When set, automatic unit selection "
+            "is disabled.",
         },
     )
     fsdp_no_wrap_modules: Optional[list[str]] = field(
@@ -1378,8 +1259,8 @@ class _DistributedArgs:
         metadata={
             "cli_type": parse_class_names,
             "help": "Comma-separated module class names that must never become "
-                    "FSDP units. Their parameters are still sharded by the "
-                    "closest enclosing FSDP group."
+            "FSDP units. Their parameters are still sharded by the "
+            "closest enclosing FSDP group.",
         },
     )
     fsdp_ignore_frozen_module_classes: Optional[list[str]] = field(
@@ -1387,9 +1268,9 @@ class _DistributedArgs:
         metadata={
             "cli_type": parse_class_names,
             "help": "Comma-separated frozen module class names whose parameters "
-                    "FSDP leaves replicated instead of sharding. This can avoid "
-                    "unused parameter all-gathers at the cost of higher per-rank "
-                    "memory. Every matched parameter must have requires_grad=False."
+            "FSDP leaves replicated instead of sharding. This can avoid "
+            "unused parameter all-gathers at the cost of higher per-rank "
+            "memory. Every matched parameter must have requires_grad=False.",
         },
     )
     fsdp_ignored_frozen_param_dtype: Optional[str] = field(
@@ -1397,27 +1278,24 @@ class _DistributedArgs:
         metadata={
             "choices": ["fp32", "float32", "bf16", "bfloat16", "fp16", "float16"],
             "help": "Optional storage and compute dtype for parameters selected "
-                    "by --fsdp-ignore-frozen-module-classes. When set, it must "
-                    "match --dtype; unset preserves their original dtype."
+            "by --fsdp-ignore-frozen-module-classes. When set, it must "
+            "match --dtype; unset preserves their original dtype.",
         },
     )
     fsdp_min_param_num: int = field(
         default=1_000_000,
-        metadata={
-            "help": "Minimum parameter count for auto-wrapping repeated "
-                    "transformer layers."
-        },
+        metadata={"help": "Minimum parameter count for auto-wrapping repeated transformer layers."},
     )
     fsdp_original_param_dtype: Optional[str] = field(
         default=None,
         metadata={
             "choices": ["fp32", "float32", "bf16", "bfloat16", "fp16", "float16"],
             "help": "Dtype the sharded parameters are stored (and optimizer-stepped) "
-                    "in. Unset follows --dtype. Set this to fp32 while --dtype is "
-                    "bf16 to keep fp32 master weights with bf16 compute; "
-                    "--fsdp-unshard-param-dtype then defaults to --dtype instead of "
-                    "'no cast'. Ignored when the model is authored with mixed "
-                    "parameter dtypes, which are preserved as-is.",
+            "in. Unset follows --dtype. Set this to fp32 while --dtype is "
+            "bf16 to keep fp32 master weights with bf16 compute; "
+            "--fsdp-unshard-param-dtype then defaults to --dtype instead of "
+            "'no cast'. Ignored when the model is authored with mixed "
+            "parameter dtypes, which are preserved as-is.",
         },
     )
     fsdp_unshard_param_dtype: Optional[str] = field(
@@ -1425,10 +1303,10 @@ class _DistributedArgs:
         metadata={
             "choices": ["fp32", "float32", "bf16", "bfloat16", "fp16", "float16"],
             "help": "Optional dtype of all-gathered FSDP parameters used for "
-                    "forward/backward. Unset follows --dtype for uniform-dtype "
-                    "models (and whenever --fsdp-original-param-dtype is set). "
-                    "Authored mixed-dtype models keep 'no extra cast' so each "
-                    "group all-gathers in its original dtype.",
+            "forward/backward. Unset follows --dtype for uniform-dtype "
+            "models (and whenever --fsdp-original-param-dtype is set). "
+            "Authored mixed-dtype models keep 'no extra cast' so each "
+            "group all-gathers in its original dtype.",
         },
     )
     fsdp_reduce_dtype: str = field(
@@ -1440,86 +1318,76 @@ class _DistributedArgs:
     )
     fsdp_cast_forward_inputs: bool = field(
         default=True,
-        metadata={
-            "help": "Cast FSDP unit forward inputs to its parameter dtype."
-        },
+        metadata={"help": "Cast FSDP unit forward inputs to its parameter dtype."},
     )
     fsdp_output_dtype: Optional[str] = field(
         default=None,
         metadata={
             "choices": ["fp32", "float32", "bf16", "bfloat16", "fp16", "float16"],
             "help": "Dtype for casting floating-point forward outputs of each FSDP unit. "
-                    "Useful when different modules have different mixed precision policies. "
-                    "If unset, forward outputs are not cast.",
+            "Useful when different modules have different mixed precision policies. "
+            "If unset, forward outputs are not cast.",
         },
     )
     fsdp_forward_prefetch_distance: int = field(
         default=0,
         metadata={
             "help": "Number of subsequent configured FSDP units to prefetch "
-                    "during forward. Supports only containers that execute each "
-                    "child once in registration order."
+            "during forward. Supports only containers that execute each "
+            "child once in registration order."
         },
     )
     fsdp_backward_prefetch_distance: int = field(
         default=0,
         metadata={
             "help": "Number of preceding configured FSDP units to prefetch "
-                    "during backward. Supports only containers that execute each "
-                    "child once in registration order."
+            "during backward. Supports only containers that execute each "
+            "child once in registration order."
         },
     )
     fsdp_delta_fp8_allgather: bool = field(
         default=False,
         metadata={
             "help": "Replace FSDP2 foreach_all_gather with a delta-FP8 path: "
-                    "communicate per-block FP8 deltas against a persistent "
-                    "unsharded BF16 reference instead of the full weight. "
-                    "Default off; FSDP launchers may opt in."
+            "communicate per-block FP8 deltas against a persistent "
+            "unsharded BF16 reference instead of the full weight. "
+            "Default off; FSDP launchers may opt in."
         },
     )
     fsdp_delta_fp8_block: int = field(
         default=256,
-        metadata={
-            "help": "Elements per FP8 scale block for --fsdp-delta-fp8-allgather."
-        },
+        metadata={"help": "Elements per FP8 scale block for --fsdp-delta-fp8-allgather."},
     )
     fsdp_delta_fp8_prime_steps: int = field(
         default=1,
         metadata={
             "help": "Full BF16 all-gathers used to prime each FSDP unit's "
-                    "delta-FP8 reference before switching to quantized deltas."
+            "delta-FP8 reference before switching to quantized deltas."
         },
     )
     fsdp_delta_fp8_reprime_interval: int = field(
         default=0,
         metadata={
             "help": "Force a full BF16 all-gather every N unshards to re-anchor "
-                    "the delta-FP8 reference after a discontinuous parameter "
-                    "jump such as checkpoint resume. 0 disables re-priming; "
-                    "error feedback already prevents in-run drift."
+            "the delta-FP8 reference after a discontinuous parameter "
+            "jump such as checkpoint resume. 0 disables re-priming; "
+            "error feedback already prevents in-run drift."
         },
     )
     fsdp_root_optimizer_prefetch: bool = field(
         default=False,
         metadata={
             "help": "Update the root FSDP AdamW shard first, asynchronously "
-                    "unshard it, then update the remaining optimizer groups."
+            "unshard it, then update the remaining optimizer groups."
         },
     )
     ddp_broadcast_buffers: bool = field(
         default=True,
-        metadata={
-            "help": "Broadcast module buffers (e.g. BN stats) from rank 0 each "
-                    "forward."
-        },
+        metadata={"help": "Broadcast module buffers (e.g. BN stats) from rank 0 each forward."},
     )
     ddp_init_sync: bool = field(
         default=True,
-        metadata={
-            "help": "Synchronize parameters and buffers across ranks at "
-                    "initialization."
-        },
+        metadata={"help": "Synchronize parameters and buffers across ranks at initialization."},
     )
     ddp_bucket_cap_mb: Optional[int] = field(
         default=None,
@@ -1528,44 +1396,31 @@ class _DistributedArgs:
     ddp_find_unused_parameters: bool = field(
         default=True,
         metadata={
-            "help": "Detect parameters unused in the forward graph (needed for "
-                    "conditional branches; adds overhead)."
+            "help": "Detect parameters unused in the forward graph (needed for conditional branches; adds overhead)."
         },
     )
     ddp_gradient_as_bucket_view: bool = field(
         default=False,
-        metadata={
-            "help": "Expose gradients as views into DDP communication buckets to "
-                    "save memory."
-        },
+        metadata={"help": "Expose gradients as views into DDP communication buckets to save memory."},
     )
     ddp_static_graph: bool = field(
         default=False,
-        metadata={
-            "help": "Assume a static graph across iterations to enable DDP "
-                    "optimizations."
-        },
+        metadata={"help": "Assume a static graph across iterations to enable DDP optimizations."},
     )
     ddp_skip_all_reduce_unused_params: bool = field(
         default=False,
-        metadata={
-            "help": "Skip the gradient all-reduce for parameters detected as "
-                    "unused."
-        },
+        metadata={"help": "Skip the gradient all-reduce for parameters detected as unused."},
     )
     ddp_bucket_cap_mb_list: Optional[list[int]] = field(
         default=None,
         metadata={
             "cli_type": parse_optional_int_list,
-            "help": "Comma-separated per-bucket sizes (MiB) for fine-grained DDP "
-                    "bucketing.",
+            "help": "Comma-separated per-bucket sizes (MiB) for fine-grained DDP bucketing.",
         },
     )
     ddp_batched_grad_copy: bool = field(
         default=False,
-        metadata={
-            "help": "Batch gradient copies into buckets to reduce kernel launches."
-        },
+        metadata={"help": "Batch gradient copies into buckets to reduce kernel launches."},
     )
     ddp_comm_hook: Optional[str] = field(
         default=None,
@@ -1581,47 +1436,44 @@ class _DistributedArgs:
     )
     ddp_comm_hook_logging: bool = field(
         default=False,
-        metadata={
-            "help": "Wrap the DDP comm hook with rank-0 logging of bucket info "
-                    "before/after each all-reduce."
-        },
+        metadata={"help": "Wrap the DDP comm hook with rank-0 logging of bucket info before/after each all-reduce."},
     )
     ddp_comm_hook_fp8_block: int = field(
         default=256,
         metadata={
             "help": "fp8_a2a_allgather_hook only. Elements per fp8 quantization "
-                    "block, i.e. per fp32 scale. Must be a power of two in "
-                    "[1, 1024]. Smaller tracks the local dynamic "
-                    "range more tightly but costs 4/block extra bytes on the wire "
-                    "(1.6% at 256)."
+            "block, i.e. per fp32 scale. Must be a power of two in "
+            "[1, 1024]. Smaller tracks the local dynamic "
+            "range more tightly but costs 4/block extra bytes on the wire "
+            "(1.6% at 256)."
         },
     )
     ddp_comm_hook_fp8_min_mib: float = field(
         default=8.0,
         metadata={
             "help": "fp8_a2a_allgather_hook only. Buckets smaller than this fall "
-                    "back to plain AllReduce, since two collectives plus four "
-                    "kernels do not pay for themselves on a few MiB. 0 quantizes "
-                    "every bucket."
+            "back to plain AllReduce, since two collectives plus four "
+            "kernels do not pay for themselves on a few MiB. 0 quantizes "
+            "every bucket."
         },
     )
     ddp_comm_hook_fp8_max_scratch_gb: float = field(
         default=24.0,
         metadata={
             "help": "fp8_a2a_allgather_hook only. Total resident comm scratch "
-                    "across all buckets, roughly 1.15x each bucket. Buckets that "
-                    "do not fit degrade to full-precision AllReduce rather than "
-                    "failing the run, so 0 degrades every bucket and disables the "
-                    "hook. Raise it to quantize more buckets; there is no value "
-                    "that removes the cap."
+            "across all buckets, roughly 1.15x each bucket. Buckets that "
+            "do not fit degrade to full-precision AllReduce rather than "
+            "failing the run, so 0 degrades every bucket and disables the "
+            "hook. Raise it to quantize more buckets; there is no value "
+            "that removes the cap."
         },
     )
     dynamo_optimize_ddp: bool = field(
         default=True,
         metadata={
             "help": "Set torch._dynamo.config.optimize_ddp. When True, TorchDynamo "
-                    "is allowed to optimize across DDP bucket boundaries. Disable "
-                    "(False) if you hit graph-break errors with DDP + torch.compile."
+            "is allowed to optimize across DDP bucket boundaries. Disable "
+            "(False) if you hit graph-break errors with DDP + torch.compile."
         },
     )
     dtype: str = field(
@@ -1629,25 +1481,25 @@ class _DistributedArgs:
         metadata={
             "choices": ["bfloat16", "float16", "float32"],
             "help": "Target training dtype. Uniform-dtype models are cast to "
-                    "this dtype; mixed-original-dtype models may preserve some "
-                    "parameter dtypes for dtype-sensitive modules.",
+            "this dtype; mixed-original-dtype models may preserve some "
+            "parameter dtypes for dtype-sensitive modules.",
         },
     )
     zero_optimizer: bool = field(
         default=False,
         metadata={
             "help": "Wrap optimizer with ZeroRedundancyOptimizer (ZeRO Stage-1). "
-                    "Shards optimizer states across ranks. Only effective with DDP."
+            "Shards optimizer states across ranks. Only effective with DDP."
         },
     )
     zero_parameters_as_bucket_view: bool = field(
         default=False,
         metadata={
             "help": "Pass parameters_as_bucket_view=True to "
-                    "ZeroRedundancyOptimizer. Reduces peak memory by reusing "
-                    "gradient buffers as parameter storage, but may conflict "
-                    "with torch.compile + DDP reducer assumptions. Only "
-                    "effective when --zero-optimizer is set."
+            "ZeroRedundancyOptimizer. Reduces peak memory by reusing "
+            "gradient buffers as parameter storage, but may conflict "
+            "with torch.compile + DDP reducer assumptions. Only "
+            "effective when --zero-optimizer is set."
         },
     )
     zero_master_param_dtype: str = field(
@@ -1655,7 +1507,7 @@ class _DistributedArgs:
         metadata={
             "choices": ["none", "fp32"],
             "help": "Optional DDP ZeRO-1 master parameter dtype. 'fp32' keeps rank-local fp32 "
-                    "master parameters and broadcasts updated model shards after each step.",
+            "master parameters and broadcasts updated model shards after each step.",
         },
     )
 

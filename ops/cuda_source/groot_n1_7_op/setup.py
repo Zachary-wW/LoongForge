@@ -28,7 +28,8 @@ NVCC_FLAGS = [
     "-U__CUDA_NO_HALF2_OPERATORS__",
     "-U__CUDA_NO_BFLOAT16_CONVERSIONS__",
     # Parallel intra-process NVCC threads (each .cu gets multiple threads).
-    "--threads", os.getenv("NVCC_THREADS", "8"),
+    "--threads",
+    os.getenv("NVCC_THREADS", "8"),
 ]
 
 # Target only sm_80 and sm_120.

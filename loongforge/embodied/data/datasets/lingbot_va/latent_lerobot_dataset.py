@@ -89,12 +89,8 @@ class _LeRobotV21Metadata:
 def _load_lerobot_v21_actions(root: Path):
     paths = sorted((root / "data").glob("*/*.parquet"))
     if not paths:
-        raise FileNotFoundError(
-            f"No LeRobot v2.1 parquet files found under {root / 'data'}"
-        )
-    return datasets.Dataset.from_parquet(
-        [str(path) for path in paths], columns=["action"]
-    )
+        raise FileNotFoundError(f"No LeRobot v2.1 parquet files found under {root / 'data'}")
+    return datasets.Dataset.from_parquet([str(path) for path in paths], columns=["action"])
 
 
 def _get_episode_data_index_v21(episodes: Dict[int, Dict[str, Any]], selected_episodes):
@@ -146,9 +142,7 @@ class LingBotVALatentDatasetConfig:
     extra: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_configs(
-        cls, model_cfg, data_cfg, training_args
-    ) -> "LingBotVALatentDatasetConfig":
+    def from_configs(cls, model_cfg, data_cfg, training_args) -> "LingBotVALatentDatasetConfig":
         """Run from configs.
 
         Args:
@@ -162,17 +156,13 @@ class LingBotVALatentDatasetConfig:
         dataset_path = data_cfg.dataset_path or training_args.dataset_path
         if not dataset_path:
             raise ValueError("LingBotVADataConfig.dataset_path must be configured")
-        empty_emb_path = data_cfg.empty_emb_path or os.path.join(
-            dataset_path, "empty_emb.pt"
-        )
+        empty_emb_path = data_cfg.empty_emb_path or os.path.join(dataset_path, "empty_emb.pt")
         obs_cam_keys = _as_list(data_cfg.obs_cam_keys)
         if not obs_cam_keys:
             raise ValueError("LingBotVADataConfig.obs_cam_keys must be configured")
         inverse_ids = _as_int_list(data_cfg.inverse_used_action_channel_ids)
         if not inverse_ids:
-            raise ValueError(
-                "LingBotVADataConfig.inverse_used_action_channel_ids must be configured"
-            )
+            raise ValueError("LingBotVADataConfig.inverse_used_action_channel_ids must be configured")
         return cls(
             dataset_path=dataset_path,
             empty_emb_path=empty_emb_path,
@@ -205,9 +195,7 @@ class LingBotVAMultiLatentDataset(Dataset):
         """
         repo_ids = _find_lerobot_repos(config)
         if not repo_ids:
-            raise ValueError(
-                f"No LeRobot repositories found under {config.dataset_path}"
-            )
+            raise ValueError(f"No LeRobot repositories found under {config.dataset_path}")
         construct_fn = partial(LingBotVALatentDataset, config=config)
         num_workers = max(1, min(int(config.num_init_worker), len(repo_ids)))
         if num_workers > 1:
@@ -252,9 +240,7 @@ class LingBotVAMultiLatentDataset(Dataset):
         if index < 0 or index >= len(self):
             raise IndexError(index)
         dataset_id = np.searchsorted(self.offsets, index, side="right") - 1
-        return self.datasets[dataset_id].estimate_sample_cost(
-            index - self.offsets[dataset_id]
-        )
+        return self.datasets[dataset_id].estimate_sample_cost(index - self.offsets[dataset_id])
 
 
 class LingBotVALatentDataset(LeRobotV3Dataset):
@@ -269,9 +255,7 @@ class LingBotVALatentDataset(LeRobotV3Dataset):
         """
         if LeRobotDatasetMetadata is None or HF_LEROBOT_HOME is None:
             if config.allow_missing_lerobot:
-                raise RuntimeError(
-                    "LeRobot is required to read LingBot-VA latent datasets"
-                )
+                raise RuntimeError("LeRobot is required to read LingBot-VA latent datasets")
             raise ImportError("Please install lerobot to use LingBotVALatentDataset")
         self.repo_id = repo_id
         self.config = config
@@ -291,24 +275,16 @@ class LingBotVALatentDataset(LeRobotV3Dataset):
         if get_episode_data_index is None:
             self.meta = _LeRobotV21Metadata(self.root)
             self.hf_dataset = _load_lerobot_v21_actions(self.root)
-            self.episode_data_index = _get_episode_data_index_v21(
-                self.meta.episodes, self.episodes
-            )
+            self.episode_data_index = _get_episode_data_index_v21(self.meta.episodes, self.episodes)
         else:
-            self.meta = LeRobotDatasetMetadata(
-                self.repo_id, self.root, self.revision, force_cache_sync=False
-            )
+            self.meta = LeRobotDatasetMetadata(self.repo_id, self.root, self.revision, force_cache_sync=False)
             self.hf_dataset = self.load_hf_dataset()
-            self.episode_data_index = get_episode_data_index(
-                self.meta.episodes, self.episodes
-            )
+            self.episode_data_index = get_episode_data_index(self.meta.episodes, self.episodes)
         self.latent_path = Path(repo_id) / config.latent_dir_name
         self.empty_emb = torch.load(config.empty_emb_path, weights_only=False)
         self.q01 = np.array(config.norm_stat["q01"], dtype="float")[None]
         self.q99 = np.array(config.norm_stat["q99"], dtype="float")[None]
-        self.hf_torch_view = self.hf_dataset.with_format(
-            type="torch", columns=["action"], output_all_columns=False
-        )
+        self.hf_torch_view = self.hf_dataset.with_format(type="torch", columns=["action"], output_all_columns=False)
         self.sample_metas = self._parse_meta()
 
     def __len__(self):
@@ -400,11 +376,7 @@ class LingBotVALatentDataset(LeRobotV3Dataset):
         episode_chunk = self.meta.get_episode_chunk(episode_index)
         latent_path = Path(self.latent_path) / f"chunk-{episode_chunk:03d}"
         for key in self.config.obs_cam_keys:
-            latent_file = (
-                latent_path
-                / key
-                / f"episode_{episode_index:06d}_{start_frame}_{end_frame}.pth"
-            )
+            latent_file = latent_path / key / f"episode_{episode_index:06d}_{start_frame}_{end_frame}.pth"
             if not os.path.exists(latent_file):
                 return False
         return True
@@ -436,11 +408,7 @@ class LingBotVALatentDataset(LeRobotV3Dataset):
         latent_path = Path(self.latent_path) / f"chunk-{episode_chunk:03d}"
         output = {}
         for key in self.config.obs_cam_keys:
-            latent_file = (
-                latent_path
-                / key
-                / f"episode_{episode_index:06d}_{start_frame}_{end_frame}.pth"
-            )
+            latent_file = latent_path / key / f"episode_{episode_index:06d}_{start_frame}_{end_frame}.pth"
             latent_data = torch.load(latent_file, weights_only=False)
             for inner_key, inner_value in latent_data.items():
                 output[f"{key}.{inner_key}"] = inner_value
@@ -482,9 +450,7 @@ class LingBotVALatentDataset(LeRobotV3Dataset):
         output = {"latents": cat_latent, "text_emb": text_emb}
         return output
 
-    def _action_post_process(
-        self, local_start_frame, local_end_frame, latent_frame_ids, action
-    ):
+    def _action_post_process(self, local_start_frame, local_end_frame, latent_frame_ids, action):
         """Run action post process.
 
         Args:
@@ -514,17 +480,11 @@ class LingBotVALatentDataset(LeRobotV3Dataset):
         required_action_num = latent_frame_num * frame_stride * 4
         action = action[:required_action_num]
         action_mask = np.ones_like(action, dtype="bool")
-        action_padded = np.pad(
-            action, ((0, 0), (0, 1)), mode="constant", constant_values=0
-        )
-        mask_padded = np.pad(
-            action_mask, ((0, 0), (0, 1)), mode="constant", constant_values=0
-        )
+        action_padded = np.pad(action, ((0, 0), (0, 1)), mode="constant", constant_values=0)
+        mask_padded = np.pad(action_mask, ((0, 0), (0, 1)), mode="constant", constant_values=0)
         action_aligned = action_padded[:, self.config.inverse_used_action_channel_ids]
         mask_aligned = mask_padded[:, self.config.inverse_used_action_channel_ids]
-        action_aligned = (action_aligned - self.q01) / (
-            self.q99 - self.q01 + 1e-6
-        ) * 2.0 - 1.0
+        action_aligned = (action_aligned - self.q01) / (self.q99 - self.q01 + 1e-6) * 2.0 - 1.0
         action_aligned = np.clip(action_aligned, -1.5, 1.5)
         action_aligned = rearrange(
             action_aligned,
@@ -559,9 +519,7 @@ def _find_lerobot_repos(config: LingBotVALatentDatasetConfig) -> List[str]:
     return _scan_lerobot_repos(config, max_repos)
 
 
-def _scan_lerobot_repos(
-    config: LingBotVALatentDatasetConfig, max_repos: int
-) -> List[str]:
+def _scan_lerobot_repos(config: LingBotVALatentDatasetConfig, max_repos: int) -> List[str]:
     """Run scan lerobot repos.
 
     Args:
@@ -580,9 +538,7 @@ def _scan_lerobot_repos(
     return repos[:max_repos] if max_repos > 0 else repos
 
 
-def _load_or_build_repo_discovery_cache(
-    config: LingBotVALatentDatasetConfig, max_repos: int
-) -> List[str]:
+def _load_or_build_repo_discovery_cache(config: LingBotVALatentDatasetConfig, max_repos: int) -> List[str]:
     """Run load or build repo discovery cache.
 
     Args:
@@ -593,17 +549,10 @@ def _load_or_build_repo_discovery_cache(
         The computed result.
     """
     dataset_path = Path(config.dataset_path)
-    cache_dir = Path(
-        os.environ.get(
-            "LINGBOT_REPO_DISCOVERY_CACHE_DIR", dataset_path / ".lingbot_cost_cache"
-        )
-    )
+    cache_dir = Path(os.environ.get("LINGBOT_REPO_DISCOVERY_CACHE_DIR", dataset_path / ".lingbot_cost_cache"))
     cache_dir.mkdir(parents=True, exist_ok=True)
     safe_dataset = str(dataset_path).replace("/", "__")
-    cache_path = (
-        cache_dir
-        / f"{safe_dataset}.{config.metadata_filename}.max{max_repos}.repo_list.json"
-    )
+    cache_path = cache_dir / f"{safe_dataset}.{config.metadata_filename}.max{max_repos}.repo_list.json"
     signature = {
         "version": 3,
         "dataset_path": str(dataset_path),
@@ -628,9 +577,7 @@ def _load_or_build_repo_discovery_cache(
             if cached is not None:
                 return cached
             if time.time() - start_time > wait_s:
-                raise TimeoutError(
-                    f"Timed out waiting for LingBot repo discovery cache: {cache_path}"
-                )
+                raise TimeoutError(f"Timed out waiting for LingBot repo discovery cache: {cache_path}")
             time.sleep(poll_s)
 
     try:
@@ -684,14 +631,10 @@ def _robotwin_relative_action(action: np.ndarray) -> np.ndarray:
         The computed result.
     """
     if Rotation is None:
-        raise ImportError(
-            "scipy is required for robotwin_tshape relative pose conversion"
-        )
+        raise ImportError("scipy is required for robotwin_tshape relative pose conversion")
     left_action = _get_relative_pose(action[:, :7])
     right_action = _get_relative_pose(action[:, 8:15])
-    return np.concatenate(
-        [left_action, action[:, 7:8], right_action, action[:, 15:16]], axis=1
-    )
+    return np.concatenate([left_action, action[:, 7:8], right_action, action[:, 15:16]], axis=1)
 
 
 def _get_relative_pose(pose: np.ndarray) -> np.ndarray:
@@ -771,8 +714,6 @@ def _as_int_list(value: Any) -> List[int]:
 
 def build_lingbot_dataset(model_cfg, data_cfg, training_args):
     """Build the LingBot-VA latent dataset for the embodied data engine."""
-    config = LingBotVALatentDatasetConfig.from_configs(
-        model_cfg, data_cfg, training_args
-    )
+    config = LingBotVALatentDatasetConfig.from_configs(model_cfg, data_cfg, training_args)
     dataset = LingBotVAMultiLatentDataset(config)
     return dataset

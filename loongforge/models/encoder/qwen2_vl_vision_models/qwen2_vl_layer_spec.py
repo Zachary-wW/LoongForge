@@ -102,9 +102,7 @@ def get_qwen2_vl_vision_model_layer_with_te_spec(
 def get_adapeter_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
     """Use this spec for an implementation using transformer, local or multi-accel engine."""
     return AdapterSubmodules(
-        layernorm=(
-            TENorm if config.normalization in ["LayerNorm", "RMSNorm"] else LocalNorm
-        ),
+        layernorm=(TENorm if config.normalization in ["LayerNorm", "RMSNorm"] else LocalNorm),
         linear_fc1=TELinear,
         linear_fc2=TELinear,
     )

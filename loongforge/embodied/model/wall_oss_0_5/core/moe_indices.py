@@ -20,16 +20,12 @@ def compute_moe_group_counts(token_types: torch.Tensor) -> tuple[int, ...]:
     return tuple(torch.bincount(flat_token_types).tolist())
 
 
-def build_moe_group_indices(
-    group_counts: tuple[int, ...], num_experts: int
-) -> tuple[tuple[int, ...], tuple[int, ...]]:
+def build_moe_group_indices(group_counts: tuple[int, ...], num_experts: int) -> tuple[tuple[int, ...], tuple[int, ...]]:
     """Expand CPU counts to boundaries using the model-owned expert count."""
     if num_experts <= 0:
         raise ValueError(f"num_experts must be positive, got {num_experts}")
     if len(group_counts) > num_experts:
-        raise ValueError(
-            f"Observed {len(group_counts)} MoE token types for {num_experts} experts"
-        )
+        raise ValueError(f"Observed {len(group_counts)} MoE token types for {num_experts} experts")
     if any(count < 0 for count in group_counts):
         raise ValueError(f"MoE group counts must be non-negative, got {group_counts}")
 

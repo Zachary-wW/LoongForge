@@ -64,9 +64,7 @@ def _wrap_args(*classes):
     )
 
 
-def _validation_args(
-    *, classes=None, dtype=None, compute_dtype="bfloat16", strategy="fsdp", init_on_meta=False
-):
+def _validation_args(*, classes=None, dtype=None, compute_dtype="bfloat16", strategy="fsdp", init_on_meta=False):
     return SimpleNamespace(
         fsdp_ignore_frozen_module_classes=classes,
         fsdp_ignored_frozen_param_dtype=dtype,

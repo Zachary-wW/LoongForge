@@ -61,7 +61,7 @@ def aggregate_feature_stats(stats_ft_list: list[dict[str, dict]]) -> dict[str, d
 
     # Parallel variance: total_var = sum((var_i + delta_i^2) * count_i) / total_count
     delta_means = means - total_mean
-    total_variance = ((variances + delta_means ** 2) * c).sum(axis=0) / total_count
+    total_variance = ((variances + delta_means**2) * c).sum(axis=0) / total_count
 
     return {
         "min": np.min(np.stack([s["min"] for s in stats_ft_list]), axis=0),

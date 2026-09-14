@@ -21,22 +21,14 @@ def _rotate_half(x: Tensor, rotary_interleaved: bool) -> Tensor:
     return x_new.view(x_new.shape[0], x_new.shape[1], x_new.shape[2], -1)
 
 
-def _get_thd_freqs_on_this_cp_rank(
-    cp_rank: int, cp_size: int, x: Tensor, freqs: Tensor, offset: int = 0
-) -> Tensor:
+def _get_thd_freqs_on_this_cp_rank(cp_rank: int, cp_size: int, x: Tensor, freqs: Tensor, offset: int = 0) -> Tensor:
     if cp_size > 1:
         cp_seg = x.size(0) // 2
         full_seqlen = cp_size * x.size(0)
         return torch.cat(
             [
                 freqs[offset + cp_rank * cp_seg : offset + (cp_rank + 1) * cp_seg],
-                freqs[
-                    offset
-                    + full_seqlen
-                    - (cp_rank + 1) * cp_seg : offset
-                    + full_seqlen
-                    - cp_rank * cp_seg
-                ],
+                freqs[offset + full_seqlen - (cp_rank + 1) * cp_seg : offset + full_seqlen - cp_rank * cp_seg],
             ]
         )
     return freqs[offset : offset + x.size(0)]
@@ -97,9 +89,7 @@ def _apply_rotary_pos_emb_thd(
         freq_slices = []
         for i, x in enumerate(sequence_splits):
             seq_start_offset = cu_seqlens[i].item()
-            freq_slices.append(
-                _get_thd_freqs_on_this_cp_rank(cp_rank, cp_size, x, freqs, seq_start_offset)
-            )
+            freq_slices.append(_get_thd_freqs_on_this_cp_rank(cp_rank, cp_size, x, freqs, seq_start_offset))
         freqs_packed = torch.cat(freq_slices, dim=0)
     elif "offsets" in kwargs:
         offsets = kwargs["offsets"]
@@ -171,9 +161,7 @@ def apply_dsv4_rotary_pos_emb(
 # =============================================================================
 
 
-def _thd_cp_contiguous_position_ids(
-    cu_seqlens: Tensor, global_start: int, local_rows: int
-) -> Tensor:
+def _thd_cp_contiguous_position_ids(cu_seqlens: Tensor, global_start: int, local_rows: int) -> Tensor:
     """Compute within-sequence position IDs for contiguous CP partition.
 
     In contiguous CP, rank r holds global rows [global_start, global_start + local_rows).
@@ -186,9 +174,9 @@ def _thd_cp_contiguous_position_ids(
         dtype=cu_seqlens.dtype,
         device=device,
     )
-    sequence_ids = torch.bucketize(
-        global_rows, cu_seqlens[1:], out_int32=True, right=True
-    ).clamp_max(cu_seqlens.shape[0] - 2)
+    sequence_ids = torch.bucketize(global_rows, cu_seqlens[1:], out_int32=True, right=True).clamp_max(
+        cu_seqlens.shape[0] - 2
+    )
     sequence_starts = cu_seqlens[sequence_ids]
     sequence_ends = cu_seqlens[sequence_ids + 1]
     valid_rows = (global_rows >= sequence_starts) & (global_rows < sequence_ends)
@@ -228,9 +216,7 @@ def apply_thd_cp_local_rope(
         Tensor with RoPE applied, same shape as input.
     """
     local_rows = t.shape[0]
-    position_ids = _thd_cp_contiguous_position_ids(
-        cu_seqlens, global_start, local_rows
-    )
+    position_ids = _thd_cp_contiguous_position_ids(cu_seqlens, global_start, local_rows)
     # Index into frequency table using computed positions
     local_freqs = torch.index_select(freqs, 0, position_ids.long())
 

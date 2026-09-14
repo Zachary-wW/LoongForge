@@ -47,6 +47,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class _LBLMetadata:
     """Load-balancing loss metadata container."""
+
     num_tokens_per_expert: torch.Tensor
     num_tokens: torch.Tensor
     mean_router_prob_per_expert: torch.Tensor
@@ -79,6 +80,7 @@ class LayerTypes:
             self.apply_rotary_pos_emb = qwen3_vl_apply_rotary_pos_emb
         else:
             raise ValueError(f"Unknown LayerTypes variant: {variant!r}")
+
 
 # -----------------------------------------------------------------------------
 # MoT wrapper configs
@@ -267,10 +269,18 @@ class PackedAttentionMoT(nn.Module):
         packed_sin = packed_position_embeddings[1]
 
         q_und_, k_und_ = self._apply_rotary_pos_emb(
-            q_und, k_und, get_und_seq(packed_cos), get_und_seq(packed_sin), unsqueeze_dim=1,
+            q_und,
+            k_und,
+            get_und_seq(packed_cos),
+            get_und_seq(packed_sin),
+            unsqueeze_dim=1,
         )
         q_gen_, k_gen_ = self._apply_rotary_pos_emb(
-            q_gen, k_gen, get_gen_seq(packed_cos), get_gen_seq(packed_sin), unsqueeze_dim=1,
+            q_gen,
+            k_gen,
+            get_gen_seq(packed_cos),
+            get_gen_seq(packed_sin),
+            unsqueeze_dim=1,
         )
 
         packed_query_states_ = from_und_gen_splits(q_und_, q_gen_, pack)
@@ -438,8 +448,7 @@ class MoTDecoderLayer(nn.Module):
         )
 
         pack_attn_out = self.self_attn(
-            pack_norm_out, attention_mask, packed_position_embeddings,
-            natten_metadata=natten_metadata
+            pack_norm_out, attention_mask, packed_position_embeddings, natten_metadata=natten_metadata
         )
         residual_und = get_und_seq(input) + get_und_seq(pack_attn_out)
         residual_gen = get_gen_seq(input) + get_gen_seq(pack_attn_out)
@@ -507,7 +516,7 @@ class Qwen3VLTextForCausalLM(Qwen3VLPreTrainedModel):
         # Force SDPA attention (flash_attn kernel may not be compiled for this GPU arch)
         full_config = config.full_config
         full_config._attn_implementation = "sdpa"
-        if hasattr(full_config, 'text_config') and full_config.text_config is not None:
+        if hasattr(full_config, "text_config") and full_config.text_config is not None:
             full_config.text_config._attn_implementation = "sdpa"
         super().__init__(full_config)
 
@@ -556,4 +565,3 @@ class Qwen3VLTextForCausalLM(Qwen3VLPreTrainedModel):
             position_ids=position_ids,
             natten_metadata_list=natten_metadata_list,
         )
-

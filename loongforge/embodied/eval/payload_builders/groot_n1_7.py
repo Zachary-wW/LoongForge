@@ -166,10 +166,7 @@ class GrootN1d7PayloadBuilder(PayloadBuilder):
             # runs inside predict_action, not here.
             import cv2
 
-            images = [
-                cv2.resize(np.asarray(img), (256, 256)) if img is not None else img
-                for img in images
-            ]
+            images = [cv2.resize(np.asarray(img), (256, 256)) if img is not None else img for img in images]
         return {
             "images": images,
             "instructions": [str(canonical["instruction"])],

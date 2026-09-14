@@ -5,6 +5,7 @@
 HF Checkpoint Online Loading for Training
 Implements online loading of HF checkpoints based on tools/dist_checkpoint modules
 """
+
 import os
 import sys
 from typing import Tuple
@@ -94,12 +95,7 @@ def _log_loaded_param_stats(unwrapped_model):
 
 
 @time_checkpoint_operation
-def load_hf_checkpoint_online(
-    model,
-    optimizer,
-    opt_param_scheduler,
-    args
-) -> Tuple[int, int]:
+def load_hf_checkpoint_online(model, optimizer, opt_param_scheduler, args) -> Tuple[int, int]:
     """
     Load HF checkpoint online and shard to distributed model
 
@@ -121,19 +117,20 @@ def load_hf_checkpoint_online(
     rank = dist.get_rank()
     world_size = dist.get_world_size()
 
-    print_rank_0("="*80)
+    print_rank_0("=" * 80)
     print_rank_0("Loading HF checkpoint with online sharding")
-    print_rank_0("="*80)
+    print_rank_0("=" * 80)
     print_rank_0(f"Checkpoint path: {args.load}")
     print_rank_0(f"World size: {world_size}")
-    ep_size = getattr(args, 'expert_model_parallel_size', None)
-    etp_size = getattr(args, 'expert_tensor_parallel_size', None)
+    ep_size = getattr(args, "expert_model_parallel_size", None)
+    etp_size = getattr(args, "expert_tensor_parallel_size", None)
     if ep_size is not None and ep_size > 1:
-        print_rank_0(f"Parallel config: TP={args.tensor_model_parallel_size}, "
-                    f"PP={args.pipeline_model_parallel_size}, EP={ep_size}, ETP={etp_size}")
+        print_rank_0(
+            f"Parallel config: TP={args.tensor_model_parallel_size}, "
+            f"PP={args.pipeline_model_parallel_size}, EP={ep_size}, ETP={etp_size}"
+        )
     else:
-        print_rank_0(f"Parallel config: TP={args.tensor_model_parallel_size}, "
-                    f"PP={args.pipeline_model_parallel_size}")
+        print_rank_0(f"Parallel config: TP={args.tensor_model_parallel_size}, PP={args.pipeline_model_parallel_size}")
 
     # Step 1: Parse args to get config
     print_rank_0("Parsing config from args")
@@ -151,29 +148,30 @@ def load_hf_checkpoint_online(
     parallel_config.tp_ranks = [tp_rank]
     parallel_config.pp_ranks = [pp_rank]
     if ep_rank is not None:
-        if etp_rank is not None and etp_size is not None and etp_size > 0: # with ETP
+        if etp_rank is not None and etp_size is not None and etp_size > 0:  # with ETP
             tp_size = args.tensor_model_parallel_size
             ep_size = args.expert_model_parallel_size
             etp_size = args.expert_tensor_parallel_size
             assert ep_size >= tp_size, "With ETP, EP size must be greater than or equal to TP size!"
-            _, tp_to_ep = get_etp_map(
-                    tp_size,
-                    ep_size,
-                    etp_size
-                )
+            _, tp_to_ep = get_etp_map(tp_size, ep_size, etp_size)
             ep_id = ((ep_rank * etp_size) // tp_size * tp_size // etp_size) + tp_to_ep[tp_rank]
             parallel_config.ep_ranks = [ep_id]
-        else: # without ETP
+        else:  # without ETP
             parallel_config.ep_ranks = [ep_rank]
-
 
     # Step 3: Create HF converter
     print_rank_0("Creating HF checkpoint converter...")
-    c_config = get_yaml_config(parser.config_file, parser.convert_file, for_vlm=(parser.vision_patch_convert_file is not None))
-    c_vision_patch_config = get_yaml_config(
-        parser.config_file, parser.vision_patch_convert_file,
-        adapter_convert_file=parser.adapter_convert_file) if parser.vision_patch_convert_file is not None else None
-    
+    c_config = get_yaml_config(
+        parser.config_file, parser.convert_file, for_vlm=(parser.vision_patch_convert_file is not None)
+    )
+    c_vision_patch_config = (
+        get_yaml_config(
+            parser.config_file, parser.vision_patch_convert_file, adapter_convert_file=parser.adapter_convert_file
+        )
+        if parser.vision_patch_convert_file is not None
+        else None
+    )
+
     hf_converter = HfCheckpointConverter(parallel_config, c_config, vision_patch_config=c_vision_patch_config)
 
     # Step 4: Load and convert HF checkpoint based on model type
@@ -188,13 +186,15 @@ def load_hf_checkpoint_online(
     # Convert to Mcore format
     mem_before = 0.0
     if torch.cuda.is_available():
-        mem_before = torch.cuda.memory_allocated() / (1024 ** 3)
+        mem_before = torch.cuda.memory_allocated() / (1024**3)
         torch.cuda.reset_peak_memory_stats()
     mcore_dict = hf_converter.get_mcore_ckpt(args.load)
     if torch.cuda.is_available():
-        peak_mem_gb = torch.cuda.max_memory_allocated() / (1024 ** 3)
-        mem_after = torch.cuda.memory_allocated() / (1024 ** 3)
-        print_rank_0(f"Mcore conversion completed. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → After={mem_after:.2f}GB, Change={mem_after-mem_before:+.2f}GB")
+        peak_mem_gb = torch.cuda.max_memory_allocated() / (1024**3)
+        mem_after = torch.cuda.memory_allocated() / (1024**3)
+        print_rank_0(
+            f"Mcore conversion completed. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
+        )
 
     if mcore_dict is None:
         raise RuntimeError("Failed to convert HF checkpoint to Mcore format")
@@ -210,12 +210,10 @@ def load_hf_checkpoint_online(
     if ep_rank is None:
         current_rank_state_dict = mcore_dict[pp_rank][tp_rank]
     else:
-        if etp_rank is not None: # with ETP
+        if etp_rank is not None:  # with ETP
             current_rank_state_dict = mcore_dict[pp_rank][ep_id][tp_rank]
-        else: # without ETP
-            current_rank_state_dict= mcore_dict[pp_rank][ep_rank][tp_rank]
-            
-            
+        else:  # without ETP
+            current_rank_state_dict = mcore_dict[pp_rank][ep_rank][tp_rank]
 
     # Step 7: Load to model
     print_rank_0("Loading model state_dict...")
@@ -223,11 +221,15 @@ def load_hf_checkpoint_online(
 
     mem_before = 0.0
     if torch.cuda.is_available():
-        mem_before = torch.cuda.memory_allocated() / (1024 ** 3)
+        mem_before = torch.cuda.memory_allocated() / (1024**3)
         torch.cuda.reset_peak_memory_stats()
 
     # Handle both wrapped {'model': dict} and direct dict formats
-    model_state_dict = current_rank_state_dict.get('model', current_rank_state_dict) if isinstance(current_rank_state_dict, dict) else current_rank_state_dict
+    model_state_dict = (
+        current_rank_state_dict.get("model", current_rank_state_dict)
+        if isinstance(current_rank_state_dict, dict)
+        else current_rank_state_dict
+    )
     # strict=True — let PyTorch raise a RuntimeError that lists every
     # missing / unexpected key and every size-mismatch. The prior
     # strict=False (plus silent fallback) was masking real load failures
@@ -237,9 +239,7 @@ def load_hf_checkpoint_online(
         unwrapped_model[0].load_state_dict(model_state_dict, strict=True)
     else:  # vpp
         for i in range(len(unwrapped_model)):
-            unwrapped_model[i].load_state_dict(
-                current_rank_state_dict[f"model{i}"], strict=True
-            )
+            unwrapped_model[i].load_state_dict(current_rank_state_dict[f"model{i}"], strict=True)
 
     # Positive sanity check — print weight stats for a handful of well-known
     # parameters so we can tell (from logs) that ckpt values actually landed
@@ -248,9 +248,11 @@ def load_hf_checkpoint_online(
     _log_loaded_param_stats(unwrapped_model)
 
     if torch.cuda.is_available():
-        peak_mem_gb = torch.cuda.max_memory_allocated() / (1024 ** 3)
-        mem_after = torch.cuda.memory_allocated() / (1024 ** 3)
-        print_rank_0(f"Model state_dict loaded successfully. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → After={mem_after:.2f}GB, Change={mem_after-mem_before:+.2f}GB")
+        peak_mem_gb = torch.cuda.max_memory_allocated() / (1024**3)
+        mem_after = torch.cuda.memory_allocated() / (1024**3)
+        print_rank_0(
+            f"Model state_dict loaded successfully. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
+        )
     else:
         print_rank_0("Model state_dict loaded successfully")
 
@@ -264,6 +266,7 @@ def load_hf_checkpoint_online(
     # training — and get COW-materialized by forked dataloader workers
     # (rank got SIGKILLed by the host OOM killer during step 0 before this).
     import gc
+
     hf_converter.hf_ckpt.state_dict = {}
     del model_state_dict
     del current_rank_state_dict
@@ -276,11 +279,9 @@ def load_hf_checkpoint_online(
     print_rank_0("Synchronizing all ranks...")
     dist.barrier()
 
-    print_rank_0("="*80)
+    print_rank_0("=" * 80)
     print_rank_0("HF checkpoint loaded and sharded successfully!")
-    print_rank_0("="*80)
+    print_rank_0("=" * 80)
 
     # Return iteration=0 (start training from HF checkpoint)
     return 0, 0
-
-    

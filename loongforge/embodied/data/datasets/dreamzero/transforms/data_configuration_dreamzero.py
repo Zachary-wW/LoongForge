@@ -49,38 +49,20 @@ class DreamZeroDataConfig:
 
     def __post_init__(self) -> None:
         if self.embodiment_tag not in {"oxe_droid", "libero_sim", "agibot", "yam"}:
-            raise ValueError(
-                f"Unsupported DreamZero embodiment_tag: {self.embodiment_tag!r}"
-            )
+            raise ValueError(f"Unsupported DreamZero embodiment_tag: {self.embodiment_tag!r}")
         if self.sampler_type not in {"distributed", "sharded", "global_batch_shard"}:
-            raise ValueError(
-                "DreamZero sampler_type must be one of "
-                "distributed, sharded, global_batch_shard"
-            )
+            raise ValueError("DreamZero sampler_type must be one of distributed, sharded, global_batch_shard")
         if self.sampler_worker_batching not in {"none", "upstream_iterable"}:
-            raise ValueError(
-                "DreamZero sampler_worker_batching must be one of "
-                "none, upstream_iterable"
-            )
+            raise ValueError("DreamZero sampler_worker_batching must be one of none, upstream_iterable")
         if self.sampler_num_workers is not None and self.sampler_num_workers <= 0:
             raise ValueError("sampler_num_workers must be positive when specified")
         if (not self.use_mixture_dataset) and self.mixture_sampling_seed is not None:
-            raise ValueError(
-                "mixture_sampling_seed is only valid when use_mixture_dataset=true"
-            )
+            raise ValueError("mixture_sampling_seed is only valid when use_mixture_dataset=true")
         if self.require_full_language_chunks and not self.language_chunk_sampling:
-            raise ValueError(
-                "require_full_language_chunks=true requires language_chunk_sampling=true"
-            )
+            raise ValueError("require_full_language_chunks=true requires language_chunk_sampling=true")
         if self.require_full_language_chunks and self.sampler_type != "sharded":
-            raise ValueError(
-                "require_full_language_chunks=true is only supported with sampler_type=sharded"
-            )
+            raise ValueError("require_full_language_chunks=true is only supported with sampler_type=sharded")
         if self.sampler_type == "sharded" and self.use_mixture_dataset:
-            raise ValueError(
-                "sampler_type=sharded expects use_mixture_dataset=false"
-            )
+            raise ValueError("sampler_type=sharded expects use_mixture_dataset=false")
         if self.sampler_worker_batching != "none" and self.sampler_type != "sharded":
-            raise ValueError(
-                "sampler_worker_batching is only supported with sampler_type=sharded"
-            )
+            raise ValueError("sampler_worker_batching is only supported with sampler_type=sharded")

@@ -86,7 +86,7 @@ def _worker_eval_script(args: argparse.Namespace) -> Optional[pathlib.Path]:
     script_source_dir = str(source.parent)
     text = text.replace(
         'sys.path.append("./description/utils")\n',
-        'sys.path.append("./description/utils")\n' f"sys.path.insert(0, {script_source_dir!r})\n",
+        f'sys.path.append("./description/utils")\nsys.path.insert(0, {script_source_dir!r})\n',
         1,
     )
     worker_step_limit = _write_worker_eval_step_limit(args)
@@ -134,7 +134,7 @@ def _worker_eval_script(args: argparse.Namespace) -> Optional[pathlib.Path]:
     if args.disable_eval_video_log:
         text = text.replace(
             '    args["ckpt_setting"] = ckpt_setting\n',
-            '    args["ckpt_setting"] = ckpt_setting\n' '    args["eval_video_log"] = False\n',
+            '    args["ckpt_setting"] = ckpt_setting\n    args["eval_video_log"] = False\n',
             1,
         )
     script_dir = pathlib.Path(args.output_dir) / "worker_files"
@@ -452,9 +452,7 @@ def _build_robotwin_records(
                 {
                     **common,
                     "episode_idx": int(ep["episode_idx"]),
-                    "episode_id": (
-                        f"robotwin/{args.task_name}/{args.task_config}/seed={seed}"
-                    ),
+                    "episode_id": (f"robotwin/{args.task_name}/{args.task_config}/seed={seed}"),
                     "seed": seed,
                     "success": success,
                     "success_rate": rate,
@@ -509,9 +507,7 @@ def _write_standard_outputs(
         if lp.is_file():
             log_text = lp.read_text(encoding="utf-8", errors="replace")
 
-    records = _build_robotwin_records(
-        args, returncode, artifacts, episode_time_sec, result_txt, log_text
-    )
+    records = _build_robotwin_records(args, returncode, artifacts, episode_time_sec, result_txt, log_text)
     output_dir = pathlib.Path(args.output_dir)
     for record in records:
         append_jsonl(output_dir / "results.jsonl", record)

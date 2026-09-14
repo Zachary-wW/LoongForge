@@ -529,10 +529,7 @@ def _resolve_video_key_mapping(
         return {key: key for key in config_video_keys}
     if len(config_video_keys) != len(dataset_video_keys):
         return {}
-    return {
-        dataset_key: config_key
-        for config_key, dataset_key in zip(config_video_keys, dataset_video_keys)
-    }
+    return {dataset_key: config_key for config_key, dataset_key in zip(config_video_keys, dataset_video_keys)}
 
 
 def _resolve_embodiment_id(policy_cfg: GrootN1d7Config, data_cfg: Any) -> int:
@@ -556,9 +553,7 @@ def _build_runtime_processor_stats(
     modality_config: dict[str, ModalityConfig],
 ) -> Optional[dict[str, Any]]:
     dataset_stats_local = {
-        key: value
-        for key, value in dict(dataset_stats or {}).items()
-        if not str(key).startswith("__")
+        key: value for key, value in dict(dataset_stats or {}).items() if not str(key).startswith("__")
     }
     if not dataset_stats_local:
         return None
@@ -631,18 +626,12 @@ class GrootN1d7FeatureTransform(BaseTransform):
         """
         drop_state = bool(self.data_cfg.exclude_state)
         if not drop_state and self.data_cfg.state_dropout_prob > 0:
-            drop_state = (
-                random.random() < self.data_cfg.state_dropout_prob
-                and self.training
-            )
+            drop_state = random.random() < self.data_cfg.state_dropout_prob and self.training
 
         image_replay = None
         if self.training:
             if not self.use_albumentations:
-                raise RuntimeError(
-                    "Deterministic shard prefetch requires replayable "
-                    "Albumentations transforms"
-                )
+                raise RuntimeError("Deterministic shard prefetch requires replayable Albumentations transforms")
             image_transform = self.train_image_transform
             sample_replay_for_shape = getattr(
                 image_transform,
@@ -650,19 +639,13 @@ class GrootN1d7FeatureTransform(BaseTransform):
                 None,
             )
             if sample_replay_for_shape is None:
-                raise RuntimeError(
-                    "The configured image transform cannot sample a deterministic replay"
-                )
+                raise RuntimeError("The configured image transform cannot sample a deterministic replay")
             if getattr(image_transform, "mask_transforms", []):
-                raise RuntimeError(
-                    "Deterministic shard prefetch does not support random mask transforms"
-                )
+                raise RuntimeError("Deterministic shard prefetch does not support random mask transforms")
 
             image_shape = self._replay_image_shape
             if data is not None:
-                image_keys = sorted(
-                    key for key in data if key.startswith("observation.images.")
-                )
+                image_keys = sorted(key for key in data if key.startswith("observation.images."))
                 if not image_keys:
                     raise KeyError("Missing required observation image keys for GR00T-N1.7")
                 first_frames = _extract_frames(_to_numpy(data[image_keys[0]]))
@@ -670,9 +653,7 @@ class GrootN1d7FeatureTransform(BaseTransform):
                     raise ValueError("GR00T-N1.7 image sequence is empty")
                 image_shape = first_frames[0].shape[:2]
             if image_shape is None:
-                raise RuntimeError(
-                    "Cannot prepare deterministic image replay without image geometry"
-                )
+                raise RuntimeError("Cannot prepare deterministic image replay without image geometry")
             image_replay = sample_replay_for_shape(image_shape)
 
         return {
@@ -745,10 +726,7 @@ class GrootN1d7FeatureTransform(BaseTransform):
         else:
             drop_state = bool(replay["drop_state"])
         if drop_state:
-            normalized_states = {
-                key: np.zeros_like(value)
-                for key, value in normalized_states.items()
-            }
+            normalized_states = {key: np.zeros_like(value) for key, value in normalized_states.items()}
 
         result: Dict[str, Any] = {"state": self._pack_state(normalized_states)}
         if normalized_actions:
@@ -929,9 +907,7 @@ class GrootN1d7FeatureTransform(BaseTransform):
                 temporal_stacked_images[view] = torch.stack(transformed_images)
         else:
             if masks is not None:
-                raise ValueError(
-                    "GR00T-N1.7 mask transforms require albumentations image transforms"
-                )
+                raise ValueError("GR00T-N1.7 mask transforms require albumentations image transforms")
             for view in image_keys:
                 temporal_stacked_images[view] = torch.stack([image_transform(img) for img in images[view]])
 
@@ -1158,8 +1134,7 @@ def _compute_dataset_feature_stats(root: Path, feature_keys: list[str]) -> dict[
                 continue
             missing_by_key[key] = False
             values_by_key[key].extend(
-                np.asarray(value, dtype=np.float32).reshape(-1)
-                for value in frame[key].to_numpy()
+                np.asarray(value, dtype=np.float32).reshape(-1) for value in frame[key].to_numpy()
             )
 
     missing = [key for key, is_missing in missing_by_key.items() if is_missing]

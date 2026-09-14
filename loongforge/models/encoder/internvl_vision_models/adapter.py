@@ -1,7 +1,7 @@
 # Copyright 2026 The LoongForge Authors.
 # SPDX-License-Identifier: Apache-2.0
 
-""" Adapters """
+"""Adapters"""
 
 import torch
 import math
@@ -23,16 +23,11 @@ def _init_weights(m):
 
 
 class InternAdapter(BaseMegatronModule):
-    """ Adapter  """
+    """Adapter"""
 
     config_class = InternMLPAdapterConfig
 
-    def __init__(
-        self, 
-        config: TransformerConfig, 
-        input_size: int, 
-        **kwargs
-        ) -> None:
+    def __init__(self, config: TransformerConfig, input_size: int, **kwargs) -> None:
         super().__init__(config=config)
         if self.config.model_spec is None:
             model_spec = [
@@ -64,11 +59,11 @@ class InternAdapter(BaseMegatronModule):
             bias=config.add_bias_linear,
         )
         self.apply(_init_weights)
-        if hasattr(config, 'freeze') and config.freeze:
+        if hasattr(config, "freeze") and config.freeze:
             self.freeze()
 
     def forward(self, hidden_states, window_index=None, **kwargs):
-        """ forward """
+        """forward"""
         hidden_states = self.layernorm(hidden_states)
 
         # [s, b, 4 * h/p]

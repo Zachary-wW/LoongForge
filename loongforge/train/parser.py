@@ -21,22 +21,27 @@ from dataclasses import fields
 
 from loongforge.models.utils import build_model_config
 from loongforge.train.arguments import loongforge_extra_train_args_provider
-from loongforge.train.get_loss_func import (default_loss_func,
-                                                    loss_func_internvl)
-from loongforge.train.get_position_idx_func import (get_mrope_index, 
-                                                            get_position_ids, 
-                                                            get_rope_index_internvl, 
-                                                            get_rope_index_qwen3vl)
-from loongforge.train.validators import (validate_loongforge_extra_args,
-                                                validate_custom_model_args,
-                                                validate_megatron_args)
+from loongforge.train.get_loss_func import default_loss_func, loss_func_internvl
+from loongforge.train.get_position_idx_func import (
+    get_mrope_index,
+    get_position_ids,
+    get_rope_index_internvl,
+    get_rope_index_qwen3vl,
+)
+from loongforge.train.validators import (
+    validate_loongforge_extra_args,
+    validate_custom_model_args,
+    validate_megatron_args,
+)
 from loongforge.utils import constants
 from loongforge.utils.config_map import get_config_from_model_name
-from loongforge.utils.global_vars import (get_hydra_config,
-                                                  set_args_dict,
-                                                  set_data_config,
-                                                  set_hydra_config,
-                                                  set_model_config)
+from loongforge.utils.global_vars import (
+    get_hydra_config,
+    set_args_dict,
+    set_data_config,
+    set_hydra_config,
+    set_model_config,
+)
 from loongforge.utils.utils import get_config_from_file
 
 
@@ -52,36 +57,21 @@ def register_custom_resolvers():
     POSITION_IDX_FUNC_MAP = {
         "position_ids": get_position_ids,
         "mrope_ids": get_mrope_index,
-        "rope_ids_internvl": get_rope_index_internvl, 
-        "rope_ids_qwen3vl": get_rope_index_qwen3vl
+        "rope_ids_internvl": get_rope_index_internvl,
+        "rope_ids_qwen3vl": get_rope_index_qwen3vl,
     }
-    LOSS_FUNC_MAP = {
-        "default": default_loss_func,
-        "loss_func_internvl": loss_func_internvl
-    }
-    OmegaConf.register_new_resolver(
-        "act", lambda name: ACTIVATION_MAP[name.lower()], replace=True
-    )
-    OmegaConf.register_new_resolver(
-        "position_func", lambda name: POSITION_IDX_FUNC_MAP[name.lower()], replace=True
-    )
-    OmegaConf.register_new_resolver(
-        "loss_func", lambda name: LOSS_FUNC_MAP[name.lower()], replace=True
-    )
+    LOSS_FUNC_MAP = {"default": default_loss_func, "loss_func_internvl": loss_func_internvl}
+    OmegaConf.register_new_resolver("act", lambda name: ACTIVATION_MAP[name.lower()], replace=True)
+    OmegaConf.register_new_resolver("position_func", lambda name: POSITION_IDX_FUNC_MAP[name.lower()], replace=True)
+    OmegaConf.register_new_resolver("loss_func", lambda name: LOSS_FUNC_MAP[name.lower()], replace=True)
 
     # moe layer freq resolver
-    OmegaConf.register_new_resolver(
-        "moe_freq",
-        lambda expr: moe_freq_type(expr),
-        replace=True
-    )
+    OmegaConf.register_new_resolver("moe_freq", lambda expr: moe_freq_type(expr), replace=True)
 
 
 def parse_megatron_arguments(extra_args_provider=None, parse_unknown_args=False):
     """Parse megatron arguments."""
-    parser = argparse.ArgumentParser(
-        description="Megatron-LM Arguments", allow_abbrev=False
-    )
+    parser = argparse.ArgumentParser(description="Megatron-LM Arguments", allow_abbrev=False)
 
     parser = add_megatron_arguments(parser)
 
@@ -147,9 +137,7 @@ def parse_arguments(
     parse_unknown_args=False,
 ):
     """Parse arguments."""
-    args, hydra_overrides = parse_megatron_arguments(
-        extra_args_provider, parse_unknown_args
-    )
+    args, hydra_overrides = parse_megatron_arguments(extra_args_provider, parse_unknown_args)
 
     # Prep for checkpoint conversion.
     if args.ckpt_convert_format is not None:
@@ -180,14 +168,13 @@ def parse_arguments(
         raise ValueError("Either --model-name or --config-file must be specified.")
 
     if args.config_path and args.config_name:
-        hydra_cfg = load_and_merge_config(
-            args.config_path, args.config_name, hydra_overrides
-        )
+        hydra_cfg = load_and_merge_config(args.config_path, args.config_name, hydra_overrides)
 
-    if hasattr(hydra_cfg, "model_type") and hydra_cfg.model_type in \
-            (set(constants.LanguageModelFamilies.names()) |
-            set(constants.CustomModelFamilies.names()) |
-            set(constants.VisionLanguageActionModelFamilies.names())):
+    if hasattr(hydra_cfg, "model_type") and hydra_cfg.model_type in (
+        set(constants.LanguageModelFamilies.names())
+        | set(constants.CustomModelFamilies.names())
+        | set(constants.VisionLanguageActionModelFamilies.names())
+    ):
         model_config = hydra_cfg
         model_type = hydra_cfg.model_type
     else:
@@ -198,7 +185,7 @@ def parse_arguments(
 
     # TODO: remove this in the future
     args.model_family = model_type
-    
+
     if model_type in constants.VisionLanguageModelFamilies.names():
         args_dict = {}
         for name, config_values in model_config.items():
@@ -224,17 +211,19 @@ def parse_arguments(
                 validate_custom_model_args(name, args_deepcopy)
 
             args_dict[name] = args_deepcopy
-        
+
         if "foundation" not in args_dict:
             raise ValueError("args_dict does not contain 'foundation'")
         args = args_dict["foundation"]
-        
+
         # set global args dict
         set_args_dict(args_dict)
 
-    elif model_type in (set(constants.LanguageModelFamilies.names()) |
-            set(constants.CustomModelFamilies.names()) |
-            set(constants.VisionLanguageActionModelFamilies.names())):
+    elif model_type in (
+        set(constants.LanguageModelFamilies.names())
+        | set(constants.CustomModelFamilies.names())
+        | set(constants.VisionLanguageActionModelFamilies.names())
+    ):
         # Validate arguments.
         if validate_extra_args_provider is not None:
             validate_extra_args_provider(args, hydra_cfg)

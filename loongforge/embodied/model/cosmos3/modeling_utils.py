@@ -89,6 +89,7 @@ class FlattenedSinCosPositionEmbedding(nn.Module):
     # Indices are created for 2D array and flattened into 1D array.
 
     """Module for FlattenedSinCosPositionEmbedding."""
+
     def __init__(self, max_latent_h: int, max_latent_w: int, hidden_size: int, interpolate_pos: bool = False):
         """Initialize the module."""
         super().__init__()
@@ -149,6 +150,7 @@ class FlattenedSinCosPositionEmbedding(nn.Module):
 
 class VideoRopePosition3DEmb(nn.Module):
     """Module for VideoRopePosition3DEmb."""
+
     def __init__(
         self,
         *,  # enforce keyword arguments
@@ -399,6 +401,7 @@ class TimestepEmbedder(nn.Module):
 
 class MLPconnector(nn.Module):
     """Module for MLPconnector."""
+
     def __init__(self, in_dim: int, out_dim: int, hidden_act: str):
         """Initialize the module."""
         super().__init__()

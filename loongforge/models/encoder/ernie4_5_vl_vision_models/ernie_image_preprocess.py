@@ -48,7 +48,7 @@ class ErnieImagePreprocess(nn.Module):
         # → expand each channel constant P*P times with repeat (numpy.repeat).
         pp = patch_size * patch_size
         self._mean_flat = [v for v in _OPENAI_CLIP_MEAN for _ in range(pp)]  # len C*P*P
-        self._std_flat  = [v for v in _OPENAI_CLIP_STD  for _ in range(pp)]  # len C*P*P
+        self._std_flat = [v for v in _OPENAI_CLIP_STD for _ in range(pp)]  # len C*P*P
 
     def forward(
         self,
@@ -73,11 +73,11 @@ class ErnieImagePreprocess(nn.Module):
         # by .half()/.bfloat16()).
         device = images.device
         mean = torch.tensor(self._mean_flat, dtype=torch.float64, device=device)
-        std  = torch.tensor(self._std_flat,  dtype=torch.float64, device=device)
+        std = torch.tensor(self._std_flat, dtype=torch.float64, device=device)
 
-        x = images.to(torch.float64)           # [S, C*P*P]
-        x = x * (1.0 / 255.0)                 # rescale
-        x = (x - mean) / std                   # normalize
+        x = images.to(torch.float64)  # [S, C*P*P]
+        x = x * (1.0 / 255.0)  # rescale
+        x = (x - mean) / std  # normalize
         images = x.to(torch.bfloat16)
 
         # ---- grid_thw post-processing (identical to original preprocess()) ----

@@ -1,4 +1,5 @@
 """prepare_token_indices"""
+
 # Modified from: https://github.com/fla-org/flash-linear-attention/blob/main/fla/ops/utils/index.py
 import torch
 import torch.nn.functional as F
@@ -73,8 +74,9 @@ def prepare_lens_from_cu_seqlens(
 @tensor_cache
 def prepare_position_ids(cu_seqlens: torch.LongTensor) -> torch.LongTensor:
     """prepare position ids."""
-    return torch.cat([torch.arange(n, dtype=cu_seqlens.dtype, device=cu_seqlens.device) \
-        for n in prepare_lens(cu_seqlens).unbind()])
+    return torch.cat(
+        [torch.arange(n, dtype=cu_seqlens.dtype, device=cu_seqlens.device) for n in prepare_lens(cu_seqlens).unbind()]
+    )
 
 
 @tensor_cache

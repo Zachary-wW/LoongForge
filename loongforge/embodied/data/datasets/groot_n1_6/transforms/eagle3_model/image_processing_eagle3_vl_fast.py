@@ -22,6 +22,7 @@ from transformers.image_processing_utils_fast import (
     group_images_by_shape,
     reorder_images,
 )
+
 try:
     from transformers.image_processing_utils_fast import DefaultFastImageProcessorKwargs
 except ImportError:
@@ -104,6 +105,7 @@ class Eagle3VLFastImageProcessorKwargs(DefaultFastImageProcessorKwargs):
         do_pad: Whether to pad the patch/token dimension to the longest sample
             in the batch. Padding is applied on the bottom/right side.
     """
+
     do_pad: bool | None
 
 
@@ -139,6 +141,7 @@ class Eagle3VLImageProcessorFast(BaseImageProcessorFast):  # noqa: N801, PY039 -
     The implementation is compatible with different ``transformers``/``torchvision`` versions
     by using fallbacks for optional fast-image-processing symbols.
     """
+
     resample = PILImageResampling.BICUBIC
     image_mean = IMAGENET_STANDARD_MEAN
     image_std = IMAGENET_STANDARD_STD
@@ -274,9 +277,7 @@ class Eagle3VLImageProcessorFast(BaseImageProcessorFast):  # noqa: N801, PY039 -
 
         # Group images by size for further processing
         # Needed in case do_resize is False, or resize returns images with different sizes
-        grouped_images, grouped_images_index = group_images_by_shape(
-            images, disable_grouping=disable_grouping
-        )
+        grouped_images, grouped_images_index = group_images_by_shape(images, disable_grouping=disable_grouping)
         processed_images_grouped = {}
         for shape, stacked_images in grouped_images.items():
             # Fused rescale and normalize
@@ -309,9 +310,7 @@ class Eagle3VLImageProcessorFast(BaseImageProcessorFast):  # noqa: N801, PY039 -
         Returns:
             BatchFeature containing preprocessed data
         """
-        validate_kwargs(
-            captured_kwargs=kwargs.keys(), valid_processor_keys=self.valid_kwargs.__annotations__.keys()
-        )
+        validate_kwargs(captured_kwargs=kwargs.keys(), valid_processor_keys=self.valid_kwargs.__annotations__.keys())
         # Set default kwargs from self. This ensures that if a kwarg is not provided
         # by the user, it gets its default value from the instance, or is set to None.
         for kwarg_name in self.valid_kwargs.__annotations__:
@@ -347,9 +346,7 @@ class Eagle3VLImageProcessorFast(BaseImageProcessorFast):  # noqa: N801, PY039 -
         # torch resize uses interpolation instead of resample
         resample = kwargs.pop("resample", self.resample)
         kwargs["interpolation"] = (
-            pil_torch_interpolation_mapping[resample]
-            if isinstance(resample, (PILImageResampling, int))
-            else resample
+            pil_torch_interpolation_mapping[resample] if isinstance(resample, (PILImageResampling, int)) else resample
         )
 
         # Pop kwargs that are not needed in _preprocess

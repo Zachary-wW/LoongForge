@@ -153,18 +153,24 @@ PERF_CASES_PATH = os.getenv("TE_LAYER_PERF_CASES_PATH")
 PERF_CASES_JSON = os.getenv("TE_LAYER_PERF_CASES_JSON")
 PERF_FP8_RECIPE = os.getenv("TE_LAYER_PERF_FP8_RECIPE", "blockwise").strip().lower()
 PERF_PRECISIONS = tuple(
-    item.strip().lower()
-    for item in os.getenv("TE_LAYER_PERF_PRECISIONS", "bf16,fp8").split(",")
-    if item.strip()
+    item.strip().lower() for item in os.getenv("TE_LAYER_PERF_PRECISIONS", "bf16,fp8").split(",") if item.strip()
 )
 PERF_SPLIT_SKEW = float(os.getenv("TE_LAYER_PERF_SPLIT_SKEW", "1.2"))
 PERF_RECOMPUTE = os.getenv("TE_LAYER_PERF_RECOMPUTE", "true").strip().lower() in ("true", "1", "yes")
 PERF_SHAPE_SWEEP = os.getenv("TE_LAYER_PERF_SHAPE_SWEEP")  # e.g. "1024x1,2048x4,8192x2"
 PERF_OMNI_CONFIG_PATH = os.getenv("TE_LAYER_PERF_OMNI_CONFIG_PATH")  # Omni Training YAML path
-PERF_TP_SIZE = int(os.getenv("TE_LAYER_PERF_TP_SIZE", "0"))  # override tensor_model_parallel_size (0 = use model default)
-PERF_EP_SIZE = int(os.getenv("TE_LAYER_PERF_EP_SIZE", "0"))  # override expert_model_parallel_size (0 = use model default)
-PERF_ETP_SIZE = int(os.getenv("TE_LAYER_PERF_ETP_SIZE", "0"))  # override expert_tensor_parallel_size (0 = use model default)
-PERF_SEQ_PARALLEL = os.getenv("TE_LAYER_PERF_SEQ_PARALLEL")  # override sequence_parallel ("true"/"false", None = use model default)
+PERF_TP_SIZE = int(
+    os.getenv("TE_LAYER_PERF_TP_SIZE", "0")
+)  # override tensor_model_parallel_size (0 = use model default)
+PERF_EP_SIZE = int(
+    os.getenv("TE_LAYER_PERF_EP_SIZE", "0")
+)  # override expert_model_parallel_size (0 = use model default)
+PERF_ETP_SIZE = int(
+    os.getenv("TE_LAYER_PERF_ETP_SIZE", "0")
+)  # override expert_tensor_parallel_size (0 = use model default)
+PERF_SEQ_PARALLEL = os.getenv(
+    "TE_LAYER_PERF_SEQ_PARALLEL"
+)  # override sequence_parallel ("true"/"false", None = use model default)
 PERF_FP8_POLICY_PATH = os.getenv("TE_LAYER_PERF_FP8_POLICY_PATH")  # export FP8 dynamic policy JSON
 PERF_SPEEDUP_THRESHOLD = float(os.getenv("TE_LAYER_PERF_SPEEDUP_THRESHOLD", "1.0"))
 
@@ -184,6 +190,7 @@ _DEFAULT_SWEEP_BY_VARIANT = {"vit": None, "llm": None}  # populated after shape 
 # ============================================================================
 # Section 2: Data classes
 # ============================================================================
+
 
 @dataclass(frozen=True)
 class ModelSpec:
@@ -235,9 +242,7 @@ class ModelSpec:
 
     @property
     def qkv_output_size(self) -> int:
-        return self.kv_channels * self.num_attention_heads + 2 * (
-            self.kv_channels * self.num_query_groups
-        )
+        return self.kv_channels * self.num_attention_heads + 2 * (self.kv_channels * self.num_query_groups)
 
     @property
     def attention_projection_size(self) -> int:
@@ -417,9 +422,7 @@ def _build_shape_sweep_models(
         models.append(
             replace(
                 base_model,
-                name=(
-                    f"{base_model.name}_s{sequence_length}_b{micro_batch_size}"
-                ),
+                name=(f"{base_model.name}_s{sequence_length}_b{micro_batch_size}"),
                 sequence_length=sequence_length,
                 micro_batch_size=micro_batch_size,
             )
@@ -437,6 +440,7 @@ DEFAULT_MODELS: Sequence[ModelSpec] = (
 # ============================================================================
 # Section 4: Case building — generate ModuleCase lists from ModelSpec
 # ============================================================================
+
 
 def _dense_input_shape(model: ModelSpec) -> Tuple[int, ...]:
     """Return the input shape for a dense (non-expert) layer, accounting for sequence parallel."""
@@ -534,9 +538,8 @@ def _build_cases_for_model(model: ModelSpec) -> List[ModuleCase]:
     is_gated = model.swiglu or model.gated_linear_unit
 
     if model.variant == "vit":
-        return (
-            _build_attention_cases(model, "vision")
-            + _build_dense_ffn_cases(model, "vision_mlp", model.ffn_hidden_size, model.ffn_hidden_size)
+        return _build_attention_cases(model, "vision") + _build_dense_ffn_cases(
+            model, "vision_mlp", model.ffn_hidden_size, model.ffn_hidden_size
         )
 
     if model.variant == "llm":
@@ -547,38 +550,40 @@ def _build_cases_for_model(model: ModelSpec) -> List[ModuleCase]:
             etp = model.expert_tensor_parallel_size
             # Row-parallel grouped fc2: input feature dim is sharded by expert TP
             fc2_input_dim = _row_parallel_input_dim(model.moe_ffn_hidden_size, etp)
-            cases.extend([
-                ModuleCase(
-                    case_name="llm_moe_fc1",
-                    model_name=model.name,
-                    module_name="TEColumnParallelGroupedLinear",
-                    module_kind="column_grouped",
-                    input_shape=(model.moe_num_tokens, model.hidden_size),
-                    input_size=model.hidden_size,
-                    output_size=ffn_output_size,
-                    num_tokens=model.moe_num_tokens,
-                    bias=model.add_bias_linear,
-                    skip_bias_add=False,
-                    is_expert=True,
-                    num_gemms=model.grouped_num_gemms,
-                    tp_comm_buffer_name="fc1",
-                ),
-                ModuleCase(
-                    case_name="llm_moe_fc2",
-                    model_name=model.name,
-                    module_name="TERowParallelGroupedLinear",
-                    module_kind="row_grouped",
-                    input_shape=(model.moe_num_tokens, fc2_input_dim),
-                    input_size=model.moe_ffn_hidden_size,
-                    output_size=model.hidden_size,
-                    num_tokens=model.moe_num_tokens,
-                    bias=model.add_bias_linear,
-                    skip_bias_add=True,
-                    is_expert=True,
-                    num_gemms=model.grouped_num_gemms,
-                    tp_comm_buffer_name="fc2",
-                ),
-            ])
+            cases.extend(
+                [
+                    ModuleCase(
+                        case_name="llm_moe_fc1",
+                        model_name=model.name,
+                        module_name="TEColumnParallelGroupedLinear",
+                        module_kind="column_grouped",
+                        input_shape=(model.moe_num_tokens, model.hidden_size),
+                        input_size=model.hidden_size,
+                        output_size=ffn_output_size,
+                        num_tokens=model.moe_num_tokens,
+                        bias=model.add_bias_linear,
+                        skip_bias_add=False,
+                        is_expert=True,
+                        num_gemms=model.grouped_num_gemms,
+                        tp_comm_buffer_name="fc1",
+                    ),
+                    ModuleCase(
+                        case_name="llm_moe_fc2",
+                        model_name=model.name,
+                        module_name="TERowParallelGroupedLinear",
+                        module_kind="row_grouped",
+                        input_shape=(model.moe_num_tokens, fc2_input_dim),
+                        input_size=model.moe_ffn_hidden_size,
+                        output_size=model.hidden_size,
+                        num_tokens=model.moe_num_tokens,
+                        bias=model.add_bias_linear,
+                        skip_bias_add=True,
+                        is_expert=True,
+                        num_gemms=model.grouped_num_gemms,
+                        tp_comm_buffer_name="fc2",
+                    ),
+                ]
+            )
         else:
             ffn_output_size = model.ffn_hidden_size * (2 if is_gated else 1)
             cases.extend(_build_dense_ffn_cases(model, "llm_dense", model.ffn_hidden_size, ffn_output_size))
@@ -591,6 +596,7 @@ def _build_cases_for_model(model: ModelSpec) -> List[ModuleCase]:
 # ============================================================================
 # Section 5: Configuration loading & parsing (Hydra YAML, JSON, env vars)
 # ============================================================================
+
 
 def _parse_shape_sweep(raw: str) -> List[Tuple[int, int]]:
     """Parse a shape sweep string like '1024x1,2048x4' into a list of (seq_len, mbs) tuples."""
@@ -888,6 +894,7 @@ DEFAULT_CASES = _load_cases()
 # Section 6: Benchmark engine — module instantiation, input building, timing
 # ============================================================================
 
+
 def _require_environment() -> None:
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA is required to benchmark Transformer Engine layers.")
@@ -976,9 +983,7 @@ def _make_grouped_splits(
     experts receive many more tokens than cold ones.
     """
     if num_tokens < num_gemms:
-        raise ValueError(
-            f"num_tokens ({num_tokens}) must be >= num_gemms ({num_gemms}) for grouped benchmarks."
-        )
+        raise ValueError(f"num_tokens ({num_tokens}) must be >= num_gemms ({num_gemms}) for grouped benchmarks.")
 
     if skew <= 0:
         # Uniform distribution (legacy path).
@@ -1134,7 +1139,10 @@ def _run_warmup(module, config, input_tensor, run_forward_fn) -> None:
 
 
 def _run_timed_iterations(
-    module, config, input_tensor, run_forward_fn,
+    module,
+    config,
+    input_tensor,
+    run_forward_fn,
 ) -> Tuple[List[float], List[float], List[float], Tuple[int, ...]]:
     """Execute timed iterations and return per-iteration timing lists + output shape."""
     forward_times: List[float] = []
@@ -1191,7 +1199,9 @@ def _measure_case(case: ModuleCase, config: TransformerConfig, precision: str) -
         """Execute forward, optionally with activation recomputation."""
         if PERF_RECOMPUTE:
             return torch.utils.checkpoint.checkpoint(
-                _forward_func, *module_inputs, use_reentrant=False,
+                _forward_func,
+                *module_inputs,
+                use_reentrant=False,
             )
         return _forward_func(*module_inputs)
 
@@ -1200,7 +1210,10 @@ def _measure_case(case: ModuleCase, config: TransformerConfig, precision: str) -
 
     # Timed iterations
     forward_times, backward_times, total_times, output_shape = _run_timed_iterations(
-        module, config, input_tensor, _run_forward,
+        module,
+        config,
+        input_tensor,
+        _run_forward,
     )
 
     # Aggregate results (median for robustness against measurement outliers).
@@ -1241,8 +1254,10 @@ def _measure_case(case: ModuleCase, config: TransformerConfig, precision: str) -
 # Section 7: FP8 policy generation & merging
 # ============================================================================
 
+
 def _analyze_fp8_thresholds(
-    results: Sequence[BenchmarkResult], speedup_threshold: float = 1.0,
+    results: Sequence[BenchmarkResult],
+    speedup_threshold: float = 1.0,
 ) -> dict:
     """Analyze benchmark results and compute per-module FP8 min_tokens thresholds.
 
@@ -1267,7 +1282,12 @@ def _analyze_fp8_thresholds(
         parallel_key = (r.etp_size, r.num_gemms) if is_moe else (r.tp_size,)
         ub_name = r.ub_name
         group_key = (
-            r.module_kind, ub_name, parallel_key, r.case_name, r.model_name, r.num_tokens,
+            r.module_kind,
+            ub_name,
+            parallel_key,
+            r.case_name,
+            r.model_name,
+            r.num_tokens,
         )
         grouped.setdefault(group_key, {})[r.precision] = r
 
@@ -1278,16 +1298,14 @@ def _analyze_fp8_thresholds(
         if "bf16" not in precs or "fp8" not in precs:
             continue
         speedup = precs["bf16"].total_ms / precs["fp8"].total_ms
-        threshold_candidates.setdefault(
-            (module_kind, ub_name, parallel_key), []
-        ).append((num_tokens, speedup))
+        threshold_candidates.setdefault((module_kind, ub_name, parallel_key), []).append((num_tokens, speedup))
 
     # Build rules dict.  Dense -> nested by ub_name; MoE -> flat list.
     rules: dict = {}
     # Track per-(module_kind, ub_name, parallel_key) the most conservative rule
     # so repeat cases don't duplicate entries.
     dense_merged: dict = {}  # (module_kind, ub_name, parallel_key) -> rule
-    moe_merged: dict = {}    # (module_kind, parallel_key) -> rule
+    moe_merged: dict = {}  # (module_kind, parallel_key) -> rule
 
     for (module_kind, ub_name, parallel_key), candidates in sorted(
         threshold_candidates.items(), key=lambda kv: (kv[0][0], kv[0][1], kv[0][2])
@@ -1337,15 +1355,15 @@ def _analyze_fp8_thresholds(
         rules.setdefault(module_kind, []).append(rule)
     for module_kind in list(rules):
         if module_kind in _MOE_MODULE_KINDS:
-            rules[module_kind] = sorted(
-                rules[module_kind], key=lambda r: (r["etp"], r["num_gemms"])
-            )
+            rules[module_kind] = sorted(rules[module_kind], key=lambda r: (r["etp"], r["num_gemms"]))
 
     return rules
 
 
 def _export_fp8_policy(
-    results: Sequence[BenchmarkResult], path: str, speedup_threshold: float = 1.0,
+    results: Sequence[BenchmarkResult],
+    path: str,
+    speedup_threshold: float = 1.0,
 ) -> None:
     """Analyze benchmark results and export an FP8 dynamic policy JSON file.
 
@@ -1364,7 +1382,9 @@ def _export_fp8_policy(
 
 
 def merge_fp8_policy_reports(
-    report_paths: Sequence[str], output_path: str, speedup_threshold: float = 1.0,
+    report_paths: Sequence[str],
+    output_path: str,
+    speedup_threshold: float = 1.0,
 ) -> dict:
     """Merge multiple benchmark report JSON files and export a unified FP8 policy.
 
@@ -1391,10 +1411,14 @@ def merge_fp8_policy_reports(
         with open(path) as f:
             data = json.load(f)
         for item in data:
-            all_results.append(BenchmarkResult(**{
-                k: tuple(v) if k in ("input_shape", "output_shape") and isinstance(v, list) else v
-                for k, v in item.items()
-            }))
+            all_results.append(
+                BenchmarkResult(
+                    **{
+                        k: tuple(v) if k in ("input_shape", "output_shape") and isinstance(v, list) else v
+                        for k, v in item.items()
+                    }
+                )
+            )
     rules = _analyze_fp8_thresholds(all_results, speedup_threshold)
     policy = {
         "version": 1,
@@ -1410,6 +1434,7 @@ def merge_fp8_policy_reports(
 # ============================================================================
 # Section 8: Result formatting & reporting
 # ============================================================================
+
 
 def _compute_speedups(results: Sequence[BenchmarkResult]) -> List[Tuple[str, str, float]]:
     """Compute per-case FP8-over-BF16 speedup from paired results."""
@@ -1459,12 +1484,22 @@ def _format_results(results: Sequence[BenchmarkResult]) -> str:
 
     for r in results:
         lines.append(
-            " | ".join([
-                r.case_name, r.model_name, r.module_name, r.precision,
-                str(r.input_shape), str(r.output_shape),
-                f"{r.total_ms:.3f}", f"{r.forward_ms:.3f}", f"{r.backward_ms:.3f}",
-                f"{r.tokens_per_second:.1f}", f"{r.total_flops / 1.0e12:.3f}", f"{r.achieved_tflops:.3f}",
-            ])
+            " | ".join(
+                [
+                    r.case_name,
+                    r.model_name,
+                    r.module_name,
+                    r.precision,
+                    str(r.input_shape),
+                    str(r.output_shape),
+                    f"{r.total_ms:.3f}",
+                    f"{r.forward_ms:.3f}",
+                    f"{r.backward_ms:.3f}",
+                    f"{r.tokens_per_second:.1f}",
+                    f"{r.total_flops / 1.0e12:.3f}",
+                    f"{r.achieved_tflops:.3f}",
+                ]
+            )
         )
 
     if "bf16" in PERF_PRECISIONS and "fp8" in PERF_PRECISIONS:
@@ -1488,6 +1523,7 @@ def _format_results(results: Sequence[BenchmarkResult]) -> str:
 # ============================================================================
 # Section 9: Orchestration & entry points
 # ============================================================================
+
 
 def _is_rank_zero() -> bool:
     """Return True if this is rank 0 or if distributed is not initialized."""
@@ -1593,12 +1629,16 @@ if __name__ == "__main__":
             description="Merge multiple TE benchmark report JSONs into a unified FP8 policy.",
         )
         parser.add_argument(
-            "--reports", nargs="+", required=True,
+            "--reports",
+            nargs="+",
+            required=True,
             help="Paths to benchmark report JSON files (from TE_LAYER_PERF_REPORT_PATH).",
         )
         parser.add_argument("--output", required=True, help="Output policy JSON path.")
         parser.add_argument(
-            "--speedup-threshold", type=float, default=1.0,
+            "--speedup-threshold",
+            type=float,
+            default=1.0,
             help="Minimum FP8/BF16 speedup to consider FP8 beneficial (default: 1.0).",
         )
         args = parser.parse_args(sys.argv[2:])

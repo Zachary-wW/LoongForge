@@ -72,7 +72,7 @@ def get_batch(data_iterator):
         group_size = batch["chunk_group_size"][0].item()
         args.chunkpipe_current_chunk_group_size = group_size
         config = get_model_config()
-        if config is not None and getattr(config, 'sft_chunkpipe_mode', False):
+        if config is not None and getattr(config, "sft_chunkpipe_mode", False):
             # Always write chunkpipe_current_group_size from the batch data, regardless of
             # chunk_idx_in_group. This breaks the circular dependency where:
             #   1. group_size_cache missing group N → fallback gives wrong chunk_idx
@@ -125,7 +125,7 @@ def get_batch(data_iterator):
         if "step_num_groups" in batch:
             step_num_groups = batch["step_num_groups"][0].item()
             args.chunkpipe_step_num_groups = step_num_groups
-            if config is not None and getattr(config, 'sft_chunkpipe_mode', False):
+            if config is not None and getattr(config, "sft_chunkpipe_mode", False):
                 config.chunkpipe_step_num_groups = step_num_groups
 
     mtp_batch = None
@@ -133,8 +133,7 @@ def get_batch(data_iterator):
         if "mtp_tokens" in batch:
             expected_length = args.chunksize + (args.mtp_num_layers or 0)
             assert batch["tokens"].size(1) == args.chunksize, (
-                f"SFT chunkpipe main tokens must have base length "
-                f"{args.chunksize}, got {batch['tokens'].size(1)}."
+                f"SFT chunkpipe main tokens must have base length {args.chunksize}, got {batch['tokens'].size(1)}."
             )
             assert batch["mtp_tokens"].size(1) == expected_length, (
                 f"SFT chunkpipe MTP tokens must have physical length "
@@ -197,14 +196,14 @@ def loss_func(loss_mask: torch.Tensor, output_tensor: torch.Tensor):
             result=loss,
             rejection_func=torch.isnan,
             message="found NaN in local forward loss calculation",
-            tolerance=0.0,        # forward pass calculations are determinisic
+            tolerance=0.0,  # forward pass calculations are determinisic
             fatal=True,
         )
         rerun_state_machine.validate_result(
             result=loss,
             rejection_func=torch.isinf,
             message="found Inf in local forward loss calculation",
-            tolerance=0.0,        # forward pass calculations are determinisic
+            tolerance=0.0,  # forward pass calculations are determinisic
             fatal=True,
         )
 
@@ -218,7 +217,7 @@ def loss_func(loss_mask: torch.Tensor, output_tensor: torch.Tensor):
                 context="loss",
             ),
             message="Spiky loss",
-            tolerance=0.0,        # forward pass calculations are determinisic
+            tolerance=0.0,  # forward pass calculations are determinisic
             fatal=False,
         )
 
@@ -258,7 +257,7 @@ def loss_func(loss_mask: torch.Tensor, output_tensor: torch.Tensor):
         # Pre-compensate D*cp for the all_reduce + divide by (D*cp) in training_utils.py.
         # Without cp factor, the logged loss would be 1/cp times smaller than correct value.
         reporting = (D * cp * loss / (N_g * G_total)).detach()
-        loss_reduced_dict = {'lm loss': reporting}
+        loss_reduced_dict = {"lm loss": reporting}
         return scaled, loss_reduced_dict
 
     reporting_loss = torch.cat([loss.clone().detach().view(1), num_tokens.view(1)])
@@ -272,12 +271,13 @@ def loss_func(loss_mask: torch.Tensor, output_tensor: torch.Tensor):
     # always divides whole-sample sums. The backward `loss` and the returned
     # `num_tokens` stay local and are NOT touched.
     if args.context_parallel_size > 1:
-        torch.distributed.all_reduce(
-            reporting_loss, group=mpu.get_context_parallel_group()
-        )
+        torch.distributed.all_reduce(reporting_loss, group=mpu.get_context_parallel_group())
 
-    loss_reduced_dict = {'lm loss': reporting_loss if not args.legacy_reporting_loss_reduction
-                         else reporting_loss[0] / reporting_loss[1].clamp(min=1)}
+    loss_reduced_dict = {
+        "lm loss": reporting_loss
+        if not args.legacy_reporting_loss_reduction
+        else reporting_loss[0] / reporting_loss[1].clamp(min=1)
+    }
 
     # calculate the number of tokens for this micro-batch
     if args.variable_seq_lengths:
@@ -333,12 +333,13 @@ def forward_step(data_iterator, model, return_schedule_plan: bool = False):
 
     with stimer:
         if return_schedule_plan:
-            assert args.overlap_moe_expert_parallel_comm, \
+            assert args.overlap_moe_expert_parallel_comm, (
                 "overlap_moe_expert_parallel_comm must be enabled to return the schedule plan"
+            )
             schedule_plan = model.build_schedule_plan(
                 input_ids=tokens,
                 position_ids=position_ids,
-                attention_mask=attention_mask, 
+                attention_mask=attention_mask,
                 labels=labels,
                 packed_seq_params=packed_seq_params,
                 loss_mask=loss_mask,
@@ -411,9 +412,7 @@ def train_valid_test_datasets_provider(train_val_test_num_samples, vp_stage=None
         mtp_num_layers=args.mtp_num_layers or 0,
     )
 
-    print_rank_0(
-        f"> building sft train, validation, and test datasets for {args.model_name} ..."
-    )
+    print_rank_0(f"> building sft train, validation, and test datasets for {args.model_name} ...")
 
     train_ds, valid_ds, test_ds = BlendedHuggingFaceDatasetBuilder(
         cls=SFTDataset,
@@ -424,12 +423,11 @@ def train_valid_test_datasets_provider(train_val_test_num_samples, vp_stage=None
 
     # will use external dataloader type for sft
     data_collator = build_sft_data_collator(DataCollatorForSupervisedDataset)
-    train_iter, valid_iter, test_iter = build_sft_cyclic_iterators(
-        train_ds, valid_ds, test_ds, data_collator
-    )
+    train_iter, valid_iter, test_iter = build_sft_cyclic_iterators(train_ds, valid_ds, test_ds, data_collator)
     print_rank_0(f"> finished creating {args.model_name} sft datasets ...")
 
     return train_iter, valid_iter, test_iter
+
 
 def get_embedding_ranks(pp_ranks: List[int]):
     """Get the embedding ranks."""
@@ -443,6 +441,7 @@ def get_embedding_ranks(pp_ranks: List[int]):
     embedding_ranks = list(set(embedding_ranks))
     embedding_ranks = sorted(embedding_ranks)
     return embedding_ranks
+
 
 @register_model_trainer(
     model_family=constants.LanguageModelFamilies.names(),

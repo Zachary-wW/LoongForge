@@ -20,7 +20,10 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from loongforge.embodied.eval.adapters.libero import (
-    LIBERO_DUMMY_ACTION, LIBERO_ENV_RESOLUTION, SUITE_MAX_STEPS, LiberoAdapter,
+    LIBERO_DUMMY_ACTION,
+    LIBERO_ENV_RESOLUTION,
+    SUITE_MAX_STEPS,
+    LiberoAdapter,
 )
 from loongforge.embodied.eval.metrics import (
     append_jsonl,
@@ -299,9 +302,7 @@ def run_episode(
                             ctx,
                             # Closed-loop-within-chunk models (PayloadBuilder capability)
                             # must be called every env step; others keep the chunk cache.
-                            disable_action_cache=bool(
-                                getattr(payload_builder, "disable_action_cache", False)
-                            ),
+                            disable_action_cache=bool(getattr(payload_builder, "disable_action_cache", False)),
                         )
                     )
                 e2e_latency_ms = (time.perf_counter() - request_start) * 1000.0
@@ -561,10 +562,7 @@ def _resolve_libero_use_delta(args: Any, action_decoder_key: str = "") -> bool:
         return False
     if mode in {"delta", "relative", "incremental"}:
         return True
-    raise ValueError(
-        f"Unknown benchmark.control_mode for LIBERO: {mode!r}. "
-        "Use auto | absolute | delta."
-    )
+    raise ValueError(f"Unknown benchmark.control_mode for LIBERO: {mode!r}. Use auto | absolute | delta.")
 
 
 def build_argparser() -> argparse.ArgumentParser:
@@ -591,8 +589,12 @@ def build_argparser() -> argparse.ArgumentParser:
     parser.add_argument("--max-retries", type=int, default=0)
     parser.add_argument("--generate-report", action="store_true")
     parser.add_argument("--min-episodes-per-task", type=int, default=1)
-    parser.add_argument("--continuous-gripper", action="store_true", default=False,
-                        help="Pass raw gripper value directly to LIBERO without binarization")
+    parser.add_argument(
+        "--continuous-gripper",
+        action="store_true",
+        default=False,
+        help="Pass raw gripper value directly to LIBERO without binarization",
+    )
     parser.add_argument(
         "--control-mode",
         default="auto",

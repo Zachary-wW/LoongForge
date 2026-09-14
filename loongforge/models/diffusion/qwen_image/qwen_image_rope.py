@@ -18,6 +18,7 @@ try:
         _rotary_interleaved_kernel,
     )
     import triton as _triton
+
     _TRITON_ROPE_AVAILABLE = True
 except Exception:  # pragma: no cover - triton not built / import failure
     _apply_rotary_interleaved = None
@@ -58,14 +59,27 @@ def _apply_rotary_interleaved_sbnd(x: torch.Tensor, cos: torch.Tensor, sin: torc
 
     with torch.cuda.device(x.device.index):
         _rotary_interleaved_kernel[grid](
-            output, x, cos, sin,
-            seqlen, rotary_dim, seqlen_ro,
+            output,
+            x,
+            cos,
+            sin,
+            seqlen,
+            rotary_dim,
+            seqlen_ro,
             # output strides: (batch=b, seqlen=s, nheads, headdim)
-            output.stride(1), output.stride(0), output.stride(2), output.stride(3),
+            output.stride(1),
+            output.stride(0),
+            output.stride(2),
+            output.stride(3),
             # x strides
-            x.stride(1), x.stride(0), x.stride(2), x.stride(3),
-            BLOCK_K=BLOCK_K, BLOCK_M=BLOCK_M,
-            num_warps=4, num_stages=1,
+            x.stride(1),
+            x.stride(0),
+            x.stride(2),
+            x.stride(3),
+            BLOCK_K=BLOCK_K,
+            BLOCK_M=BLOCK_M,
+            num_warps=4,
+            num_stages=1,
         )
     return output
 
@@ -141,9 +155,7 @@ class QwenEmbedRope(nn.Module):
         return torch.polar(torch.ones_like(freqs), freqs)
 
     def _build_freqs(self, index):
-        return torch.cat(
-            [self.rope_params(index, dim, self.theta) for dim in self.axes_dim], dim=1
-        )
+        return torch.cat([self.rope_params(index, dim, self.theta) for dim in self.axes_dim], dim=1)
 
     def _expand_pos_freqs_if_needed(self, video_fhw, txt_seq_lens):
         if isinstance(video_fhw, list):
@@ -181,11 +193,9 @@ class QwenEmbedRope(nn.Module):
                 freqs_frame = freqs_pos[0][idx : idx + frame].view(frame, 1, 1, -1).expand(frame, height, width, -1)
                 if self.scale_rope:
                     freqs_height = torch.cat(
-                        [freqs_neg[1][-(height - height // 2):], freqs_pos[1][: height // 2]], dim=0
+                        [freqs_neg[1][-(height - height // 2) :], freqs_pos[1][: height // 2]], dim=0
                     )
-                    freqs_width = torch.cat(
-                        [freqs_neg[2][-(width - width // 2):], freqs_pos[2][: width // 2]], dim=0
-                    )
+                    freqs_width = torch.cat([freqs_neg[2][-(width - width // 2) :], freqs_pos[2][: width // 2]], dim=0)
                     freqs_height = freqs_height.view(1, height, 1, -1).expand(frame, height, width, -1)
                     freqs_width = freqs_width.view(1, 1, width, -1).expand(frame, height, width, -1)
                 else:
@@ -266,12 +276,8 @@ class QwenEmbedLayer3DRope(nn.Module):
         freqs_neg = self.neg_freqs.split([x // 2 for x in self.axes_dim], dim=1)
         freqs_frame = freqs_pos[0][idx : idx + frame].view(frame, 1, 1, -1).expand(frame, height, width, -1)
         if self.scale_rope:
-            freqs_height = torch.cat(
-                [freqs_neg[1][-(height - height // 2):], freqs_pos[1][: height // 2]], dim=0
-            )
-            freqs_width = torch.cat(
-                [freqs_neg[2][-(width - width // 2):], freqs_pos[2][: width // 2]], dim=0
-            )
+            freqs_height = torch.cat([freqs_neg[1][-(height - height // 2) :], freqs_pos[1][: height // 2]], dim=0)
+            freqs_width = torch.cat([freqs_neg[2][-(width - width // 2) :], freqs_pos[2][: width // 2]], dim=0)
             freqs_height = freqs_height.view(1, height, 1, -1).expand(frame, height, width, -1)
             freqs_width = freqs_width.view(1, 1, width, -1).expand(frame, height, width, -1)
         else:
@@ -286,12 +292,8 @@ class QwenEmbedLayer3DRope(nn.Module):
         freqs_neg = self.neg_freqs.split([x // 2 for x in self.axes_dim], dim=1)
         freqs_frame = freqs_neg[0][-1:].view(frame, 1, 1, -1).expand(frame, height, width, -1)
         if self.scale_rope:
-            freqs_height = torch.cat(
-                [freqs_neg[1][-(height - height // 2):], freqs_pos[1][: height // 2]], dim=0
-            )
-            freqs_width = torch.cat(
-                [freqs_neg[2][-(width - width // 2):], freqs_pos[2][: width // 2]], dim=0
-            )
+            freqs_height = torch.cat([freqs_neg[1][-(height - height // 2) :], freqs_pos[1][: height // 2]], dim=0)
+            freqs_width = torch.cat([freqs_neg[2][-(width - width // 2) :], freqs_pos[2][: width // 2]], dim=0)
             freqs_height = freqs_height.view(1, height, 1, -1).expand(frame, height, width, -1)
             freqs_width = freqs_width.view(1, 1, width, -1).expand(frame, height, width, -1)
         else:

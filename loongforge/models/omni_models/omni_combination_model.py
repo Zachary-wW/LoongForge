@@ -20,7 +20,7 @@ from megatron.core import InferenceParams, tensor_parallel
 from megatron.core.transformer.module import MegatronModule
 from loongforge.train.initialize import (
     mpu,
-    change_parallel_state, 
+    change_parallel_state,
     get_encoder_dp_size,
     get_num_micro_batches_per_decoder_dp,
 )
@@ -29,8 +29,10 @@ from megatron.core.pipeline_parallel.fine_grained_activation_offload import (
 )
 from megatron.training import print_rank_0
 
+
 class OmniCombinationModel(BaseMegatronModule):
     """Omni multimodal combination model"""
+
     def __init__(
         self,
         config: BaseModelConfig,
@@ -88,7 +90,7 @@ class OmniCombinationModel(BaseMegatronModule):
             config.foundation.untie_embeddings_and_output_weights = not share_embeddings_and_output_weights
             config.foundation.fp16_lm_cross_entropy = fp16_lm_cross_entropy
             self.foundation_model = AutoModel.from_config(
-                config.foundation,  
+                config.foundation,
                 pre_process=self.pre_process,
                 post_process=self.post_process,
                 parallel_output=parallel_output,
@@ -98,14 +100,10 @@ class OmniCombinationModel(BaseMegatronModule):
                 vp_stage=vp_stage,
             )
         else:
-            raise ValueError(
-                "OmniCombinationModel requires a foundation_config to initialize foundation_model."
-            )
+            raise ValueError("OmniCombinationModel requires a foundation_config to initialize foundation_model.")
 
-        self.share_embeddings_and_output_weights = (
-            self.foundation_model.share_embeddings_and_output_weights
-        )
-        
+        self.share_embeddings_and_output_weights = self.foundation_model.share_embeddings_and_output_weights
+
     def shared_embedding_or_output_weight(self):
         """Get shared embedding or output weight from foundation model.
         This is a convenience method to surface the language model's word embeddings, which is
@@ -115,9 +113,7 @@ class OmniCombinationModel(BaseMegatronModule):
             return self.foundation_model.shared_embedding_or_output_weight()
         return None
 
-    def set_input_embeddings(
-        self, inputs: Dict[str, Any]
-    ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+    def set_input_embeddings(self, inputs: Dict[str, Any]) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         """Skip encoder and use input values directly for foundation + decoder models."""
         input_embeds = inputs.get("inputs_embeds")
         decoder_inputs = inputs.get("decoder_inputs", {})
@@ -162,9 +158,7 @@ class OmniCombinationModel(BaseMegatronModule):
         output_modality = self.decoder.modality
         return {"input": input_modality, "output": output_modality}
 
-    def prepare_inputs_for_generation(
-        self, input_ids: Optional[torch.LongTensor] = None
-    ):
+    def prepare_inputs_for_generation(self, input_ids: Optional[torch.LongTensor] = None):
         """Prepare inputs for generation process"""
         pass
 
@@ -174,9 +168,7 @@ class OmniCombinationModel(BaseMegatronModule):
 
     def preprocess_for_fine_grained_offloading(self):
         """Preprocess for fine-grained activation offloading."""
-        fine_grained_offloading_init_chunk_handler(
-            self.vp_stage, self.config.min_offloaded_tensor_size
-        )
+        fine_grained_offloading_init_chunk_handler(self.vp_stage, self.config.min_offloaded_tensor_size)
         if self.disable_param_offloading:
             for param in self.foundation_model.decoder.parameters():
                 param.offloading_activation = False
@@ -189,8 +181,7 @@ class OmniCombinationModel(BaseMegatronModule):
             self.disable_param_offloading = False
 
     def hetero_dp_get_tensor_shape(
-        self, group, src, local_rank, forward_group_id=None, tensor_name=None,
-        idx=None, local_tensor=None
+        self, group, src, local_rank, forward_group_id=None, tensor_name=None, idx=None, local_tensor=None
     ):
         """Broadcast the shape of a tensor from src rank to all ranks in the group.
 
@@ -205,17 +196,25 @@ class OmniCombinationModel(BaseMegatronModule):
             if idx is not None:
                 local_tensor = local_tensor[idx]
         if local_rank == src:
-            shape = torch.tensor(local_tensor.shape, dtype=torch.long, device='cuda')
+            shape = torch.tensor(local_tensor.shape, dtype=torch.long, device="cuda")
         else:
-            shape = torch.zeros(local_tensor.dim(), dtype=torch.long, device='cuda')
+            shape = torch.zeros(local_tensor.dim(), dtype=torch.long, device="cuda")
 
         torch.distributed.broadcast(shape, group=group, src=src)
 
         return shape
 
     def hetero_dp_get_tensor(
-        self, group, src, local_rank, forward_group_id=None, tensor_name=None,
-        shape=None, needs_grad=True, idx=None, local_tensor=None
+        self,
+        group,
+        src,
+        local_rank,
+        forward_group_id=None,
+        tensor_name=None,
+        shape=None,
+        needs_grad=True,
+        idx=None,
+        local_tensor=None,
     ):
         """Broadcast a tensor from src rank to all ranks in the group.
 
@@ -232,7 +231,7 @@ class OmniCombinationModel(BaseMegatronModule):
         if local_rank == src:
             tensor = local_tensor.detach()
         else:
-            tensor = torch.zeros(tuple(shape.tolist()), dtype=local_tensor.dtype, device='cuda')
+            tensor = torch.zeros(tuple(shape.tolist()), dtype=local_tensor.dtype, device="cuda")
 
         if needs_grad:
             tensor.requires_grad_(needs_grad)
@@ -271,14 +270,13 @@ class OmniCombinationModel(BaseMegatronModule):
             3. Offline foundation model: use preprocessed output_embeddings
             4. Decoder only: freeze encoder and foundation
         """
-        _ImageEncoderDataParallelSize = get_encoder_dp_size('image_encoder')
+        _ImageEncoderDataParallelSize = get_encoder_dp_size("image_encoder")
 
         if self.config.fine_grained_activation_offloading:
             self.preprocess_for_fine_grained_offloading()
 
         use_inference_kv_cache = (
-            inference_params is not None
-            and "image_tokens_count" in inference_params.key_value_memory_dict
+            inference_params is not None and "image_tokens_count" in inference_params.key_value_memory_dict
         )
         if use_inference_kv_cache:
             vision_embeddings = None
@@ -310,8 +308,7 @@ class OmniCombinationModel(BaseMegatronModule):
                 input_embeds_list = []
                 for i in range(_ImageEncoderDataParallelSize):
                     input_embeds = self.encoder_model.text_forward(
-                        batch_list[i]["tokens"], 
-                        batch_list[i]["position_ids"]
+                        batch_list[i]["tokens"], batch_list[i]["position_ids"]
                     )
                     input_embeds_list.append(input_embeds)
 
@@ -336,27 +333,32 @@ class OmniCombinationModel(BaseMegatronModule):
                     image_inputs=dict(
                         images=local_images,
                         image_grid_thw=local_image_grid_thw,
-                    ) if local_images is not None else None,
+                    )
+                    if local_images is not None
+                    else None,
                     video_inputs=dict(
                         pixel_values_videos=local_pixel_values_videos,
                         video_grid_thw=local_video_grid_thw,
-                    ) if local_pixel_values_videos is not None else None,
+                    )
+                    if local_pixel_values_videos is not None
+                    else None,
                     inference_params=inference_params,
                     inputs_embeds=input_embeds_list[batch_id],
                     enable_encoder_hetero_dp=enable_encoder_hetero_dp,
                 )
 
-                self.vit_contexts.setdefault(forward_group_id, {
-                    "local_embedding": combined_embeddings,
-                    "grads": None,
-                    "local_visual_pos_masks": visual_pos_masks,
-                    "local_deepstack_visual_embeds": deepstack_visual_embeds,
-                    "local_deepstack_visual_embeds_grads": (
-                        [None for _ in deepstack_visual_embeds] 
-                        if deepstack_visual_embeds is not None 
-                        else None
-                    ),
-                })
+                self.vit_contexts.setdefault(
+                    forward_group_id,
+                    {
+                        "local_embedding": combined_embeddings,
+                        "grads": None,
+                        "local_visual_pos_masks": visual_pos_masks,
+                        "local_deepstack_visual_embeds": deepstack_visual_embeds,
+                        "local_deepstack_visual_embeds_grads": (
+                            [None for _ in deepstack_visual_embeds] if deepstack_visual_embeds is not None else None
+                        ),
+                    },
+                )
         if not self.pre_process:
             combined_embeddings = None
 
@@ -368,8 +370,7 @@ class OmniCombinationModel(BaseMegatronModule):
             # combined_embeddings communication
             shape = self.hetero_dp_get_tensor_shape(group, src, local_rank, forward_group_id, "local_embedding")
             combined_embeddings = self.hetero_dp_get_tensor(
-                group, src, local_rank, forward_group_id, 
-                "local_embedding", shape
+                group, src, local_rank, forward_group_id, "local_embedding", shape
             )
 
             def vit_grad_hook_factory(forward_group_id, inner_group_id, vit_contexts):
@@ -384,26 +385,18 @@ class OmniCombinationModel(BaseMegatronModule):
                         bwd_grads = [ctx["grads"]]
                         if ctx["local_deepstack_visual_embeds"] is not None:
                             for t, g in zip(
-                                ctx["local_deepstack_visual_embeds"],
-                                ctx["local_deepstack_visual_embeds_grads"]
+                                ctx["local_deepstack_visual_embeds"], ctx["local_deepstack_visual_embeds_grads"]
                             ):
                                 if t.requires_grad and t.grad_fn is not None and g is not None:
                                     bwd_tensors.append(t)
                                     bwd_grads.append(g)
-                        torch.autograd.backward(
-                            tensors=bwd_tensors,
-                            grad_tensors=bwd_grads,
-                            retain_graph=False
-                        )
+                        torch.autograd.backward(tensors=bwd_tensors, grad_tensors=bwd_grads, retain_graph=False)
                         del vit_contexts[forward_group_id]
-                        
+
                 return hook
 
             combined_embeddings.register_hook(
-                vit_grad_hook_factory(forward_group_id, 
-                                    inner_group_id, 
-                                    self.vit_contexts
-                )
+                vit_grad_hook_factory(forward_group_id, inner_group_id, self.vit_contexts)
             )
 
             if self.config.context_parallel_size > 1:
@@ -419,52 +412,50 @@ class OmniCombinationModel(BaseMegatronModule):
             # visual positional encoding communication
             if self.vit_contexts[forward_group_id]["local_visual_pos_masks"] is not None:
                 shape = self.hetero_dp_get_tensor_shape(
-                    group, src, local_rank, 
-                    forward_group_id, "local_visual_pos_masks"
+                    group, src, local_rank, forward_group_id, "local_visual_pos_masks"
                 )
                 visual_pos_masks = self.hetero_dp_get_tensor(
-                    group, src, local_rank, forward_group_id, 
-                    "local_visual_pos_masks", shape, needs_grad=False
+                    group, src, local_rank, forward_group_id, "local_visual_pos_masks", shape, needs_grad=False
                 )
 
             if self.vit_contexts[forward_group_id]["local_deepstack_visual_embeds"] is not None:
                 len_deepstack_visual_embeds = len(self.vit_contexts[forward_group_id]["local_deepstack_visual_embeds"])
                 shape = self.hetero_dp_get_tensor_shape(
-                    group, src, local_rank, forward_group_id, 
-                    "local_deepstack_visual_embeds", idx=0
+                    group, src, local_rank, forward_group_id, "local_deepstack_visual_embeds", idx=0
                 )
                 deepstack_visual_embeds = []
                 for i in range(len_deepstack_visual_embeds):
                     tmp_deepstack_visual_embeds = self.hetero_dp_get_tensor(
-                        group, src, local_rank, forward_group_id, 
-                        "local_deepstack_visual_embeds", shape, idx=i
+                        group, src, local_rank, forward_group_id, "local_deepstack_visual_embeds", shape, idx=i
                     )
-                    
+
                     def deepstack_visual_embeds_grad_hook_factory(forward_group_id, inner_group_id, vit_contexts, idx):
                         def hook(grad):
                             ctx = vit_contexts[forward_group_id]
                             tp_id = mpu.get_tensor_model_parallel_rank()
                             if tp_id == inner_group_id:
                                 ctx["local_deepstack_visual_embeds_grads"][idx] = grad.clone()
-                                
+
                         return hook
 
                     tmp_deepstack_visual_embeds.register_hook(
-                        deepstack_visual_embeds_grad_hook_factory(forward_group_id, 
-                                                                inner_group_id, 
-                                                                self.vit_contexts,
-                                                                i
+                        deepstack_visual_embeds_grad_hook_factory(
+                            forward_group_id, inner_group_id, self.vit_contexts, i
                         )
                     )
                     deepstack_visual_embeds.append(tmp_deepstack_visual_embeds)
 
         if self.add_encoder and mpu.is_pipeline_first_stage() and enable_full_hetero_dp:
             from loongforge.train.pretrain.pretrain_vlm import (
-                get_grad_list, get_embedding_list,
-                get_visual_pos_masks_list, get_deepstack_visual_embeds_list,
-                get_deepstack_grad_list, get_cpu_offload_manager,
+                get_grad_list,
+                get_embedding_list,
+                get_visual_pos_masks_list,
+                get_deepstack_visual_embeds_list,
+                get_deepstack_grad_list,
+                get_cpu_offload_manager,
             )
             from loongforge.train.initialize import get_model_size
+
             group = mpu.get_tensor_model_parallel_group()
             src_rank = torch.distributed.get_global_rank(group, 0)
             local_rank = torch.distributed.get_rank()
@@ -481,19 +472,15 @@ class OmniCombinationModel(BaseMegatronModule):
             # Reload embedding from CPU if offloaded
             if _offload_mgr.enabled and local_rank == src_rank:
                 from loongforge.train.full_hetero_cpu_offload import reload_list_item
-                reload_list_item(
-                    _offload_mgr, embedding_list[round_num], inner_num,
-                    f"emb_r{round_num}"
-                )
+
+                reload_list_item(_offload_mgr, embedding_list[round_num], inner_num, f"emb_r{round_num}")
 
             # src rank broadcasts its actual embedding; other ranks supply only a
             # dtype/ndim reference so the helpers can allocate the right buffer.
             ref_tensor = self.vit_contexts[round_num]["local_embedding"]
             local_tensor = embedding_list[round_num][inner_num] if local_rank == src_rank else ref_tensor
 
-            shape = self.hetero_dp_get_tensor_shape(
-                group, src_rank, local_rank, local_tensor=local_tensor
-            )
+            shape = self.hetero_dp_get_tensor_shape(group, src_rank, local_rank, local_tensor=local_tensor)
             combined_embeddings = self.hetero_dp_get_tensor(
                 group, src_rank, local_rank, shape=shape, local_tensor=local_tensor
             )
@@ -508,11 +495,10 @@ class OmniCombinationModel(BaseMegatronModule):
                         if offload_mgr.enabled:
                             offload_mgr.offload(f"grad_{grad_idx}", grad)
                             grad_list[grad_idx] = None
+
                 return hook
 
-            combined_embeddings.register_hook(
-                full_hetero_dp_grad_hook_factory(group, _offload_mgr)
-            )
+            combined_embeddings.register_hook(full_hetero_dp_grad_hook_factory(group, _offload_mgr))
 
             if self.config.context_parallel_size > 1:
                 combined_embeddings = get_inputs_on_this_cp_rank(combined_embeddings, packed_seq_params)
@@ -528,19 +514,19 @@ class OmniCombinationModel(BaseMegatronModule):
                 # Reload visual_pos_masks from CPU if offloaded
                 if _offload_mgr.enabled and local_rank == src_rank:
                     from loongforge.train.full_hetero_cpu_offload import reload_list_item
-                    reload_list_item(
-                        _offload_mgr, visual_pos_masks_list[round_num], inner_num,
-                        f"vpm_r{round_num}"
-                    )
+
+                    reload_list_item(_offload_mgr, visual_pos_masks_list[round_num], inner_num, f"vpm_r{round_num}")
 
                 ref_masks = self.vit_contexts[round_num]["local_visual_pos_masks"]
                 local_masks = visual_pos_masks_list[round_num][inner_num] if local_rank == src_rank else ref_masks
-                shape = self.hetero_dp_get_tensor_shape(
-                    group, src_rank, local_rank, local_tensor=local_masks
-                )
+                shape = self.hetero_dp_get_tensor_shape(group, src_rank, local_rank, local_tensor=local_masks)
                 visual_pos_masks = self.hetero_dp_get_tensor(
-                    group, src_rank, local_rank, shape=shape,
-                    local_tensor=local_masks, needs_grad=False,
+                    group,
+                    src_rank,
+                    local_rank,
+                    shape=shape,
+                    local_tensor=local_masks,
+                    needs_grad=False,
                 )
 
             if self.vit_contexts[round_num]["local_deepstack_visual_embeds"] is not None:
@@ -550,6 +536,7 @@ class OmniCombinationModel(BaseMegatronModule):
                     def hook(grad):
                         if torch.distributed.get_rank(group=group) == 0:
                             get_deepstack_grad_list()[round_num][i][inner_num] = grad.clone()
+
                     return hook
 
                 deepstack_visual_embeds = []
@@ -557,25 +544,25 @@ class OmniCombinationModel(BaseMegatronModule):
                     # Reload deepstack embed from CPU if offloaded
                     if _offload_mgr.enabled and local_rank == src_rank:
                         from loongforge.train.full_hetero_cpu_offload import reload_list_item
+
                         reload_list_item(
-                            _offload_mgr, deepstack_visual_embeds_list[round_num][i],
-                            inner_num, f"ds_r{round_num}_l{i}"
+                            _offload_mgr, deepstack_visual_embeds_list[round_num][i], inner_num, f"ds_r{round_num}_l{i}"
                         )
 
                     local_embed = (
-                        deepstack_visual_embeds_list[round_num][i][inner_num] 
-                        if local_rank == src_rank 
+                        deepstack_visual_embeds_list[round_num][i][inner_num]
+                        if local_rank == src_rank
                         else ref_embeds[i]
                     )
-                    shape = self.hetero_dp_get_tensor_shape(
-                        group, src_rank, local_rank, local_tensor=local_embed
-                    )
+                    shape = self.hetero_dp_get_tensor_shape(group, src_rank, local_rank, local_tensor=local_embed)
                     embed = self.hetero_dp_get_tensor(
-                        group, src_rank, local_rank, shape=shape, local_tensor=local_embed,
+                        group,
+                        src_rank,
+                        local_rank,
+                        shape=shape,
+                        local_tensor=local_embed,
                     )
-                    embed.register_hook(
-                        full_hetero_dp_deepstack_grad_hook_factory(group, round_num, inner_num, i)
-                    )
+                    embed.register_hook(full_hetero_dp_deepstack_grad_hook_factory(group, round_num, inner_num, i))
                     deepstack_visual_embeds.append(embed)
 
         extra_kwargs = {
@@ -616,7 +603,6 @@ class OmniCombinationModel(BaseMegatronModule):
         enable_full_hetero_dp: bool = False,
         **kwargs: Any,
     ):
-
         if self.config.fine_grained_activation_offloading:
             self.preprocess_for_fine_grained_offloading()
 

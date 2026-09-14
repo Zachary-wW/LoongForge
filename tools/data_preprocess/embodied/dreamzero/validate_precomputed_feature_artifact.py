@@ -47,14 +47,10 @@ def _bool_from_choice(value: str) -> bool | None:
     return value == "true"
 
 
-def _feature_payload_keys(
-    feature_meta: dict, fallback_keys: tuple[str, ...]
-) -> tuple[str, ...]:
+def _feature_payload_keys(feature_meta: dict, fallback_keys: tuple[str, ...]) -> tuple[str, ...]:
     raw_keys = feature_meta.get("payload_keys", ())
     if isinstance(raw_keys, str):
-        payload_keys = tuple(
-            item.strip() for item in raw_keys.split(",") if item.strip()
-        )
+        payload_keys = tuple(item.strip() for item in raw_keys.split(",") if item.strip())
     elif isinstance(raw_keys, (list, tuple)):
         payload_keys = tuple(str(item) for item in raw_keys if str(item))
     else:
@@ -73,9 +69,7 @@ def _validate_feature_metadata(artifact: DreamZeroPrecomputedFeatureArtifact) ->
         return
     layout = str(prompt_meta.get("layout", "blc") or "blc").strip().lower()
     if layout != "blc":
-        raise ValueError(
-            f"prompt_embs layout must be 'blc', got {layout!r}; regenerate the cache"
-        )
+        raise ValueError(f"prompt_embs layout must be 'blc', got {layout!r}; regenerate the cache")
 
 
 def _validate_tensor_shard_payload(
@@ -88,16 +82,13 @@ def _validate_tensor_shard_payload(
     checked = 0
     for feature_name, spec in _FEATURE_CHECKS.items():
         feature_meta = artifact.features_meta.get(feature_name, {})
-        if not isinstance(feature_meta, dict) or not bool(
-            feature_meta.get("enabled", False)
-        ):
+        if not isinstance(feature_meta, dict) or not bool(feature_meta.get("enabled", False)):
             continue
         keys = _feature_payload_keys(feature_meta, spec["fallback_keys"])
         tensor = next((payload[key] for key in keys if key in payload), None)
         if tensor is None:
             raise ValueError(
-                f"tensor_shards payload misses {feature_name} for manifest.jsonl "
-                f"line {lineno}; expected one of {keys}"
+                f"tensor_shards payload misses {feature_name} for manifest.jsonl line {lineno}; expected one of {keys}"
             )
         shape_key = spec["shape_key"]
         dtype_key = spec["dtype_key"]
@@ -113,19 +104,13 @@ def _validate_tensor_shard_payload(
             )
         checked += 1
     if checked == 0:
-        raise ValueError(
-            "tensor_shards artifact has no enabled feature metadata to validate"
-        )
+        raise ValueError("tensor_shards artifact has no enabled feature metadata to validate")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--manifest", required=True, type=Path, help="Path to artifact manifest.json"
-    )
-    parser.add_argument(
-        "--cache-dir", type=Path, default=None, help="Override cache tensor directory"
-    )
+    parser.add_argument("--manifest", required=True, type=Path, help="Path to artifact manifest.json")
+    parser.add_argument("--cache-dir", type=Path, default=None, help="Override cache tensor directory")
     parser.add_argument(
         "--expect-use-sample-transform-seed",
         choices=("true", "false", "any"),
@@ -141,9 +126,7 @@ def main() -> int:
         action=argparse.BooleanOptionalAction,
         default=True,
     )
-    parser.add_argument(
-        "--check-sample-hash", action=argparse.BooleanOptionalAction, default=True
-    )
+    parser.add_argument("--check-sample-hash", action=argparse.BooleanOptionalAction, default=True)
     args = parser.parse_args()
 
     artifact = DreamZeroPrecomputedFeatureArtifact.load(
@@ -154,8 +137,7 @@ def main() -> int:
     artifact.validate_sample_transform_seed(
         expected=_bool_from_choice(args.expect_use_sample_transform_seed),
         sample_transform_seed=args.expect_sample_transform_seed,
-        allow_nondeterministic=args.expect_use_sample_transform_seed
-        in {"false", "any"},
+        allow_nondeterministic=args.expect_use_sample_transform_seed in {"false", "any"},
     )
     artifact.validate_coverage(require_full_coverage=args.require_full_coverage)
     artifact.validate_success(check_manifest_hash=True)
@@ -178,14 +160,10 @@ def main() -> int:
     )
     expected_count = artifact.files_meta.get("cache_files_count")
     if expected_count is not None and row_count != int(expected_count):
-        raise ValueError(
-            f"manifest.jsonl row count mismatch: rows={row_count}, manifest={expected_count}"
-        )
+        raise ValueError(f"manifest.jsonl row count mismatch: rows={row_count}, manifest={expected_count}")
     processed = int(artifact.coverage.get("processed", -1))
     if row_count != processed:
-        raise ValueError(
-            f"coverage processed count mismatch: rows={row_count}, processed={processed}"
-        )
+        raise ValueError(f"coverage processed count mismatch: rows={row_count}, processed={processed}")
 
     hash_checked = 0
     for lineno, entry in samples:
@@ -197,9 +175,7 @@ def main() -> int:
                 strict=True,
             )
             if not payload:
-                raise ValueError(
-                    f"tensor_shards payload is empty for manifest.jsonl line {lineno}"
-                )
+                raise ValueError(f"tensor_shards payload is empty for manifest.jsonl line {lineno}")
             _validate_tensor_shard_payload(artifact, payload, entry, lineno=lineno)
             continue
         sample_path = artifact_file_path(
@@ -227,15 +203,10 @@ def main() -> int:
         "sampled": len(samples),
         "sample_hash_checked": hash_checked,
         "storage_files": artifact.files_meta.get("storage_files_count"),
-        "use_sample_transform_seed": artifact.cache_meta.get(
-            "use_sample_transform_seed"
-        ),
+        "use_sample_transform_seed": artifact.cache_meta.get("use_sample_transform_seed"),
         "sample_transform_seed": artifact.cache_meta.get("sample_transform_seed"),
     }
-    print(
-        "[dreamzero-precomputed-cache-smoke] ok "
-        + " ".join(f"{k}={v}" for k, v in summary.items())
-    )
+    print("[dreamzero-precomputed-cache-smoke] ok " + " ".join(f"{k}={v}" for k, v in summary.items()))
     return 0
 
 

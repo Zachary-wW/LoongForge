@@ -61,13 +61,8 @@ def _dreamzero_skip_precomputed_pixel_preprocess(config, data) -> bool:
     ):
         return False
     video_key = str(config.precomputed_video_latents_key or "video_latents")
-    first_frame_key = str(
-        config.precomputed_first_frame_latents_key or "first_frame_latents"
-    )
-    return (
-        data.get(video_key) is not None
-        and data.get(first_frame_key) is not None
-    )
+    first_frame_key = str(config.precomputed_first_frame_latents_key or "first_frame_latents")
+    return data.get(video_key) is not None and data.get(first_frame_key) is not None
 
 
 _DREAMZERO_COMPILE_LOGGED = set()
@@ -119,9 +114,7 @@ def _dreamzero_compile_loss_fn(fn, label: str, *, enabled: bool = True, mode: st
 
 
 def _dreamzero_weighted_video_loss(video_noise_pred, training_target, timestep_weight):
-    dynamics_loss_per_sample = (
-        video_noise_pred.float() - training_target.float()
-    ).square().mean(dim=(1, 3, 4))
+    dynamics_loss_per_sample = (video_noise_pred.float() - training_target.float()).square().mean(dim=(1, 3, 4))
     return dynamics_loss_per_sample, (dynamics_loss_per_sample * timestep_weight).mean()
 
 
@@ -132,9 +125,7 @@ def _dreamzero_weighted_action_loss(
     has_real_action,
     timestep_action_weight,
 ):
-    action_loss_per_dim = (
-        action_noise_pred.float() - training_target_action.float()
-    ).square()
+    action_loss_per_dim = (action_noise_pred.float() - training_target_action.float()).square()
     action_loss_per_dim = action_loss_per_dim * action_mask
     action_loss_per_dim = action_loss_per_dim * has_real_action[:, None, None].float()
     return (action_loss_per_dim.mean(dim=2) * timestep_action_weight).mean()
@@ -253,6 +244,7 @@ class WANPolicyHead(ActionHead):
     """
 
     config_class = WANPolicyHeadConfig
+
     def __init__(
         self,
         config: WANPolicyHeadConfig,
@@ -359,20 +351,76 @@ class WANPolicyHead(ActionHead):
         num_dit_steps = self.config.num_dit_steps
         masks = {
             5: [
-                True, True, True, False, False, False, False, True,
-                False, False, False, False, True, False, False, False,
+                True,
+                True,
+                True,
+                False,
+                False,
+                False,
+                False,
+                True,
+                False,
+                False,
+                False,
+                False,
+                True,
+                False,
+                False,
+                False,
             ],
             6: [
-                True, True, False, False, False, True, False, False,
-                False, False, True, False, False, False, True, True,
+                True,
+                True,
+                False,
+                False,
+                False,
+                True,
+                False,
+                False,
+                False,
+                False,
+                True,
+                False,
+                False,
+                False,
+                True,
+                True,
             ],
             7: [
-                True, True, True, False, False, False, True, False,
-                False, False, True, False, False, False, True, True,
+                True,
+                True,
+                True,
+                False,
+                False,
+                False,
+                True,
+                False,
+                False,
+                False,
+                True,
+                False,
+                False,
+                False,
+                True,
+                True,
             ],
             8: [
-                True, True, True, False, False, False, True, False,
-                False, False, True, False, False, True, True, True,
+                True,
+                True,
+                True,
+                False,
+                False,
+                False,
+                True,
+                False,
+                False,
+                False,
+                True,
+                False,
+                False,
+                True,
+                True,
+                True,
             ],
         }
         mask = masks.get(num_dit_steps, [True] * 16)
@@ -406,9 +454,7 @@ class WANPolicyHead(ActionHead):
     def print_trainable_params(self):
         """Log total and trainable parameter counts for the diffusion model."""
         total = sum(p.numel() for p in self.model.parameters())
-        trainable = sum(
-            p.numel() for p in self.model.parameters() if p.requires_grad
-        )
+        trainable = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         logger.info(f"Diffusion model params: total={total:,} trainable={trainable:,}")
 
     def set_frozen_modules_to_eval_mode(self):
@@ -493,10 +539,7 @@ class WANPolicyHead(ActionHead):
             return 128
 
     def _get_cached_prompt_embs(self, input_ids, attention_mask, cache_mode: str):
-        keys = [
-            _dreamzero_prompt_emb_cache_key(input_ids[i], attention_mask[i])
-            for i in range(input_ids.shape[0])
-        ]
+        keys = [_dreamzero_prompt_emb_cache_key(input_ids[i], attention_mask[i]) for i in range(input_ids.shape[0])]
         cached = []
         for key in keys:
             value = self._dreamzero_prompt_emb_cache.get(key)
@@ -656,10 +699,7 @@ class WANPolicyHead(ActionHead):
         if layout == "btchw":
             latents = latents.transpose(1, 2)
         elif layout != "bcthw":
-            raise ValueError(
-                "precomputed_video_latents_layout must be 'bcthw' or 'btchw', "
-                f"got {layout!r}"
-            )
+            raise ValueError(f"precomputed_video_latents_layout must be 'bcthw' or 'btchw', got {layout!r}")
 
         latents = latents.to(device=self._device, dtype=self._runtime_dtype(), non_blocking=True)
         _dreamzero_log_once(
@@ -672,9 +712,7 @@ class WANPolicyHead(ActionHead):
     def _precomputed_first_frame_latents(self, data, image):
         if not bool(self.config.precomputed_first_frame_latents):
             return None
-        latent_key = str(
-            self.config.precomputed_first_frame_latents_key or "first_frame_latents"
-        )
+        latent_key = str(self.config.precomputed_first_frame_latents_key or "first_frame_latents")
         latents = data.get(latent_key)
         if latents is None:
             msg = (
@@ -767,8 +805,13 @@ class WANPolicyHead(ActionHead):
             if precomputed_first_frame_latents is None:
                 image_input = image.transpose(1, 2)
                 image_zeros = torch.zeros(
-                    batch_size, 3, num_frames - 1, height, width,
-                    dtype=torch.bfloat16, device=self._device,
+                    batch_size,
+                    3,
+                    num_frames - 1,
+                    height,
+                    width,
+                    dtype=torch.bfloat16,
+                    device=self._device,
                 )
                 self._ensure_vae_on_device(image_input)
                 with torch.no_grad():
@@ -804,18 +847,14 @@ class WANPolicyHead(ActionHead):
         if actions.numel() > 0:
             assert actions.min() >= -1.0 and actions.max() <= 1.0, "actions must be in [-1,1] range"
         videos = data["images"]
-        skip_precomputed_pixel_preprocess = _dreamzero_skip_precomputed_pixel_preprocess(
-            self.config, data
-        )
+        skip_precomputed_pixel_preprocess = _dreamzero_skip_precomputed_pixel_preprocess(self.config, data)
         if skip_precomputed_pixel_preprocess:
             _dreamzero_log_once(
                 "skip_precomputed_pixel_preprocess",
                 "[dreamzero-data] skip_precomputed_pixel_preprocess=true, "
                 "skip pixel normalize/resize because strict video/first-frame caches are present",
             )
-        video_latent_key = str(
-            self.config.precomputed_video_latents_key or "video_latents"
-        )
+        video_latent_key = str(self.config.precomputed_video_latents_key or "video_latents")
         precomputed_first_frame_only = (
             bool(self.config.precomputed_first_frame_only)
             and bool(self.config.precomputed_video_latents)
@@ -873,7 +912,8 @@ class WANPolicyHead(ActionHead):
         precomputed_latents = self._precomputed_video_latents(data, videos)
         if precomputed_latents is None:
             latents = self.encode_video(
-                videos, self.tiled,
+                videos,
+                self.tiled,
                 (self.tile_size_height, self.tile_size_width),
                 (self.tile_stride_height, self.tile_stride_width),
             )
@@ -913,7 +953,9 @@ class WANPolicyHead(ActionHead):
             )
 
         timestep_id_block = timestep_id[:, 1:].reshape(
-            timestep_id.shape[0], -1, self.num_frame_per_block,
+            timestep_id.shape[0],
+            -1,
+            self.num_frame_per_block,
         )
         timestep_id_block[:, :, 1:] = timestep_id_block[:, :, 0:1]
 
@@ -941,7 +983,9 @@ class WANPolicyHead(ActionHead):
                 )
             else:
                 timestep_action_id = timestep_id_block.repeat(
-                    1, 1, actions.shape[1] // (noise.shape[1] - 1),
+                    1,
+                    1,
+                    actions.shape[1] // (noise.shape[1] - 1),
                 )
                 timestep_action_id = timestep_action_id.reshape(timestep_action_id.shape[0], -1)
         else:
@@ -953,8 +997,7 @@ class WANPolicyHead(ActionHead):
 
         _dreamzero_log_once(
             "scheduler_timestep_id_lookup",
-            "[dreamzero-scheduler] use sampled timestep_id directly "
-            "for add_noise/training_weight",
+            "[dreamzero-scheduler] use sampled timestep_id directly for add_noise/training_weight",
         )
         timestep = self._scheduler_timesteps_by_id(timestep_id, latents)
         noisy_latents = self._scheduler_add_noise_by_id(
@@ -979,30 +1022,44 @@ class WANPolicyHead(ActionHead):
         with torch.amp.autocast(dtype=torch.bfloat16, device_type=torch.device(self._device).type):
             if actions.numel() > 0:
                 video_noise_pred, action_noise_pred = self.model(
-                    noisy_latents.transpose(1, 2), timestep=timestep,
-                    clip_feature=clip_feas, y=ys, context=prompt_embs, seq_len=seq_len,
-                    state=state_features, embodiment_id=embodiment_id,
-                    action=noisy_actions, timestep_action=timestep_action,
+                    noisy_latents.transpose(1, 2),
+                    timestep=timestep,
+                    clip_feature=clip_feas,
+                    y=ys,
+                    context=prompt_embs,
+                    seq_len=seq_len,
+                    state=state_features,
+                    embodiment_id=embodiment_id,
+                    action=noisy_actions,
+                    timestep_action=timestep_action,
                     clean_x=latents.transpose(1, 2),
                 )
             else:
                 video_noise_pred, action_noise_pred = self.model(
-                    noisy_latents.transpose(1, 2), timestep=timestep, timestep_action=timestep_action,
-                    clip_feature=clip_feas, y=ys, context=prompt_embs, seq_len=seq_len,
-                    state=state_features, embodiment_id=embodiment_id,
+                    noisy_latents.transpose(1, 2),
+                    timestep=timestep,
+                    timestep_action=timestep_action,
+                    clip_feature=clip_feas,
+                    y=ys,
+                    context=prompt_embs,
+                    seq_len=seq_len,
+                    state=state_features,
+                    embodiment_id=embodiment_id,
                     clean_x=latents.transpose(1, 2),
                 )
 
             # DiT patch_embedding stride (1,2,2): output spatial may be smaller than latent
             # when H or W is odd → crop target to match.
             if training_target.shape != video_noise_pred.shape:
-                training_target = training_target[
-                    ..., : video_noise_pred.shape[3], : video_noise_pred.shape[4]
-                ]
-            timestep_weight = self._scheduler_training_weight_by_id(
-                timestep_id.flatten(0, 1),
-                video_noise_pred,
-            ).unflatten(0, (noise.shape[0], noise.shape[1])).to(self._device)
+                training_target = training_target[..., : video_noise_pred.shape[3], : video_noise_pred.shape[4]]
+            timestep_weight = (
+                self._scheduler_training_weight_by_id(
+                    timestep_id.flatten(0, 1),
+                    video_noise_pred,
+                )
+                .unflatten(0, (noise.shape[0], noise.shape[1]))
+                .to(self._device)
+            )
             dynamics_loss_per_sample, weighted_dynamics_loss = self._dreamzero_video_loss_impl(
                 video_noise_pred,
                 training_target,
@@ -1010,10 +1067,14 @@ class WANPolicyHead(ActionHead):
             )
 
             if actions.numel() > 0:
-                timestep_action_weight = self._scheduler_training_weight_by_id(
-                    timestep_action_id.flatten(0, 1),
-                    action_noise_pred,
-                ).unflatten(0, (noise_action.shape[0], noise_action.shape[1])).to(self._device)
+                timestep_action_weight = (
+                    self._scheduler_training_weight_by_id(
+                        timestep_action_id.flatten(0, 1),
+                        action_noise_pred,
+                    )
+                    .unflatten(0, (noise_action.shape[0], noise_action.shape[1]))
+                    .to(self._device)
+                )
                 weighted_action_loss = self._dreamzero_action_loss_impl(
                     action_noise_pred,
                     training_target_action,
@@ -1026,11 +1087,13 @@ class WANPolicyHead(ActionHead):
                 weighted_action_loss = torch.tensor(0.0, device=self._device)
                 loss = weighted_dynamics_loss
 
-        return BatchFeature(data={
-            "loss": loss,
-            "dynamics_loss": weighted_dynamics_loss,
-            "action_loss": weighted_action_loss,
-        })
+        return BatchFeature(
+            data={
+                "loss": loss,
+                "dynamics_loss": weighted_dynamics_loss,
+                "action_loss": weighted_action_loss,
+            }
+        )
 
     # ------------------------------------------------------------------
     # Inference — closed-loop autoregressive flow-matching
@@ -1079,7 +1142,11 @@ class WANPolicyHead(ActionHead):
         return text_inputs
 
     def _create_kv_caches(
-        self, batch_size: int, dtype: torch.dtype, device: torch.device, frame_seqlen: int,
+        self,
+        batch_size: int,
+        dtype: torch.dtype,
+        device: torch.device,
+        frame_seqlen: int,
     ) -> tuple[list[KVCacheType], list[KVCacheType]]:
         """Per-GPU KV cache. Uses model num_heads/head_dim (5B=24, 14B=40)."""
         num_heads = self.model.num_heads
@@ -1092,7 +1159,10 @@ class WANPolicyHead(ActionHead):
         return kv_cache1, kv_cache_neg
 
     def _create_crossattn_caches(
-        self, batch_size: int, dtype: torch.dtype, device: torch.device,
+        self,
+        batch_size: int,
+        dtype: torch.dtype,
+        device: torch.device,
     ) -> tuple[list[KVCacheType], list[KVCacheType]]:
         """Per-GPU cross-attention cache (text seqlen pinned to 512)."""
         num_heads = self.model.num_heads
@@ -1100,9 +1170,7 @@ class WANPolicyHead(ActionHead):
         crossattn_cache: list[KVCacheType] = []
         crossattn_cache_neg: list[KVCacheType] = []
         for _ in range(self.model.num_layers):
-            crossattn_cache.append(
-                torch.zeros([2, batch_size, 512, num_heads, head_dim], dtype=dtype, device=device)
-            )
+            crossattn_cache.append(torch.zeros([2, batch_size, 512, num_heads, head_dim], dtype=dtype, device=device))
             crossattn_cache_neg.append(
                 torch.zeros([2, batch_size, 512, num_heads, head_dim], dtype=dtype, device=device)
             )
@@ -1155,7 +1223,8 @@ class WANPolicyHead(ActionHead):
         return self._exchange_predictions(predictions)
 
     def _exchange_predictions(
-        self, predictions: list[tuple[torch.Tensor, torch.Tensor]],
+        self,
+        predictions: list[tuple[torch.Tensor, torch.Tensor]],
     ) -> list[tuple[torch.Tensor, torch.Tensor]]:
         if self.ip_size == 1:
             return predictions
@@ -1166,15 +1235,19 @@ class WANPolicyHead(ActionHead):
 
         send_ops = [
             dist.P2POp(
-                op=dist.isend, tensor=pred,
-                group_peer=(self.ip_rank + 1) % self.ip_size, group=self.ip_group,
+                op=dist.isend,
+                tensor=pred,
+                group_peer=(self.ip_rank + 1) % self.ip_size,
+                group=self.ip_group,
             )
             for pred in my_predictions
         ]
         recv_ops = [
             dist.P2POp(
-                op=dist.irecv, tensor=other_pred,
-                group_peer=(self.ip_rank + 1) % self.ip_size, group=self.ip_group,
+                op=dist.irecv,
+                tensor=other_pred,
+                group_peer=(self.ip_rank + 1) % self.ip_size,
+                group=self.ip_group,
             )
             for other_pred in other_predictions
         ]
@@ -1307,11 +1380,15 @@ class WANPolicyHead(ActionHead):
 
         noise_obs = self.generate_noise(
             (image.shape[0], image.shape[1], self.num_frame_per_block, image.shape[3], image.shape[4]),
-            seed=self.seed, device=self._device, dtype=torch.bfloat16,
+            seed=self.seed,
+            device=self._device,
+            dtype=torch.bfloat16,
         )
         noise_action = self.generate_noise(
             (image.shape[0], self.action_horizon, self.model.action_dim),
-            seed=self.seed, device=self._device, dtype=torch.bfloat16,
+            seed=self.seed,
+            device=self._device,
+            dtype=torch.bfloat16,
         )
         batch_size, num_channels, num_frames, height, width = noise_obs.shape
         # DiT patch_embedding uses stride (1,2,2): tokens per frame = (H//2)*(W//2)
@@ -1323,10 +1400,15 @@ class WANPolicyHead(ActionHead):
 
         if self.current_start_frame == 0:
             self.kv_cache1, self.kv_cache_neg = self._create_kv_caches(
-                batch_size=batch_size, dtype=noise_obs.dtype, device=noise_obs.device, frame_seqlen=frame_seqlen,
+                batch_size=batch_size,
+                dtype=noise_obs.dtype,
+                device=noise_obs.device,
+                frame_seqlen=frame_seqlen,
             )
             self.crossattn_cache, self.crossattn_cache_neg = self._create_crossattn_caches(
-                batch_size=batch_size, dtype=noise_obs.dtype, device=noise_obs.device,
+                batch_size=batch_size,
+                dtype=noise_obs.dtype,
+                device=noise_obs.device,
             )
 
         assert self.kv_cache1 is not None and self.kv_cache_neg is not None
@@ -1340,29 +1422,48 @@ class WANPolicyHead(ActionHead):
             self._run_diffusion_steps(
                 noisy_input=image.transpose(1, 2),
                 timestep=timestep * 0,
-                action=None, timestep_action=None, state=None, embodiment_id=None,
-                context=prompt_embs, seq_len=frame_seqlen, y=self.ys[:, :, 0:1],
-                clip_feature=self.clip_feas, kv_caches=kv_caches, crossattn_caches=crossattn_caches,
+                action=None,
+                timestep_action=None,
+                state=None,
+                embodiment_id=None,
+                context=prompt_embs,
+                seq_len=frame_seqlen,
+                y=self.ys[:, :, 0:1],
+                clip_feature=self.clip_feas,
+                kv_caches=kv_caches,
+                crossattn_caches=crossattn_caches,
                 kv_cache_metadata=dict(start_frame=0, update_kv_cache=True),
             )
             self.current_start_frame += 1
 
         # Warm up prior frame block into KV cache (autoregressive context).
         if self.current_start_frame != 1:
-            current_ref_latents = image[:, -self.num_frame_per_block:]
+            current_ref_latents = image[:, -self.num_frame_per_block :]
             if self.current_start_frame <= self.ys.shape[2]:
                 y = self.ys[:, :, self.current_start_frame - self.num_frame_per_block : self.current_start_frame]
             else:
-                y = self.ys[:, :, -self.num_frame_per_block:]
-            timestep = torch.ones(
-                [batch_size, self.num_frame_per_block], device=noise_obs.device, dtype=torch.int64,
-            ) * 0
+                y = self.ys[:, :, -self.num_frame_per_block :]
+            timestep = (
+                torch.ones(
+                    [batch_size, self.num_frame_per_block],
+                    device=noise_obs.device,
+                    dtype=torch.int64,
+                )
+                * 0
+            )
             self._run_diffusion_steps(
                 noisy_input=current_ref_latents.transpose(1, 2),
                 timestep=timestep * 0,
-                action=None, timestep_action=None, state=None, embodiment_id=None,
-                context=prompt_embs, seq_len=seq_len, y=y,
-                clip_feature=self.clip_feas, kv_caches=kv_caches, crossattn_caches=crossattn_caches,
+                action=None,
+                timestep_action=None,
+                state=None,
+                embodiment_id=None,
+                context=prompt_embs,
+                seq_len=seq_len,
+                y=y,
+                clip_feature=self.clip_feas,
+                kv_caches=kv_caches,
+                crossattn_caches=crossattn_caches,
                 kv_cache_metadata=dict(
                     start_frame=self.current_start_frame - self.num_frame_per_block,
                     update_kv_cache=True,
@@ -1374,10 +1475,14 @@ class WANPolicyHead(ActionHead):
 
         # Inference schedulers (UniPC multistep): one for video, one for action.
         sample_scheduler = FlowUniPCMultistepScheduler(
-            num_train_timesteps=self.scheduler.num_train_timesteps, shift=1, use_dynamic_shifting=False,
+            num_train_timesteps=self.scheduler.num_train_timesteps,
+            shift=1,
+            use_dynamic_shifting=False,
         )
         sample_scheduler_action = FlowUniPCMultistepScheduler(
-            num_train_timesteps=self.scheduler.num_train_timesteps, shift=1, use_dynamic_shifting=False,
+            num_train_timesteps=self.scheduler.num_train_timesteps,
+            shift=1,
+            use_dynamic_shifting=False,
         )
         sample_scheduler.set_timesteps(self.num_inference_steps, device=noise_obs.device, shift=self.sigma_shift)
         sample_scheduler_action.set_timesteps(self.num_inference_steps, device=noise_obs.device, shift=self.sigma_shift)
@@ -1396,18 +1501,28 @@ class WANPolicyHead(ActionHead):
             action_timestep = sample_scheduler_action.timesteps[index]
             video_timestep = sample_scheduler.timesteps[index]
 
-            timestep = torch.ones(
-                [batch_size, self.num_frame_per_block], device=noise_obs.device, dtype=torch.int64,
-            ) * video_timestep
-            timestep_action = torch.ones(
-                [batch_size, self.action_horizon], device=noise_obs.device, dtype=torch.int64,
-            ) * action_timestep
+            timestep = (
+                torch.ones(
+                    [batch_size, self.num_frame_per_block],
+                    device=noise_obs.device,
+                    dtype=torch.int64,
+                )
+                * video_timestep
+            )
+            timestep_action = (
+                torch.ones(
+                    [batch_size, self.action_horizon],
+                    device=noise_obs.device,
+                    dtype=torch.int64,
+                )
+                * action_timestep
+            )
 
             if self.should_run_model(index, current_timestep, prev_predictions):
                 if self.current_start_frame + self.num_frame_per_block <= self.ys.shape[2]:
                     y = self.ys[:, :, self.current_start_frame : self.current_start_frame + self.num_frame_per_block]
                 else:
-                    y = self.ys[:, :, -self.num_frame_per_block:]
+                    y = self.ys[:, :, -self.num_frame_per_block :]
                 predictions = self._run_diffusion_steps(
                     noisy_input=noisy_input.transpose(1, 2),
                     timestep=timestep,
@@ -1435,11 +1550,17 @@ class WANPolicyHead(ActionHead):
 
             noisy_input = sample_scheduler.step(
                 model_output=flow_pred.transpose(1, 2),
-                timestep=video_timestep, sample=noisy_input, step_index=index, return_dict=False,
+                timestep=video_timestep,
+                sample=noisy_input,
+                step_index=index,
+                return_dict=False,
             )[0]
             noisy_input_action = sample_scheduler_action.step(
                 model_output=flow_pred_cond_action,
-                timestep=action_timestep, sample=noisy_input_action, step_index=index, return_dict=False,
+                timestep=action_timestep,
+                sample=noisy_input_action,
+                step_index=index,
+                return_dict=False,
             )[0]
 
         latents_action = noisy_input_action

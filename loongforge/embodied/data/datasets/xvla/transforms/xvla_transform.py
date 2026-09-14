@@ -82,12 +82,7 @@ class XVLATokenizeTransform(BaseTransform, XVLATokenizerCore):
 
     def apply(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Tokenize the language instruction and write ``input_ids`` into data."""
-        instruction = (
-            data.get(self.prompt_key)
-            or data.get(self.task_key)
-            or data.get("lang")
-            or ""
-        )
+        instruction = data.get(self.prompt_key) or data.get(self.task_key) or data.get("lang") or ""
         inputs = self.tokenizer(
             [str(instruction)],
             return_tensors="pt",
@@ -120,12 +115,8 @@ class XVLAEncodeImageTransform(BaseTransform, XVLAImageProcessorCore):
         num_views: int = 3,
         training: bool = True,
     ):
-        BaseTransform.__init__(
-            self, apply_to=["image_input", "image_mask"], training=training
-        )
-        XVLAImageProcessorCore.__init__(
-            self, tokenizer_path=tokenizer_path, num_views=num_views
-        )
+        BaseTransform.__init__(self, apply_to=["image_input", "image_mask"], training=training)
+        XVLAImageProcessorCore.__init__(self, tokenizer_path=tokenizer_path, num_views=num_views)
 
     def apply(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Encode per-view images and write ``image_input`` / ``image_mask`` into data.
@@ -140,8 +131,8 @@ class XVLAEncodeImageTransform(BaseTransform, XVLAImageProcessorCore):
         pil_images = [self._to_pil(data[k]) for k in image_keys]
 
         encoded = self._encode_single(pil_images)
-        data["image_input"] = encoded["image_input"]   # [num_views, C, H, W]
-        data["image_mask"] = encoded["image_mask"]     # [num_views]
+        data["image_input"] = encoded["image_input"]  # [num_views, C, H, W]
+        data["image_mask"] = encoded["image_mask"]  # [num_views]
         return data
 
 
@@ -165,9 +156,7 @@ class XVLADomainIdTransform(BaseTransform):
     def apply(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Consume ``robot_type`` and write ``domain_id`` (0-dim long tensor)."""
         robot_type = data.pop(self.robot_type_key, "")
-        data["domain_id"] = torch.tensor(
-            resolve_domain_id(robot_type), dtype=torch.long
-        )
+        data["domain_id"] = torch.tensor(resolve_domain_id(robot_type), dtype=torch.long)
         return data
 
 
@@ -191,18 +180,18 @@ def build_xvla_transforms(ctx: TransformBuilderContext):
         return transforms
 
     tokenizer_path = ctx.training_args.tokenizer_path or os.environ.get("TOKENIZER_PATH", "")
-    num_views = (
-        ctx.data_cfg.num_image_views
-        or model_cfg.num_image_views
-        or 3
-    )
+    num_views = ctx.data_cfg.num_image_views or model_cfg.num_image_views or 3
 
-    transforms.append(XVLAEncodeImageTransform(
-        tokenizer_path=tokenizer_path,
-        num_views=num_views,
-    ))
-    transforms.append(XVLATokenizeTransform(
-        tokenizer_path=tokenizer_path,
-    ))
+    transforms.append(
+        XVLAEncodeImageTransform(
+            tokenizer_path=tokenizer_path,
+            num_views=num_views,
+        )
+    )
+    transforms.append(
+        XVLATokenizeTransform(
+            tokenizer_path=tokenizer_path,
+        )
+    )
     transforms.append(XVLADomainIdTransform())
     return transforms

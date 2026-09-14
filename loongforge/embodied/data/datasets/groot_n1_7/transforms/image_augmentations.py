@@ -34,9 +34,7 @@ import torch
 import torchvision.transforms.v2 as transforms
 
 
-_ALBUMENTATIONS_ACCEPTS_ALWAYS_APPLY = (
-    "always_apply" in inspect.signature(A.BasicTransform.__init__).parameters
-)
+_ALBUMENTATIONS_ACCEPTS_ALWAYS_APPLY = "always_apply" in inspect.signature(A.BasicTransform.__init__).parameters
 
 
 def _albumentations_transform_init_kwargs(
@@ -258,9 +256,7 @@ class MaskedColorTransform(A.ImageOnlyTransform):
         alpha = _albumentations_uniform(self, self.alpha_range[0], self.alpha_range[1])
         result = img.copy().astype(np.float32)
         for channel in range(3):
-            result[region_mask, channel] = (
-                result[region_mask, channel] * (1 - alpha) + random_color[channel] * alpha
-            )
+            result[region_mask, channel] = result[region_mask, channel] * (1 - alpha) + random_color[channel] * alpha
         return np.clip(result, 0, 255).astype(np.uint8)
 
     def get_params_dependent_on_data(self, params, data) -> dict:
@@ -648,9 +644,7 @@ def build_image_transformations(
         transforms.Resize(size=image_target_size),
     ]
     if random_rotation_angle is not None and random_rotation_angle != 0:
-        transform_list.append(
-            transforms.RandomRotation(degrees=[-random_rotation_angle, random_rotation_angle])
-        )
+        transform_list.append(transforms.RandomRotation(degrees=[-random_rotation_angle, random_rotation_angle]))
     if color_jitter_params is not None:
         transform_list.append(transforms.ColorJitter(**color_jitter_params))
 

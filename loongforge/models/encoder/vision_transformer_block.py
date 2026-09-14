@@ -109,15 +109,9 @@ def pad_sequence_for_alignment(
     pad_len = (target_multiple - seq_len % target_multiple) % target_multiple
 
     if pad_len > 0:
-        hidden_states = F.pad(
-            hidden_states,
-            pad=[0, 0] * (hidden_states.dim() - 1) + [0, pad_len]
-        )
+        hidden_states = F.pad(hidden_states, pad=[0, 0] * (hidden_states.dim() - 1) + [0, pad_len])
         if rotary_pos_emb is not None:
-            rotary_pos_emb = F.pad(
-                rotary_pos_emb,
-                pad=[0, 0] * (rotary_pos_emb.dim() - 1) + [0, pad_len]
-            )
+            rotary_pos_emb = F.pad(rotary_pos_emb, pad=[0, 0] * (rotary_pos_emb.dim() - 1) + [0, pad_len])
         if packed_seq_params is not None:
             for packed_seq_param in packed_seq_params:
                 packed_seq_param.cu_seqlens_q = packed_seq_param.cu_seqlens_q.clone()
@@ -148,13 +142,14 @@ def unpad_sequence(
         hidden_states = hidden_states[:-pad_len].contiguous()
         if deepstack_feature_lists is not None:
             for i, deepstack_feature in enumerate(deepstack_feature_lists):
-                deepstack_feature_lists[i] = deepstack_feature[:-(pad_len // 4)].contiguous()
+                deepstack_feature_lists[i] = deepstack_feature[: -(pad_len // 4)].contiguous()
 
     return hidden_states, deepstack_feature_lists
 
 
 class TransformerBlock(MegatronTransformerBlock):
     """Vision Transformer Class."""
+
     def __init__(
         self,
         config: TransformerConfig,
@@ -165,14 +160,16 @@ class TransformerBlock(MegatronTransformerBlock):
         pg_collection: ProcessGroupCollection = None,
         vp_stage: Optional[int] = None,
     ):
-        super().__init__(config=config,
-                         spec=spec,
-                         post_layer_norm=post_layer_norm,
-                         pre_process=pre_process,
-                         post_process=post_process,
-                         pg_collection=pg_collection,
-                         vp_stage=vp_stage)
-        self.has_deepstack = getattr(config, 'deepstack_visual_indexes', False)
+        super().__init__(
+            config=config,
+            spec=spec,
+            post_layer_norm=post_layer_norm,
+            pre_process=pre_process,
+            post_process=post_process,
+            pg_collection=pg_collection,
+            vp_stage=vp_stage,
+        )
+        self.has_deepstack = getattr(config, "deepstack_visual_indexes", False)
 
     def forward(
         self,
@@ -294,7 +291,7 @@ class TransformerBlock(MegatronTransformerBlock):
 
         with rng_context, outer_quantization_context:
             # Forward pass.
-            if self.config.recompute_granularity == 'full' and self.training:
+            if self.config.recompute_granularity == "full" and self.training:
                 hidden_states, deepstack_feature_lists = self._checkpointed_forward(
                     hidden_states=hidden_states,
                     attention_mask=attention_mask,
@@ -308,30 +305,25 @@ class TransformerBlock(MegatronTransformerBlock):
                 )
             else:
                 if self.has_deepstack:
-                    deepstack_visual_indexes = kwargs.pop('deepstack_visual_indexes', None)
-                    deepstack_merger_list = kwargs.pop('deepstack_merger_list', None)
-                    assert deepstack_visual_indexes is not None and deepstack_merger_list is not None, \
+                    deepstack_visual_indexes = kwargs.pop("deepstack_visual_indexes", None)
+                    deepstack_merger_list = kwargs.pop("deepstack_merger_list", None)
+                    assert deepstack_visual_indexes is not None and deepstack_merger_list is not None, (
                         "deepstack_visual_indexes and deepstack_merger_list must be passed when has_deepstack is True"
+                    )
                 for l_no, layer in enumerate(self.layers):
                     # Get appropriate inner quantization context
                     if use_inner_quantization_context:
                         if self.config.fp8:
-                            inner_quantization_context = get_fp8_context(
-                                self.config, layer.layer_number - 1
-                            )
+                            inner_quantization_context = get_fp8_context(self.config, layer.layer_number - 1)
                         elif self.config.fp4:
-                            inner_quantization_context = get_fp4_context(
-                                self.config, layer.layer_number - 1
-                            )
+                            inner_quantization_context = get_fp4_context(self.config, layer.layer_number - 1)
                         else:
                             inner_quantization_context = nullcontext()
                     else:
                         inner_quantization_context = nullcontext()
 
                     if self.config.fine_grained_activation_offloading:
-                        fine_grained_offloading_set_last_layer(
-                            l_no == self.num_layers_per_pipeline_rank - 1
-                        )
+                        fine_grained_offloading_set_last_layer(l_no == self.num_layers_per_pipeline_rank - 1)
 
                     with self.offload_context, inner_quantization_context:
                         hidden_states, context = layer(
@@ -356,9 +348,9 @@ class TransformerBlock(MegatronTransformerBlock):
 
                     # vision deepstack
                     if self.has_deepstack and l_no in deepstack_visual_indexes:
-                            merger = deepstack_merger_list[deepstack_visual_indexes.index(l_no)]
-                            deepstack_feature = merger(hidden_states)
-                            deepstack_feature_lists.append(deepstack_feature)
+                        merger = deepstack_merger_list[deepstack_visual_indexes.index(l_no)]
+                        deepstack_feature = merger(hidden_states)
+                        deepstack_feature_lists.append(deepstack_feature)
 
                     if (
                         torch.is_grad_enabled()
@@ -373,9 +365,7 @@ class TransformerBlock(MegatronTransformerBlock):
             # TENorm produces a "viewed" tensor. This will result in schedule.py's
             # deallocate_output_tensor() throwing an error, so a viewless tensor is
             # created to prevent this.
-            hidden_states = make_viewless_tensor(
-                inp=hidden_states, requires_grad=True, keep_graph=True
-            )
+            hidden_states = make_viewless_tensor(inp=hidden_states, requires_grad=True, keep_graph=True)
 
         # If this TransformerBlock is empty, input and output hidden states will be the same node
         # on the computational graph and will lead to unexpected errors in pipeline schedules.
@@ -383,12 +373,10 @@ class TransformerBlock(MegatronTransformerBlock):
             hidden_states = hidden_states.clone()
 
         if use_inner_quantization_context:
-            hidden_states, deepstack_feature_lists = unpad_sequence(
-                hidden_states, deepstack_feature_lists, pad_len
-            )
+            hidden_states, deepstack_feature_lists = unpad_sequence(hidden_states, deepstack_feature_lists, pad_len)
 
         return hidden_states, deepstack_feature_lists
-        
+
     def _checkpointed_forward(
         self,
         hidden_states: Tensor,
@@ -404,35 +392,31 @@ class TransformerBlock(MegatronTransformerBlock):
         """Forward method with activation checkpointing."""
         deepstack_feature_lists = []
         if self.has_deepstack:
-            deepstack_visual_indexes = kwargs.pop('deepstack_visual_indexes', None)
-            deepstack_merger_list = kwargs.pop('deepstack_merger_list', None)
-            assert deepstack_visual_indexes is not None and deepstack_merger_list is not None, \
+            deepstack_visual_indexes = kwargs.pop("deepstack_visual_indexes", None)
+            deepstack_merger_list = kwargs.pop("deepstack_merger_list", None)
+            assert deepstack_visual_indexes is not None and deepstack_merger_list is not None, (
                 "deepstack_visual_indexes and deepstack_merger_list must be passed when has_deepstack is True"
-            
-            # If DeepStack is enabled and using uniform strategy, recompute_num_layers must be 1, 
+            )
+
+            # If DeepStack is enabled and using uniform strategy, recompute_num_layers must be 1,
             # otherwise DeepStack may be skipped
-            if self.config.recompute_method == 'uniform' and self.config.recompute_granularity == 'full':
-                assert self._recompute_num_layers == 1, \
+            if self.config.recompute_method == "uniform" and self.config.recompute_granularity == "full":
+                assert self._recompute_num_layers == 1, (
                     "If recompute_method is set to uniform, recompute_num_layers must be 1."
+                )
 
         def custom(start: int, end: int):
-            def custom_forward(
-                hidden_states, attention_mask, context, context_mask, rotary_pos_emb
-            ):
+            def custom_forward(hidden_states, attention_mask, context, context_mask, rotary_pos_emb):
                 for index in range(start, end):
                     layer = self._get_layer(index)
 
                     # Get appropriate inner quantization context
                     if use_inner_quantization_context:
                         if self.config.fp8:
-                            inner_quantization_context = get_fp8_context(
-                                self.config, layer.layer_number - 1
-                            )
+                            inner_quantization_context = get_fp8_context(self.config, layer.layer_number - 1)
                         # TODO: check if fp4 is supported in this case
                         elif self.config.fp4:
-                            inner_quantization_context = get_fp4_context(
-                                self.config, layer.layer_number - 1
-                            )
+                            inner_quantization_context = get_fp4_context(self.config, layer.layer_number - 1)
                         else:
                             inner_quantization_context = nullcontext()
                     else:
@@ -486,15 +470,13 @@ class TransformerBlock(MegatronTransformerBlock):
                     **kwargs,
                 )
 
-        if self.config.recompute_method == 'uniform':
+        if self.config.recompute_method == "uniform":
             # Uniformly divide the total number of Transformer layers and checkpoint
             # the input activation of each divided chunk.
             # A method to further reduce memory usage reducing checkpoints.
             layer_idx = 0
             while layer_idx < self.num_layers_per_pipeline_rank:
-                hidden_states, context = checkpoint_handler(
-                    custom(layer_idx, layer_idx + self._recompute_num_layers)
-                )
+                hidden_states, context = checkpoint_handler(custom(layer_idx, layer_idx + self._recompute_num_layers))
                 # Extract deepstack features
                 if self.has_deepstack and layer_idx in deepstack_visual_indexes:
                     merger = deepstack_merger_list[deepstack_visual_indexes.index(layer_idx)]
@@ -503,7 +485,7 @@ class TransformerBlock(MegatronTransformerBlock):
 
                 layer_idx += self._recompute_num_layers
 
-        elif self.config.recompute_method == 'block':
+        elif self.config.recompute_method == "block":
             # Checkpoint the input activation of only a set number of individual
             # Transformer layers and skip the rest.
             # A method fully use the device memory removing redundant re-computation.

@@ -5,6 +5,7 @@
 # Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
 
 """Model chunk schedule plan."""
+
 from contextlib import nullcontext
 from typing import Optional, Dict
 
@@ -115,9 +116,7 @@ class TransformerLayerSchedulePlan:
         # get flags for latter use
         is_mtp = isinstance(self.layer, MultiTokenPredictionLayer)
         is_moe = (
-            isinstance(self.layer.transformer_layer.mlp, MoELayer)
-            if is_mtp
-            else isinstance(self.layer.mlp, MoELayer)
+            isinstance(self.layer.transformer_layer.mlp, MoELayer) if is_mtp else isinstance(self.layer.mlp, MoELayer)
         )
         enable_deepep = (
             self.layer.config.moe_token_dispatcher_type == "flex"
@@ -156,7 +155,7 @@ class TransformerLayerSchedulePlan:
             moe_combine_module,
             post_combine_module,
             mtp_post_process_module,
-            deepstack_module_wrapper
+            deepstack_module_wrapper,
         ) = fwd_callables
 
         # Create nodes for different operations in the layer
@@ -175,9 +174,7 @@ class TransformerLayerSchedulePlan:
             self.post_combine = NoopScheduleNode()
 
         if is_mtp:
-            self.mtp_post_process = create_node(
-                comp_stream, mtp_post_process_module, "mtp_post_process"
-            )
+            self.mtp_post_process = create_node(comp_stream, mtp_post_process_module, "mtp_post_process")
         else:
             self.mtp_post_process = NoopScheduleNode()
 
@@ -190,21 +187,17 @@ class TransformerLayerSchedulePlan:
         """
         Get the fp8 context for the transformer layer.
         """
-        use_inner_fp8_context = (
-            self.layer.config.fp8 and self.layer.config.fp8_recipe != Fp8Recipe.delayed
-        )
+        use_inner_fp8_context = self.layer.config.fp8 and self.layer.config.fp8_recipe != Fp8Recipe.delayed
         return (
-            get_fp8_context(self.layer.config, self.layer.layer_number - 1)
-            if use_inner_fp8_context
-            else nullcontext()
+            get_fp8_context(self.layer.config, self.layer.layer_number - 1) if use_inner_fp8_context else nullcontext()
         )
 
     @staticmethod
     def run(
-        f_layer, 
-        b_layer, 
-        f_input=None, 
-        b_grad=None, 
+        f_layer,
+        b_layer,
+        f_input=None,
+        b_grad=None,
         is_last_layer_in_bwd=False,
         early_comm_launch=False,
     ):
@@ -291,7 +284,7 @@ class TransformerLayerSchedulePlan:
                 f_input = f_layer.mtp_post_process.forward(f_input)
 
         # Delay the last attn_bwd in backward pass
-        # for overlapping with the p2p comm            
+        # for overlapping with the p2p comm
         if b_layer is not None and not is_last_layer_in_bwd:
             with b_layer.get_fp8_context():
                 b_grad = b_layer.attn.backward(b_grad)
@@ -397,7 +390,10 @@ class TransformerModelChunkSchedulePlan(AbstractSchedulePlan):
 
         # build preprocess
         self.pre_process = PreProcessNode(
-            model, self._model_chunk_state, self._event, comp_stream,
+            model,
+            self._model_chunk_state,
+            self._event,
+            comp_stream,
             enable_encoder_hetero_dp=enable_encoder_hetero_dp,
             batch_list=batch_list,
             forward_group_id=forward_group_id,
@@ -414,7 +410,6 @@ class TransformerModelChunkSchedulePlan(AbstractSchedulePlan):
         if hasattr(model, "foundation_model"):
             model = model.foundation_model
 
-
         # build layer schedule plan for each layer.
         # The methods to obtain layers are different for MTP so we need the other build plan for
         # MTP. Also, this can help annotate MTP layer so that it can know where MTP is.
@@ -423,9 +418,7 @@ class TransformerModelChunkSchedulePlan(AbstractSchedulePlan):
 
         # build post process
         if model.post_process:
-            self.post_process = PostProcessNode(
-                model, self._model_chunk_state, self._event, comp_stream
-            )
+            self.post_process = PostProcessNode(model, self._model_chunk_state, self._event, comp_stream)
 
     def _build_layer_schedule_plan(self, model, module, comp_stream, comm_stream):
         if module is None:
@@ -449,9 +442,9 @@ class TransformerModelChunkSchedulePlan(AbstractSchedulePlan):
             self._transformer_layers.append(layer_plan)
 
     def _get_deepstack_handler(self, model, layer_idx):
-        """ return deepstack process function if transformer layer has deepstack connection """
+        """return deepstack process function if transformer layer has deepstack connection"""
         if (
-            self._deepstack_indexes is not None 
+            self._deepstack_indexes is not None
             and len(self._deepstack_indexes) > 0
             and self.vp_stage == 0
             and layer_idx in range(len(self._deepstack_indexes))
@@ -460,7 +453,6 @@ class TransformerModelChunkSchedulePlan(AbstractSchedulePlan):
             assert deepstack_handler is not None
             return deepstack_handler
         return None
-
 
     @property
     def event(self):

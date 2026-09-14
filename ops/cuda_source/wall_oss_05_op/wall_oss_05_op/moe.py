@@ -84,9 +84,7 @@ class UnpermuteOp(OpsProxy):
             merge_factor = 1
         unpermuted_tokens = torch.zeros_like(permuted_tokens)
         unpermuted_tokens.index_copy_(0, sorted_indices.long(), permuted_tokens)
-        unpermuted_tokens = unpermuted_tokens.reshape(
-            -1, merge_factor, permuted_tokens.size(-1)
-        )
+        unpermuted_tokens = unpermuted_tokens.reshape(-1, merge_factor, permuted_tokens.size(-1))
         if probs is not None:
             unpermuted_tokens = unpermuted_tokens * probs.unsqueeze(-1)
         unpermuted_tokens = unpermuted_tokens.sum(dim=1)

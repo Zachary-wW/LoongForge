@@ -94,7 +94,8 @@ def _filter_supported_kwargs(func: Any, kwargs: Dict[str, Any]) -> Dict[str, Any
             _LOGGER.warning(
                 "predict_action dropped unsupported kwarg %r (value type=%s); "
                 "PayloadBuilder emits a field the model does not consume.",
-                k, type(v).__name__,
+                k,
+                type(v).__name__,
             )
     return filtered
 
@@ -131,4 +132,3 @@ def call_predict_action(
             f"model.predict_action returned action dim {actions.shape[-1]}, expected at least {action_dim}"
         )
     return actions[:, :action_dim]
-

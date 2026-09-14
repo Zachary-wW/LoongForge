@@ -410,5 +410,3 @@ def get_image_features(
     split_sizes = (image_grid_thw.prod(-1) // model.visual.spatial_merge_size**2).tolist()
     image_embeds = torch.split(image_embeds, split_sizes)
     return image_embeds, deepstack_image_embeds
-
-

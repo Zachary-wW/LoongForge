@@ -13,12 +13,12 @@ from megatron.core.datasets.megatron_tokenizer import MegatronLegacyTokenizer
 
 class AutoTokenizerFromHF(MegatronLegacyTokenizer):
     """
-    Here we adopt the approach of wrapping HF Tokenizer and inheriting from MegatronTokenizer. 
-	The purpose of this approach is:
-    1. User experience is consistent with using HF, 
-	   convenient to use the functions provided by HuggingFace Tokenizer, 
+    Here we adopt the approach of wrapping HF Tokenizer and inheriting from MegatronTokenizer.
+        The purpose of this approach is:
+    1. User experience is consistent with using HF,
+           convenient to use the functions provided by HuggingFace Tokenizer,
        and interfaces can be extended if needed;
-    2. Meets the interface definition of MegatronTokenizer, 
+    2. Meets the interface definition of MegatronTokenizer,
        avoiding incompatibility issues with Megatron interfaces;
     """
 
@@ -92,9 +92,7 @@ class AutoTokenizerFromHF(MegatronLegacyTokenizer):
             **kwargs,
         )
 
-    def convert_tokens_to_ids(
-        self, tokens: Union[str, List[str]]
-    ) -> Union[int, List[int]]:
+    def convert_tokens_to_ids(self, tokens: Union[str, List[str]]) -> Union[int, List[int]]:
         """
         Converts a token string (or a sequence of tokens) in a single integer id (or a sequence of ids), using the
         vocabulary.
@@ -117,9 +115,7 @@ class AutoTokenizerFromHF(MegatronLegacyTokenizer):
         Returns:
             `int`: Number of tokens added to the vocabulary.
         """
-        return self.tokenizer.add_special_tokens(
-            special_tokens_dict, replace_additional_special_tokens
-        )
+        return self.tokenizer.add_special_tokens(special_tokens_dict, replace_additional_special_tokens)
 
     @property
     def vocab(self) -> Dict[str, int]:

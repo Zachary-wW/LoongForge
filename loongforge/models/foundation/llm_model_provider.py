@@ -12,9 +12,7 @@ from contextlib import nullcontext
 from transformers import AutoModel
 
 from megatron.core.transformer.spec_utils import import_module
-from loongforge.utils import (
-    get_args, get_model_config, print_rank_0
-)
+from loongforge.utils import get_args, get_model_config, print_rank_0
 from loongforge.models.common import BaseMegatronLanguageModule
 
 
@@ -25,12 +23,12 @@ def llm_model_provider(
     vp_stage: Optional[int] = None,
 ):
     """Generic LLM model provider.
-    
+
     Args:
         pre_process (bool, optional): Set to true if you need to compute embedings. Defaults to True.
         post_process (bool, optional): Set to true if you need to want to compute output logits/loss. Defaults to True.
         parallel_output (bool): whether to allgather the output logits. Defaults to True.
-    
+
     Returns:
         The corresponding LLM model.
     """
@@ -42,7 +40,7 @@ def llm_model_provider(
 
     if args.use_legacy_models:
         raise ValueError("Classic Megatron-LM models are not supported.")
-    
+
     # TODO: abstract this to a common dataclass
     config.padded_vocab_size = args.padded_vocab_size
     config.fp16_lm_cross_entropy = args.fp16_lm_cross_entropy
@@ -71,8 +69,7 @@ def llm_model_provider(
             if "preserve_high_precision_init_val" in inspect.signature(fp8_model_init).parameters:
                 build_model_context_args["preserve_high_precision_init_val"] = True
         except:
-            raise RuntimeError(
-                "--fp8-param-gather requires `fp8_model_init` from TransformerEngine,but not found.")
+            raise RuntimeError("--fp8-param-gather requires `fp8_model_init` from TransformerEngine,but not found.")
 
     with build_model_context(**build_model_context_args):
         model: BaseMegatronLanguageModule = AutoModel.from_config(
@@ -97,6 +94,7 @@ def llm_model_provider(
     if _has_selective_fp8:
         try:
             from megatron.core.fp8_utils import validate_selective_fp8_coverage
+
             validate_selective_fp8_coverage(model)
         except ImportError:
             pass

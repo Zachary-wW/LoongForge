@@ -17,28 +17,25 @@ import time
 import pytest
 import torch
 
-pytestmark = pytest.mark.skipif(
-    not torch.cuda.is_available(), reason="wall_oss_0_5 tests require CUDA"
-)
+pytestmark = pytest.mark.skipif(not torch.cuda.is_available(), reason="wall_oss_0_5 tests require CUDA")
 
 
 @pytest.fixture(scope="module")
 def ext():
     """Load the CUDA extension via the package loader."""
     from wall_oss_05_op._cuda_ext import load
+
     try:
         return load()
     except ImportError:
-        pytest.fail(
-            "CUDA extension is not built; run "
-            "`pip install --no-build-isolation -e .` first"
-        )
+        pytest.fail("CUDA extension is not built; run `pip install --no-build-isolation -e .` first")
 
 
 @pytest.fixture(scope="module")
 def ext_exact():
     """Load the bitwise-exact CUDA extension."""
     from wall_oss_05_op._cuda_ext import load_exact, is_exact_available
+
     if not is_exact_available():
         pytest.skip("exact extension not available")
     return load_exact()
@@ -47,6 +44,7 @@ def ext_exact():
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _rotate_half(x):
     half = x.shape[-1] // 2
@@ -83,6 +81,7 @@ def _bench(fn, warmup=100, iters=500):
 # ---------------------------------------------------------------------------
 # Original correctness tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("interleave", [False, True])
 def test_rope_forward_and_backward(ext, interleave):
@@ -122,8 +121,12 @@ def test_m_rope_gqa(ext):
     k_out = torch.empty_like(k)
     ext.m_rope(q, k, q_out, k_out, cos, sin, first, second)
 
-    cos_half = torch.cat((cos[0, ..., :first], cos[1, ..., first:first+second], cos[2, ..., first+second:]), dim=-1)
-    sin_half = torch.cat((sin[0, ..., :first], sin[1, ..., first:first+second], sin[2, ..., first+second:]), dim=-1)
+    cos_half = torch.cat(
+        (cos[0, ..., :first], cos[1, ..., first : first + second], cos[2, ..., first + second :]), dim=-1
+    )
+    sin_half = torch.cat(
+        (sin[0, ..., :first], sin[1, ..., first : first + second], sin[2, ..., first + second :]), dim=-1
+    )
     cos_sel = torch.cat((cos_half, cos_half), dim=-1).unsqueeze(2)
     sin_sel = torch.cat((sin_half, sin_half), dim=-1).unsqueeze(2)
     torch.testing.assert_close(q_out, q.float() * cos_sel + _rotate_half(q) * sin_sel)
@@ -182,11 +185,13 @@ def test_permute_unpermute_topk(ext):
 # Extended correctness tests (ops refactored to use package-level imports)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("interleave", [False, True])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
 def test_rope_package_api_matches_cuda(ext, interleave, dtype):
     """Package-level rope() must match raw CUDA kernel for multiple dtypes."""
     from wall_oss_05_op import rope as rope_op
+
     torch.manual_seed(3)
     shape = (2, 8, 4, 32)
     q = torch.randn(shape, device="cuda", dtype=dtype)
@@ -207,6 +212,7 @@ def test_rope_package_api_matches_cuda(ext, interleave, dtype):
 def test_rmsnorm_exact_matches_pytorch(ext_exact, dtype):
     """Exact RMSNorm CUDA must match eager PyTorch forward."""
     from wall_oss_05_op._cuda_wrappers import rmsnorm_exact_kernel
+
     torch.manual_seed(7)
     hs = torch.randn(64, 256, device="cuda", dtype=dtype)
     w = torch.randn(256, device="cuda", dtype=dtype)
@@ -344,6 +350,7 @@ def test_swiglu_exact_matches_pytorch(ext_exact, dtype):
     """Exact SwiGLU CUDA must match eager PyTorch forward."""
     from wall_oss_05_op._cuda_wrappers import swiglu_exact_kernel
     import torch.nn.functional as F
+
     torch.manual_seed(9)
     gate = torch.randn(32, 128, device="cuda", dtype=dtype)
     up = torch.randn_like(gate)
@@ -356,6 +363,7 @@ def test_swiglu_exact_matches_pytorch(ext_exact, dtype):
 def test_rope_pytorch_fallback_matches_cuda(ext, interleave):
     """PyTorch fallback (no CUDA) must match CUDA kernel numerically."""
     from wall_oss_05_op.rope import RoPEOp
+
     torch.manual_seed(5)
     shape = (2, 6, 4, 32)
     q = torch.randn(shape, device="cuda", dtype=torch.float32)
@@ -380,6 +388,7 @@ def test_rope_pytorch_fallback_matches_cuda(ext, interleave):
 def test_permute_package_api_matches_cuda(ext):
     """Package-level permute/unpermute must match raw CUDA kernel."""
     from wall_oss_05_op import permute as permute_op, unpermute as unpermute_op
+
     torch.manual_seed(11)
     tokens = torch.randn(8, 64, device="cuda", dtype=torch.float32)
     indices = torch.randint(0, 4, (8,), device="cuda", dtype=torch.int32)
@@ -411,6 +420,7 @@ def test_window_index_multi_grid(ext):
 # Performance benchmarks (CUDA kernel vs PyTorch fallback)
 # ---------------------------------------------------------------------------
 
+
 def test_bench_rope_cuda_vs_pytorch(ext):
     """Benchmark: CUDA rope vs PyTorch reference. CUDA should be faster."""
     torch.manual_seed(42)
@@ -430,7 +440,7 @@ def test_bench_rope_cuda_vs_pytorch(ext):
 
     t_cuda = _bench(cuda_fn)
     t_pt = _bench(pt_fn)
-    print(f"\n[RoPE bench] CUDA={t_cuda:.1f}µs  PyTorch={t_pt:.1f}µs  speedup={t_pt/t_cuda:.2f}x")
+    print(f"\n[RoPE bench] CUDA={t_cuda:.1f}µs  PyTorch={t_pt:.1f}µs  speedup={t_pt / t_cuda:.2f}x")
     # CUDA kernel must be at least as fast as pure PyTorch
     assert t_cuda <= t_pt * 2.0, f"CUDA ({t_cuda:.1f}µs) unexpectedly slow vs PyTorch ({t_pt:.1f}µs)"
 
@@ -438,6 +448,7 @@ def test_bench_rope_cuda_vs_pytorch(ext):
 def test_bench_rmsnorm_exact_vs_pytorch(ext_exact):
     """Benchmark: exact RMSNorm CUDA vs PyTorch eager."""
     from wall_oss_05_op._cuda_wrappers import rmsnorm_exact_kernel
+
     torch.manual_seed(42)
     rows, hidden = 1024, 4096
     hs = torch.randn(rows, hidden, device="cuda", dtype=torch.bfloat16)
@@ -454,13 +465,14 @@ def test_bench_rmsnorm_exact_vs_pytorch(ext_exact):
 
     t_cuda = _bench(cuda_fn)
     t_pt = _bench(pt_fn)
-    print(f"\n[RMSNorm bench] CUDA={t_cuda:.1f}µs  PyTorch={t_pt:.1f}µs  speedup={t_pt/t_cuda:.2f}x")
+    print(f"\n[RMSNorm bench] CUDA={t_cuda:.1f}µs  PyTorch={t_pt:.1f}µs  speedup={t_pt / t_cuda:.2f}x")
     assert t_cuda <= t_pt * 3.0, f"CUDA ({t_cuda:.1f}µs) unexpectedly slow vs PyTorch ({t_pt:.1f}µs)"
 
 
 def test_bench_permute_cuda_vs_pytorch(ext):
     """Benchmark: MoE permute CUDA vs PyTorch fallback."""
     from wall_oss_05_op.moe import PermuteOp
+
     torch.manual_seed(42)
     N, D, topk = 1024, 256, 2
     tokens = torch.randn(N, D, device="cuda", dtype=torch.bfloat16)
@@ -483,7 +495,7 @@ def test_bench_permute_cuda_vs_pytorch(ext):
 
     t_cuda = _bench(cuda_fn)
     t_pt = _bench(pt_fn)
-    print(f"\n[Permute bench] CUDA={t_cuda:.1f}µs  PyTorch={t_pt:.1f}µs  speedup={t_pt/t_cuda:.2f}x")
+    print(f"\n[Permute bench] CUDA={t_cuda:.1f}µs  PyTorch={t_pt:.1f}µs  speedup={t_pt / t_cuda:.2f}x")
     # Just report; CUB radix sort vs torch.argsort may vary
 
 
@@ -492,9 +504,11 @@ def test_bench_permute_cuda_vs_pytorch(ext):
 # Tests exercise each exported symbol via the top-level package import.
 # ---------------------------------------------------------------------------
 
+
 def test_public_api_rope():
     """rope() via top-level import with correct float32 cos/sin."""
     from wall_oss_05_op import rope
+
     B, H, S, D = 2, 8, 16, 32
     q = torch.randn(B, H, S, D, device="cuda", dtype=torch.bfloat16)
     k = torch.randn(B, 4, S, D, device="cuda", dtype=torch.bfloat16)
@@ -509,6 +523,7 @@ def test_public_api_rope():
 def test_public_api_m_rope():
     """m_rope() via top-level import."""
     from wall_oss_05_op import m_rope
+
     B, H, S, D = 2, 8, 16, 32
     q = torch.randn(B, H, S, D, device="cuda", dtype=torch.bfloat16)
     k = torch.randn(B, 4, S, D, device="cuda", dtype=torch.bfloat16)
@@ -528,12 +543,8 @@ def test_public_api_m_rope_pack_matches_split_path():
     q_dim = hq * d
     kv_dim = hkv * d
     first, second = 8, 8
-    qkv_data = torch.randn(
-        (b, s, q_dim + 2 * kv_dim), device="cuda", dtype=torch.bfloat16
-    )
-    cos = torch.randn(
-        (3, b, s, d // 2), device="cuda", dtype=torch.float32
-    )
+    qkv_data = torch.randn((b, s, q_dim + 2 * kv_dim), device="cuda", dtype=torch.bfloat16)
+    cos = torch.randn((3, b, s, d // 2), device="cuda", dtype=torch.float32)
     sin = torch.randn_like(cos)
 
     qkv_ref = qkv_data.detach().clone().requires_grad_()
@@ -550,22 +561,19 @@ def test_public_api_m_rope_pack_matches_split_path():
     )
 
     qkv_candidate = qkv_data.detach().clone().requires_grad_()
-    candidate = m_rope.pack(
-        qkv_candidate, hq, hkv, cos, sin, (first, second)
-    )
+    candidate = m_rope.pack(qkv_candidate, hq, hkv, cos, sin, (first, second))
     torch.testing.assert_close(candidate, reference, rtol=0, atol=0)
 
     upstream = torch.randn_like(reference)
     (reference * upstream).sum().backward()
     (candidate * upstream).sum().backward()
-    torch.testing.assert_close(
-        qkv_candidate.grad, qkv_ref.grad, rtol=0, atol=0
-    )
+    torch.testing.assert_close(qkv_candidate.grad, qkv_ref.grad, rtol=0, atol=0)
 
 
 def test_public_api_rmsnorm():
     """rmsnorm() via top-level import with matching float32 weight."""
     from wall_oss_05_op import rmsnorm
+
     hs = torch.randn(32, 64, device="cuda", dtype=torch.float32)
     w = torch.randn(64, device="cuda", dtype=torch.float32)
     out = rmsnorm(hs, w, 1e-6)
@@ -575,6 +583,7 @@ def test_public_api_rmsnorm():
 def test_public_api_swiglu():
     """swiglu() via top-level import."""
     from wall_oss_05_op import swiglu
+
     gate = torch.randn(8, 128, device="cuda", dtype=torch.bfloat16)
     up = torch.randn_like(gate)
     out = swiglu(gate, up)
@@ -585,6 +594,7 @@ def test_public_api_swiglu():
 def test_public_api_permute_unpermute():
     """permute() and unpermute() via top-level import, single top-k."""
     from wall_oss_05_op import permute, unpermute
+
     N, D = 16, 32
     tokens = torch.randn(N, D, device="cuda", dtype=torch.bfloat16)
     indices = torch.randint(0, 4, (N,), device="cuda", dtype=torch.int32)
@@ -603,19 +613,13 @@ def test_single_qkv_unpermute_matches_three_separate_unpermutes():
     torch.manual_seed(4)
     n, q_dim, kv_dim = 37, 64, 16
     qkv_dim = q_dim + 2 * kv_dim
-    qkv_data = torch.randn(
-        (n, qkv_dim), device="cuda", dtype=torch.bfloat16
-    )
-    expert_indices = torch.randint(
-        0, 2, (n,), device="cuda", dtype=torch.int32
-    )
+    qkv_data = torch.randn((n, qkv_dim), device="cuda", dtype=torch.bfloat16)
+    expert_indices = torch.randint(0, 2, (n,), device="cuda", dtype=torch.int32)
     permuted, row_map = permute(qkv_data, expert_indices)
     probs = torch.rand((n, 1), device="cuda", dtype=torch.float32)
 
     packed_ref = permuted.detach().clone().requires_grad_()
-    q_ref, k_ref, v_ref = torch.split(
-        packed_ref, (q_dim, kv_dim, kv_dim), dim=-1
-    )
+    q_ref, k_ref, v_ref = torch.split(packed_ref, (q_dim, kv_dim, kv_dim), dim=-1)
     reference = torch.cat(
         (
             unpermute(q_ref, row_map, probs),
@@ -632,9 +636,7 @@ def test_single_qkv_unpermute_matches_three_separate_unpermutes():
     upstream = torch.randn_like(reference)
     (reference * upstream).sum().backward()
     (candidate * upstream).sum().backward()
-    torch.testing.assert_close(
-        packed_candidate.grad, packed_ref.grad, rtol=0, atol=0
-    )
+    torch.testing.assert_close(packed_candidate.grad, packed_ref.grad, rtol=0, atol=0)
 
 
 def test_public_api_get_rope_index(ext):
@@ -655,6 +657,7 @@ def test_public_api_get_rope_index(ext):
 def test_public_api_get_window_index(ext):
     """get_window_index() via top-level import (same kernel path as get_rope_index)."""
     from wall_oss_05_op import get_window_index
+
     # Verify the public API is callable; correctness tested via ext in other tests.
     assert callable(get_window_index)
 

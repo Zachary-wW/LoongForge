@@ -71,9 +71,7 @@ def resolve_fp8_targets(model: nn.Module, training_args) -> tuple[Any, Any]:
     else:
         reason = unsupported
     if reason:
-        raise ValueError(
-            f"--fp8 is not supported by {type(model).__name__}: {reason}"
-        )
+        raise ValueError(f"--fp8 is not supported by {type(model).__name__}: {reason}")
 
     defaults = dict(get_default_fp8_targets(model) or {})
 

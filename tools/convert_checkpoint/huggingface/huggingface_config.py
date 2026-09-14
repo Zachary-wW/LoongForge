@@ -12,7 +12,7 @@ from pprint import pprint
 
 class HuggingFaceConfig(AbstractConfig):
     """
-        HuggingFaceConfig
+    HuggingFaceConfig
     """
 
     def __init__(self):
@@ -33,12 +33,11 @@ class HuggingFaceConfig(AbstractConfig):
 
     def save(self, save_path):
         """
-            save config
+        save config
         """
         os.makedirs(save_path, exist_ok=True)
         config_path = os.path.join(save_path, "config.json")
-        with open(config_path, 'w', encoding='utf-8') as f:
+        with open(config_path, "w", encoding="utf-8") as f:
             json.dump(self.data, f, ensure_ascii=False, indent=4)
         print(f"Saving HuggingFace config to {config_path}")
         pprint(self.data)
-        

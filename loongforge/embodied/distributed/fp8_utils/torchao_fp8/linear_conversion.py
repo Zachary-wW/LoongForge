@@ -20,24 +20,16 @@ def build_torchao_config(training_args):
     try:
         from torchao.float8.config import Float8LinearConfig
     except ImportError as exc:
-        raise RuntimeError(
-            "--fp8-backend=torchao requires torchao.float8."
-        ) from exc
+        raise RuntimeError("--fp8-backend=torchao requires torchao.float8.") from exc
 
-    config = Float8LinearConfig.from_recipe_name(
-        training_args.fp8_torchao_recipe
-    )
+    config = Float8LinearConfig.from_recipe_name(training_args.fp8_torchao_recipe)
     return replace(
         config,
         pad_inner_dim=training_args.fp8_torchao_pad_inner_dim,
-        enable_fsdp_float8_all_gather=(
-            training_args.fp8_torchao_fsdp_float8_all_gather
-        ),
+        enable_fsdp_float8_all_gather=(training_args.fp8_torchao_fsdp_float8_all_gather),
         # With FSDP2, recompute the FP8 weight in backward instead of retaining
         # a complete unsharded FP8 weight/transpose from the forward pass.
-        force_recompute_fp8_weight_in_bwd=(
-            training_args.fp8_torchao_fsdp_float8_all_gather
-        ),
+        force_recompute_fp8_weight_in_bwd=(training_args.fp8_torchao_fsdp_float8_all_gather),
     )
 
 
@@ -80,30 +72,20 @@ def convert_linear_to_torchao(
     try:
         from torchao.float8 import convert_to_float8_training
     except ImportError as exc:
-        raise RuntimeError(
-            "--fp8-backend=torchao requires "
-            "torchao.float8.convert_to_float8_training."
-        ) from exc
+        raise RuntimeError("--fp8-backend=torchao requires torchao.float8.convert_to_float8_training.") from exc
 
     config = build_torchao_config(training_args)
     convert_to_float8_training(
         model,
         config=config,
-        module_filter_fn=lambda module, fqn: (
-            type(module) is nn.Linear and fqn in eligible_keys
-        ),
+        module_filter_fn=lambda module, fqn: (type(module) is nn.Linear and fqn in eligible_keys),
     )
     converted_keys = [
-        module_key
-        for module_key in eligible_keys
-        if type(model.get_submodule(module_key)) is not nn.Linear
+        module_key for module_key in eligible_keys if type(model.get_submodule(module_key)) is not nn.Linear
     ]
     failed_keys = sorted(eligible_keys.difference(converted_keys))
     if failed_keys:
-        raise RuntimeError(
-            "TorchAO FP8 conversion did not replace nn.Linear at: "
-            + ", ".join(failed_keys)
-        )
+        raise RuntimeError("TorchAO FP8 conversion did not replace nn.Linear at: " + ", ".join(failed_keys))
     logger.info(
         "Converted nn.Linear to TorchAO Float8Linear: converted=%d "
         "skipped_by_pattern=%d below_min_dim=%d unaligned_inner=%d "

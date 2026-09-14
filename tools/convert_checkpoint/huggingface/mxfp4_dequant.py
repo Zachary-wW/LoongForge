@@ -47,6 +47,7 @@ def progress_print(message: str) -> None:
         pass
     print(message, flush=True)
 
+
 # OCP MXFP4: 32 E2M1 values share one E8M0 block scale.
 DEFAULT_MXFP4_BLOCK_SIZE = 32
 
@@ -79,8 +80,7 @@ def _as_uint8(tensor: torch.Tensor, name: str) -> torch.Tensor:
     if tensor.dtype in _UINT8_VIEW_COMPATIBLE or tensor.dtype in _FLOAT8_DTYPES:
         return tensor.view(torch.uint8)
     raise TypeError(
-        f"{name}: expected an 8-bit packed/scale dtype "
-        f"(uint8/int8/float8_e8m0fnu/e4m3fn/e5m2), got {tensor.dtype}."
+        f"{name}: expected an 8-bit packed/scale dtype (uint8/int8/float8_e8m0fnu/e4m3fn/e5m2), got {tensor.dtype}."
     )
 
 
@@ -137,9 +137,7 @@ def dequantize_mxfp4(
     # 1) Split each byte into its two E2M1 nibbles -> uint4 indices (last dim x2).
     low_nibble = weight & 0x0F
     high_nibble = (weight >> 4) & 0x0F
-    idx = torch.empty(
-        weight.shape[:-1] + (out_last,), dtype=torch.uint8, device=weight.device
-    )
+    idx = torch.empty(weight.shape[:-1] + (out_last,), dtype=torch.uint8, device=weight.device)
     idx[..., 0::2] = low_nibble
     idx[..., 1::2] = high_nibble
 
@@ -198,32 +196,27 @@ def dequantize_mxfp4_state_dict(
             for k in state_dict
             if k.endswith(".weight")
             and state_dict[k].dtype in _UINT8_VIEW_COMPATIBLE
-            and f"{k[:-len('.weight')]}.scale" in state_dict
+            and f"{k[: -len('.weight')]}.scale" in state_dict
         )
     else:
         weight_keys = []
         missing = []
         for weight_key in sorted(target_weight_keys):
             if not weight_key.endswith(".weight"):
-                raise ValueError(
-                    f"MXFP4 dequant target must end with '.weight', got: {weight_key}"
-                )
+                raise ValueError(f"MXFP4 dequant target must end with '.weight', got: {weight_key}")
             if weight_key not in state_dict:
                 missing.append(weight_key)
                 continue
             if state_dict[weight_key].dtype not in _UINT8_VIEW_COMPATIBLE:
                 continue  # not MXFP4 (already float / FP8) — skip silently
-            scale_key = f"{weight_key[:-len('.weight')]}.scale"
+            scale_key = f"{weight_key[: -len('.weight')]}.scale"
             if scale_key not in state_dict:
                 continue
             weight_keys.append(weight_key)
         if missing:
             preview = ", ".join(missing[:5])
             suffix = "" if len(missing) <= 5 else f", ... ({len(missing)} total)"
-            raise KeyError(
-                "MXFP4 dequant targeted weight(s) not loaded in state_dict: "
-                f"{preview}{suffix}"
-            )
+            raise KeyError(f"MXFP4 dequant targeted weight(s) not loaded in state_dict: {preview}{suffix}")
 
     if not weight_keys:
         return 0

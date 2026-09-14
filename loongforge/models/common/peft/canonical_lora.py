@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""""canonical lora layer"""
+""" "canonical lora layer"""
 
 import logging
 from dataclasses import dataclass, field
@@ -28,7 +28,11 @@ from loongforge.models.common.peft.adapter_wrapper import AdapterWrapper
 from loongforge.models.common.peft.base import PEFT
 from loongforge.models.common.peft.lora_layers import LinearAdapter, LoRALinear, LoRATopKRouter
 from loongforge.models.common.peft.module_matcher import ModuleMatcher
-from loongforge.models.common.peft.utils import ParallelLinearAdapter, get_adapter_attributes_from_linear, is_expert_linear
+from loongforge.models.common.peft.utils import (
+    ParallelLinearAdapter,
+    get_adapter_attributes_from_linear,
+    is_expert_linear,
+)
 
 
 logger = logging.getLogger(__name__)

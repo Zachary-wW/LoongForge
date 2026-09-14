@@ -63,6 +63,7 @@ from .dsa_fused_kernels import (
     fused_rope_permute_cat,
 )
 
+
 class MLASelfAttentionFused(MLASelfAttention):
     """Omni-side MLA class that preserves the rolled-back DSA absorb path."""
 
@@ -97,10 +98,11 @@ class MLASelfAttentionFused(MLASelfAttention):
             self.v_channels = self.config.v_head_dim
             self.padding_v_head_dim = False
 
-        self.absorb_backend = getattr(self.config, 'absorb_backend', None)
+        self.absorb_backend = getattr(self.config, "absorb_backend", None)
         if self.absorb_backend is None:
             from megatron.training import get_args
-            self.absorb_backend = getattr(get_args(), 'absorb_backend', 'te')
+
+            self.absorb_backend = getattr(get_args(), "absorb_backend", "te")
 
         if self.absorb_backend == "torch":
             # torch backend: use einsum with sliced weights from linear_kv_up_proj
@@ -109,9 +111,7 @@ class MLASelfAttentionFused(MLASelfAttention):
         else:
             # TE backend: use TEGroupedLinear absorb modules
             if TEGroupedLinear is None:
-                raise ImportError(
-                    "--use-dsa-fused requires TEGroupedLinear from transformer_engine."
-                )
+                raise ImportError("--use-dsa-fused requires TEGroupedLinear from transformer_engine.")
 
             self.linear_kv_up_proj_absorb_q = build_module(
                 TEGroupedLinear,
@@ -213,7 +213,7 @@ class MLASelfAttentionFused(MLASelfAttention):
         full = full.to(shard_original_device)
 
         hp_full = None
-        if is_fp8 and hasattr(weight, 'get_high_precision_init_val'):
+        if is_fp8 and hasattr(weight, "get_high_precision_init_val"):
             hp_shard = weight.get_high_precision_init_val().to(torch.cuda.current_device())
             hp_buf = [torch.empty_like(hp_shard) for _ in range(tp_world_size)]
             torch.distributed.all_gather(hp_buf, hp_shard, group=tp_group)
@@ -271,9 +271,7 @@ class MLASelfAttentionFused(MLASelfAttention):
         - ``linear_kv_up_proj_absorb_output`` — TEGroupedLinear (partial heads) → full heads
         """
         if _TELinear is None:
-            raise ImportError(
-                "--use-dsa-sp-first requires TELinear from transformer_engine."
-            )
+            raise ImportError("--use-dsa-sp-first requires TELinear from transformer_engine.")
 
         # ---- Re-init all 4 modules as duplicated (non-TP) ----
         del self.linear_q_up_proj
@@ -395,7 +393,7 @@ class MLASelfAttentionFused(MLASelfAttention):
             kv_up_weight = self.linear_kv_up_proj.weight.clone().detach()
             kv_up_weight_hp = None
             if is_float8tensor(kv_up_weight):
-                if hasattr(self.linear_kv_up_proj.weight, 'get_high_precision_init_val'):
+                if hasattr(self.linear_kv_up_proj.weight, "get_high_precision_init_val"):
                     kv_up_weight_hp = self.linear_kv_up_proj.weight.get_high_precision_init_val()
                 kv_up_weight = kv_up_weight.dequantize()
 
@@ -414,9 +412,7 @@ class MLASelfAttentionFused(MLASelfAttention):
             else:
                 num_heads = self.num_attention_heads_per_partition
 
-            kv_up_weight = kv_up_weight.view(
-                num_heads, -1, self.config.kv_lora_rank
-            )
+            kv_up_weight = kv_up_weight.view(num_heads, -1, self.config.kv_lora_rank)
             k_up_proj, v_up_proj = torch.split(
                 kv_up_weight,
                 [self.config.qk_head_dim, self.config.v_head_dim],
@@ -427,9 +423,7 @@ class MLASelfAttentionFused(MLASelfAttention):
 
             k_up_proj_hp = v_up_proj_hp = None
             if kv_up_weight_hp is not None:
-                kv_up_weight_hp = kv_up_weight_hp.view(
-                    num_heads, -1, self.config.kv_lora_rank
-                )
+                kv_up_weight_hp = kv_up_weight_hp.view(num_heads, -1, self.config.kv_lora_rank)
                 k_up_proj_hp, v_up_proj_hp = torch.split(
                     kv_up_weight_hp,
                     [self.config.qk_head_dim, self.config.v_head_dim],
@@ -439,52 +433,43 @@ class MLASelfAttentionFused(MLASelfAttention):
                 v_up_proj_hp = v_up_proj_hp.contiguous()
 
             for head_idx in range(num_heads):
-                q_absorb_weight = getattr(
-                    self.linear_kv_up_proj_absorb_q, f"weight{head_idx}"
-                )
+                q_absorb_weight = getattr(self.linear_kv_up_proj_absorb_q, f"weight{head_idx}")
                 if is_float8tensor(q_absorb_weight):
                     q_absorb_weight.quantize_(k_up_proj[head_idx])
-                    if k_up_proj_hp is not None and hasattr(
-                        q_absorb_weight, 'set_high_precision_init_val'
-                    ):
+                    if k_up_proj_hp is not None and hasattr(q_absorb_weight, "set_high_precision_init_val"):
                         q_absorb_weight.set_high_precision_init_val(k_up_proj_hp[head_idx])
                 else:
                     q_absorb_weight.copy_(k_up_proj[head_idx])
 
-                output_absorb_weight = getattr(
-                    self.linear_kv_up_proj_absorb_output, f"weight{head_idx}"
-                )
+                output_absorb_weight = getattr(self.linear_kv_up_proj_absorb_output, f"weight{head_idx}")
                 if is_float8tensor(output_absorb_weight):
                     output_absorb_weight.quantize_(v_up_proj[head_idx])
-                    if v_up_proj_hp is not None and hasattr(
-                        output_absorb_weight, 'set_high_precision_init_val'
-                    ):
-                        output_absorb_weight.set_high_precision_init_val(
-                            v_up_proj_hp[head_idx]
-                        )
+                    if v_up_proj_hp is not None and hasattr(output_absorb_weight, "set_high_precision_init_val"):
+                        output_absorb_weight.set_high_precision_init_val(v_up_proj_hp[head_idx])
                 else:
                     output_absorb_weight.copy_(v_up_proj[head_idx])
 
     def concat_cached_chunk_key_value_dsa(self, curr_key):
         """Concatenate all cached key chunks for DSA path in chunkpipe.
-        
+
         Unlike standard MLA, DSA stores key as [kv_compressed, k_pos_emb] directly
         without up-projection, and value is always None.
-        
+
         Args:
             attention_mask (Tensor): Attention mask tensor for the current chunk
-            curr_key (Tensor): Current chunk's key tensor with shape 
+            curr_key (Tensor): Current chunk's key tensor with shape
                 [chunksize, batch_size, kv_lora_rank + qk_pos_emb_head_dim]
-        
+
         Returns:
             tuple: (concatenated_key, None)
         """
         if not self.config.enable_chunkpipe:
             raise RuntimeError("Chunk concatenation requires chunkpipe to be enabled.")
-        
+
         is_forward = self.config.chunkpipe_forward
-        microbatch_idx = (self.config.chunkpipe_forward_microbatch if is_forward 
-                         else self.config.chunkpipe_backward_microbatch)
+        microbatch_idx = (
+            self.config.chunkpipe_forward_microbatch if is_forward else self.config.chunkpipe_backward_microbatch
+        )
         current_chunk_idx = microbatch_idx % self.num_chunks_per_seq
         start_microbatch_idx = microbatch_idx - current_chunk_idx
 
@@ -493,38 +478,44 @@ class MLASelfAttentionFused(MLASelfAttention):
         # DSA key shape: [seq, batch, kv_lora_rank + qk_pos_emb_head_dim]
         key_hidden_size = self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim
         concatenated_key_shape = (total_concatenated_tokens, self.config.micro_batch_size, key_hidden_size)
-        
-        concatenated_key = torch.zeros(concatenated_key_shape,
-            device=self.kv_compressed_cache.device, dtype=self.kv_compressed_cache.dtype)
+
+        concatenated_key = torch.zeros(
+            concatenated_key_shape, device=self.kv_compressed_cache.device, dtype=self.kv_compressed_cache.dtype
+        )
 
         def kv_compressed_hook_fn(chunk_index):
             """Hook function to accumulate gradient for cached compressed KV."""
+
             def hook_fn(grad):
                 if chunk_index not in self.kv_compressed_cache_grad:
                     self.kv_compressed_cache_grad[chunk_index] = grad
                 else:
                     self.kv_compressed_cache_grad[chunk_index] += grad
-                return grad           
+                return grad
+
             return hook_fn
 
         def key_pos_emb_hook_fn(chunk_index):
             """Hook function to accumulate gradient for cached key position embeddings."""
+
             def hook_fn(grad):
                 if chunk_index not in self.key_pos_emb_cache_grad:
                     self.key_pos_emb_cache_grad[chunk_index] = grad
                 else:
                     self.key_pos_emb_cache_grad[chunk_index] += grad
-                return grad           
+                return grad
+
             return hook_fn
-        
+
         # Retrieve all previous chunks from cache
         current_pos = 0
         for prev_chunk_idx in range(current_chunk_idx):
             cache_chunk_idx = self.micro_batch_to_cache_chunk_map[start_microbatch_idx + prev_chunk_idx]
-            
+
             tp_size = parallel_state.get_tensor_model_parallel_world_size()
-            kv_indices = torch.arange(self.config.chunksize // tp_size) + \
-                (cache_chunk_idx * self.config.chunksize // tp_size)
+            kv_indices = torch.arange(self.config.chunksize // tp_size) + (
+                cache_chunk_idx * self.config.chunksize // tp_size
+            )
             pos_indices = torch.arange(self.config.chunksize) + (cache_chunk_idx * self.config.chunksize)
 
             cached_kv_compressed = self.kv_compressed_cache[kv_indices, :, :]
@@ -536,27 +527,34 @@ class MLASelfAttentionFused(MLASelfAttention):
                 cached_key_pos_emb.requires_grad = True
                 cached_kv_compressed.register_hook(kv_compressed_hook_fn(prev_chunk_idx))
                 cached_key_pos_emb.register_hook(key_pos_emb_hook_fn(prev_chunk_idx))
-            
+
             # For DSA: need to gather kv_compressed if sequence parallel, then cat
             if self.config.sequence_parallel:
                 cached_kv_compressed_all = gather_from_sequence_parallel_region(cached_kv_compressed)
             else:
                 cached_kv_compressed_all = cached_kv_compressed
-            
+
             # Reconstruct key as [kv_compressed, k_pos_emb]
             cached_key = torch.cat([cached_kv_compressed_all, cached_key_pos_emb.squeeze(1)], dim=-1)
-            
+
             concatenated_key[current_pos : current_pos + self.config.chunksize, :, :] = cached_key
             current_pos += self.config.chunksize
 
         # Add current chunk's key
         concatenated_key[current_pos : current_pos + self.config.chunksize, :, :] = curr_key
-            
+
         return concatenated_key, None
 
     def _pre_load_hook(
-        self, module, state_dict, prefix, local_metadata, strict,
-        missing_keys, unexpected_keys, error_msgs,
+        self,
+        module,
+        state_dict,
+        prefix,
+        local_metadata,
+        strict,
+        missing_keys,
+        unexpected_keys,
+        error_msgs,
     ):
         """Pre-hook: decompose kv_up_proj and inject per-head absorb weights into state_dict.
 
@@ -576,7 +574,9 @@ class MLASelfAttentionFused(MLASelfAttention):
                 if ckpt_w.shape[0] != self.linear_q_up_proj.weight.shape[0]:
                     full, _ = self._gather_tp_weight(
                         ckpt_w.to(cuda_device),
-                        tp_group, tp_world_size, cat_dim=0,
+                        tp_group,
+                        tp_world_size,
+                        cat_dim=0,
                     )
                     state_dict[q_up_key] = full.cpu()
 
@@ -585,7 +585,9 @@ class MLASelfAttentionFused(MLASelfAttention):
                 if ckpt_w.shape[1] != self.linear_proj.weight.shape[1]:
                     full, _ = self._gather_tp_weight(
                         ckpt_w.to(cuda_device),
-                        tp_group, tp_world_size, cat_dim=1,
+                        tp_group,
+                        tp_world_size,
+                        cat_dim=1,
                     )
                     state_dict[proj_key] = full.cpu()
 
@@ -597,7 +599,9 @@ class MLASelfAttentionFused(MLASelfAttention):
                 cuda_device = torch.cuda.current_device()
                 kv_up_weight, _ = self._gather_tp_weight(
                     state_dict[kv_up_key].to(cuda_device),
-                    tp_group, tp_world_size, cat_dim=0,
+                    tp_group,
+                    tp_world_size,
+                    cat_dim=0,
                 )
                 num_heads = self.config.num_attention_heads
             else:
@@ -625,8 +629,15 @@ class MLASelfAttentionFused(MLASelfAttention):
         del state_dict[kv_up_key]
 
     def _pre_load_hook_torch(
-        self, module, state_dict, prefix, local_metadata, strict,
-        missing_keys, unexpected_keys, error_msgs,
+        self,
+        module,
+        state_dict,
+        prefix,
+        local_metadata,
+        strict,
+        missing_keys,
+        unexpected_keys,
+        error_msgs,
     ):
         """Pre-hook for torch absorb backend: reconstruct kv_up_proj from absorb keys if needed.
 
@@ -649,7 +660,9 @@ class MLASelfAttentionFused(MLASelfAttention):
                 if ckpt_w.shape[0] != self.linear_q_up_proj.weight.shape[0]:
                     full, _ = self._gather_tp_weight(
                         ckpt_w.to(cuda_device),
-                        tp_group, tp_world_size, cat_dim=0,
+                        tp_group,
+                        tp_world_size,
+                        cat_dim=0,
                     )
                     state_dict[q_up_key] = full.cpu()
 
@@ -658,7 +671,9 @@ class MLASelfAttentionFused(MLASelfAttention):
                 if ckpt_w.shape[1] != self.linear_proj.weight.shape[1]:
                     full, _ = self._gather_tp_weight(
                         ckpt_w.to(cuda_device),
-                        tp_group, tp_world_size, cat_dim=1,
+                        tp_group,
+                        tp_world_size,
+                        cat_dim=1,
                     )
                     state_dict[proj_key] = full.cpu()
 
@@ -677,7 +692,9 @@ class MLASelfAttentionFused(MLASelfAttention):
                     with torch.no_grad():
                         full, _ = self._gather_tp_weight(
                             ckpt_w.to(cuda_device),
-                            tp_group, tp_world_size, cat_dim=0,
+                            tp_group,
+                            tp_world_size,
+                            cat_dim=0,
                         )
                         state_dict[kv_up_key] = full.cpu()
             return
@@ -706,7 +723,7 @@ class MLASelfAttentionFused(MLASelfAttention):
 
             # Reconstruct kv_up_proj: absorb_q is [kv_lora_rank, qk_head_dim] per head
             # Need to transpose back: k_up_proj was transposed(1,2) when decomposed
-            q_absorb = torch.stack(q_absorb_list, dim=0)   # [num_heads, kv_lora_rank, qk_head_dim]
+            q_absorb = torch.stack(q_absorb_list, dim=0)  # [num_heads, kv_lora_rank, qk_head_dim]
             q_absorb = q_absorb.transpose(1, 2).contiguous()  # [num_heads, qk_head_dim, kv_lora_rank]
             output_absorb = torch.stack(output_absorb_list, dim=0)  # [num_heads, v_head_dim, kv_lora_rank]
 
@@ -719,7 +736,9 @@ class MLASelfAttentionFused(MLASelfAttention):
                 cuda_device = torch.cuda.current_device()
                 kv_up_weight, _ = self._gather_tp_weight(
                     kv_up_weight.to(cuda_device),
-                    tp_group, tp_world_size, cat_dim=0,
+                    tp_group,
+                    tp_world_size,
+                    cat_dim=0,
                 )
                 kv_up_weight = kv_up_weight.cpu()
 
@@ -739,9 +758,7 @@ class MLASelfAttentionFused(MLASelfAttention):
                 ".linear_kv_up_proj_absorb_output.",
             )
             incompatible_keys.missing_keys[:] = [
-                key
-                for key in incompatible_keys.missing_keys
-                if not any(marker in key for marker in suppress_markers)
+                key for key in incompatible_keys.missing_keys if not any(marker in key for marker in suppress_markers)
             ]
 
     def _reconstruct_kv_up_weight(self, num_heads):
@@ -756,17 +773,13 @@ class MLASelfAttentionFused(MLASelfAttention):
         q_absorb_list = []
         output_absorb_list = []
         for head_idx in range(num_heads):
-            head_q_absorb = getattr(
-                self.linear_kv_up_proj_absorb_q, f"weight{head_idx}"
-            ).clone().detach()
+            head_q_absorb = getattr(self.linear_kv_up_proj_absorb_q, f"weight{head_idx}").clone().detach()
             if is_float8tensor(head_q_absorb):
                 q_absorb_list.append(head_q_absorb.dequantize())
             else:
                 q_absorb_list.append(head_q_absorb)
 
-            head_output_absorb = getattr(
-                self.linear_kv_up_proj_absorb_output, f"weight{head_idx}"
-            ).clone().detach()
+            head_output_absorb = getattr(self.linear_kv_up_proj_absorb_output, f"weight{head_idx}").clone().detach()
             if is_float8tensor(head_output_absorb):
                 output_absorb_list.append(head_output_absorb.dequantize())
             else:
@@ -807,19 +820,27 @@ class MLASelfAttentionFused(MLASelfAttention):
                 # --- kv_up_proj: reconstruct full weight, then extract TP shard ---
                 kv_up_weight = self._shard_tp_weight(
                     self._reconstruct_kv_up_weight(self.config.num_attention_heads),
-                    tp_rank, world_size, shard_dim=0,
+                    tp_rank,
+                    world_size,
+                    shard_dim=0,
                 )
 
                 # --- q_up_proj: ColumnParallel, shard along dim-0 (output dim) ---
                 q_up_key = prefix + "linear_q_up_proj.weight"
                 state_dict[q_up_key] = self._shard_tp_weight(
-                    state_dict[q_up_key], tp_rank, world_size, shard_dim=0,
+                    state_dict[q_up_key],
+                    tp_rank,
+                    world_size,
+                    shard_dim=0,
                 )
 
                 # --- linear_proj: RowParallel, shard along dim-1 (input dim) ---
                 proj_key = prefix + "linear_proj.weight"
                 state_dict[proj_key] = self._shard_tp_weight(
-                    state_dict[proj_key], tp_rank, world_size, shard_dim=1,
+                    state_dict[proj_key],
+                    tp_rank,
+                    world_size,
+                    shard_dim=1,
                 )
             else:
                 kv_up_weight = self._reconstruct_kv_up_weight(self.num_attention_heads_per_partition)
@@ -854,15 +875,9 @@ class MLASelfAttentionFused(MLASelfAttention):
             w = w.dequantize()
         # SP-First: linear_kv_up_proj is duplicated (full heads); use global head count.
         # Non-SP-First: weight is TP-sharded; use per-partition head count.
-        num_heads = (
-            self.config.num_attention_heads
-            if self.use_dsa_sp_first
-            else self.num_attention_heads_per_partition
-        )
+        num_heads = self.config.num_attention_heads if self.use_dsa_sp_first else self.num_attention_heads_per_partition
         w = w.view(num_heads, self.config.qk_head_dim + self.config.v_head_dim, self.config.kv_lora_rank)
-        k_up, v_up = torch.split(
-            w, [self.config.qk_head_dim, self.config.v_head_dim], dim=1
-        )
+        k_up, v_up = torch.split(w, [self.config.qk_head_dim, self.config.v_head_dim], dim=1)
         self._cached_kv_up_slices = (k_up, v_up)
         self._cached_kv_up_key = cache_key
         return k_up, v_up
@@ -888,19 +903,15 @@ class MLASelfAttentionFused(MLASelfAttention):
         """Forward pass with Omni absorb-output projection before linear_proj."""
         assert rotary_pos_emb is None, "Rotary position embeddings should not be passed into MLA."
         assert attention_bias is None, "Attention bias should not be passed into MLA."
-        assert (
-            rotary_pos_cos is None and rotary_pos_sin is None
-        ), "MLA does not support Flash Decoding"
+        assert rotary_pos_cos is None and rotary_pos_sin is None, "MLA does not support Flash Decoding"
         assert not rotary_pos_cos_sin, "Flash-infer rope has not been tested with MLA."
-        assert not (
-            self.training and self.cache_mla_latents
-        ), "cache_mla_latents conflicts with training."
+        assert not (self.training and self.cache_mla_latents), "cache_mla_latents conflicts with training."
 
         inference_context = deprecate_inference_params(inference_context, inference_params)
         if inference_context and not inference_context.is_static_batching():
-            assert (
-                self.config.cache_mla_latents
-            ), "currently to use dynamic backend for MLA cache mla latents must be true"
+            assert self.config.cache_mla_latents, (
+                "currently to use dynamic backend for MLA cache mla latents must be true"
+            )
 
         if self.config.cache_mla_latents:
             self.prepare_for_absorption()
@@ -956,9 +967,7 @@ class MLASelfAttentionFused(MLASelfAttention):
                     # core_attn_out: [..., num_heads, kv_lora_rank]
                     # v_up: [num_heads, v_head_dim, kv_lora_rank]
                     _, v_up = self._get_kv_up_slices()
-                    core_attn_out = torch.einsum(
-                        "...hk,hdk->...hd", core_attn_out, v_up
-                    )
+                    core_attn_out = torch.einsum("...hk,hdk->...hd", core_attn_out, v_up)
                 else:
                     num_heads_out = (
                         self.config.num_attention_heads
@@ -967,9 +976,7 @@ class MLASelfAttentionFused(MLASelfAttention):
                     )
                     m_splits_v = [math.prod(core_attn_out.size()[:-2])] * num_heads_out
                     core_attn_out_permute = core_attn_out.movedim(-2, 0).contiguous()
-                    core_attn_out, _ = self.linear_kv_up_proj_absorb_output(
-                        core_attn_out_permute, m_splits_v
-                    )
+                    core_attn_out, _ = self.linear_kv_up_proj_absorb_output(core_attn_out_permute, m_splits_v)
                     core_attn_out = core_attn_out.transpose(0, core_attn_out.ndim - 2)
                 core_attn_out = core_attn_out.flatten(-2, -1).contiguous()
 
@@ -1046,9 +1053,7 @@ class MLASelfAttentionFused(MLASelfAttention):
                 inference_params=inference_params,
             )
 
-        assert (
-            hidden_states.ndim == 3
-        ), f"hidden_states should be 3D, [s, b, n*h], got {hidden_states.ndim}D"
+        assert hidden_states.ndim == 3, f"hidden_states should be 3D, [s, b, n*h], got {hidden_states.ndim}D"
 
         inference_context = deprecate_inference_params(inference_context, inference_params)
         rotary_seq_len = self.rotary_pos_emb.get_rotary_seq_len(
@@ -1076,7 +1081,8 @@ class MLASelfAttentionFused(MLASelfAttention):
                 assert inference_context is None, "Inference with MLA RoPE fusion is not supported"
             else:
                 rotary_pos_emb, mscale = self.rotary_pos_emb(
-                    rotary_seq_len, offset=pos_emb_offset, packed_seq=packed_seq)
+                    rotary_seq_len, offset=pos_emb_offset, packed_seq=packed_seq
+                )
 
         if packed_seq_params is not None:
             if packed_seq_params.cu_seqlens_q_padded is not None:
@@ -1111,10 +1117,7 @@ class MLASelfAttentionFused(MLASelfAttention):
             kv_compressed, k_pos_emb = torch.split(
                 kv_combined, [self.config.kv_lora_rank, self.config.qk_pos_emb_head_dim], dim=-1
             )
-            if (
-                parallel_state.get_tensor_model_parallel_world_size() > 1
-                and self.config.sequence_parallel
-            ):
+            if parallel_state.get_tensor_model_parallel_world_size() > 1 and self.config.sequence_parallel:
                 k_pos_emb = gather_from_sequence_parallel_region(k_pos_emb)
 
         if packed_seq_params is not None:
@@ -1126,9 +1129,7 @@ class MLASelfAttentionFused(MLASelfAttention):
             q_compressed = self.q_layernorm(q_compressed)
         kv_compressed = self.kv_layernorm(kv_compressed)
 
-        def qkv_up_proj_and_rope_apply_for_dsa(
-            q_compressed, kv_compressed, k_pos_emb, rotary_pos_emb
-        ):
+        def qkv_up_proj_and_rope_apply_for_dsa(q_compressed, kv_compressed, k_pos_emb, rotary_pos_emb):
             assert self.absorb_backend == "torch" or self.linear_kv_up_proj_absorb_q is not None, (
                 "get_query_kv_tensor() can only be called when absorb_backend is 'torch' or "
                 "linear_kv_up_proj_absorb_q is not None."
@@ -1159,8 +1160,8 @@ class MLASelfAttentionFused(MLASelfAttention):
 
                 if self.use_dsa_sp_first:
                     rope_offset = parallel_state.get_tensor_model_parallel_rank() * q_len
-                    q_cos = rotary_pos_cos[rope_offset:rope_offset + q_len]
-                    q_sin = rotary_pos_sin[rope_offset:rope_offset + q_len]
+                    q_cos = rotary_pos_cos[rope_offset : rope_offset + q_len]
+                    q_sin = rotary_pos_sin[rope_offset : rope_offset + q_len]
                 else:
                     q_cos = rotary_pos_cos[0:q_len]
                     q_sin = rotary_pos_sin[0:q_len]
@@ -1176,9 +1177,9 @@ class MLASelfAttentionFused(MLASelfAttention):
                     # Convert SBHD/THD -> HSD to match fused_rope_permute_cat's expected layout
                     if q_content.ndim == 4:
                         # SBHD [s, b, h, kv_lora_rank] -> HSD [h, s*b, kv_lora_rank]
-                        q_content = q_content.permute(2, 0, 1, 3).reshape(
-                            num_heads_q, -1, q_content.shape[-1]
-                        ).contiguous()
+                        q_content = (
+                            q_content.permute(2, 0, 1, 3).reshape(num_heads_q, -1, q_content.shape[-1]).contiguous()
+                        )
                     else:
                         # THD [t, h, kv_lora_rank] -> HSD [h, t, kv_lora_rank]
                         q_content = q_content.permute(1, 0, 2).contiguous()
@@ -1225,16 +1226,14 @@ class MLASelfAttentionFused(MLASelfAttention):
                             rotary_pos_emb_q = rotary_pos_emb
                         else:
                             rope_offset = parallel_state.get_tensor_model_parallel_rank() * q_len
-                            rotary_pos_emb_q = rotary_pos_emb[rope_offset:rope_offset + q_len]
+                            rotary_pos_emb_q = rotary_pos_emb[rope_offset : rope_offset + q_len]
                         rotary_pos_emb_k = rotary_pos_emb[0:k_len]
                     else:
                         rotary_pos_emb_k = rotary_pos_emb_q = rotary_pos_emb[0:q_len]
                 else:
                     rotary_pos_emb_k = rotary_pos_emb_q = rotary_pos_emb
 
-                q_no_pe, q_pos_emb = torch.split(
-                    q, [self.config.qk_head_dim, self.config.qk_pos_emb_head_dim], dim=-1
-                )
+                q_no_pe, q_pos_emb = torch.split(q, [self.config.qk_head_dim, self.config.qk_pos_emb_head_dim], dim=-1)
 
                 # In SP-first mode, q_pos_emb is sharded along the sequence dim by
                 # TP size, but cu_seqlens_q still describes the full packed sequence.
@@ -1273,6 +1272,7 @@ class MLASelfAttentionFused(MLASelfAttention):
 
                 # Chunkpipe: register gradient hooks and cache KV
                 if self.config.enable_chunkpipe:
+
                     def kv_compressed_hook_fn(grad):
                         """Hook function to combine compressed KV gradients from subsequent chunk."""
                         chunks_in_current_sequence = self.config.chunkpipe_backward_microbatch % self.num_chunks_per_seq
@@ -1281,7 +1281,7 @@ class MLASelfAttentionFused(MLASelfAttention):
                         else:
                             grad_from_prev_chunk = self.kv_compressed_cache_grad.pop(chunks_in_current_sequence)
                             return grad + grad_from_prev_chunk
-                    
+
                     def key_pos_emb_hook_fn(grad):
                         """Hook function to combine key position embedding gradients from subsequent chunk."""
                         chunks_in_current_sequence = self.config.chunkpipe_backward_microbatch % self.num_chunks_per_seq

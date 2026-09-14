@@ -199,7 +199,7 @@ def dequantize_state_dict(
         for weight_key in sorted(target_weight_keys):
             if not weight_key.endswith(".weight"):
                 raise ValueError(f"Targeted dequant weight key must end with .weight, got: {weight_key}")
-            key = f"{weight_key[:-len('.weight')]}.{packed_key}"
+            key = f"{weight_key[: -len('.weight')]}.{packed_key}"
             if key in state_dict:
                 packed_keys.append(key)
             else:

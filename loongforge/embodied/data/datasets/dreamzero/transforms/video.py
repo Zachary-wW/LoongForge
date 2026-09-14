@@ -24,9 +24,7 @@ class VideoTransform(ModalityTransform):
     """Base class for backend-specific video modality transforms."""
 
     # Configurable attributes
-    backend: str = Field(
-        default="torchvision", description="The backend to use for the transformations"
-    )
+    backend: str = Field(default="torchvision", description="The backend to use for the transformations")
 
     # Model variables
     _train_transform: Callable | None = PrivateAttr(default=None)
@@ -76,9 +74,9 @@ class VideoTransform(ModalityTransform):
     def train_transform(self) -> Callable:
         """Return the configured training transform."""
 
-        assert (
-            self._train_transform is not None
-        ), "Transform is not set. Please call set_metadata() before calling apply()."
+        assert self._train_transform is not None, (
+            "Transform is not set. Please call set_metadata() before calling apply()."
+        )
         return self._train_transform
 
     @train_transform.setter
@@ -99,9 +97,9 @@ class VideoTransform(ModalityTransform):
     def original_resolutions(self) -> dict[str, tuple[int, int]]:
         """Return original resolutions keyed by video modality."""
 
-        assert (
-            self._original_resolutions is not None
-        ), "Original resolutions are not set. Please call set_metadata() before calling apply()."
+        assert self._original_resolutions is not None, (
+            "Original resolutions are not set. Please call set_metadata() before calling apply()."
+        )
         return self._original_resolutions
 
     @original_resolutions.setter
@@ -136,9 +134,7 @@ class VideoTransform(ModalityTransform):
             assert len(split_keys) == 2, f"Invalid key: {key}. Expected format: modality.key"
             sub_key = split_keys[1]
             if sub_key in dataset_metadata.modalities.video:
-                self.original_resolutions[key] = dataset_metadata.modalities.video[
-                    sub_key
-                ].resolution
+                self.original_resolutions[key] = dataset_metadata.modalities.video[sub_key].resolution
             else:
                 raise ValueError(
                     f"Video key {sub_key} not found in dataset metadata. "
@@ -162,15 +158,11 @@ class VideoTransform(ModalityTransform):
             transform = self.eval_transform
             if transform is None:
                 return data
-        assert (
-            transform is not None
-        ), "Transform is not set. Please call set_metadata() before calling apply()."
+        assert transform is not None, "Transform is not set. Please call set_metadata() before calling apply()."
         try:
             self.check_input(data)
         except AssertionError as e:
-            raise ValueError(
-                f"Input data does not match the expected format for {self.__class__.__name__}: {e}"
-            ) from e
+            raise ValueError(f"Input data does not match the expected format for {self.__class__.__name__}: {e}") from e
 
         # Concatenate views
         views = [data[key] for key in self.apply_to]
@@ -197,9 +189,7 @@ class VideoTransform(ModalityTransform):
 
             if len(views) > 1:
                 # Apply the same transformations to the rest of the frames
-                transformed_frames = [
-                    transform.replay(replay_data, image=frame)["image"] for frame in views[1:]
-                ]
+                transformed_frames = [transform.replay(replay_data, image=frame)["image"] for frame in views[1:]]
                 # Add the first frame back
                 transformed_frames = [transformed_first_frame] + transformed_frames
             else:
@@ -267,16 +257,14 @@ class VideoCrop(VideoTransform):
             Callable: Random crop in training mode or center crop in evaluation mode.
         """
         # 1. Check the input resolution
-        assert (
-           len(set(self.original_resolutions.values())) == 1
-        ), f"All video keys must have the same resolution, got: {self.original_resolutions}"
+        assert len(set(self.original_resolutions.values())) == 1, (
+            f"All video keys must have the same resolution, got: {self.original_resolutions}"
+        )
         if self.height is None:
             assert self.width is None, "Height and width must be either both provided or both None"
             self.width, self.height = self.original_resolutions[self.apply_to[0]]
         else:
-            assert (
-                self.width is not None
-            ), "Height and width must be either both provided or both None"
+            assert self.width is not None, "Height and width must be either both provided or both None"
         # 2. Create the transform
         size = (int(self.height * self.scale), int(self.width * self.scale))
         if self.backend == "torchvision":
@@ -306,9 +294,9 @@ class VideoCrop(VideoTransform):
                 height, width = data[key].shape[-3:-1]
             else:
                 raise ValueError(f"Backend {self.backend} not supported")
-            assert (
-                height == self.height and width == self.width
-            ), f"Video {key} has invalid shape {height, width}, expected {self.height, self.width}"
+            assert height == self.height and width == self.width, (
+                f"Video {key} has invalid shape {height, width}, expected {self.height, self.width}"
+            )
 
 
 class VideoResize(VideoTransform):
@@ -337,9 +325,7 @@ class VideoResize(VideoTransform):
         """
         interpolation = self._get_interpolation(self.interpolation, self.backend)
         if interpolation is None:
-            raise ValueError(
-                f"Interpolation mode {self.interpolation} not supported for torchvision"
-            )
+            raise ValueError(f"Interpolation mode {self.interpolation} not supported for torchvision")
         if self.backend == "torchvision":
             size = (self.height, self.width)
             return T.Resize(size, interpolation=interpolation, antialias=self.antialias)
@@ -357,15 +343,9 @@ class VideoResize(VideoTransform):
 class VideoColorJitter(VideoTransform):
     """Apply configurable color jitter during training."""
 
-    brightness: float | tuple[float, float] = Field(
-        ..., description="The brightness of the color jitter"
-    )
-    contrast: float | tuple[float, float] = Field(
-        ..., description="The contrast of the color jitter"
-    )
-    saturation: float | tuple[float, float] = Field(
-        ..., description="The saturation of the color jitter"
-    )
+    brightness: float | tuple[float, float] = Field(..., description="The brightness of the color jitter")
+    contrast: float | tuple[float, float] = Field(..., description="The contrast of the color jitter")
+    saturation: float | tuple[float, float] = Field(..., description="The saturation of the color jitter")
     hue: float | tuple[float, float] = Field(..., description="The hue of the color jitter")
 
     def get_transform(self, mode: Literal["train", "eval"] = "train") -> Callable | None:
@@ -433,17 +413,13 @@ class VideoToTensor(VideoTransform):
                 4,
                 5,
             ], f"Video {key} must have 4 or 5 dimensions, got {data[key].ndim}"
-            assert (
-                data[key].dtype == np.uint8
-            ), f"Video {key} must have dtype uint8, got {data[key].dtype}"
+            assert data[key].dtype == np.uint8, f"Video {key} must have dtype uint8, got {data[key].dtype}"
             input_resolution = data[key].shape[-3:-1][::-1]
             if key in self.original_resolutions:
                 expected_resolution = self.original_resolutions[key]
             else:
                 expected_resolution = input_resolution
-            assert (
-                input_resolution == expected_resolution
-            ), (
+            assert input_resolution == expected_resolution, (
                 f"Video {key} has invalid resolution {input_resolution}, "
                 f"expected {expected_resolution}. Full shape: {data[key].shape}"
             )

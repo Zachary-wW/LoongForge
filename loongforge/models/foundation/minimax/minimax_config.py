@@ -15,6 +15,7 @@ from loongforge.models.common.base_model_config import BaseModelConfig
 @dataclass
 class MinimaxConfig(BaseModelConfig):
     """config for minimax model"""
+
     num_layers: int
     hidden_size: int
     ffn_hidden_size: int

@@ -1,7 +1,7 @@
 # Copyright 2026 The LoongForge Authors.
 # SPDX-License-Identifier: Apache-2.0
 
-""" HfMixerAttnConverter """
+"""HfMixerAttnConverter"""
 
 import torch
 import logging
@@ -10,12 +10,10 @@ logging.basicConfig(level=logging.INFO)
 
 from omegaconf import ListConfig
 
-from convert_checkpoint.common.common_checkpoint import (
-    WEIGHT,
-    BIAS
-)
+from convert_checkpoint.common.common_checkpoint import WEIGHT, BIAS
 
-class HfMixerAttnConverter():
+
+class HfMixerAttnConverter:
     def __init__(self, c_config):
         self.c_config = c_config
         cargs = self.c_config.get_args("common")
@@ -30,7 +28,6 @@ class HfMixerAttnConverter():
         self.mixer_key_head_dim = cargs.get("mixer_key_head_dim", hidden_size // self.heads)
         self.mixer_value_head_dim = cargs.get("mixer_value_head_dim", hidden_size // self.heads)
 
-
     # hf_to_common begin
     def cat_mixer_in_proj(self, value_list):
         if value_list is None:
@@ -39,21 +36,20 @@ class HfMixerAttnConverter():
         in_proj_ba = value_list[0]
         in_proj_qkvz = value_list[1]
         return torch.cat([in_proj_qkvz, in_proj_ba], dim=0)
+
     # hf_to_common end
 
     # common_to_hf begin
     def split_mixer_in_proj(self, qkv_names, in_proj_qkvz):
         split_size_list = [
-            2 * self.mixer_num_key_heads * self.mixer_key_head_dim + 2 * self.mixer_value_head_dim * self.mixer_num_value_heads,
-            2 * self.mixer_num_value_heads
+            2 * self.mixer_num_key_heads * self.mixer_key_head_dim
+            + 2 * self.mixer_value_head_dim * self.mixer_num_value_heads,
+            2 * self.mixer_num_value_heads,
         ]
-        hf_in_proj_qkvz, hf_in_proj_ba = torch.split(
-            in_proj_qkvz,
-            split_size_list,
-            dim=0
-        )
+        hf_in_proj_qkvz, hf_in_proj_ba = torch.split(in_proj_qkvz, split_size_list, dim=0)
         return [hf_in_proj_ba, hf_in_proj_qkvz]
-     # common_to_hf end
+
+    # common_to_hf end
 
     # ====== qwen3.5 HF (separate qkv,z,b,a) <-> common (interleaved qkvz,ba) ======
     # HF qwen3.5 has contiguous layout:
@@ -71,8 +67,8 @@ class HfMixerAttnConverter():
         if value_list is None:
             return None
         assert len(value_list) == 2, f"Expected [qkv, z], got {len(value_list)} tensors."
-        qkv_weight = value_list[0]   # (nk*dk + nk*dk + nv*dv, H)
-        z_weight = value_list[1]     # (nv*dv, H)
+        qkv_weight = value_list[0]  # (nk*dk + nk*dk + nv*dv, H)
+        z_weight = value_list[1]  # (nv*dv, H)
 
         nk = self.mixer_num_key_heads
         nv = self.mixer_num_value_heads
@@ -82,9 +78,9 @@ class HfMixerAttnConverter():
         H = qkv_weight.shape[1]
 
         # Split qkv into q, k, v (contiguous)
-        q = qkv_weight[:nk * dk].reshape(nk, dk, H)
-        k = qkv_weight[nk * dk:2 * nk * dk].reshape(nk, dk, H)
-        v = qkv_weight[2 * nk * dk:].reshape(nk, r * dv, H)
+        q = qkv_weight[: nk * dk].reshape(nk, dk, H)
+        k = qkv_weight[nk * dk : 2 * nk * dk].reshape(nk, dk, H)
+        v = qkv_weight[2 * nk * dk :].reshape(nk, r * dv, H)
         z = z_weight.reshape(nk, r * dv, H)
 
         # Interleave: per group [q, k, v, z]
@@ -102,10 +98,10 @@ class HfMixerAttnConverter():
 
         per_group = 2 * dk + 2 * r * dv
         grouped = qkvz_weight.reshape(nk, per_group, H)
-        q = grouped[:, :dk, :]                          # (nk, dk, H)
-        k = grouped[:, dk:2 * dk, :]                    # (nk, dk, H)
-        v = grouped[:, 2 * dk:2 * dk + r * dv, :]       # (nk, r*dv, H)
-        z = grouped[:, 2 * dk + r * dv:, :]              # (nk, r*dv, H)
+        q = grouped[:, :dk, :]  # (nk, dk, H)
+        k = grouped[:, dk : 2 * dk, :]  # (nk, dk, H)
+        v = grouped[:, 2 * dk : 2 * dk + r * dv, :]  # (nk, r*dv, H)
+        z = grouped[:, 2 * dk + r * dv :, :]  # (nk, r*dv, H)
 
         qkv = torch.cat([q.reshape(-1, H), k.reshape(-1, H), v.reshape(-1, H)], dim=0)
         z_out = z.reshape(-1, H)
@@ -116,8 +112,8 @@ class HfMixerAttnConverter():
         if value_list is None:
             return None
         assert len(value_list) == 2, f"Expected [b, a], got {len(value_list)} tensors."
-        b_weight = value_list[0]   # (nv, H)
-        a_weight = value_list[1]   # (nv, H)
+        b_weight = value_list[0]  # (nv, H)
+        a_weight = value_list[1]  # (nv, H)
 
         nk = self.mixer_num_key_heads
         r = self.mixer_num_value_heads // nk

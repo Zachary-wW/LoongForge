@@ -80,7 +80,7 @@ def vocab_size_with_padding(orig_vocab_size, make_vocab_size_divisible_by, tp):
 
 
 def add_embedding_padding(weight, divisible_by, orig_vocab_size, tp, padded_vocab_size=None):
-    """ add embedding padding """
+    """add embedding padding"""
     if weight is None:
         return None
     if padded_vocab_size is None:
@@ -89,7 +89,7 @@ def add_embedding_padding(weight, divisible_by, orig_vocab_size, tp, padded_voca
     else:
         padding_size = padded_vocab_size - weight.shape[0]
     if orig_vocab_size > weight.shape[0]:
-        padding_size += (orig_vocab_size - weight.shape[0])
+        padding_size += orig_vocab_size - weight.shape[0]
     if padding_size < 0:
         return weight[0:padded_vocab_size, :]
     elif padding_size > 0:
@@ -99,31 +99,31 @@ def add_embedding_padding(weight, divisible_by, orig_vocab_size, tp, padded_voca
 
 
 def cut_embedding_padding(weight, orig_vocab_size):
-    """ cut embedding padding """
+    """cut embedding padding"""
     if weight is None:
         return None
     return weight[0:orig_vocab_size, :]
 
 
 def transpose_shape0(param, m, n):
-    """ transpose on shape 0 """
+    """transpose on shape 0"""
     _shape = param.size()
     current_shape = (m, n, _shape[0] // (m * n)) + _shape[1:]
-    return param.view(*current_shape) \
-            .transpose(0, 1).contiguous() \
-            .view(*_shape)
+    return param.view(*current_shape).transpose(0, 1).contiguous().view(*_shape)
+
 
 def uneven_vpp_partition(num_layers, pp, vp, num_layers_in_first_pipeline_stage, num_layers_in_last_pipeline_stage):
     assert num_layers is not None and num_layers > 0, "num_layers must be provided."
     assert pp is not None and pp > 1, "pipeline model parallel size must be greater than 1."
     assert vp is not None and vp == 2, "virtual pipeline must be 2."
-    assert num_layers_in_first_pipeline_stage is not None or num_layers_in_last_pipeline_stage is not None, \
+    assert num_layers_in_first_pipeline_stage is not None or num_layers_in_last_pipeline_stage is not None, (
         "num_layers_in_first_pipeline_stage or num_layers_in_last_pipeline_stage must be provided."
+    )
     # Number of layers to distribute over rest of pipeline stages
     layers_to_distribute = num_layers
     # Number of pipeline stages left for distributing transformer layers
     pipeline_stages_left = pp
-    parts_count = [0 for _ in range(pp*vp)]
+    parts_count = [0 for _ in range(pp * vp)]
     # If the uneven first (last) pipeline stage is enabled, remove the specified number
     # of layers to calculate the number of layers on each middle pipeline stage.
     if num_layers_in_first_pipeline_stage is not None:
@@ -134,19 +134,19 @@ def uneven_vpp_partition(num_layers, pp, vp, num_layers_in_first_pipeline_stage,
 
     if num_layers_in_last_pipeline_stage is not None:
         layers_to_distribute -= num_layers_in_last_pipeline_stage
-        parts_count[pp-1] = ceil(num_layers_in_last_pipeline_stage / vp)
-        parts_count[pp] = num_layers_in_last_pipeline_stage - parts_count[pp-1]
+        parts_count[pp - 1] = ceil(num_layers_in_last_pipeline_stage / vp)
+        parts_count[pp] = num_layers_in_last_pipeline_stage - parts_count[pp - 1]
         pipeline_stages_left -= 1
     num_layers_per_pipeline_rank = layers_to_distribute // pipeline_stages_left
-    for i in range(1, pp-1):
+    for i in range(1, pp - 1):
         parts_count[i] = num_layers_per_pipeline_rank // vp
         parts_count[2 * pp - 1 - i] = num_layers_per_pipeline_rank - parts_count[i]
     if num_layers_in_first_pipeline_stage is None:
         parts_count[0] = num_layers_per_pipeline_rank // vp
         parts_count[2 * pp - 1] = num_layers_per_pipeline_rank - parts_count[0]
     if num_layers_in_last_pipeline_stage is None:
-        parts_count[pp-1] = num_layers_per_pipeline_rank // vp
-        parts_count[pp] = num_layers_per_pipeline_rank - parts_count[pp-1]
+        parts_count[pp - 1] = num_layers_per_pipeline_rank // vp
+        parts_count[pp] = num_layers_per_pipeline_rank - parts_count[pp - 1]
     return parts_count
 
 
@@ -157,13 +157,11 @@ def custom_partition_imbalanced(num_layers, num_parts, custom_layers):
     other stages contain more layers
     """
     splits = []
-    if custom_layers.find(',') != -1:
-        splits = [int(s) for s in custom_layers.split(',')]
+    if custom_layers.find(",") != -1:
+        splits = [int(s) for s in custom_layers.split(",")]
     if len(splits) != num_parts:
-        raise ValueError(
-            f'the argments of custom_pipeline_layers must be equal to pipeline size {num_parts}.'
-        )
-    assert num_layers == sum(splits), f'the sum of custom_pipeline_layers must be equal to num_layers {num_layers}.'
+        raise ValueError(f"the argments of custom_pipeline_layers must be equal to pipeline size {num_parts}.")
+    assert num_layers == sum(splits), f"the sum of custom_pipeline_layers must be equal to num_layers {num_layers}."
     parts_count = splits
     parts = [0] * (num_parts + 1)
     for i in range(1, len(parts_count) + 1):
@@ -217,7 +215,7 @@ def partition_uniform(num_items, num_parts):
 
 
 def prefix_sum_inc(weights):
-    """ Compute an inclusive prefix sum.
+    """Compute an inclusive prefix sum.
 
     Example:
         >>> prefix_sum_inc([3,4,5])
@@ -275,34 +273,37 @@ def _lprobe(weights, num_parts, bottleneck):
 
     return parts, bsum >= total_weight
 
+
 def get_save_file_tag(p, ep_id=None, sub_file_tag=None):
     if ep_id is None:
-        tag = f'{p}'
+        tag = f"{p}"
     else:
-        tag = f'{p}_{ep_id}'
+        tag = f"{p}_{ep_id}"
     if sub_file_tag is not None:
-        tag = f'{sub_file_tag}_{tag}'
+        tag = f"{sub_file_tag}_{tag}"
     return tag
+
 
 def touch_file(done_dir, p, ep_id=None, sub_file_tag=None):
     tag = get_save_file_tag(p, ep_id=ep_id, sub_file_tag=sub_file_tag)
     done_file_name = os.path.join(done_dir, f"{tag}.done")
     os.makedirs(done_dir, exist_ok=True)
-    with open(done_file_name, 'w'):
+    with open(done_file_name, "w"):
         os.utime(done_file_name, None)
+
 
 def check_all_done(done_dir, p, ep):
     fnames = []
     if ep is None:
         for p_id in range(p):
             tag = get_save_file_tag(p_id)
-            fname = f'{tag}.done'
+            fname = f"{tag}.done"
             fnames.append(fname)
     else:
         for p_id in range(p):
             for ep_id in range(ep):
                 tag = get_save_file_tag(p_id, ep_id=ep_id)
-                fname = f'{tag}.done'
+                fname = f"{tag}.done"
                 fnames.append(fname)
     all_done = True
     for fname in fnames:
@@ -312,15 +313,16 @@ def check_all_done(done_dir, p, ep):
             break
     return all_done
 
+
 def get_done_keys(done_dir, p, cur_ep_ids=None):
     done_keys = []
     if cur_ep_ids is None:
-        fname = f'{p}.done'
+        fname = f"{p}.done"
         if os.path.exists(os.path.join(done_dir, fname)):
             done_keys.append((p, None))
     else:
         for ep_id in cur_ep_ids:
-            fname = f'{p}_{ep_id}.done'
+            fname = f"{p}_{ep_id}.done"
             if os.path.exists(os.path.join(done_dir, fname)):
                 done_keys.append((p, ep_id))
     return done_keys
@@ -331,7 +333,7 @@ def make_hf_sub_checkpoints(base_path):
     global_file_count = 0
     sum_sub_count = 0
 
-    path = f'{base_path}/sub_checkpoint/'
+    path = f"{base_path}/sub_checkpoint/"
     # Assume file list is known, use a list to simulate
     temp_paths = []
     for sub_dir_name in os.listdir(path):
@@ -344,8 +346,8 @@ def make_hf_sub_checkpoints(base_path):
             subdir_path = os.path.join(path, index)
             if os.path.isdir(subdir_path):
                 for filename in os.listdir(subdir_path):
-                    if filename.startswith('model-') and filename.endswith('.safetensors'):
-                        parts = filename.split('-of-')
+                    if filename.startswith("model-") and filename.endswith(".safetensors"):
+                        parts = filename.split("-of-")
                         if len(parts) == 2:
                             global_file_count += 1
     # Iterate through all subdirectories
@@ -361,13 +363,13 @@ def make_hf_sub_checkpoints(base_path):
                 one_dict = {}
                 logging.info(f"{subdir_path=}")
                 for filename in os.listdir(subdir_path):
-                    if filename.startswith('model-') and filename.endswith('.safetensors'):
+                    if filename.startswith("model-") and filename.endswith(".safetensors"):
                         # Parse filename, extract i and sub_count
-                        parts = filename.split('-of-')
+                        parts = filename.split("-of-")
                         if len(parts) == 2:
                             file_base, file_count = parts
-                            i_str = file_base.split('-')[-1]
-                            sub_count_str = file_count.split('.')[0]
+                            i_str = file_base.split("-")[-1]
+                            sub_count_str = file_count.split(".")[0]
                             i = int(i_str)
                             sub_count = int(sub_count_str)
 
@@ -376,7 +378,7 @@ def make_hf_sub_checkpoints(base_path):
 
                             # Calculate new filename
                             new_i = sum_sub_count + i
-                            new_filename = f'model-{new_i:05d}-of-{global_file_count:05d}.safetensors'
+                            new_filename = f"model-{new_i:05d}-of-{global_file_count:05d}.safetensors"
 
                             # Rename file
                             old_filepath = os.path.join(subdir_path, filename)
@@ -386,7 +388,6 @@ def make_hf_sub_checkpoints(base_path):
 
                 # Update cumulative sub-file count
                 sum_sub_count += local_file_count
-
 
     # Used to store merged metadata and weight_map
     merged_metadata = {"total_size": 0}
@@ -398,7 +399,7 @@ def make_hf_sub_checkpoints(base_path):
             subdir_path = os.path.join(path, index)
             if os.path.isdir(subdir_path):
                 file_name = f"{subdir_path}/model.safetensors.index.json"
-                with open(file_name, 'r') as f:
+                with open(file_name, "r") as f:
                     file_content = json.load(f)
                 # Merge metadata
                 merged_metadata["total_size"] += file_content["metadata"]["total_size"]
@@ -406,8 +407,8 @@ def make_hf_sub_checkpoints(base_path):
                 subdir_path = os.path.join(path, index)
                 one_dict = all_dict[subdir_path]
                 for key, value in file_content["weight_map"].items():
-#                    logging.info(f"{key=}, {value=}, {one_dict=}")
-#                    logging.info(f"{one_dict[value]=}")
+                    #                    logging.info(f"{key=}, {value=}, {one_dict=}")
+                    #                    logging.info(f"{one_dict[value]=}")
                     if value in one_dict:
                         # Replace with corresponding value in one_dict
                         merged_weight_map[key] = one_dict[value]
@@ -419,13 +420,10 @@ def make_hf_sub_checkpoints(base_path):
                         merged_weight_map[key] = value  # This is usually not expected behavior, only for example
 
     # Build new dict
-    new_dict = {
-        "metadata": merged_metadata,
-        "weight_map": merged_weight_map
-    }
+    new_dict = {"metadata": merged_metadata, "weight_map": merged_weight_map}
 
     # Write new dict back to model.safetensors.index.json file
-    with open(f'{base_path}/model.safetensors.index.json', 'w') as f:
+    with open(f"{base_path}/model.safetensors.index.json", "w") as f:
         json.dump(new_dict, f, indent=4)
     for index in sorted_path_list:
         if index.isdigit():  # Check if it is a numeric directory
@@ -436,34 +434,45 @@ def make_hf_sub_checkpoints(base_path):
                     old_filepath = os.path.join(subdir_path, filename)
                     new_filepath = os.path.join(base_path, new_filename)
                     os.rename(old_filepath, new_filepath)
-                    logging.info(f'Renamed: {old_filepath} -> {new_filepath}')
+                    logging.info(f"Renamed: {old_filepath} -> {new_filepath}")
 
-    logging.info(f"Merge and replace completed, new model.safetensors.index.json file generated. "
-          f"{base_path}/model.safetensors.index.json")
+    logging.info(
+        f"Merge and replace completed, new model.safetensors.index.json file generated. "
+        f"{base_path}/model.safetensors.index.json"
+    )
     old_filepath = f"{base_path}/model-00001-of-00001.safetensors"
     if os.path.exists(old_filepath):
         new_filepath = f"{base_path}/model.safetensors"
         os.rename(old_filepath, new_filepath)
         os.remove(f"{base_path}/model.safetensors.index.json")
     import shutil
-    shutil.rmtree(f'{base_path}/sub_checkpoint')
 
-def get_num_layers_in_vp_map(stage, num_layers, pp,
-                           mtp_num_layers=0,
-                           custom_pipeline_layers=None,
-                           num_layers_in_first_pipeline_stage=None,
-                           num_layers_in_last_pipeline_stage=None):
+    shutil.rmtree(f"{base_path}/sub_checkpoint")
+
+
+def get_num_layers_in_vp_map(
+    stage,
+    num_layers,
+    pp,
+    mtp_num_layers=0,
+    custom_pipeline_layers=None,
+    num_layers_in_first_pipeline_stage=None,
+    num_layers_in_last_pipeline_stage=None,
+):
     if custom_pipeline_layers is not None:
-        assert num_layers_in_first_pipeline_stage is None and num_layers_in_last_pipeline_stage is None, \
+        assert num_layers_in_first_pipeline_stage is None and num_layers_in_last_pipeline_stage is None, (
             "custom_pipeline_layers need not num_layers_in_first_pipeline_stage or in_last_pipeline_stage"
+        )
         num_layers_in_vp, _ = custom_partition_imbalanced(num_layers, pp * stage, custom_pipeline_layers)
     elif num_layers_in_first_pipeline_stage is not None or num_layers_in_last_pipeline_stage is not None:
         num_layers_in_vp = uneven_vpp_partition(
-            num_layers, pp, stage, num_layers_in_first_pipeline_stage, num_layers_in_last_pipeline_stage)
+            num_layers, pp, stage, num_layers_in_first_pipeline_stage, num_layers_in_last_pipeline_stage
+        )
     else:
         num_layers_in_vp, _ = partition_balanced(num_layers, pp * stage)
     num_layers_in_vp[-1] += mtp_num_layers
     return num_layers_in_vp
+
 
 def get_virtual_partition(dualpipev, stage_index, p, pp, num_layers_in_vp):
     if dualpipev:
@@ -476,42 +485,57 @@ def get_virtual_partition(dualpipev, stage_index, p, pp, num_layers_in_vp):
     layer_offset = sum(num_layers_in_vp[:virtual_p])
     return virtual_p, layer_offset
 
+
 def get_layer_ids(c_config, args, p):
     cargs = c_config.get_args("common")  # Get model common config parameters
 
     # Get model layer count related parameters
     num_layers = cargs["num_layers"]  # Total number of model layers
-    mtp_num_layers = args.mtp_num_layers if args.mtp_num_layers is not None else cargs.get("mtp_num_layers", 0)  # MTP additional layers, default 0
+    mtp_num_layers = (
+        args.mtp_num_layers if args.mtp_num_layers is not None else cargs.get("mtp_num_layers", 0)
+    )  # MTP additional layers, default 0
     num_layers_per_stage = args.num_layers_per_virtual_pipeline_stage
     # Calculate number of virtual pipeline stages
     if num_layers_per_stage:
         stage = num_layers // pp // num_layers_per_stage
     else:
         stage = args.num_virtual_stages_per_pipeline_rank or 1
-    
-    dualpipev = args.vpp_scheduler == 'dualpipev'  # Check whether to use dualpipev scheduler
+
+    dualpipev = args.vpp_scheduler == "dualpipev"  # Check whether to use dualpipev scheduler
     pp = args.pipeline_model_parallel_size  # Pipeline parallel size
     custom_pipeline_layers = args.custom_pipeline_layers  # Custom pipeline layer assignment
-    num_layers_in_first_pipeline_stage = args.decoder_first_pipeline_num_layers  # Number of layers in the first pipeline stage
-    num_layers_in_last_pipeline_stage = args.decoder_last_pipeline_num_layers  # Number of layers in the last pipeline stage
+    num_layers_in_first_pipeline_stage = (
+        args.decoder_first_pipeline_num_layers
+    )  # Number of layers in the first pipeline stage
+    num_layers_in_last_pipeline_stage = (
+        args.decoder_last_pipeline_num_layers
+    )  # Number of layers in the last pipeline stage
 
     # Get the layer count distribution across virtual pipeline stages
     num_layers_in_vp = get_num_layers_in_vp_map(
-            stage, num_layers, pp, mtp_num_layers=mtp_num_layers,
-            custom_pipeline_layers=custom_pipeline_layers,
-            num_layers_in_first_pipeline_stage=num_layers_in_first_pipeline_stage,
-            num_layers_in_last_pipeline_stage=num_layers_in_last_pipeline_stage)
+        stage,
+        num_layers,
+        pp,
+        mtp_num_layers=mtp_num_layers,
+        custom_pipeline_layers=custom_pipeline_layers,
+        num_layers_in_first_pipeline_stage=num_layers_in_first_pipeline_stage,
+        num_layers_in_last_pipeline_stage=num_layers_in_last_pipeline_stage,
+    )
 
     layer_ids = []  # Store layer id list for the current pipeline rank
     # Iterate over all virtual pipeline stages
     for stage_index in range(stage):
         # Get the virtual partition and layer offset for the current stage
-        virtual_p, layer_offset, = get_virtual_partition(dualpipev, stage_index, p, pp, num_layers_in_vp)
+        (
+            virtual_p,
+            layer_offset,
+        ) = get_virtual_partition(dualpipev, stage_index, p, pp, num_layers_in_vp)
         # Iterate over all layers in the current virtual partition
         for layer_index in range(num_layers_in_vp[virtual_p]):
             layer_id = layer_index + layer_offset  # Compute global layer id
             layer_ids.append(layer_id)
     return layer_ids
+
 
 def get_pipeline_by_rank_id(rank_id, world_size, pp, ep=None):
     p_dict = {}
@@ -542,21 +566,23 @@ def get_ep_map(num_experts, ep):
     if num_experts is None or ep is None:
         return None, None, None
     experts_ids = [x for x in range(num_experts)]
-    chunks = [experts_ids[x:x + num_experts // ep]
-        for x in range(0, len(experts_ids), num_experts // ep)] # ep_id -> [expert_ids]
+    chunks = [
+        experts_ids[x : x + num_experts // ep] for x in range(0, len(experts_ids), num_experts // ep)
+    ]  # ep_id -> [expert_ids]
 
     expert_local_mapping = {}
     expert_ep_mapping = {}
     ep_expert_mapping = {}
     for ep_id, chunk in enumerate(chunks):
-        ep_expert_mapping[ep_id] = chunk # ep_id -> [expert_ids]
+        ep_expert_mapping[ep_id] = chunk  # ep_id -> [expert_ids]
         for idx, ele in enumerate(chunk):
-            expert_local_mapping[ele] = idx # expert_id -> local_ep_id
-            expert_ep_mapping[ele] = ep_id # expert_id -> ep_id
+            expert_local_mapping[ele] = idx  # expert_id -> local_ep_id
+            expert_ep_mapping[ele] = ep_id  # expert_id -> ep_id
     logging.info(f"expert_local_mapping: {expert_local_mapping}")
     logging.info(f"expert_ep_mapping: {expert_ep_mapping}")
     logging.info(f"ep_expert_mapping: {ep_expert_mapping}")
     return expert_local_mapping, expert_ep_mapping, ep_expert_mapping
+
 
 def get_etp_map(tp, ep, etp):
     if etp is None:
@@ -567,7 +593,7 @@ def get_etp_map(tp, ep, etp):
     if tp < etp * ep:
         v_tp = etp * ep
     tp_to_ep = {}
-    for t in range (v_tp):
+    for t in range(v_tp):
         etp_id = t % etp
         ep_id = (t // etp) % ep
         if ep_id not in etp_to_tp_mapping:
@@ -578,28 +604,35 @@ def get_etp_map(tp, ep, etp):
     logging.info(f"{etp_to_tp_mapping=}, {tp_to_ep=}")
     return etp_to_tp_mapping, tp_to_ep
 
+
 def is_power_of_two(x):
     x = x.float()
     mantissa, _ = torch.frexp(x)
     return bool(((x > 0) & (mantissa == 0.5)).all())
 
+
 def get_quantizer_with_weight_scale_inv(weight, weight_scale_inv, dtype, amax_epsilon=False):
     from transformer_engine.pytorch.tensor.float8_blockwise_tensor import Float8BlockQuantizer
     from transformer_engine.pytorch.constants import TE_DType
+
     assert weight.dtype in (torch.float8_e4m3fn, torch.uint8)
-    q = Float8BlockQuantizer(fp8_dtype=TE_DType[torch.float8_e4m3fn],
-                                rowwise=True, columnwise=False,
-                                amax_epsilon=amax_epsilon,
-                                force_pow_2_scales=is_power_of_two(weight_scale_inv),
-                                block_scaling_dim=2)
-    qx = q.make_empty(weight.shape, dtype=dtype, device='cpu')
+    q = Float8BlockQuantizer(
+        fp8_dtype=TE_DType[torch.float8_e4m3fn],
+        rowwise=True,
+        columnwise=False,
+        amax_epsilon=amax_epsilon,
+        force_pow_2_scales=is_power_of_two(weight_scale_inv),
+        block_scaling_dim=2,
+    )
+    qx = q.make_empty(weight.shape, dtype=dtype, device="cpu")
     qx._rowwise_data.copy_(weight.view(torch.uint8))
-    qx._rowwise_scale_inv[:weight_scale_inv.size(0), :weight_scale_inv.size(1)].copy_(weight_scale_inv)
+    qx._rowwise_scale_inv[: weight_scale_inv.size(0), : weight_scale_inv.size(1)].copy_(weight_scale_inv)
     return qx
 
-def convert_fp8_to_bf16(fp8_blocks: torch.Tensor,
-                        scales: torch.Tensor,
-                        dtype: torch.dtype = torch.bfloat16) -> torch.Tensor:
+
+def convert_fp8_to_bf16(
+    fp8_blocks: torch.Tensor, scales: torch.Tensor, dtype: torch.dtype = torch.bfloat16
+) -> torch.Tensor:
     """
     Dequantizes a tensor from FP8, assuming `fp8_blocks` has the original, unpadded shape.
 
@@ -623,7 +656,7 @@ def convert_fp8_to_bf16(fp8_blocks: torch.Tensor,
     n_pad = ceil_div(n, 128) * 128
 
     # Trim the scales tensor to match the padded dimensions of the input.
-    scales = scales[:ceil_div(m, 128), :ceil_div(n, 128)].contiguous()
+    scales = scales[: ceil_div(m, 128), : ceil_div(n, 128)].contiguous()
 
     # Create a padded version of the input tensor if its dimensions are not
     # a multiple of the block size.
@@ -645,9 +678,10 @@ def convert_fp8_to_bf16(fp8_blocks: torch.Tensor,
 
     return x_recon
 
+
 def convert_bf16_to_fp8(
     x: torch.Tensor,
-    method: Literal["te", "pt"] = 'te',
+    method: Literal["te", "pt"] = "te",
     fp8_dtype: torch.dtype = torch.float8_e4m3fn,
     **kwargs,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -668,7 +702,7 @@ def convert_bf16_to_fp8(
 
     # Always do the quantization on device
     x = x.cuda()
-    
+
     amax_epsilon = kwargs.get("amax_epsilon", 0.0)
     force_pow_2 = kwargs.get("force_pow_2_scales", True)
 
@@ -692,12 +726,12 @@ def convert_bf16_to_fp8(
             scale_inv = 448.0 / x_amax
             x_scaled = (x_view * scale_inv).to(fp8_dtype)
         # scale returned is the scale factor (for dequantization: x = x_scaled * scale)
-        return x_scaled.view_as(x_padded)[:m, :n].contiguous().cpu(), \
-            scale.view(x_view.size(0), x_view.size(2)).cpu()
+        return x_scaled.view_as(x_padded)[:m, :n].contiguous().cpu(), scale.view(x_view.size(0), x_view.size(2)).cpu()
 
     elif method == "te":
         from transformer_engine.pytorch.tensor.float8_blockwise_tensor import Float8BlockQuantizer
         from transformer_engine.pytorch.constants import TE_DType
+
         quantizer = Float8BlockQuantizer(
             fp8_dtype=TE_DType[fp8_dtype],
             rowwise=True,
@@ -713,20 +747,22 @@ def convert_bf16_to_fp8(
     else:
         raise ValueError(f"invalid quantization method: {method}")
 
+
 def convert_layout_to_custom_pipeline_layers(layout_str: str) -> str:
     """
     Convert pipeline-model-parallel-layout to custom-pipeline-layers format.
-    
+
     Each stage in the layout becomes one value in custom-pipeline-layers,
     counting only decoder layers (ignoring E, m, L).
-    
+
     Args:
         layout_str: Pipeline layout string, e.g., "Et*5|t*8|t*6|t*8L"
-    
+
     Returns:
         Comma-separated string of decoder layer counts per stage.
         Example: "Et*5|t*8|t*6|t*8L" -> "5,8,6,8"
     """
+
     # copy from megatron/core/transformer/pipeline_parallel_layer_layout.py
     def _parse_str_to_list(layout_str: str) -> List[List[str]]:
         """Parse a layout string to a list of lists.
@@ -742,8 +778,8 @@ def convert_layout_to_custom_pipeline_layers(layout_str: str) -> str:
             # (ab)*3 -> ababab
             # ab,(cd|)*2 -> abcd|cd|
             # (|ab)*2,cd -> |ab|abcd
-            r'\(([^)]+)\)\*(\d+)',
-            r'(.)\*(\d+)',  # unroll x*n to n xs
+            r"\(([^)]+)\)\*(\d+)",
+            r"(.)\*(\d+)",  # unroll x*n to n xs
         ]
         for pattern in patterns:
             layout_str = re.sub(pattern, lambda x: x.group(1) * int(x.group(2)), layout_str)
@@ -757,7 +793,7 @@ def convert_layout_to_custom_pipeline_layers(layout_str: str) -> str:
 
         # parse the layout string
         layout_list = []
-        for stage in layout_str.split('|'):
+        for stage in layout_str.split("|"):
             layout_list.append([])
             for layer_char in stage:
                 assert layer_char in char2layer_type, (
@@ -767,17 +803,17 @@ def convert_layout_to_custom_pipeline_layers(layout_str: str) -> str:
 
                 layout_list[-1].append(char2layer_type[layer_char])
         return layout_list
-    
+
     # Parse layout string to list
     layout_list = _parse_str_to_list(layout_str)
-    
+
     # Count decoder layers for each stage
     custom_pipeline_layers = []
-    
+
     for stage in layout_list:
         # Count decoder layers (LayerType.decoder), ignoring E, m, L
         decoder_count = sum(1 for layer in stage if layer == "decoder")
         custom_pipeline_layers.append(decoder_count)
-    
+
     # Convert to comma-separated string
-    return ','.join(map(str, custom_pipeline_layers))
+    return ",".join(map(str, custom_pipeline_layers))

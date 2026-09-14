@@ -114,12 +114,9 @@ def gen_time_steps(batch):
     seed = batch["seed"]
     max_timestep = args.max_timestep_boundary
     min_timestep = args.min_timestep_boundary
-    assert max_timestep <= 1 and max_timestep >= 0, \
-        "max_timestep should range from 0 to 1"
-    assert min_timestep <= 1 and min_timestep >= 0, \
-        "min_timestep should range from 0 to 1"
-    assert min_timestep <= max_timestep, \
-        f"min_timestep: {min_timestep} should <= max_timestep: {max_timestep}"
+    assert max_timestep <= 1 and max_timestep >= 0, "max_timestep should range from 0 to 1"
+    assert min_timestep <= 1 and min_timestep >= 0, "min_timestep should range from 0 to 1"
+    assert min_timestep <= max_timestep, f"min_timestep: {min_timestep} should <= max_timestep: {max_timestep}"
     max_timestep_boundary = int(max_timestep * scheduler.num_train_timesteps)
     min_timestep_boundary = int(min_timestep * scheduler.num_train_timesteps)
 
@@ -137,7 +134,6 @@ def gen_time_steps(batch):
     training_target = scheduler.training_target(latents, noise, timestep)
     scale = scheduler.training_weight(timestep)
     return timestep, noisy_latents, training_target, scale
-
 
 
 def _build_packed_seq_params(batch):
@@ -194,7 +190,7 @@ def _build_packed_seq_params(batch):
 def get_batch(data_iterator):
     """Generate a batch."""
     args = get_args()
-    use_packing = getattr(args, 'packing_sft_data', False)
+    use_packing = getattr(args, "packing_sft_data", False)
 
     should_broadcast_batch = False
     if use_packing:
@@ -212,8 +208,7 @@ def get_batch(data_iterator):
         grid_sizes = None
 
         if not use_packing:
-            batch["timestep"], batch["latents"], batch["training_target"], \
-                batch["scale"] = gen_time_steps(batch)
+            batch["timestep"], batch["latents"], batch["training_target"], batch["scale"] = gen_time_steps(batch)
             if args.model_name in ("wan2-1-i2v", "wan2-2-i2v") or args.model_family in SUPPORTED_MODELS:
                 batch.setdefault("prompt_emb", {})["context"] = batch.pop("context")
                 image_emb = batch.setdefault("image_emb", {})
@@ -234,6 +229,7 @@ def get_batch(data_iterator):
         grid_sizes = None
 
     if batch:
+
         def move_to_device(x):
             if x is not None and isinstance(x, torch.Tensor):
                 return x.cuda()
@@ -259,13 +255,13 @@ def get_batch(data_iterator):
                     max_seqlen_q=params.max_seqlen_q,
                     max_seqlen_kv=params.max_seqlen_kv,
                 )
-                if hasattr(params, '_seq_len_q'):
+                if hasattr(params, "_seq_len_q"):
                     device_params._seq_len_q = params._seq_len_q.cuda()
-                if hasattr(params, '_seq_len_q_padded'):
+                if hasattr(params, "_seq_len_q_padded"):
                     device_params._seq_len_q_padded = params._seq_len_q_padded.cuda()
-                if hasattr(params, '_seq_len_kv'):
+                if hasattr(params, "_seq_len_kv"):
                     device_params._seq_len_kv = params._seq_len_kv.cuda()
-                if hasattr(params, '_seq_len_kv_padded'):
+                if hasattr(params, "_seq_len_kv_padded"):
                     device_params._seq_len_kv_padded = params._seq_len_kv_padded.cuda()
                 packed_seq_params[attention_name] = device_params
 
@@ -275,8 +271,7 @@ def get_batch(data_iterator):
             noise_raw_list = batch.pop("noise_raw")
             timestep_id = batch.pop("timestep_id")
 
-            timestep = scheduler.timesteps[timestep_id.cpu()].to(
-                dtype=torch.bfloat16, device='cuda')
+            timestep = scheduler.timesteps[timestep_id.cpu()].to(dtype=torch.bfloat16, device="cuda")
 
             latents_patched_list = []
             target_patched_list = []
@@ -284,7 +279,7 @@ def get_batch(data_iterator):
             for sample_index, input_latents_raw in enumerate(input_latents_raw_list):
                 input_latents = input_latents_raw.cuda()
                 noise = noise_raw_list[sample_index].cuda()
-                sample_timestep = timestep[sample_index:sample_index + 1]
+                sample_timestep = timestep[sample_index : sample_index + 1]
 
                 noisy_latents_without_y = scheduler.add_noise(input_latents, noise, sample_timestep)
                 training_target_raw = scheduler.training_target(input_latents, noise, sample_timestep)
@@ -343,8 +338,17 @@ def get_batch(data_iterator):
     seq_len_q = batch.get("seq_len_q", None)
 
     return (
-        video, timestep, text, image_emb, training_target, scale,
-        packed_seq_params, grid_sizes, loss_mask, seq_len_q_padded, seq_len_q,
+        video,
+        timestep,
+        text,
+        image_emb,
+        training_target,
+        scale,
+        packed_seq_params,
+        grid_sizes,
+        loss_mask,
+        seq_len_q_padded,
+        seq_len_q,
     )
 
 
@@ -374,10 +378,12 @@ def loss_func(training_target, timestep, scale, loss_mask, seq_len_q_padded, seq
             loss = (diff * loss_mask.unsqueeze(-1)).sum() / (loss_mask.sum() * diff.shape[-1] + 1e-8)
             loss = loss * scale[0]
         else:
-            offsets = torch.cat([
-                torch.zeros(1, dtype=seq_len_q_padded.dtype, device=seq_len_q_padded.device),
-                seq_len_q_padded.cumsum(0),
-            ])
+            offsets = torch.cat(
+                [
+                    torch.zeros(1, dtype=seq_len_q_padded.dtype, device=seq_len_q_padded.device),
+                    seq_len_q_padded.cumsum(0),
+                ]
+            )
             sample_losses = []
             for i in range(num_samples):
                 start = int(offsets[i].item())
@@ -415,15 +421,26 @@ def forward_step(diffusion, data_iterator, model):
     """
     timers = get_timers()
     args = get_args()
-    use_packing = getattr(args, 'packing_sft_data', False)
+    use_packing = getattr(args, "packing_sft_data", False)
 
     # Get the batch.
     timers("batch-generator", log_level=2).start()
 
     global stimer
     with stimer(bdata=True):
-        noisy_latents, timestep, text_enc, image_emb, training_target, scale, \
-            packed_seq_params, grid_sizes, loss_mask, seq_len_q_padded, seq_len_q = get_batch(data_iterator)
+        (
+            noisy_latents,
+            timestep,
+            text_enc,
+            image_emb,
+            training_target,
+            scale,
+            packed_seq_params,
+            grid_sizes,
+            loss_mask,
+            seq_len_q_padded,
+            seq_len_q,
+        ) = get_batch(data_iterator)
     timers("batch-generator").stop()
 
     extra_input = {}
@@ -461,13 +478,13 @@ def forward_step(diffusion, data_iterator, model):
 def train_valid_test_datasets_provider(diffusion, train_val_test_num_samples, vp_stage=None):
     """Build the train test and validation datasets."""
     args = get_args()
-    use_packing = getattr(args, 'packing_sft_data', False)
+    use_packing = getattr(args, "packing_sft_data", False)
 
     dp_rank = parallel_state.get_data_parallel_rank()
     dp_world_size = parallel_state.get_data_parallel_world_size()
 
     if use_packing:
-        packing_buffer_size = getattr(args, 'packing_buffer_size', 512)
+        packing_buffer_size = getattr(args, "packing_buffer_size", 512)
         seq_length = args.seq_length
 
         # steps_per_epoch controls how many packed bins PackedDataset produces
@@ -498,9 +515,15 @@ def train_valid_test_datasets_provider(diffusion, train_val_test_num_samples, vp
         keep_keys = None
         if getattr(args, "model_name", None) in ("wan2-1-i2v", "wan2-2-i2v"):
             keep_keys = {
-                "context", "input_latents", "y", "clip_feature",
-                "height", "width", "num_frames",
-                "max_timestep_boundary", "min_timestep_boundary",
+                "context",
+                "input_latents",
+                "y",
+                "clip_feature",
+                "height",
+                "width",
+                "num_frames",
+                "max_timestep_boundary",
+                "min_timestep_boundary",
             }
         dataset = TensorDataset(
             args.data_path[0],
@@ -510,8 +533,11 @@ def train_valid_test_datasets_provider(diffusion, train_val_test_num_samples, vp
             data_parallel_size=dp_world_size,
         )
         sampler = torch.utils.data.DistributedSampler(
-            dataset, shuffle=False, num_replicas=dp_world_size,
-            rank=dp_rank, drop_last=True,
+            dataset,
+            shuffle=False,
+            num_replicas=dp_world_size,
+            rank=dp_rank,
+            drop_last=True,
         )
         dataloader = torch.utils.data.DataLoader(
             dataset,
@@ -527,17 +553,13 @@ def train_valid_test_datasets_provider(diffusion, train_val_test_num_samples, vp
 
 
 # Set random number seed
-@register_model_trainer(
-    model_family=SUPPORTED_MODELS, training_phase=TrainingPhase.PRETRAIN
-)
+@register_model_trainer(model_family=SUPPORTED_MODELS, training_phase=TrainingPhase.PRETRAIN)
 def default_pretrain_trainer(train_args):
     """build trainer"""
     diffusion = gaussian_diffusion()
     trainer = MegatronTrainer(
         train_args=train_args,
-        train_valid_test_dataset_provider=partial(
-            train_valid_test_datasets_provider, diffusion
-        ),
+        train_valid_test_dataset_provider=partial(train_valid_test_datasets_provider, diffusion),
         model_provider=model_provider,
         model_type=ModelType.encoder_or_decoder,
         forward_step_func=partial(forward_step, diffusion),

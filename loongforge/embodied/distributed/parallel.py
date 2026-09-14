@@ -163,8 +163,7 @@ def _wrap_dmuon_fsdp(
     """
     if not hasattr(model, "convert_to_fsdp"):
         raise NotImplementedError(
-            f"Model {model.__class__.__name__} has no convert_to_fsdp method "
-            f"required by --optimizer=dmuon."
+            f"Model {model.__class__.__name__} has no convert_to_fsdp method required by --optimizer=dmuon."
         )
 
     # Local import to break the train/__init__ -> trainers -> this module cycle.
@@ -181,13 +180,12 @@ def _wrap_dmuon_fsdp(
     # --fsdp-unshard-param-dtype must follow --dtype rather than "no cast".
     mp_policy = build_mp_policy(training_args, model=None)
     # FSDP2's own default; ``fsdp_reshard_default`` unset means "leave it alone".
-    reshard_after_forward = (
-        True if training_args.fsdp_reshard_default is None
-        else training_args.fsdp_reshard_default
-    )
+    reshard_after_forward = True if training_args.fsdp_reshard_default is None else training_args.fsdp_reshard_default
     logger.info(
         "DMuon FSDP2: storage_dtype=%s training_dtype=%s reshard_after_forward=%s",
-        storage_dtype, dtype, reshard_after_forward,
+        storage_dtype,
+        dtype,
+        reshard_after_forward,
     )
 
     wrapped = model.convert_to_fsdp(

@@ -42,41 +42,27 @@ def convert_megatron_transformer_config_args(megatron_args, config_class=None):
     for k, v in megatron_args.items():
         if k in config_class.__dataclass_fields__:
             transformer_config_args[k] = v
-    transformer_config_args["persist_layer_norm"] = not megatron_args[
-        "no_persist_layer_norm"
-    ]
-    transformer_config_args["layernorm_zero_centered_gamma"] = megatron_args[
-        "apply_layernorm_1p"
-    ]
+    transformer_config_args["persist_layer_norm"] = not megatron_args["no_persist_layer_norm"]
+    transformer_config_args["layernorm_zero_centered_gamma"] = megatron_args["apply_layernorm_1p"]
     transformer_config_args["layernorm_epsilon"] = megatron_args["norm_epsilon"]
     transformer_config_args["deallocate_pipeline_outputs"] = True
     transformer_config_args["pipeline_dtype"] = megatron_args["params_dtype"]
     transformer_config_args["batch_p2p_comm"] = not megatron_args["overlap_p2p_comm"]
     transformer_config_args["num_moe_experts"] = megatron_args["num_experts"]
     transformer_config_args["rotary_interleaved"] = megatron_args["rotary_interleaved"]
-    transformer_config_args["num_layers_in_first_pipeline_stage"] = megatron_args[
-        "decoder_first_pipeline_num_layers"
-    ]
-    transformer_config_args["num_layers_in_last_pipeline_stage"] = megatron_args[
-        "decoder_last_pipeline_num_layers"
-    ]
+    transformer_config_args["num_layers_in_first_pipeline_stage"] = megatron_args["decoder_first_pipeline_num_layers"]
+    transformer_config_args["num_layers_in_last_pipeline_stage"] = megatron_args["decoder_last_pipeline_num_layers"]
     transformer_config_args["fp8_param"] = megatron_args["fp8_param_gather"]
 
     if "activation_func_fp8_input_store" in megatron_args:
-        transformer_config_args["activation_func_fp8_input_store"] = megatron_args[
-            "activation_func_fp8_input_store"
-        ]
+        transformer_config_args["activation_func_fp8_input_store"] = megatron_args["activation_func_fp8_input_store"]
 
     if megatron_args["swiglu"]:
         transformer_config_args["activation_func"] = F.silu
         transformer_config_args["gated_linear_unit"] = True
-        transformer_config_args["bias_activation_fusion"] = megatron_args[
-            "bias_swiglu_fusion"
-        ]
+        transformer_config_args["bias_activation_fusion"] = megatron_args["bias_swiglu_fusion"]
     else:
-        transformer_config_args["bias_activation_fusion"] = megatron_args[
-            "bias_gelu_fusion"
-        ]
+        transformer_config_args["bias_activation_fusion"] = megatron_args["bias_gelu_fusion"]
 
     if megatron_args["squared_relu"]:
         assert not megatron_args["swiglu"]
@@ -93,12 +79,12 @@ def convert_megatron_transformer_config_args(megatron_args, config_class=None):
     if len(megatron_args["cp_comm_type"]) == 1:
         transformer_config_args["cp_comm_type"] = megatron_args["cp_comm_type"][0]
     transformer_config_args["config_logger_dir"] = megatron_args["config_logger_dir"]
-    
+
     if megatron_args["rope_type"] is None:
         # Pop 'rope_type' to let the config class use the default value.
-        transformer_config_args.pop('rope_type', None)
+        transformer_config_args.pop("rope_type", None)
     else:
-        assert (megatron_args["multi_latent_attention"] or megatron_args["rope_type"] == 'rope'), (
+        assert megatron_args["multi_latent_attention"] or megatron_args["rope_type"] == "rope", (
             f'Common attention only support rope_type="rope", but got {megatron_args["rope_type"]}.'
         )
 
@@ -110,10 +96,11 @@ def build_model_config(args, config):
 
     model_cfgs = {}
 
-    if (hasattr(config, "model_type") and config.model_type in
-            (set(constants.LanguageModelFamilies.names()) |
-            set(constants.CustomModelFamilies.names()) |
-            set(constants.VisionLanguageActionModelFamilies.names()))):
+    if hasattr(config, "model_type") and config.model_type in (
+        set(constants.LanguageModelFamilies.names())
+        | set(constants.CustomModelFamilies.names())
+        | set(constants.VisionLanguageActionModelFamilies.names())
+    ):
         model_type = config.model_type
         model_config = config
     else:
@@ -131,8 +118,11 @@ def build_model_config(args, config):
             # must have _target_ field
             if isinstance(config_values, Iterable) and "_target_" in config_values:
                 # get corresponding args dict
-                args_dict = deepcopy(vars(global_args_dict[name])) \
-                    if hasattr(global_args_dict[name], "__dict__") else deepcopy(global_args_dict[name])
+                args_dict = (
+                    deepcopy(vars(global_args_dict[name]))
+                    if hasattr(global_args_dict[name], "__dict__")
+                    else deepcopy(global_args_dict[name])
+                )
                 # merge args dict and config values
                 merged = deepcopy(args_dict)
                 merged = convert_megatron_transformer_config_args(merged)
@@ -144,12 +134,11 @@ def build_model_config(args, config):
             else:
                 model_cfgs[name] = config_values
         model_cfgs = VLMModelConfig(**model_cfgs)
-    elif model_type in (set(constants.LanguageModelFamilies.names())
-                        | set(constants.CustomModelFamilies.names())):
+    elif model_type in (set(constants.LanguageModelFamilies.names()) | set(constants.CustomModelFamilies.names())):
         if "_target_" not in model_config:
             raise ValueError(
-                "Model config missing '_target_' field.\n"
-                "This field is required for llm or custom model types.\n")
+                "Model config missing '_target_' field.\nThis field is required for llm or custom model types.\n"
+            )
         args_dict = deepcopy(vars(args))
         merged = deepcopy(args_dict)
         merged = convert_megatron_transformer_config_args(merged)

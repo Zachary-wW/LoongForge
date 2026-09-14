@@ -20,6 +20,7 @@ from loongforge.utils import print_rank_0
 # ---------------------------------------------------------------------------
 try:
     from .custom_ops import apply_rotary_interleaved
+
     _TRITON_ROPE_AVAILABLE = True
     print_rank_0(f"triton available")
 except Exception as _e:
@@ -39,13 +40,9 @@ def wan_rope_apply(
     """wan rope apply — uses VeOmni fused Triton fp32 kernel when available"""
     heads = x.shape[2]
 
-    need_cp_gather = (
-        config.context_parallel_size > 1 and freqs is not None and freqs.shape[0] != x.shape[0]
-    )
+    need_cp_gather = config.context_parallel_size > 1 and freqs is not None and freqs.shape[0] != x.shape[0]
     if need_cp_gather:
-        x = gather_forward_split_backward(
-            x, get_context_parallel_group(), dim=0, grad_scale=None
-        )
+        x = gather_forward_split_backward(x, get_context_parallel_group(), dim=0, grad_scale=None)
     x = rearrange(x, "s b n d -> b s n d")
 
     use_triton_rope = _TRITON_ROPE_AVAILABLE and getattr(config, "use_fused_wan_rope", False)
@@ -55,15 +52,11 @@ def wan_rope_apply(
         sin = freqs[:seq_len].imag.squeeze(1).contiguous()
         x_out = apply_rotary_interleaved(x.contiguous(), cos, sin).flatten(2)
     else:
-        x_out = torch.view_as_complex(
-            x.float().reshape(x.shape[0], x.shape[1], x.shape[2], -1, 2)
-        )
+        x_out = torch.view_as_complex(x.float().reshape(x.shape[0], x.shape[1], x.shape[2], -1, 2))
         x_out = torch.view_as_real(x_out * freqs).flatten(2)
 
     if need_cp_gather:
-        x_out = split_forward_gather_backward(
-            x_out, get_context_parallel_group(), dim=1, grad_scale=None
-        )
+        x_out = split_forward_gather_backward(x_out, get_context_parallel_group(), dim=1, grad_scale=None)
     x_out = rearrange(x_out, "b s (n d) -> s b n d", n=heads).to(x.dtype)
     # clone(contiguous_format) forces a real reallocation with canonical strides.
     return x_out.clone(memory_format=torch.contiguous_format)
@@ -72,12 +65,8 @@ def wan_rope_apply(
 def send_batch(batch, broadcast):
     """send batch"""
     args = get_args()
-    video_shape = torch.tensor(batch["latents"].shape, dtype=torch.int64).cuda(
-        non_blocking=True
-    )
-    contxt_shape = torch.tensor(
-        batch["prompt_emb"]["context"].shape, dtype=torch.int64
-    ).cuda(non_blocking=True)
+    video_shape = torch.tensor(batch["latents"].shape, dtype=torch.int64).cuda(non_blocking=True)
+    contxt_shape = torch.tensor(batch["prompt_emb"]["context"].shape, dtype=torch.int64).cuda(non_blocking=True)
     broadcast(video_shape)
     broadcast(batch["latents"])
     broadcast(batch["training_target"])
@@ -97,15 +86,11 @@ def send_batch(batch, broadcast):
 
     broadcast(image_info)
     if image_info[0] == 1:
-        clip_feature_shape = torch.tensor(
-            image_emb["clip_feature"].shape, dtype=torch.int64
-        ).cuda(non_blocking=True)
+        clip_feature_shape = torch.tensor(image_emb["clip_feature"].shape, dtype=torch.int64).cuda(non_blocking=True)
         broadcast(clip_feature_shape)
         broadcast(image_emb["clip_feature"])
     if image_info[1] == 1:
-        y_shape = torch.tensor(image_emb["y"].shape, dtype=torch.int64).cuda(
-            non_blocking=True
-        )
+        y_shape = torch.tensor(image_emb["y"].shape, dtype=torch.int64).cuda(non_blocking=True)
         broadcast(y_shape)
         broadcast(image_emb["y"])
 
@@ -123,9 +108,7 @@ def receive_batch(broadcast):
     broadcast(video_shape)
     args.micro_batch_size = video_shape.tolist()[0]
     video = torch.empty(video_shape.tolist(), dtype=torch.bfloat16, device=device)
-    training_target = torch.empty(
-        video_shape.tolist(), dtype=torch.bfloat16, device=device
-    )
+    training_target = torch.empty(video_shape.tolist(), dtype=torch.bfloat16, device=device)
     broadcast(video)
     broadcast(training_target)
 
@@ -149,9 +132,7 @@ def receive_batch(broadcast):
     if image_info[0].item() == 1:
         clip_shape = torch.empty(4, dtype=torch.int64, device=device)
         broadcast(clip_shape)
-        clip_feature = torch.empty(
-            clip_shape.tolist(), dtype=prompt.dtype, device=device
-        )
+        clip_feature = torch.empty(clip_shape.tolist(), dtype=prompt.dtype, device=device)
         broadcast(clip_feature)
         image_emb["clip_feature"] = clip_feature
 

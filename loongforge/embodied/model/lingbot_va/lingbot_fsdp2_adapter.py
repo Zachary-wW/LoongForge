@@ -3,7 +3,6 @@
 
 """LingBot-specific FSDP2 adapter over the public fully_shard runtime."""
 
-
 import torch
 import torch.nn as nn
 from collections import defaultdict
@@ -23,19 +22,13 @@ from loongforge.embodied.model.lingbot_va.modules.wan_model import WanTransforme
 
 def _configure_lingbot_checkpoint(model, training_args):
     """Use TE's FP8-aware checkpoint for LingBot's internal block recompute."""
-    if not (
-        getattr(training_args, "fp8", False)
-        and getattr(training_args, "fp8_backend", None) == "te"
-    ):
+    if not (getattr(training_args, "fp8", False) and getattr(training_args, "fp8_backend", None) == "te"):
         return
 
     backbone = getattr(model, "model", None)
     set_checkpoint = getattr(backbone, "set_block_checkpoint_fn", None)
     if not callable(set_checkpoint):
-        raise RuntimeError(
-            "LingBot TE FP8 requires a backbone that supports "
-            "set_block_checkpoint_fn()."
-        )
+        raise RuntimeError("LingBot TE FP8 requires a backbone that supports set_block_checkpoint_fn().")
 
     from loongforge.embodied.distributed.fp8_utils import te_checkpoint_fn
 
@@ -120,13 +113,10 @@ def _restore_custom_attrs(module, custom_attrs):
             setattr(param, attr_name, attr_value)
 
 
-
 def wrap_lingbot_torch_nested_fsdp2(model, training_args, ctx):
     """Apply the phase4 block+root FSDP2 order and mixed-precision policy."""
     if getattr(training_args, "distributed_strategy", None) != "fsdp":
-        raise RuntimeError(
-            "LingBot native nested FSDP2 requires embodied FSDP strategy"
-        )
+        raise RuntimeError("LingBot native nested FSDP2 requires embodied FSDP strategy")
 
     apply_fp8_linear_conversion(model, training_args, ctx.device)
     _configure_lingbot_checkpoint(model, training_args)
@@ -154,9 +144,7 @@ def wrap_lingbot_torch_nested_fsdp2(model, training_args, ctx):
 
     def nested_fully_shard(module):
         shard_kwargs = dict(fsdp_kwargs)
-        params_before = list(
-            module_params(module, excluded_param_ids=wrapped_param_ids)
-        )
+        params_before = list(module_params(module, excluded_param_ids=wrapped_param_ids))
         if wrapped_params:
             shard_kwargs["ignored_params"] = wrapped_params
         fully_shard(module, **shard_kwargs)
@@ -207,9 +195,7 @@ def _lingbot_optimizer_parameters(optimizer):
 def _lingbot_local_gradient_groups(optimizer):
     """Collect mutable local DTensor gradients by device and dtype."""
     parameters = _lingbot_optimizer_parameters(optimizer)
-    non_dtensor = [
-        parameter for parameter in parameters if not isinstance(parameter, DTensor)
-    ]
+    non_dtensor = [parameter for parameter in parameters if not isinstance(parameter, DTensor)]
     if non_dtensor:
         raise RuntimeError(
             "LingBot optimizer-owned gradient handling requires pure DTensor parameters; "
@@ -224,14 +210,11 @@ def _lingbot_local_gradient_groups(optimizer):
             continue
         if not isinstance(gradient, DTensor):
             raise RuntimeError(
-                "LingBot optimizer-owned gradient handling requires DTensor gradients; "
-                f"got {type(gradient).__name__}."
+                f"LingBot optimizer-owned gradient handling requires DTensor gradients; got {type(gradient).__name__}."
             )
         local_gradient = gradient._local_tensor
         if local_gradient.is_sparse:
-            raise RuntimeError(
-                "LingBot FSDP2 gradient handling does not support sparse gradients."
-            )
+            raise RuntimeError("LingBot FSDP2 gradient handling does not support sparse gradients.")
         groups[(local_gradient.device, local_gradient.dtype)].append(local_gradient)
         gradient_count += 1
     return parameters, list(groups.values()), gradient_count
@@ -256,24 +239,17 @@ def clip_lingbot_optimizer_gradients(optimizer, max_norm):
 
     if max_norm < 0:
         raise ValueError(f"max_norm must be non-negative, got {max_norm}.")
-    parameters, gradient_groups, gradient_count = _lingbot_local_gradient_groups(
-        optimizer
-    )
+    parameters, gradient_groups, gradient_count = _lingbot_local_gradient_groups(optimizer)
     if parameters:
         device = parameters[0]._local_tensor.device
     else:
-        device = (
-            torch.device("cuda", torch.cuda.current_device())
-            if torch.cuda.is_available()
-            else torch.device("cpu")
-        )
+        device = torch.device("cuda", torch.cuda.current_device()) if torch.cuda.is_available() else torch.device("cpu")
     total_norm_sq = _lingbot_local_norm_sq(gradient_groups, device)
     if torch.distributed.is_available() and torch.distributed.is_initialized():
         torch.distributed.all_reduce(total_norm_sq, op=torch.distributed.ReduceOp.SUM)
     total_norm = total_norm_sq.sqrt()
     clip_coefficient = torch.clamp(
-        torch.as_tensor(max_norm, device=device, dtype=torch.float32)
-        / (total_norm + 1e-6),
+        torch.as_tensor(max_norm, device=device, dtype=torch.float32) / (total_norm + 1e-6),
         max=1.0,
     )
     for gradients in gradient_groups:
@@ -311,17 +287,13 @@ def register_lingbot_post_step_reshard(
     chunks = model if isinstance(model, (list, tuple)) else [model]
     for chunk in chunks:
         for module in chunk.modules():
-            if id(module) in seen or not (
-                hasattr(module, "unshard") and hasattr(module, "reshard")
-            ):
+            if id(module) in seen or not (hasattr(module, "unshard") and hasattr(module, "reshard")):
                 continue
             seen.add(id(module))
             fsdp_modules.append(module)
 
     if not hasattr(optimizer, "register_step_post_hook"):
-        raise TypeError(
-            "LingBot optimizer must expose register_step_post_hook for post-step reshard"
-        )
+        raise TypeError("LingBot optimizer must expose register_step_post_hook for post-step reshard")
 
     logged = False
 
@@ -329,12 +301,9 @@ def register_lingbot_post_step_reshard(
         nonlocal logged
         for module in fsdp_modules:
             module.reshard()
-        if not logged and (
-            not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0
-        ):
+        if not logged and (not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0):
             print(
-                "[lingbot-post-step-reshard] "
-                f"active modules={len(fsdp_modules)}",
+                f"[lingbot-post-step-reshard] active modules={len(fsdp_modules)}",
                 flush=True,
             )
             logged = True
@@ -363,7 +332,6 @@ def apply_lingbot_fsdp2_tuning(model):
     rank = torch.distributed.get_rank() if torch.distributed.is_initialized() else 0
     if modules and rank == 0:
         print(
-            "[lingbot-fsdp2] "
-            f"reshard_after_backward={reshard} applied to {len(modules)} modules",
+            f"[lingbot-fsdp2] reshard_after_backward={reshard} applied to {len(modules)} modules",
             flush=True,
         )

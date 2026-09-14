@@ -108,9 +108,7 @@ class VideoProcess(Process):
     def split_video(self, sample):
         """dummy"""
         uid2count = defaultdict(int)
-        for key, group in groupby(
-            sample["image_info"], key=lambda x: x["matched_text_index"]
-        ):
+        for key, group in groupby(sample["image_info"], key=lambda x: x["matched_text_index"]):
             group = list(group)
             uid_tmp = image_info_2_hash(group[0])
             count = uid2count[uid_tmp]
@@ -151,17 +149,12 @@ class VideoProcess(Process):
                             + [{"text": self.image_end_token, "tag": "mask"}]
                             + text_info[matched_text_index:]
                         )
-                        for img_index_helper in range(
-                            img_one_index + 1, len(image_info)
-                        ):
+                        for img_index_helper in range(img_one_index + 1, len(image_info)):
                             image_info[img_index_helper]["matched_text_index"] += 1
-                assert len(
-                    [i for i in text_info if i["text"] == self.image_end_token]
-                ) == len([i for i in text_info if i["text"] == self.image_start_token])
-                assert (
-                    len([i for i in text_info if i["text"] == self.image_end_token])
-                    == len(image_info) // 2
+                assert len([i for i in text_info if i["text"] == self.image_end_token]) == len(
+                    [i for i in text_info if i["text"] == self.image_start_token]
                 )
+                assert len([i for i in text_info if i["text"] == self.image_end_token]) == len(image_info) // 2
 
         sample["text_info"] = text_info
         sample["image_info"] = image_info
@@ -173,18 +166,14 @@ class VideoProcess(Process):
         image_info = meta["image_info"]
         text_info = meta["text_info"]
 
-        image_info = [
-            i for idx, i in enumerate(image_info) if idx not in frame_indices_to_remove
-        ]
+        image_info = [i for idx, i in enumerate(image_info) if idx not in frame_indices_to_remove]
 
         meta["image_info"] = image_info
         meta["text_info"] = text_info
 
         return meta
 
-    def get_frame_indices_to_remove_for_one_video(
-        self, meta, frames, num_frames_to_be_deleted
-    ):
+    def get_frame_indices_to_remove_for_one_video(self, meta, frames, num_frames_to_be_deleted):
         """get the indices of frames that need to be removed"""
         num_frames = len(frames)
         max_frames = num_frames - num_frames_to_be_deleted
@@ -192,20 +181,12 @@ class VideoProcess(Process):
         frame_interval = num_frames // max_frames if num_frames >= max_frames else 1
         frame_indices_selected = frames[::frame_interval]
         if len(frame_indices_selected) > max_frames:
-            random_seed = get_uniq_id(
-                get_hashable(meta["image_info"][frames[0]]["image_url"])
-            )
+            random_seed = get_uniq_id(get_hashable(meta["image_info"][frames[0]]["image_url"]))
             with RandomSeedContext(random_seed):
-                indices_selected = random.sample(
-                    range(1, len(frame_indices_selected) - 1), k=max_frames - 2
-                )
+                indices_selected = random.sample(range(1, len(frame_indices_selected) - 1), k=max_frames - 2)
             indices_selected.sort()
-            indices_selected = (
-                [0] + indices_selected + [len(frame_indices_selected) - 1]
-            )
-            frame_indices_selected = [
-                frame_indices_selected[i] for i in indices_selected
-            ]
+            indices_selected = [0] + indices_selected + [len(frame_indices_selected) - 1]
+            frame_indices_selected = [frame_indices_selected[i] for i in indices_selected]
 
         frame_indices_selected = set(frame_indices_selected)
         frame_indices_to_remove = [i for i in frames if i not in frame_indices_selected]
@@ -236,9 +217,7 @@ class VideoProcess(Process):
                 tmp_vision_tokens_num += round(
                     sum(
                         [
-                            len(i[1])
-                            / self.temporal_conv_size
-                            * self.adaptiver.image_sep_token_num
+                            len(i[1]) / self.temporal_conv_size * self.adaptiver.image_sep_token_num
                             for i in tmp_grouped_frames_details
                         ]
                     )
@@ -246,22 +225,16 @@ class VideoProcess(Process):
 
             return tmp_grouped_frames_details, tmp_vision_tokens_num
 
-        def judge_single_adaptive_resolution(
-            tmp_video_min_pixels, tmp_video_max_pixels, quota_num_tokens
-        ):
+        def judge_single_adaptive_resolution(tmp_video_min_pixels, tmp_video_max_pixels, quota_num_tokens):
             """judge single resolution"""
-            _, tmp_vision_tokens_num = get_vision_tokens(
-                tmp_video_min_pixels, tmp_video_max_pixels
-            )
+            _, tmp_vision_tokens_num = get_vision_tokens(tmp_video_min_pixels, tmp_video_max_pixels)
 
             if tmp_vision_tokens_num < quota_num_tokens:
                 return True, tmp_vision_tokens_num
 
             return False, tmp_vision_tokens_num
 
-        def judge_adaptive_resolution(
-            permt_video_min_pixels, permt_video_max_pixels, quota_num_tokens
-        ):
+        def judge_adaptive_resolution(permt_video_min_pixels, permt_video_max_pixels, quota_num_tokens):
             """judge adaptive resolution"""
             left = int(permt_video_min_pixels)
             right = int(permt_video_max_pixels)
@@ -270,10 +243,8 @@ class VideoProcess(Process):
             try:
                 while left < right:
                     mid = (left + right + 1) // 2
-                    tmp_flag, permt_vision_num_tokens = (
-                        judge_single_adaptive_resolution(
-                            permt_video_min_pixels, mid, quota_num_tokens
-                        )
+                    tmp_flag, permt_vision_num_tokens = judge_single_adaptive_resolution(
+                        permt_video_min_pixels, mid, quota_num_tokens
                     )
                     if tmp_flag:
                         left = mid
@@ -282,9 +253,7 @@ class VideoProcess(Process):
                     else:
                         right = mid - 1
             except ValueError:
-                logger.debug(
-                    "[BINARY SEARCH] encounter resized shape smaller than min_pixels, early exit!"
-                )
+                logger.debug("[BINARY SEARCH] encounter resized shape smaller than min_pixels, early exit!")
                 return False, right, permt_vision_num_tokens
 
             if flag:
@@ -307,9 +276,7 @@ class VideoProcess(Process):
 
             return adjusted_ratios
 
-        logger.debug(
-            "*******start one video squeeze_video_into_one_seq_adaptive********"
-        )
+        logger.debug("*******start one video squeeze_video_into_one_seq_adaptive********")
         video_min_pixels = self.adaptiver.video_min_pixels
         video_max_pixels = self.adaptiver.video_max_pixels
         if video_min_pixels is None:
@@ -323,21 +290,15 @@ class VideoProcess(Process):
         actual_min_pixels = video_min_pixels
         for i in meta["image_info"]:
             if i["image_type"] == "video":
-                actual_min_pixels = min(
-                    actual_min_pixels, i["image_width"] * i["image_height"]
-                )
+                actual_min_pixels = min(actual_min_pixels, i["image_width"] * i["image_height"])
         if actual_min_pixels < video_min_pixels:
             self.adaptiver.set_video_pixels(
                 video_min_pixels=actual_min_pixels,
                 msg="VideoProcess.squeeze_video_into_one_seq_adaptive() set actual_min_pixels",
             )
         video_min_pixels = actual_min_pixels
-        logger.debug(
-            f"image_width: {i['image_width']}, image_height: {i['image_height']}"
-        )
-        logger.debug(
-            f"video_min_pixels: {video_min_pixels}, video_max_pixels: {video_max_pixels}"
-        )
+        logger.debug(f"image_width: {i['image_width']}, image_height: {i['image_height']}")
+        logger.debug(f"video_min_pixels: {video_min_pixels}, video_max_pixels: {video_max_pixels}")
 
         if max_seq_len is None:
             max_seq_len = self.max_seq_len
@@ -356,23 +317,17 @@ class VideoProcess(Process):
         # elements in the list: [num_of_placeholder_for_the_video, [frame_indices]]
         _, vision_tokens_num = get_vision_tokens(video_min_pixels, video_max_pixels)
 
-        logger.debug(
-            f"original vision_tokens_num: {vision_tokens_num}, image_token_limit: {image_token_limit}"
-        )
+        logger.debug(f"original vision_tokens_num: {vision_tokens_num}, image_token_limit: {image_token_limit}")
         if vision_tokens_num < image_token_limit:
             logger.debug(f"seq len: {vision_tokens_num + text_token_count}")
             logger.debug("no need to squeeze")
             return meta
 
-        (judge_adaptive_flag, judge_video_max_pixels, permt_vision_tokens_num) = (
-            judge_adaptive_resolution(
-                video_min_pixels, video_max_pixels, image_token_limit
-            )
+        (judge_adaptive_flag, judge_video_max_pixels, permt_vision_tokens_num) = judge_adaptive_resolution(
+            video_min_pixels, video_max_pixels, image_token_limit
         )
 
-        logger.debug(
-            f"after adjust, video_min_pixels: {video_min_pixels}, video_max_pixels: {judge_video_max_pixels}"
-        )
+        logger.debug(f"after adjust, video_min_pixels: {video_min_pixels}, video_max_pixels: {judge_video_max_pixels}")
         logger.debug(
             f"after adjust, vision_tokens_num: {permt_vision_tokens_num}, image_token_limit: {image_token_limit}"
         )
@@ -394,9 +349,7 @@ class VideoProcess(Process):
             )
 
             grouped_frames = [i[1] for i in grouped_frames_details]
-            token_per_frame_per_video = [
-                i[0] // len(i[1]) for i in grouped_frames_details
-            ]
+            token_per_frame_per_video = [i[0] // len(i[1]) for i in grouped_frames_details]
 
             if self.rope_3d:
                 num_special_tokens_per_conv_size = 0
@@ -406,9 +359,7 @@ class VideoProcess(Process):
                     num_special_tokens_per_conv_size = 2
                 else:
                     # <img sep>
-                    num_special_tokens_per_conv_size = (
-                        self.adaptiver.image_sep_token_num
-                    )
+                    num_special_tokens_per_conv_size = self.adaptiver.image_sep_token_num
 
             tokens_to_delete = vision_tokens_num - image_token_limit
 
@@ -417,9 +368,7 @@ class VideoProcess(Process):
             video_cnt = 0
             break_cond = 0
 
-            ratio = calculate_ratios_with_min_one(
-                [i[0] for i in grouped_frames_details]
-            )
+            ratio = calculate_ratios_with_min_one([i[0] for i in grouped_frames_details])
             ratio = [i * self.temporal_conv_size for i in ratio]
 
             while tokens_to_delete > 0 and break_cond < len(grouped_frames):
@@ -431,18 +380,13 @@ class VideoProcess(Process):
                     >= 2
                 ):
                     # image tokens
-                    num_frames_to_be_deleted_for_each_video[video_index] += ratio[
-                        video_index
-                    ]
-                    tokens_to_delete -= (
-                        ratio[video_index] * token_per_frame_per_video[video_index]
-                    )
+                    num_frames_to_be_deleted_for_each_video[video_index] += ratio[video_index]
+                    tokens_to_delete -= ratio[video_index] * token_per_frame_per_video[video_index]
 
                     # special tokens
                     tokens_to_delete += special_tokens_removed_per_video[video_index]
                     special_tokens_removed_per_video[video_index] = (
-                        num_frames_to_be_deleted_for_each_video[video_index]
-                        // self.temporal_conv_size
+                        num_frames_to_be_deleted_for_each_video[video_index] // self.temporal_conv_size
                     ) * num_special_tokens_per_conv_size
                     tokens_to_delete -= special_tokens_removed_per_video[video_index]
 
@@ -453,17 +397,13 @@ class VideoProcess(Process):
 
             # drop token
             frame_indices_to_remove = []
-            for frames, num_frames_to_be_deleted in zip(
-                grouped_frames, num_frames_to_be_deleted_for_each_video
-            ):
+            for frames, num_frames_to_be_deleted in zip(grouped_frames, num_frames_to_be_deleted_for_each_video):
                 logger.debug(
                     f"original frames {len(frames)}, num_frames_to_be_deleted {num_frames_to_be_deleted}, "
                     + f"final frames {len(frames) - num_frames_to_be_deleted}"
                 )
                 frame_indices_to_remove.extend(
-                    self.get_frame_indices_to_remove_for_one_video(
-                        meta, frames, num_frames_to_be_deleted
-                    )
+                    self.get_frame_indices_to_remove_for_one_video(meta, frames, num_frames_to_be_deleted)
                 )
 
             meta = self.remove_video_frames(meta, frame_indices_to_remove)
@@ -477,17 +417,11 @@ class VideoProcess(Process):
                 + f"final seq len: {final_vision_tokens_num + text_token_count}"
             )
 
-        num_frames_selected = sum([len(i) for i in grouped_frames]) - sum(
-            num_frames_to_be_deleted_for_each_video
-        )
+        num_frames_selected = sum([len(i) for i in grouped_frames]) - sum(num_frames_to_be_deleted_for_each_video)
         if self.is_training:
-            logger.debug(
-                f"for one_sample_in_one_seq_adaptive, num_frames={num_frames_selected}"
-            )
+            logger.debug(f"for one_sample_in_one_seq_adaptive, num_frames={num_frames_selected}")
         else:
-            logger.info(
-                f"for one_sample_in_one_seq_adaptive, num_frames={num_frames_selected}"
-            )
+            logger.info(f"for one_sample_in_one_seq_adaptive, num_frames={num_frames_selected}")
 
         return meta
 
@@ -506,10 +440,7 @@ class VideoProcess(Process):
         for frames in grouped_frames:
             len_frames = len(frames)
             if len_frames % self.temporal_conv_size != 0:
-                roundup = (
-                    math.ceil(len_frames / self.temporal_conv_size)
-                    * self.temporal_conv_size
-                )
+                roundup = math.ceil(len_frames / self.temporal_conv_size) * self.temporal_conv_size
                 num_padded_images = roundup - len_frames
                 tmp = []
                 for _ in range(num_padded_images):
@@ -517,9 +448,7 @@ class VideoProcess(Process):
                     padded_image["is_padded_image"] = True
                     tmp.append(padded_image)
                 new_image_info = (
-                    new_image_info[: index_offset + len_frames]
-                    + tmp
-                    + new_image_info[index_offset + len_frames :]
+                    new_image_info[: index_offset + len_frames] + tmp + new_image_info[index_offset + len_frames :]
                 )
                 index_offset += len(tmp)
 
@@ -532,9 +461,7 @@ class VideoProcess(Process):
         """
         pad the video sample to match the temporal_conv_size
         """
-        new_image_info, num_padded_images = self.video_pad_image_info(
-            meta["image_info"]
-        )
+        new_image_info, num_padded_images = self.video_pad_image_info(meta["image_info"])
         meta["image_info"] = new_image_info
 
         return meta, num_padded_images
@@ -559,9 +486,7 @@ class VideoProcess(Process):
         for idx, image in enumerate(images):
             images_sliding_window.append(image)
             if len(images_sliding_window) >= conv_size:
-                match_indices = sorted(
-                    [i["matched_text_index"] for i in images_sliding_window]
-                )
+                match_indices = sorted([i["matched_text_index"] for i in images_sliding_window])
                 # append the corresponding texts except for the last one,
                 # coz the current windows may not contain all the correspoding images
 
@@ -572,9 +497,7 @@ class VideoProcess(Process):
                 # take special care for the last match index
                 last_match_index = match_indices[-1]
                 if idx < len(images) - 1:
-                    contain_all_cor_image = (
-                        last_match_index != images[idx + 1]["matched_text_index"]
-                    )
+                    contain_all_cor_image = last_match_index != images[idx + 1]["matched_text_index"]
                 else:
                     # there isnt any image left, so the current window contains
                     # all correspoding images for the last match index
@@ -591,9 +514,7 @@ class VideoProcess(Process):
                 images_sliding_window = []
 
         if len(images_sliding_window) != 0:
-            match_indices = sorted(
-                [i["matched_text_index"] for i in images_sliding_window]
-            )
+            match_indices = sorted([i["matched_text_index"] for i in images_sliding_window])
             # sliding window has complete the swiping, so
             # push all left images and texts to the two resulted list.
             for match_index in range(appended_text_index + 1, match_indices[-1]):
@@ -612,26 +533,23 @@ class VideoProcess(Process):
         assert len(resulted_text_info) == len(
             meta["text_info"]
         ), f"""len(resulted_text_info): {len(resulted_text_info)},
-        len(meta['text_info']): {len(meta['text_info'])},
+        len(meta['text_info']): {len(meta["text_info"])},
         meta_debug: {json.dumps(result, indent=4)}"""
         # resulted_text_info: {json.dumps(resulted_text_info, indent=4)},
         # resulted_image_info: {json.dumps(resulted_image_info, indent=4)}"""
 
         for i in range(len(resulted_image_info)):
-            assert (
-                resulted_image_info[i]["matched_text_index"] >= 0
-            ), f"i: {i}, resulted_image_info[i]: {resulted_image_info[i]}"
-            assert (
-                resulted_image_info[i]["matched_text_index"]
-                <= images[i]["matched_text_index"]
+            assert resulted_image_info[i]["matched_text_index"] >= 0, (
+                f"i: {i}, resulted_image_info[i]: {resulted_image_info[i]}"
             )
+            assert resulted_image_info[i]["matched_text_index"] <= images[i]["matched_text_index"]
 
-        assert len(resulted_image_info) == len(
-            meta["image_info"]
-        ), f"len(resulted_image_info): {len(resulted_image_info)}, len(meta['image_info']): {len(meta['image_info'])}"
-        assert len(resulted_text_info) == len(
-            meta["text_info"]
-        ), f"len(resulted_text_info): {len(resulted_text_info)}, len(meta['text_info']): {len(meta['text_info'])}"
+        assert len(resulted_image_info) == len(meta["image_info"]), (
+            f"len(resulted_image_info): {len(resulted_image_info)}, len(meta['image_info']): {len(meta['image_info'])}"
+        )
+        assert len(resulted_text_info) == len(meta["text_info"]), (
+            f"len(resulted_text_info): {len(resulted_text_info)}, len(meta['text_info']): {len(meta['text_info'])}"
+        )
 
         result["text_info"] = resulted_text_info
         result["image_info"] = resulted_image_info

@@ -4,6 +4,7 @@
 # Modified from Wall-X under the Apache-2.0 License.
 
 """vla_mixin module."""
+
 from __future__ import annotations
 
 import torch
@@ -29,6 +30,7 @@ logger = logging.get_logger(__name__)
 class ActionModelMixMin:
     # config: Qwen25VLConfig
     """ActionModelMixMin."""
+
     action_preprocessor: ActionProcessor
     router: "TokenTypeRouter"
     moe: "SparseMoeBlock"
@@ -44,9 +46,7 @@ class ActionModelMixMin:
     def _apply_mlp_moe(self, hidden_states, token_types, start_indices, end_indices):
         """Apply mlp moe."""
         if self.config.mlp_moe:
-            hidden_states = self.moe(
-                hidden_states, token_types, start_indices, end_indices
-            )
+            hidden_states = self.moe(hidden_states, token_types, start_indices, end_indices)
         else:
             hidden_states = self.mlp(hidden_states)
         return hidden_states
@@ -76,7 +76,6 @@ class ActionModelMixMin:
         # Case 1: norm_moe=True (expert-wise norm)
         # -------------------------
         if self.config.norm_moe:
-
             # ---------------------------------------------------------
             # Case 1A: mot_opt=True (segments assigned by start/end)
             # ---------------------------------------------------------
@@ -87,10 +86,7 @@ class ActionModelMixMin:
                 # column tail an expert leaves untouched still needs zeroing,
                 # which is far less traffic than filling the whole tensor.
                 full_dim = hidden_states.shape[-1]
-                experts_cover_all_rows = (
-                    len(end_indices) > 0
-                    and int(end_indices[-1]) == hidden_states.shape[0]
-                )
+                experts_cover_all_rows = len(end_indices) > 0 and int(end_indices[-1]) == hidden_states.shape[0]
                 if experts_cover_all_rows:
                     new_hidden_states = torch.empty_like(hidden_states)
                 else:
@@ -122,19 +118,13 @@ class ActionModelMixMin:
 
                         def norm_chunk(t_x, t_cond, expert_norm=expert_norm):
                             """Norm chunk."""
-                            if t_cond is None or (
-                                isinstance(t_cond, torch.Tensor) and t_cond.numel() == 0
-                            ):
+                            if t_cond is None or (isinstance(t_cond, torch.Tensor) and t_cond.numel() == 0):
                                 out, _ = expert_norm(t_x)
                             else:
                                 out, _ = expert_norm(t_x, t_cond)
                             return out
 
-                        cond_for_cp = (
-                            cond
-                            if cond is not None
-                            else torch.empty(0, device=input_slice.device)
-                        )
+                        cond_for_cp = cond if cond is not None else torch.empty(0, device=input_slice.device)
                         processed = cp.checkpoint(
                             norm_chunk,
                             input_slice,
@@ -145,17 +135,11 @@ class ActionModelMixMin:
                         processed, gate = expert_norm(input_slice, cond)
 
                     # reshape back if needed
-                    if (
-                        processed is not None
-                        and self.config.use_adarms
-                        and expert_idx == 1
-                    ):
+                    if processed is not None and self.config.use_adarms and expert_idx == 1:
                         processed = processed.view(-1, dim_input)
 
                     if processed is not None:
-                        new_hidden_states[start:end, :dim_input] = processed.to(
-                            hidden_states.dtype
-                        )
+                        new_hidden_states[start:end, :dim_input] = processed.to(hidden_states.dtype)
                         if experts_cover_all_rows and dim_input < full_dim:
                             new_hidden_states[start:end, dim_input:].zero_()
                     elif experts_cover_all_rows:
@@ -169,7 +153,6 @@ class ActionModelMixMin:
             # Case 1B: mot_opt=False (token-level mask)
             # ---------------------------------------------------------
             else:
-
                 new_hidden_states = torch.zeros_like(hidden_states)
                 B, S, D = hidden_states.shape
 
@@ -198,19 +181,13 @@ class ActionModelMixMin:
 
                         def norm_chunk(t_x, t_cond, expert_norm=expert_norm):
                             """Norm chunk."""
-                            if t_cond is None or (
-                                isinstance(t_cond, torch.Tensor) and t_cond.numel() == 0
-                            ):
+                            if t_cond is None or (isinstance(t_cond, torch.Tensor) and t_cond.numel() == 0):
                                 out, _ = expert_norm(t_x)
                             else:
                                 out, _ = expert_norm(t_x, t_cond)
                             return out
 
-                        cond_for_cp = (
-                            cond
-                            if cond is not None
-                            else torch.empty(0, device=input_slice.device)
-                        )
+                        cond_for_cp = cond if cond is not None else torch.empty(0, device=input_slice.device)
 
                         processed = cp.checkpoint(
                             norm_chunk,
@@ -226,9 +203,7 @@ class ActionModelMixMin:
 
                     # scatter back
                     b_id, s_id = torch.where(mask)
-                    new_hidden_states[b_id, s_id, :dim_input] = processed.to(
-                        hidden_states.dtype
-                    )
+                    new_hidden_states[b_id, s_id, :dim_input] = processed.to(hidden_states.dtype)
 
                 hidden_states = new_hidden_states
 
@@ -276,13 +251,13 @@ class ActionModelMixMin:
 
         new_y = y.clone()
         selected_y = y[start_indices[1] : end_indices[1]]
-        selected_y = selected_y.view(
-            -1, self.config.action_horizon_flow, selected_y.shape[-1]
-        )[:, :, : self.config.dim_inputs[1]]
+        selected_y = selected_y.view(-1, self.config.action_horizon_flow, selected_y.shape[-1])[
+            :, :, : self.config.dim_inputs[1]
+        ]
         selected_y = selected_y.to(torch.float32) * gate
-        new_y[start_indices[1] : end_indices[1], : self.config.dim_inputs[1]] = (
-            selected_y.view(-1, self.config.dim_inputs[1]).to(new_y.dtype)
-        )
+        new_y[start_indices[1] : end_indices[1], : self.config.dim_inputs[1]] = selected_y.view(
+            -1, self.config.dim_inputs[1]
+        ).to(new_y.dtype)
 
         return x + new_y
 
@@ -290,16 +265,10 @@ class ActionModelMixMin:
         self, input_ids, inputs_embeds, proprioception, dataset_names, agent_pos_mask
     ):
         """Scatter proprioception embeddings."""
-        use_state_string_representation = getattr(
-            self.config, "use_state_string_representation", False
-        )
+        use_state_string_representation = getattr(self.config, "use_state_string_representation", False)
         if proprioception is not None and not use_state_string_representation:
-            proprioception = proprioception.to(inputs_embeds.device).to(
-                inputs_embeds.dtype
-            )
-            agent_pos_mask = agent_pos_mask.to(inputs_embeds.device).to(
-                inputs_embeds.dtype
-            )
+            proprioception = proprioception.to(inputs_embeds.device).to(inputs_embeds.dtype)
+            agent_pos_mask = agent_pos_mask.to(inputs_embeds.device).to(inputs_embeds.dtype)
             proprioception = self.action_preprocessor.proprioception_proj(
                 proprioception,
                 dataset_names,
@@ -311,12 +280,8 @@ class ActionModelMixMin:
             mask_expanded = mask_unsqueezed.expand_as(inputs_embeds)
             proprioception_mask = mask_expanded.to(inputs_embeds.device)
 
-            proprioception = proprioception.to(
-                inputs_embeds.device, inputs_embeds.dtype
-            )
-            inputs_embeds = inputs_embeds.masked_scatter(
-                proprioception_mask, proprioception
-            )
+            proprioception = proprioception.to(inputs_embeds.device, inputs_embeds.dtype)
+            inputs_embeds = inputs_embeds.masked_scatter(proprioception_mask, proprioception)
 
         return inputs_embeds
 
@@ -344,9 +309,7 @@ class ActionModelMixMin:
             mask_expanded = mask_unsqueezed.expand_as(inputs_embeds)
             action_mask = mask_expanded.to(inputs_embeds.device)
 
-            noisy_action_emb = noisy_action_emb.to(
-                inputs_embeds.device, inputs_embeds.dtype
-            )
+            noisy_action_emb = noisy_action_emb.to(inputs_embeds.device, inputs_embeds.dtype)
             inputs_embeds = inputs_embeds.masked_scatter(action_mask, noisy_action_emb)
 
         return inputs_embeds, flow, adarms_cond
@@ -356,9 +319,7 @@ class ActionModelMixMin:
         """Update position ids."""
         return update_position_ids(position_ids, moe_token_types, positional_masks)
 
-    def _update_joint_attention_mask_2d(
-        self, attention_mask, moe_token_types, positional_masks
-    ):
+    def _update_joint_attention_mask_2d(self, attention_mask, moe_token_types, positional_masks):
         """Update joint attention mask 2d."""
         return update_joint_attention_mask_2d(
             attention_mask,
@@ -370,6 +331,7 @@ class ActionModelMixMin:
 
 class ActionGenerationMixin(GenerationMixin):
     """ActionGenerationMixin."""
+
     action_preprocessor: ActionProcessor
 
     def to_bfloat16_for_selected_params(self, fsdp_plugin=None, accelerator=None):
@@ -392,9 +354,7 @@ class ActionGenerationMixin(GenerationMixin):
             if fsdp_version != 1:
                 raise RuntimeError("Only FSDP v1 (fsdp_version=1) is supported.")
 
-            device = getattr(
-                accelerator, "device", torch.device("cuda", torch.cuda.current_device())
-            )
+            device = getattr(accelerator, "device", torch.device("cuda", torch.cuda.current_device()))
             if isinstance(device, torch.device) and device.type == "cuda":
                 if device.index is not None:
                     torch.cuda.set_device(device.index)
@@ -443,9 +403,7 @@ class ActionGenerationMixin(GenerationMixin):
                         "action_preprocessor",
                     ]
                 ):
-                    if any(
-                        True for _ in module.children()
-                    ):  # Wrap only leaves to avoid parent-child duplication
+                    if any(True for _ in module.children()):  # Wrap only leaves to avoid parent-child duplication
                         continue
                     if getattr(module, "_fsdp_wrapped", False):
                         continue
@@ -464,7 +422,6 @@ class ActionGenerationMixin(GenerationMixin):
 
             for name, module in list(self.named_modules()):
                 if isinstance(module, target_classes):
-
                     if getattr(module, "_fsdp_wrapped", False):
                         continue
 
@@ -521,21 +478,15 @@ class ActionGenerationMixin(GenerationMixin):
     def define_action_token_id(self):
         """Define action token id."""
         if self.processor is not None:
-            action_token_id = self.processor.tokenizer.convert_tokens_to_ids(
-                "<|action|>"
-            )
-            propri_token_id = self.processor.tokenizer.convert_tokens_to_ids(
-                "<|propri|>"
-            )
+            action_token_id = self.processor.tokenizer.convert_tokens_to_ids("<|action|>")
+            propri_token_id = self.processor.tokenizer.convert_tokens_to_ids("<|propri|>")
             self.action_token_id_set = {
                 "action_token_list": [],
                 "propri_token_id": propri_token_id,
                 "action_token_id": action_token_id,
             }
 
-    def add_lora(
-        self, r=8, lora_alpha=32, target_modules=["q_proj", "v_proj"], lora_dropout=0.1
-    ):
+    def add_lora(self, r=8, lora_alpha=32, target_modules=["q_proj", "v_proj"], lora_dropout=0.1):
         """Add LoRA adapters"""
         config = LoraConfig(
             r=r,
@@ -574,18 +525,12 @@ class ActionGenerationMixin(GenerationMixin):
         if dataset_names is not None:
             unique_datasets_name = list(set(dataset_names))
             _device = hidden_states.device
-            _flow_channel_names = [
-                f"{name}_flow"
-                for name in unique_datasets_name
-                if is_action_dataset_name(name)
-            ]
+            _flow_channel_names = [f"{name}_flow" for name in unique_datasets_name if is_action_dataset_name(name)]
             channel_loss_dict = {
-                name: torch.tensor(0.0, device=_device)
-                for name in unique_datasets_name + _flow_channel_names
+                name: torch.tensor(0.0, device=_device) for name in unique_datasets_name + _flow_channel_names
             }
             channel_loss_count_dict = {
-                name: torch.tensor(0, device=_device)
-                for name in unique_datasets_name + _flow_channel_names
+                name: torch.tensor(0, device=_device) for name in unique_datasets_name + _flow_channel_names
             }
         else:
             unique_datasets_name, channel_loss_dict, channel_loss_count_dict = (
@@ -610,9 +555,7 @@ class ActionGenerationMixin(GenerationMixin):
                     # compute channel loss
                     if unique_datasets_name is not None:
                         batch_idx = (
-                            torch.arange(batch_size, device=_lm_loss_mask.device)
-                            .unsqueeze(1)
-                            .expand_as(_lm_loss_mask)
+                            torch.arange(batch_size, device=_lm_loss_mask.device).unsqueeze(1).expand_as(_lm_loss_mask)
                         )
                         loss_batch_idx = batch_idx[_lm_loss_mask]  # [N_loss]
                         for dataset_name_i in unique_datasets_name:
@@ -647,9 +590,7 @@ class ActionGenerationMixin(GenerationMixin):
                 )
 
                 # compute channel loss
-                _cross_entropy_loss = _cross_entropy_loss.view(
-                    batch_size, seq_length - 1
-                )
+                _cross_entropy_loss = _cross_entropy_loss.view(batch_size, seq_length - 1)
                 non_ignored_mask = non_ignored_mask.view(batch_size, seq_length - 1)
                 if unique_datasets_name is not None:
                     for dataset_name_i in unique_datasets_name:
@@ -684,54 +625,36 @@ class ActionGenerationMixin(GenerationMixin):
                 if action_hidden_states is None:
                     action_hidden_states = hidden_states[action_mask].to(torch.float32)
                 else:
-                    action_hidden_states = action_hidden_states.reshape(
-                        -1, action_hidden_states.shape[-1]
-                    ).to(torch.float32)
+                    action_hidden_states = action_hidden_states.reshape(-1, action_hidden_states.shape[-1]).to(
+                        torch.float32
+                    )
                 flow = flow.reshape(-1, flow.shape[-1])
                 _flow_loss = self.action_preprocessor.flow_loss(
                     action_hidden_states, flow, action_chunk, dof_mask, flow_loss_mask
                 )
                 if isinstance(_flow_loss, torch.Tensor):
                     # Compute the valid-element mask as the intersection of dof_mask and flow_loss_mask
-                    valid_mask = (
-                        dof_mask.reshape(-1, dof_mask.shape[-1])
-                        if dof_mask is not None
-                        else None
-                    )
+                    valid_mask = dof_mask.reshape(-1, dof_mask.shape[-1]) if dof_mask is not None else None
                     if flow_loss_mask is not None:
                         flow_mask_expanded = (
-                            flow_loss_mask.unsqueeze(-1)
-                            .reshape(-1, 1)
-                            .expand(-1, _flow_loss.shape[-1])
+                            flow_loss_mask.unsqueeze(-1).reshape(-1, 1).expand(-1, _flow_loss.shape[-1])
                         )
-                        valid_mask = (
-                            valid_mask * flow_mask_expanded
-                            if valid_mask is not None
-                            else flow_mask_expanded
-                        )
+                        valid_mask = valid_mask * flow_mask_expanded if valid_mask is not None else flow_mask_expanded
                     if valid_mask is not None and not valid_mask.all():
                         flow_loss = _flow_loss.sum() / valid_mask.sum()
                     else:
                         flow_loss = _flow_loss.mean()
                     loss += flow_loss
-                    _flow_loss = _flow_loss.view(
-                        dof_mask.shape[0], dof_mask.shape[1], dof_mask.shape[2]
-                    )
+                    _flow_loss = _flow_loss.view(dof_mask.shape[0], dof_mask.shape[1], dof_mask.shape[2])
 
                     # compute flow channel loss
                     if unique_datasets_name is not None:
                         B, T, D = _flow_loss.shape
-                        action_ds_names = [
-                            name
-                            for name in dataset_names
-                            if is_action_dataset_name(name)
-                        ]
+                        action_ds_names = [name for name in dataset_names if is_action_dataset_name(name)]
                         if valid_mask is not None:
                             valid_mask_3d = valid_mask.view(B, T, D)
                         else:
-                            valid_mask_3d = torch.ones_like(
-                                _flow_loss, dtype=torch.bool, device=_flow_loss.device
-                            )
+                            valid_mask_3d = torch.ones_like(_flow_loss, dtype=torch.bool, device=_flow_loss.device)
                         for dataset_name_i in unique_datasets_name:
                             ds_mask = torch.tensor(
                                 [name == dataset_name_i for name in action_ds_names],
@@ -744,12 +667,8 @@ class ActionGenerationMixin(GenerationMixin):
                             ds_mask_3d = ds_mask.view(-1, 1, 1).expand(B, T, D)
                             flow_loss_sum = (_flow_loss * ds_mask_3d).sum()
                             flow_count = (valid_mask_3d * ds_mask_3d).sum()
-                            channel_loss_dict[flow_key] = (
-                                channel_loss_dict[flow_key] + flow_loss_sum
-                            )
-                            channel_loss_count_dict[flow_key] = (
-                                channel_loss_count_dict[flow_key] + flow_count
-                            )
+                            channel_loss_dict[flow_key] = channel_loss_dict[flow_key] + flow_loss_sum
+                            channel_loss_count_dict[flow_key] = channel_loss_count_dict[flow_key] + flow_count
 
         return (
             loss,

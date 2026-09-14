@@ -68,10 +68,7 @@ def _needs_packed_alignment(args, batch: Optional[Dict[str, Any]] = None):
     return is_packed and (
         args.context_parallel_size > 1
         or args.sequence_parallel
-        or (
-            bool(getattr(args, "fp8", None))
-            and getattr(args, "fp8_recipe", None) == "blockwise"
-        )
+        or (bool(getattr(args, "fp8", None)) and getattr(args, "fp8_recipe", None) == "blockwise")
     )
 
 
@@ -120,9 +117,7 @@ def seq_padding_for_cp(
         label = labels[0, start : start + length]
         mask = attn_mask[0, start : start + length]
 
-        mp_padding_needed = context_parallel.get_padding(
-            length, cp_size, tp_size, has_sp
-        )
+        mp_padding_needed = context_parallel.get_padding(length, cp_size, tp_size, has_sp)
 
         input_ids = F.pad(token, (0, mp_padding_needed), "constant", pad_token_id)
         label = F.pad(label, (0, mp_padding_needed), "constant", IGNORE_INDEX)
@@ -132,9 +127,7 @@ def seq_padding_for_cp(
         valid_labels.append(label)
         valid_attn_mask.append(mask)
 
-        cu_seqlens_padded.append(
-            int(cu_seqlens_padded[-1] + length + mp_padding_needed)
-        )
+        cu_seqlens_padded.append(int(cu_seqlens_padded[-1] + length + mp_padding_needed))
 
         start += length
 
@@ -146,38 +139,24 @@ def seq_padding_for_cp(
         final_padding_factor = _lcm(final_padding_factor, fp8_padding_factor)
 
     final_padding_needed = (
-        int(
-            (cu_seqlens_padded[-1] + final_padding_factor - 1)
-            // final_padding_factor
-            * final_padding_factor
-        )
+        int((cu_seqlens_padded[-1] + final_padding_factor - 1) // final_padding_factor * final_padding_factor)
         - cu_seqlens_padded[-1]
     )
 
     if final_padding_needed > 0 and valid_tokens:
-        valid_tokens[-1] = F.pad(
-            valid_tokens[-1], (0, final_padding_needed), "constant", pad_token_id
-        )
-        valid_labels[-1] = F.pad(
-            valid_labels[-1], (0, final_padding_needed), "constant", IGNORE_INDEX
-        )
-        valid_attn_mask[-1] = F.pad(
-            valid_attn_mask[-1], (0, final_padding_needed), "constant", True
-        )
+        valid_tokens[-1] = F.pad(valid_tokens[-1], (0, final_padding_needed), "constant", pad_token_id)
+        valid_labels[-1] = F.pad(valid_labels[-1], (0, final_padding_needed), "constant", IGNORE_INDEX)
+        valid_attn_mask[-1] = F.pad(valid_attn_mask[-1], (0, final_padding_needed), "constant", True)
         cu_seqlens_padded[-1] += final_padding_needed
 
     data["tokens"] = torch.cat(valid_tokens, dim=0).unsqueeze(0).to(tokens.dtype)
     data["labels"] = torch.cat(valid_labels, dim=0).unsqueeze(0).to(labels.dtype)
     data["attn_mask"] = torch.cat(valid_attn_mask, dim=0).unsqueeze(0).to(attn_mask.dtype)
 
-    data["cu_lengths"] = torch.tensor(
-        cu_seqlens_padded, dtype=cu_lengths.dtype
-    ).unsqueeze(0)
+    data["cu_lengths"] = torch.tensor(cu_seqlens_padded, dtype=cu_lengths.dtype).unsqueeze(0)
     cu_seqlens_padded = torch.tensor(cu_seqlens_padded, dtype=torch.int32)
     seq_lens_padded = cu_seqlens_padded[1:] - cu_seqlens_padded[:-1]
-    data["max_lengths"] = torch.tensor(
-        [seq_lens_padded.max().item()], dtype=max_lengths.dtype
-    )
+    data["max_lengths"] = torch.tensor([seq_lens_padded.max().item()], dtype=max_lengths.dtype)
 
     return data
 
@@ -239,28 +218,18 @@ class VLMPretrainCollator:
         tokens = batch["tokens"]
         seq_len = tokens.shape[-1]
         target_len = seq_len
-        padding_value = (
-            self.padding.value
-            if isinstance(self.padding, PaddingStrategy)
-            else self.padding
-        )
+        padding_value = self.padding.value if isinstance(self.padding, PaddingStrategy) else self.padding
         if padding_value == PaddingStrategy.MAX_LENGTH.value:
             if self.max_length is not None:
                 target_len = self.max_length
         if self.pad_to_multiple_of and self.pad_to_multiple_of > 1:
-            target_len = (
-                (target_len + self.pad_to_multiple_of - 1)
-                // self.pad_to_multiple_of
-                * self.pad_to_multiple_of
-            )
+            target_len = (target_len + self.pad_to_multiple_of - 1) // self.pad_to_multiple_of * self.pad_to_multiple_of
         pad_len = target_len - seq_len
         if pad_len <= 0:
             return
         pad_token_id = self._resolve_pad_token_id()
         batch["tokens"] = F.pad(tokens, (0, pad_len), "constant", pad_token_id)
-        batch["labels"] = F.pad(
-            batch["labels"], (0, pad_len), "constant", self.label_pad_token_id
-        )
+        batch["labels"] = F.pad(batch["labels"], (0, pad_len), "constant", self.label_pad_token_id)
         batch["attn_mask"] = F.pad(batch["attn_mask"], (0, pad_len), "constant", True)
         # Extend last packed boundary after right-padding;
         # keep sum(seqlens) == tokens.shape[-1] for apply_mrope split.
@@ -274,9 +243,7 @@ class VLMPretrainCollator:
         attention_mask = batch["attn_mask"]
         cu_lengths = batch["cu_lengths"]
         model_config = get_model_config()
-        get_position_ids_func = getattr(
-            model_config, "position_idx_func", get_position_ids
-        )
+        get_position_ids_func = getattr(model_config, "position_idx_func", get_position_ids)
         position_ids, _ = get_position_ids_func(batch)
         batch["position_ids"] = position_ids.to(dtype=torch.long)
 
@@ -298,9 +265,7 @@ class VLMPretrainCollator:
                         idx = cu_lengths[i][j].item() - 1
                         if 0 <= idx < loss_mask.shape[1]:
                             loss_mask[i, idx] = 0
-                assert (
-                    cu_lengths.shape[0] == 1
-                ), "micro-batch-size must be 1 for packing"
+                assert cu_lengths.shape[0] == 1, "micro-batch-size must be 1 for packing"
 
         batch["loss_mask"] = loss_mask
 
@@ -319,9 +284,7 @@ def _energon_read_order_kwargs(args):
     max_samples_per_sequence = getattr(args, "data_max_samples_per_sequence", 0) or 0
     return {
         "shuffle_buffer_size": shuffle_buffer_size if shuffle_buffer_size > 1 else None,
-        "max_samples_per_sequence": (
-            max_samples_per_sequence if max_samples_per_sequence > 0 else None
-        ),
+        "max_samples_per_sequence": (max_samples_per_sequence if max_samples_per_sequence > 0 else None),
     }
 
 
@@ -460,11 +423,12 @@ def get_train_loader(train_ds, collator=None, restore_state=True):
     """Get the training loader"""
     args = get_args()
     from importlib.metadata import version
-    if version('megatron-energon') < "7.0.0":
+
+    if version("megatron-energon") < "7.0.0":
         train_dataloader = energon.get_savable_loader(train_ds)
     else:
         train_dataloader = energon.get_savable_loader(train_ds, watchdog_initial_timeout_seconds=600)
-    
+
     if restore_state and args.load is not None:
         if getattr(args, "dataloader_save", None):
             dp_rank = parallel_state.get_data_parallel_rank()
@@ -477,9 +441,7 @@ def get_train_loader(train_ds, collator=None, restore_state=True):
             if os.path.exists(data_save_name):
                 try:
                     dataset_state_dict = torch.load(data_save_name, map_location="cpu")
-                    train_dataloader.restore_state_rank(
-                        dataset_state_dict["dataloader_state_dict"]
-                    )
+                    train_dataloader.restore_state_rank(dataset_state_dict["dataloader_state_dict"])
                     print(f"restored dataset state from {data_save_name}")
                 except Exception as e:
                     print("loading dataset state failed. Skipping. " + str(e))
@@ -515,9 +477,7 @@ class EnergonDataloader:
                 "constant",
                 self._collator.label_pad_token_id,
             )
-            features["attn_mask"] = F.pad(
-                features["attn_mask"], (0, paded_length), "constant", True
-            )
+            features["attn_mask"] = F.pad(features["attn_mask"], (0, paded_length), "constant", True)
         return features
 
     def __iter__(self):

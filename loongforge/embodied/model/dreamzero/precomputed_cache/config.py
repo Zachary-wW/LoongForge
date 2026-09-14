@@ -52,18 +52,10 @@ class DreamZeroPrecomputedCacheConfig:
     manifest: str = ""
     cache_template: str = DEFAULT_CACHE_TEMPLATE
     strict: bool = False
-    video_latents: DreamZeroPrecomputedFeatureConfig = field(
-        default_factory=DreamZeroPrecomputedFeatureConfig
-    )
-    first_frame_latents: DreamZeroPrecomputedFeatureConfig = field(
-        default_factory=DreamZeroPrecomputedFeatureConfig
-    )
-    prompt_embs: DreamZeroPrecomputedFeatureConfig = field(
-        default_factory=DreamZeroPrecomputedFeatureConfig
-    )
-    validation: DreamZeroPrecomputedValidationConfig = field(
-        default_factory=DreamZeroPrecomputedValidationConfig
-    )
+    video_latents: DreamZeroPrecomputedFeatureConfig = field(default_factory=DreamZeroPrecomputedFeatureConfig)
+    first_frame_latents: DreamZeroPrecomputedFeatureConfig = field(default_factory=DreamZeroPrecomputedFeatureConfig)
+    prompt_embs: DreamZeroPrecomputedFeatureConfig = field(default_factory=DreamZeroPrecomputedFeatureConfig)
+    validation: DreamZeroPrecomputedValidationConfig = field(default_factory=DreamZeroPrecomputedValidationConfig)
     skip_pixel_preprocess: bool = False
     first_frame_only: bool = False
     requires_full_video_for_train: bool = False
@@ -125,9 +117,7 @@ class DreamZeroPrecomputedCacheConfig:
                 "require_success": self.validation.require_success,
                 "require_full_coverage": self.validation.require_full_coverage,
                 "require_transform_config": self.validation.require_transform_config,
-                "allow_nondeterministic_artifact": (
-                    self.validation.allow_nondeterministic_artifact
-                ),
+                "allow_nondeterministic_artifact": (self.validation.allow_nondeterministic_artifact),
             },
         }
 
@@ -266,23 +256,17 @@ def _default_prompt_cache_enabled(model_cfg: Any) -> bool:
 
 def _requires_full_video_for_train(model_cfg: Any) -> bool:
     """Return whether training needs the full video for first-frame conditioning."""
-    concat_first_frame = _cfg_get(
-        model_cfg, "backbone_concat_first_frame_latent", None
-    )
+    concat_first_frame = _cfg_get(model_cfg, "backbone_concat_first_frame_latent", None)
     if concat_first_frame is not None:
         return _as_bool(concat_first_frame, False)
 
-    backbone_model_type = _as_str(
-        _cfg_get(model_cfg, "backbone_model_type", ""), ""
-    ).strip().lower()
+    backbone_model_type = _as_str(_cfg_get(model_cfg, "backbone_model_type", ""), "").strip().lower()
     if backbone_model_type:
         return backbone_model_type == "i2v"
 
     # Keep direct config construction safe when derived preset fields have not
     # been populated yet.
-    backbone_variant = _as_str(
-        _cfg_get(model_cfg, "backbone_variant", ""), ""
-    ).strip().lower()
+    backbone_variant = _as_str(_cfg_get(model_cfg, "backbone_variant", ""), "").strip().lower()
     return "wan21" in backbone_variant
 
 
@@ -324,15 +308,18 @@ def build_precomputed_cache_config(model_cfg: Any) -> DreamZeroPrecomputedCacheC
             default="",
         )
     )
-    cache_template = _as_str(
-        _pick(
-            raw_cache,
-            "cache_template",
-            "template",
-            default=DEFAULT_CACHE_TEMPLATE,
-        ),
-        DEFAULT_CACHE_TEMPLATE,
-    ) or DEFAULT_CACHE_TEMPLATE
+    cache_template = (
+        _as_str(
+            _pick(
+                raw_cache,
+                "cache_template",
+                "template",
+                default=DEFAULT_CACHE_TEMPLATE,
+            ),
+            DEFAULT_CACHE_TEMPLATE,
+        )
+        or DEFAULT_CACHE_TEMPLATE
+    )
     strict = _as_bool(raw_cache.get("strict"), False)
 
     validation_raw = _mapping(raw_cache.get("validation"))
@@ -406,11 +393,7 @@ def build_precomputed_cache_config(model_cfg: Any) -> DreamZeroPrecomputedCacheC
         )
 
     features = _mapping(raw_cache.get("features"))
-    unsupported_features = {
-        key
-        for key in features
-        if str(key) in {"clip_features", "clip_feas", "clip"}
-    }
+    unsupported_features = {key for key in features if str(key) in {"clip_features", "clip_feas", "clip"}}
     if unsupported_features:
         raise ValueError(
             "DreamZero precomputed CLIP cache has been removed; "
@@ -437,9 +420,7 @@ def build_precomputed_cache_config(model_cfg: Any) -> DreamZeroPrecomputedCacheC
         default_payload_keys=("first_frame_latents", "image_latents", "y_latents"),
         required_default=strict,
         default_to_enabled_when_omitted=(
-            structured_enabled
-            and not features
-            and _default_first_frame_cache_enabled(model_cfg)
+            structured_enabled and not features and _default_first_frame_cache_enabled(model_cfg)
         ),
     )
     prompt_feature = _build_feature(
@@ -456,23 +437,12 @@ def build_precomputed_cache_config(model_cfg: Any) -> DreamZeroPrecomputedCacheC
         default_layout="blc",
         required_default=strict,
         default_to_enabled_when_omitted=(
-            structured_enabled
-            and not features
-            and _default_prompt_cache_enabled(model_cfg)
+            structured_enabled and not features and _default_prompt_cache_enabled(model_cfg)
         ),
     )
 
-    enabled = (
-        structured_enabled
-        or video_feature.enabled
-        or first_frame_feature.enabled
-        or prompt_feature.enabled
-    )
-    if enabled and not (
-        video_feature.enabled
-        or first_frame_feature.enabled
-        or prompt_feature.enabled
-    ):
+    enabled = structured_enabled or video_feature.enabled or first_frame_feature.enabled or prompt_feature.enabled
+    if enabled and not (video_feature.enabled or first_frame_feature.enabled or prompt_feature.enabled):
         raise ValueError(
             "precomputed_cache.enabled=true requires at least one enabled feature "
             "under precomputed_cache.features; omit the features block to use "

@@ -39,7 +39,8 @@ from loongforge.embodied.model.cosmos3.flow_matching import compute_flow_matchin
 from loongforge.embodied.model.cosmos3.modeling_utils import has_noisy_tokens
 from loongforge.embodied.model.cosmos3.rectified_flow import RectifiedFlow
 from loongforge.embodied.model.cosmos3.sequence_packing import (
-    pack_input_sequence, add_special_tokens,
+    pack_input_sequence,
+    add_special_tokens,
 )
 from loongforge.embodied.model.cosmos3.data_and_condition import GenerationDataClean
 from loongforge.embodied.model.cosmos3.unified_mot import Qwen3VLMoTConfig, Qwen3VLTextForCausalLM
@@ -60,9 +61,7 @@ class Cosmos3(nn.Module):
 
     @classmethod
     def from_pretrained(cls, cfg) -> "Cosmos3":
-        """Build the model from ``cfg`` alone.
-
-        """
+        """Build the model from ``cfg`` alone."""
         return cls(cfg)
 
     @staticmethod
@@ -89,7 +88,8 @@ class Cosmos3(nn.Module):
         with open(os.path.join(qwen3_vl_path, "config.json")) as f:
             hf_cfg = json.load(f)
         text_cfg_dict = hf_cfg.get("text_config", hf_cfg)
-        mot_config = Qwen3VLMoTConfig({"text_config": text_cfg_dict},
+        mot_config = Qwen3VLMoTConfig(
+            {"text_config": text_cfg_dict},
             qk_norm_for_text=config.qk_norm_for_text,
             qk_norm_for_diffusion=config.qk_norm_for_diffusion,
         )
@@ -138,8 +138,11 @@ class Cosmos3(nn.Module):
             _layers = self.net.language_model.model.layers
             for _layer in _layers:
                 _layer.compile(fullgraph=False, dynamic=config.compile_dynamic)
-            logger.info("[compile] in-place torch.compile on %d MoTDecoderLayer blocks (fullgraph=True, dynamic=%s)",
-                        len(_layers), config.compile_dynamic)
+            logger.info(
+                "[compile] in-place torch.compile on %d MoTDecoderLayer blocks (fullgraph=True, dynamic=%s)",
+                len(_layers),
+                config.compile_dynamic,
+            )
 
         # Rectified flow scheduler
         self.rectified_flow = RectifiedFlow(
@@ -181,13 +184,10 @@ class Cosmos3(nn.Module):
         """
         if self._vae_encoder is None:
             self._vae_encoder = Wan2pt2VAEInterface(
-                vae_path=self._vae_path,
-                encode_exact_durations=self.encode_exact_durations
+                vae_path=self._vae_path, encode_exact_durations=self.encode_exact_durations
             )
             if self._compile_vae_encode:
-                self._vae_encoder.encode = torch.compile(
-                    self._vae_encoder.encode, dynamic=self._compile_dynamic
-                )
+                self._vae_encoder.encode = torch.compile(self._vae_encoder.encode, dynamic=self._compile_dynamic)
         return self._vae_encoder
 
     def freeze_modules(self):
@@ -225,10 +225,10 @@ class Cosmos3(nn.Module):
         # Resolve model subdir
         model_dir = os.path.join(path, "model")
 
-        if 'pathlib._local' not in sys.modules:
-            _local = types.ModuleType('pathlib._local')
+        if "pathlib._local" not in sys.modules:
+            _local = types.ModuleType("pathlib._local")
             _local.PosixPath = _pathlib_mod.PosixPath
-            sys.modules['pathlib._local'] = _local
+            sys.modules["pathlib._local"] = _local
 
         logger.info(f"Loading Cosmos3 DCP checkpoint from: {model_dir}")
 
@@ -272,8 +272,8 @@ class Cosmos3(nn.Module):
             raise NotImplementedError
 
     def _remove_padding_from_latent(
-            self, x0_tokens_vision: list[torch.Tensor], frame_size: list[torch.Tensor], spatial_factor=16
-        ) -> list[torch.Tensor]:
+        self, x0_tokens_vision: list[torch.Tensor], frame_size: list[torch.Tensor], spatial_factor=16
+    ) -> list[torch.Tensor]:
         """
         Remove reflection padding from encoded latent vision tokens.
         """
@@ -291,12 +291,11 @@ class Cosmos3(nn.Module):
                 )
             orig_h_latent = max(orig_h // spatial_factor, 1)
             orig_w_latent = max(orig_w // spatial_factor, 1)
-    
+
             cropped_latent = x0_tokens_vision[i][:, :, :, :orig_h_latent, :orig_w_latent].contiguous()
             cropped_latents.append(cropped_latent)
         return cropped_latents
-    
-    
+
     def _forward_raw_video_with_action(self, batch, iteration=None) -> Dict[str, torch.Tensor]:
         """Action-policy training pipeline (vision + action joint flow matching).
 
@@ -323,15 +322,18 @@ class Cosmos3(nn.Module):
             v = video.to(device, dtype).div_(127.5).sub_(1.0).unsqueeze(0)
             v = vae.encode(v)
             return v.contiguous().float()
+
         latents = [_vae(video) for video in batch.videos]
-        if hasattr(batch, 'image_sizes'):
+        if hasattr(batch, "image_sizes"):
             latents = self._remove_padding_from_latent(latents, batch.image_sizes)
         latents = [latent[0] for latent in latents]
-        
+
         # 2. Sample timesteps + sigmas — analytic cosmos shift, iteration-seeded.
         t = self.rectified_flow.sample_train_time(B, iteration=iteration)
         timesteps, sigmas = self.rectified_flow.get_timesteps_sigmas_from_shift(
-            t, shift=self.shift, max_timestep=self.rectified_flow.noise_scheduler.config.num_train_timesteps,
+            t,
+            shift=self.shift,
+            max_timestep=self.rectified_flow.noise_scheduler.config.num_train_timesteps,
             tensor_kwargs={"device": "cuda", "dtype": torch.float32},
         )
 
@@ -394,7 +396,7 @@ class Cosmos3(nn.Module):
             eps = torch.randn(T, D, device=device, dtype=torch.float32, generator=_noise_gen)
             sigma_i = sigmas[i].to(device=device, dtype=torch.float32)
             sigma_i = sigma_i.view(1, 1).expand(T, 1) * (1.0 - condition_masks_action[i])  # [T, 1]
-            xt = (sigma_i * eps + (1.0 - sigma_i) * act).float()                                     # [T, D]
+            xt = (sigma_i * eps + (1.0 - sigma_i) * act).float()  # [T, D]
             vt = eps - act
             raw_dim = int(raw_action_dims[i].item())
             if raw_dim < D:
@@ -477,7 +479,6 @@ class Cosmos3(nn.Module):
             loss_action = None
 
         return loss, {"vision_loss": loss_vision, "action_loss": loss_action, "total_loss": loss}
-
 
     def predict_action(self, **kwargs) -> Dict[str, np.ndarray]:
         """Action prediction (inference) - not yet implemented for Cosmos3."""

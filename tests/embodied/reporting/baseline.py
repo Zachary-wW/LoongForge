@@ -118,8 +118,7 @@ def _rel_diff(actual, expected):
     return abs(actual - expected) / max(abs(expected), 1e-12)
 
 
-def compare(actual_records, baseline_records, accuracy_tol, performance_tol,
-            check_loss_only=False, max_report=10):
+def compare(actual_records, baseline_records, accuracy_tol, performance_tol, check_loss_only=False, max_report=10):
     """Return (failed_metrics, warnings). A non-empty failed_metrics means failure."""
     failed, warnings = [], []
 
@@ -129,15 +128,12 @@ def compare(actual_records, baseline_records, accuracy_tol, performance_tol,
     if not common_iters:
         return ["No alignable iteration between baseline and actual result"], warnings
     if len(act_by_iter) < len(base_by_iter):
-        failed.append(
-            f"Not enough iterations: actual={len(act_by_iter)} < baseline={len(base_by_iter)}"
-        )
+        failed.append(f"Not enough iterations: actual={len(act_by_iter)} < baseline={len(base_by_iter)}")
 
     # Set of hard-check metrics: take the union over all baseline records, to avoid a metric never being
     # checked in later iterations because one iteration lacks a field (e.g. grad_norm missing during warmup).
     hard_keys = sorted(
-        {k for r in baseline_records
-         for k in r if _is_loss_key(k) or (not check_loss_only and k == "grad_norm")}
+        {k for r in baseline_records for k in r if _is_loss_key(k) or (not check_loss_only and k == "grad_norm")}
     )
     for key in hard_keys:
         for it in common_iters:
@@ -177,10 +173,7 @@ def compare(actual_records, baseline_records, accuracy_tol, performance_tol,
 
     # Performance soft check: average per-iteration time
     def _mean(records_by_iter, key):
-        vals = [
-            records_by_iter[it][key] for it in common_iters[_PERF_WARMUP_ITERS:]
-            if key in records_by_iter[it]
-        ]
+        vals = [records_by_iter[it][key] for it in common_iters[_PERF_WARMUP_ITERS:] if key in records_by_iter[it]]
         return sum(vals) / len(vals) if vals else None
 
     for key, worse_is_larger in _PERF_KEYS:
@@ -200,8 +193,7 @@ def compare(actual_records, baseline_records, accuracy_tol, performance_tol,
     return failed, warnings
 
 
-def update_perf_baseline(chip, model_name, training_type,
-                         actual_records, baseline_records, performance_tol):
+def update_perf_baseline(chip, model_name, training_type, actual_records, baseline_records, performance_tol):
     """Write improved performance metrics after a passing regression.
 
     Args:
@@ -222,10 +214,7 @@ def update_perf_baseline(chip, model_name, training_type,
     common_iters = sorted(set(base_by_iter) & set(act_by_iter))
 
     def _mean(records_by_iter, key):
-        vals = [
-            records_by_iter[it][key] for it in common_iters[_PERF_WARMUP_ITERS:]
-            if key in records_by_iter[it]
-        ]
+        vals = [records_by_iter[it][key] for it in common_iters[_PERF_WARMUP_ITERS:] if key in records_by_iter[it]]
         return sum(vals) / len(vals) if vals else None
 
     improved = False

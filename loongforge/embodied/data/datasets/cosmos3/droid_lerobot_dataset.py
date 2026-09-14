@@ -62,9 +62,7 @@ if TV_TRANSFORMS_VERSION == "v2":
 elif TV_TRANSFORMS_VERSION == "v1":
     import torchvision.transforms as T
 else:
-    raise ValueError(
-        f"COSMOS3_TV_TRANSFORMS must be 'v1' or 'v2', got {TV_TRANSFORMS_VERSION!r}"
-    )
+    raise ValueError(f"COSMOS3_TV_TRANSFORMS must be 'v1' or 'v2', got {TV_TRANSFORMS_VERSION!r}")
 from lerobot.datasets.video_utils import decode_video_frames
 from torch.utils.data import Dataset
 
@@ -75,9 +73,9 @@ _IMAGE_FEATURES: Dict[str, str] = {
     "right": "observation.image.exterior_image_2_left",
 }
 
-_JOINT_ACTION_FEATURE = "action.joint_position"           # [7] commanded joints
-_ACTION_GRIPPER_FEATURE = "action.gripper_position"       # [1] commanded gripper
-_JOINT_STATE_FEATURE = "observation.state.joint_positions"   # [7] observed joints
+_JOINT_ACTION_FEATURE = "action.joint_position"  # [7] commanded joints
+_ACTION_GRIPPER_FEATURE = "action.gripper_position"  # [1] commanded gripper
+_JOINT_STATE_FEATURE = "observation.state.joint_positions"  # [7] observed joints
 _GRIPPER_STATE_FEATURE = "observation.state.gripper_position"  # [1] observed gripper
 
 _LIST_COLUMNS = {_JOINT_ACTION_FEATURE, _JOINT_STATE_FEATURE}
@@ -124,8 +122,7 @@ def _domain_id_from_name(name: str) -> int:
     key = name.lower().strip()
     if key not in _EMBODIMENT_TO_DOMAIN_ID:
         raise KeyError(
-            f"Unknown embodiment type: {name!r}. "
-            f"Available embodiments: {sorted(_EMBODIMENT_TO_DOMAIN_ID.keys())}"
+            f"Unknown embodiment type: {name!r}. Available embodiments: {sorted(_EMBODIMENT_TO_DOMAIN_ID.keys())}"
         )
     return _EMBODIMENT_TO_DOMAIN_ID[key]
 
@@ -290,8 +287,7 @@ class DROIDLeRobotDataset(Dataset):
             raise NotImplementedError("DROIDLeRobotDataset only supports action_space='joint_pos'.")
         if not use_state:
             raise NotImplementedError(
-                "DROIDLeRobotDataset only supports use_state=True (matches the canonical "
-                "Cosmos3 DROID-policy recipe)."
+                "DROIDLeRobotDataset only supports use_state=True (matches the canonical Cosmos3 DROID-policy recipe)."
             )
 
         self._root = Path(root)
@@ -422,7 +418,6 @@ class DROIDLeRobotDataset(Dataset):
         else:
             ai_caption = ""
 
-
         if self._defer_video_tail:
             # ``video`` is (3-view stack, n, m); the concat_view shape is derived
             # analytically so the transform needs no pixels.
@@ -476,17 +471,15 @@ class DROIDLeRobotDataset(Dataset):
         """
         action_rows = observation_rows[1:]
         joints = np.asarray([r[_JOINT_ACTION_FEATURE] for r in action_rows], dtype=np.float32)  # [chunk, 7]
-        gripper = np.asarray(
-            [r[_ACTION_GRIPPER_FEATURE] for r in action_rows], dtype=np.float32
-        ).reshape(-1, 1)
+        gripper = np.asarray([r[_ACTION_GRIPPER_FEATURE] for r in action_rows], dtype=np.float32).reshape(-1, 1)
         gripper = 1.0 - gripper
         action = np.concatenate([joints, gripper], axis=-1)  # [chunk, 8]
 
         init = observation_rows[0]
-        init_joint = np.asarray(init[_JOINT_STATE_FEATURE], dtype=np.float32)               # [7]
+        init_joint = np.asarray(init[_JOINT_STATE_FEATURE], dtype=np.float32)  # [7]
         init_gripper = np.asarray([1.0 - float(init[_GRIPPER_STATE_FEATURE])], dtype=np.float32)  # [1]
-        initial_state = np.concatenate([init_joint, init_gripper])[None, :]                 # [1, 8]
-        action = np.concatenate([initial_state, action], axis=0)                            # [chunk + 1, 8]
+        initial_state = np.concatenate([init_joint, init_gripper])[None, :]  # [1, 8]
+        action = np.concatenate([initial_state, action], axis=0)  # [chunk + 1, 8]
         return torch.from_numpy(action).float()
 
     def _load_concat_video(
@@ -503,11 +496,11 @@ class DROIDLeRobotDataset(Dataset):
         timestamps = [float(row["timestamp"]) for row in observation_rows]
         frames_by_view = {
             name: decode_video_frames(
-                    self._video_path(episode, video_key),
-                    [float(episode.get(f"videos/{video_key}/from_timestamp", 0.0)) + ts for ts in timestamps],
-                    self._tolerance_s,
-                    backend=self._video_backend
-                )
+                self._video_path(episode, video_key),
+                [float(episode.get(f"videos/{video_key}/from_timestamp", 0.0)) + ts for ts in timestamps],
+                self._tolerance_s,
+                backend=self._video_backend,
+            )
             for name, video_key in _IMAGE_FEATURES.items()
         }
 

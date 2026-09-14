@@ -31,11 +31,12 @@ def _inject_model_env(env, model_name, logger):
     prefix = "EMBODIED_" + re.sub(r"[^0-9A-Za-z]", "_", model_name).upper() + "_"
     for key, value in os.environ.items():
         if key.startswith(prefix) and value:
-            var = key[len(prefix):]
+            var = key[len(prefix) :]
             if not _VALID_BASH_VAR.match(var):
                 logger.warning(
                     f"[{model_name}] Skipping invalid variable name {var} (from {key}): "
-                    "a model name starting with a digit makes bash unable to reference it; ignored")
+                    "a model name starting with a digit makes bash unable to reference it; ignored"
+                )
                 continue
             env[var] = value
             logger.info(f"[{model_name}] Injected model-specific environment variable {var}={value}")
@@ -45,7 +46,11 @@ def _run_with_timeout(cmd, env, cwd, log_file, timeout, logger):
     """Run the command, flushing stdout/stderr to log_file; on timeout, SIGTERM->SIGKILL the whole process group."""
     with open(log_file, "w", encoding="utf-8") as f:
         proc = subprocess.Popen(
-            cmd, env=env, cwd=cwd, stdout=f, stderr=subprocess.STDOUT,
+            cmd,
+            env=env,
+            cwd=cwd,
+            stdout=f,
+            stderr=subprocess.STDOUT,
             start_new_session=True,
         )
         try:
@@ -107,8 +112,7 @@ def run_script(model_name, script_path, args, log_dir, logger):
         result["duration_sec"] = round(time.time() - start, 1)
         return result
 
-    rc = _run_with_timeout(cmd, env, os.path.dirname(script_path),
-                           log_file, args.timeout, logger)
+    rc = _run_with_timeout(cmd, env, os.path.dirname(script_path), log_file, args.timeout, logger)
     if rc != 0:
         result["passed"] = False
         result["error"] = f"Script exit code {rc}, see {log_file}"
@@ -133,14 +137,12 @@ def run_script(model_name, script_path, args, log_dir, logger):
         return result
 
     if args.auto_collect_baseline:
-        path = baseline_mod.save_baseline(
-            args.chip, model_name, BASELINE_KEY, records)
+        path = baseline_mod.save_baseline(args.chip, model_name, BASELINE_KEY, records)
         logger.info(f"[{model_name}] baseline collected: {path}")
         result["duration_sec"] = round(time.time() - start, 1)
         return result
 
-    expected = baseline_mod.load_baseline(
-        args.chip, model_name, BASELINE_KEY)
+    expected = baseline_mod.load_baseline(args.chip, model_name, BASELINE_KEY)
     if expected is None:
         result["passed"] = False
         result["error"] = (
@@ -152,7 +154,8 @@ def run_script(model_name, script_path, args, log_dir, logger):
         return result
 
     failed, warnings = baseline_mod.compare(
-        records, expected,
+        records,
+        expected,
         accuracy_tol=args.accuracy_relative_tolerance,
         performance_tol=args.performance_relative_tolerance,
         check_loss_only=args.check_loss_only,
@@ -169,8 +172,8 @@ def run_script(model_name, script_path, args, log_dir, logger):
         logger.info(f"[{model_name}] Metric validation passed ({len(records)} iterations)")
         # When performance improved (beyond tolerance and with no degradation), update the baseline's performance metrics to this run's values
         updated = baseline_mod.update_perf_baseline(
-            args.chip, model_name, BASELINE_KEY, records, expected,
-            performance_tol=args.performance_relative_tolerance)
+            args.chip, model_name, BASELINE_KEY, records, expected, performance_tol=args.performance_relative_tolerance
+        )
         if updated:
             logger.info(f"[{model_name}] Performance better than baseline; performance metrics written back: {updated}")
 

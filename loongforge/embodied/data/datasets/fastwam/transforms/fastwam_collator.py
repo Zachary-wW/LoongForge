@@ -105,10 +105,13 @@ class FastWAMPreprocessor(BasePreprocessor):
         proprio_tensor = None
         if not all(p is None for p in proprio):
             proprio_dim = next(p.shape[1] for p in proprio if p is not None)
-            proprio_tensor = torch.stack([
-                p if p is not None else torch.zeros((action.shape[1], proprio_dim), dtype=torch.float32)
-                for p in proprio
-            ], dim=0)
+            proprio_tensor = torch.stack(
+                [
+                    p if p is not None else torch.zeros((action.shape[1], proprio_dim), dtype=torch.float32)
+                    for p in proprio
+                ],
+                dim=0,
+            )
 
         return FastWAMPreparedBatch(
             video=video,

@@ -82,9 +82,8 @@ class WanLayer(TransformerLayer):
         )
 
         self.d_t = ((config.num_latent_frames - 1) // config.vae_temporal_compress + 1) // config.latent_patch_size[0]
-        self.d_s = (
-            (config.max_latent_height // config.vae_spatial_compress // config.latent_patch_size[1])
-            * (config.max_latent_width // config.vae_spatial_compress // config.latent_patch_size[2])
+        self.d_s = (config.max_latent_height // config.vae_spatial_compress // config.latent_patch_size[1]) * (
+            config.max_latent_width // config.vae_spatial_compress // config.latent_patch_size[2]
         )
 
         dim = config.hidden_size
@@ -103,7 +102,7 @@ class WanLayer(TransformerLayer):
         self.norm3 = nn.LayerNorm(dim, eps=eps)
         # Determine cp_comm_type for this layer (mirrors TransformerLayer logic)
         attention_optional_kwargs = {}
-        if config.context_parallel_size > 1 and getattr(config, 'cp_comm_type', None) is not None:
+        if config.context_parallel_size > 1 and getattr(config, "cp_comm_type", None) is not None:
             if isinstance(config.cp_comm_type, list):
                 attention_optional_kwargs["cp_comm_type"] = config.cp_comm_type[layer_number - 1]
             else:
@@ -119,8 +118,7 @@ class WanLayer(TransformerLayer):
             )
 
         self.self_attention = build_module(
-            submodules.wan_self_attention, config=self.config, layer_number=layer_number,
-            **attention_optional_kwargs
+            submodules.wan_self_attention, config=self.config, layer_number=layer_number, **attention_optional_kwargs
         )
 
         self.cross_attn = build_module(
@@ -130,12 +128,12 @@ class WanLayer(TransformerLayer):
             **attention_optional_kwargs,
         )
 
-        _sel = getattr(self.config, 'recompute_granularity', None) == 'selective'
-        self.recompute_ffn        = _sel
+        _sel = getattr(self.config, "recompute_granularity", None) == "selective"
+        self.recompute_ffn = _sel
         self.recompute_cross_attn = _sel
 
         self.t_mod = None
-        self.t_s   = None
+        self.t_s = None
 
         # Packing state (set by WanModel._forward_packed)
         self._packing_cross_packed_seq_params = None
@@ -169,9 +167,13 @@ class WanLayer(TransformerLayer):
     ):
         if self._packing_num_samples is not None:
             return self._forward_packed(
-                hidden_states, context, rotary_pos_emb,
-                rotary_pos_cos, rotary_pos_sin,
-                packed_seq_params, timestep_mod,
+                hidden_states,
+                context,
+                rotary_pos_emb,
+                rotary_pos_cos,
+                rotary_pos_sin,
+                packed_seq_params,
+                timestep_mod,
             )
 
         x = hidden_states
@@ -200,32 +202,24 @@ class WanLayer(TransformerLayer):
 
         norm3 = self.norm3(self_att_out)
         if self.recompute_cross_attn and self.training:
+
             def _cross_attn_fwd(norm3, context):
-                out, bias = self.cross_attn(
-                    norm3, attention_mask=context_mask, key_value_states=context
-                )
+                out, bias = self.cross_attn(norm3, attention_mask=context_mask, key_value_states=context)
                 return out, bias
-            cross_out, bias = torch.utils.checkpoint.checkpoint(
-                _cross_attn_fwd, norm3, context, use_reentrant=False
-            )
+
+            cross_out, bias = torch.utils.checkpoint.checkpoint(_cross_attn_fwd, norm3, context, use_reentrant=False)
         else:
-            cross_out, bias = self.cross_attn(
-                norm3, attention_mask=context_mask, key_value_states=context
-            )
+            cross_out, bias = self.cross_attn(norm3, attention_mask=context_mask, key_value_states=context)
         cross_out = cross_out + bias
         cross_out = self_att_out + cross_out
 
         input_x = self.modulate(self.norm2(cross_out), shift_mlp, scale_mlp)
         if self.recompute_ffn and self.training:
-            ffn_out = torch.utils.checkpoint.checkpoint(
-                self.ffn, input_x, use_reentrant=False
-            )
+            ffn_out = torch.utils.checkpoint.checkpoint(self.ffn, input_x, use_reentrant=False)
         else:
             ffn_out = self.ffn(input_x)
         x = self.gate(cross_out, gate_mlp, ffn_out)
-        output = make_viewless_tensor(
-            inp=x, requires_grad=x.requires_grad, keep_graph=True
-        )
+        output = make_viewless_tensor(inp=x, requires_grad=x.requires_grad, keep_graph=True)
 
         return output, context
 
@@ -267,9 +261,14 @@ class WanLayer(TransformerLayer):
         )
 
     def _forward_packed(
-        self, hidden_states, context, rotary_pos_emb,
-        rotary_pos_cos, rotary_pos_sin,
-        packed_seq_params, timestep_mod,
+        self,
+        hidden_states,
+        context,
+        rotary_pos_emb,
+        rotary_pos_cos,
+        rotary_pos_sin,
+        packed_seq_params,
+        timestep_mod,
     ):
         """Forward for packed multi-sample sequences.
 
@@ -290,8 +289,8 @@ class WanLayer(TransformerLayer):
         t_mod_block = hidden_states[t_mod_start:t_mod_end]
         t_s_block = hidden_states[t_s_start:]
 
-        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = (
-            self._expand_packed_modulation(t_mod_block, cu_seqlens_q_padded, num_samples)
+        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = self._expand_packed_modulation(
+            t_mod_block, cu_seqlens_q_padded, num_samples
         )
 
         # Self-attention
@@ -311,18 +310,22 @@ class WanLayer(TransformerLayer):
         # Cross-attention
         norm3 = self.norm3(self_att_out)
         if self.recompute_cross_attn and self.training:
+
             def _cross_attn_fwd(norm3, context):
                 out, bias = self.cross_attn(
-                    norm3, attention_mask=None, key_value_states=context,
+                    norm3,
+                    attention_mask=None,
+                    key_value_states=context,
                     packed_seq_params=ca_params,
                 )
                 return out, bias
-            cross_out, bias = torch.utils.checkpoint.checkpoint(
-                _cross_attn_fwd, norm3, context, use_reentrant=False
-            )
+
+            cross_out, bias = torch.utils.checkpoint.checkpoint(_cross_attn_fwd, norm3, context, use_reentrant=False)
         else:
             cross_out, bias = self.cross_attn(
-                norm3, attention_mask=None, key_value_states=context,
+                norm3,
+                attention_mask=None,
+                key_value_states=context,
                 packed_seq_params=ca_params,
             )
         cross_out = cross_out + bias
@@ -331,18 +334,14 @@ class WanLayer(TransformerLayer):
         # FFN
         input_x = self.norm2(cross_out) * (1 + scale_mlp) + shift_mlp
         if self.recompute_ffn and self.training:
-            ffn_out = torch.utils.checkpoint.checkpoint(
-                self.ffn, input_x, use_reentrant=False
-            )
+            ffn_out = torch.utils.checkpoint.checkpoint(self.ffn, input_x, use_reentrant=False)
         else:
             ffn_out = self.ffn(input_x)
         x = cross_out + gate_mlp * ffn_out
 
         # Reconstruct concatenated output with trailing tokens
         output = torch.cat([x, t_mod_block, t_s_block], dim=0)
-        output = make_viewless_tensor(
-            inp=output, requires_grad=output.requires_grad, keep_graph=True
-        )
+        output = make_viewless_tensor(inp=output, requires_grad=output.requires_grad, keep_graph=True)
         return output, context
 
     def sharded_state_dict(
@@ -351,12 +350,9 @@ class WanLayer(TransformerLayer):
         sharded_offsets: tuple = (),
         metadata: Optional[dict] = None,
     ) -> ShardedStateDict:
-        sharded_state_dict = super().sharded_state_dict(
-            prefix, sharded_offsets, metadata
-        )
+        sharded_state_dict = super().sharded_state_dict(prefix, sharded_offsets, metadata)
         prefixed_map = {
-            f"{prefix}{k}": f"{prefix}{v}"
-            for k, v in self.submodules_config.sharded_state_dict_keys_map.items()
+            f"{prefix}{k}": f"{prefix}{v}" for k, v in self.submodules_config.sharded_state_dict_keys_map.items()
         }
         if prefixed_map:
             apply_prefix_mapping(sharded_state_dict, prefixed_map)

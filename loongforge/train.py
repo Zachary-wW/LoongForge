@@ -9,6 +9,7 @@ separate torch-native (DDP/FSDP) subsystem with its own entry at
 """
 
 import logging
+
 logging.basicConfig(level=logging.WARNING)
 from loongforge.train import parse_train_args
 from loongforge.train import build_model_trainer

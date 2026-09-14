@@ -45,9 +45,7 @@ class RMSNormOp(OpsProxy):
         """
         if weight.dtype is hidden_states.dtype:
             return True
-        return (
-            hidden_states.dtype is torch.bfloat16 and weight.dtype is torch.float32
-        )
+        return hidden_states.dtype is torch.bfloat16 and weight.dtype is torch.float32
 
     def _cuda_supported(self, hidden_states, weight):
         """Return whether the inputs satisfy the RMSNorm CUDA constraints."""
@@ -86,8 +84,7 @@ class RMSNormOp(OpsProxy):
             if not self._input_fallback_logged:
                 self._input_fallback_logged = True
                 logger.warning(
-                    "RMSNormOp: CUDA kernel does not support these inputs, using "
-                    "PyTorch per call (x=%s/%s, w=%s/%s)",
+                    "RMSNormOp: CUDA kernel does not support these inputs, using PyTorch per call (x=%s/%s, w=%s/%s)",
                     type(hidden_states).__name__,
                     hidden_states.dtype,
                     type(weight).__name__,

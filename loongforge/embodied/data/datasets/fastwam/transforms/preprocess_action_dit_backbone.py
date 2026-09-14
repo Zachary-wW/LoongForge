@@ -120,30 +120,35 @@ def parse_args() -> argparse.Namespace:
     """Parse CLI arguments for the backbone preprocessing script."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--output", required=True,
+        "--output",
+        required=True,
         help="Output .pt path for the preprocessed ActionDiT backbone.",
     )
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID)
     parser.add_argument("--tokenizer-model-id", default=DEFAULT_TOKENIZER_MODEL_ID)
     parser.add_argument(
-        "--device", default="cpu",
+        "--device",
+        default="cpu",
         help="Device for loading and preprocessing (cpu recommended).",
     )
     parser.add_argument(
-        "--dtype", default="float32",
+        "--dtype",
+        default="float32",
         choices=["float32", "fp32", "bfloat16", "bf16", "float16", "fp16"],
     )
     parser.add_argument("--action-hidden-dim", type=int, default=DEFAULT_ACTION_HIDDEN_DIM)
     parser.add_argument("--action-ffn-dim", type=int, default=DEFAULT_ACTION_FFN_DIM)
     parser.add_argument("--action-dim", type=int, default=DEFAULT_ACTION_DIM)
     parser.add_argument(
-        "--no-alpha-scaling", action="store_true",
+        "--no-alpha-scaling",
+        action="store_true",
         help="Disable alpha=sqrt(dv/da) scaling when last dim is resized.",
     )
     parser.add_argument(
-        "--local-model-path", default=None,
+        "--local-model-path",
+        default=None,
         help="Local root directory for model artifacts (equivalent to DIFFSYNTH_MODEL_BASE_PATH). "
-             "Model files are expected at <local-model-path>/<model-id>/.",
+        "Model files are expected at <local-model-path>/<model-id>/.",
     )
     return parser.parse_args()
 
@@ -177,13 +182,19 @@ def main() -> None:
     video_dit_config = {
         "has_image_input": False,
         "patch_size": [1, 2, 2],
-        "in_dim": 48, "out_dim": 48,
-        "hidden_dim": 3072, "ffn_dim": 14336,
-        "freq_dim": DEFAULT_FREQ_DIM, "text_dim": DEFAULT_TEXT_DIM,
-        "num_heads": DEFAULT_NUM_HEADS, "attn_head_dim": DEFAULT_ATTN_HEAD_DIM,
+        "in_dim": 48,
+        "out_dim": 48,
+        "hidden_dim": 3072,
+        "ffn_dim": 14336,
+        "freq_dim": DEFAULT_FREQ_DIM,
+        "text_dim": DEFAULT_TEXT_DIM,
+        "num_heads": DEFAULT_NUM_HEADS,
+        "attn_head_dim": DEFAULT_ATTN_HEAD_DIM,
         "num_layers": DEFAULT_NUM_LAYERS,
-        "eps": DEFAULT_EPS, "seperated_timestep": True,
-        "require_clip_embedding": False, "require_vae_embedding": False,
+        "eps": DEFAULT_EPS,
+        "seperated_timestep": True,
+        "require_clip_embedding": False,
+        "require_vae_embedding": False,
         "fuse_vae_embedding_in_latents": True,
         "use_gradient_checkpointing": False,
         "video_attention_mask_mode": "first_frame_causal",
@@ -195,8 +206,12 @@ def main() -> None:
     logger.info(
         "Preprocessing ActionDiT backbone: model_id=%s device=%s dtype=%s "
         "action_hidden_dim=%d action_ffn_dim=%d apply_alpha_scaling=%s",
-        args.model_id, args.device, torch_dtype,
-        args.action_hidden_dim, args.action_ffn_dim, apply_alpha_scaling,
+        args.model_id,
+        args.device,
+        torch_dtype,
+        args.action_hidden_dim,
+        args.action_ffn_dim,
+        apply_alpha_scaling,
     )
 
     dit_config, _, _, _ = _resolve_configs(
@@ -270,7 +285,10 @@ def main() -> None:
     skipped = len(action_state) - len(backbone_keys)
     logger.info(
         "Saved ActionDiT backbone payload to %s (copied=%d, interpolated=%d, skipped=%d).",
-        output_path, copied, interpolated, skipped,
+        output_path,
+        copied,
+        interpolated,
+        skipped,
     )
 
 

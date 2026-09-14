@@ -56,7 +56,7 @@ class ShardReaderCache:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    
+
 def _flatten_media_paths(media: Sequence) -> List[str]:
     """Flatten nested media lists to a simple list of string paths."""
     flattened: List[str] = []
@@ -109,19 +109,14 @@ def stream_samples_packed_multi_mix_qa(src_dir: Path) -> Iterator[dict]:
 
         if media_type not in {"image", "video", "text"}:
             raise ValueError(
-                f"[{sample_id}] unsupported media_type='{media_type}', "
-                f"expected 'image', 'video', or 'text'"
+                f"[{sample_id}] unsupported media_type='{media_type}', expected 'image', 'video', or 'text'"
             )
         if len(prompts) != len(captions):
-            raise ValueError(
-                f"[{sample_id}] prompts/captions length mismatch: {len(prompts)} vs {len(captions)}"
-            )
+            raise ValueError(f"[{sample_id}] prompts/captions length mismatch: {len(prompts)} vs {len(captions)}")
         if media_type == "text":
             media_files = []
         elif len(media_files) != len(prompts):
-            raise ValueError(
-                f"[{sample_id}] media_files length mismatch: {len(media_files)} vs {len(prompts)} prompts"
-            )
+            raise ValueError(f"[{sample_id}] media_files length mismatch: {len(media_files)} vs {len(prompts)} prompts")
 
         yield {
             "id": sample_id,
@@ -149,6 +144,7 @@ def _candidate_media_paths(raw_path: str, sample_id: str) -> List[Path]:
             candidates.append(prefixed_name)
 
     return candidates
+
 
 def _dedup_paths(paths: Sequence[Optional[Path]]) -> List[Path]:
     seen = set()
@@ -192,8 +188,7 @@ def _resolve_media_path(
             if len(matches) > 1:
                 chosen = matches[0]
                 LOG.warning(
-                    "Multiple files ending with '%s' found in '%s' for sample '%s'. "
-                    "Selecting '%s'.",
+                    "Multiple files ending with '%s' found in '%s' for sample '%s'. Selecting '%s'.",
                     candidate.name,
                     root,
                     sample_id,
@@ -208,9 +203,7 @@ def _resolve_media_path(
             return candidate
 
     search_hint = ", ".join(str(r) for r in search_roots) or "current directory"
-    raise FileNotFoundError(
-        f"Image '{raw_path}' referenced by sample '{sample_id}' not found in {search_hint}"
-    )
+    raise FileNotFoundError(f"Image '{raw_path}' referenced by sample '{sample_id}' not found in {search_hint}")
 
 
 def construct_sample(entry, image_roots: Optional[Sequence[Path]] = None):
@@ -309,17 +302,17 @@ def construct_sample_packed_multi_mix_qa(entry, media_roots: Optional[Sequence[P
 
 
 def construct_sample_caption(cfg: "PackedWDSConfig", vision, path, entry):
-    """ construct webdataset sample """
-    assert vision == 'image' or vision == 'video'
-    directory = cfg.image_dir if vision == 'image' else cfg.video_dir
+    """construct webdataset sample"""
+    assert vision == "image" or vision == "video"
+    directory = cfg.image_dir if vision == "image" else cfg.video_dir
     if directory is None:
         raise ValueError(f"Missing directory for vision mode '{vision}'")
 
     with open(os.path.join(directory, path), "rb") as vision_file:
         vision_data = vision_file.read()
     sample = {
-        "__key__": entry.get('id', path).replace('.', '_'),
-        "jpg" if vision == 'image' else 'mp4': vision_data,
+        "__key__": entry.get("id", path).replace(".", "_"),
+        "jpg" if vision == "image" else "mp4": vision_data,
         "json": json.dumps(entry[cfg.columns_messages]).encode("utf-8"),
     }
     return sample
@@ -348,13 +341,8 @@ def build_runtime_config(cfg: dict) -> PackedWDSConfig:
     data_cfg = cfg.get("data", {})
     packed_wds_cfg = cfg.get("packed_wds", {})
 
-    output_dir = Path(
-        data_cfg.get("packed_wds_dir")
-        or (packed_root / "packed_wds")
-    )
-    json_dir = Path(
-        packed_wds_cfg.get("json_dir") or packed_root / "row_packing_jsons"
-    )
+    output_dir = Path(data_cfg.get("packed_wds_dir") or (packed_root / "packed_wds"))
+    json_dir = Path(packed_wds_cfg.get("json_dir") or packed_root / "row_packing_jsons")
     if not json_dir.exists():
         raise FileNotFoundError(f"Packed json directory not found: {json_dir}")
 
@@ -394,7 +382,7 @@ def build_runtime_config(cfg: dict) -> PackedWDSConfig:
 
 
 def convert_to_wds(cfg: PackedWDSConfig):
-    """ Convert dataset to wds format """
+    """Convert dataset to wds format"""
     cfg.output_dir.mkdir(parents=True, exist_ok=True)
 
     tar_pattern = cfg.output_dir / "pretrain-%06d.tar"
@@ -406,8 +394,7 @@ def convert_to_wds(cfg: PackedWDSConfig):
         construct_fn = construct_sample_packed_multi_mix_qa
     elif cfg.sample_type == "packed_chat_mix":
         raise ValueError(
-            "packed_chat_mix is only supported by the WDS-native "
-            "offline packing path with data.input_format='wds'."
+            "packed_chat_mix is only supported by the WDS-native offline packing path with data.input_format='wds'."
         )
     else:
         stream_fn = stream_samples_caption
@@ -469,8 +456,7 @@ def construct_native_packed_sample(
         sample = samples[sample_id]
         if sample.media_type != media_type:
             raise ValueError(
-                f"Pack {plan['pack_id']} mixes media types: "
-                f"{sample_id} is {sample.media_type}, expected {media_type}"
+                f"Pack {plan['pack_id']} mixes media types: {sample_id} is {sample.media_type}, expected {media_type}"
             )
 
         prompts.append(sample.prompt)
@@ -528,9 +514,7 @@ def construct_native_packed_sample(
             },
         }
     else:
-        raise ValueError(
-            f"WDS-native packing writer does not support sample_type={sample_type!r}"
-        )
+        raise ValueError(f"WDS-native packing writer does not support sample_type={sample_type!r}")
 
     packed["json"] = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     return packed
@@ -561,16 +545,16 @@ def convert_native_to_wds(cfg: dict):
     tar_pattern = output_dir / "pretrain-%06d.tar"
 
     source_root = Path(data_cfg["wds_dir"])
-    with ShardReaderCache(source_root) as reader, \
-        wds.ShardWriter(str(tar_pattern), maxcount=maxcount, maxsize=maxsize) as sink, \
-        pack_plan.open("r", encoding="utf-8") as f:
+    with (
+        ShardReaderCache(source_root) as reader,
+        wds.ShardWriter(str(tar_pattern), maxcount=maxcount, maxsize=maxsize) as sink,
+        pack_plan.open("r", encoding="utf-8") as f,
+    ):
         for idx, line in enumerate(tqdm(f, desc="write packed wds", unit="pack")):
             if not line.strip():
                 continue
             plan = json.loads(line)
-            sample = construct_native_packed_sample(
-                plan, samples, members, reader, sample_type
-            )
+            sample = construct_native_packed_sample(plan, samples, members, reader, sample_type)
             _log_json_presence(plan["pack_id"], sample, idx)
             sink.write(sample)
 
@@ -580,6 +564,7 @@ def convert_native_to_wds(cfg: dict):
     )
     print("WDS-native packed dataset successfully converted to wds")
 
+
 def write_config(path: EPath, media=None, sample_type=None):
     (path / MAIN_FOLDER_NAME).mkdir(exist_ok=True)
     all_tars = list(path.glob("**/*.tar")) + list(path.glob("**/*.tgz"))
@@ -588,9 +573,7 @@ def write_config(path: EPath, media=None, sample_type=None):
     dataset_definition = {
         "__module__": "megatron.energon",
         "__class__": "CrudeWebdataset",
-        "subflavors": {
-            "sample_type": sample_type
-        }
+        "subflavors": {"sample_type": sample_type},
     }
     with (path / MAIN_FOLDER_NAME / "dataset.yaml").open("w") as f:
         yaml.dump(dataset_definition, f, sort_keys=False)
@@ -619,5 +602,5 @@ def main():
         convert_to_wds(runtime_cfg)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

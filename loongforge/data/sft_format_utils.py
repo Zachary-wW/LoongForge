@@ -75,9 +75,7 @@ def _convert_alpaca(samples: Dict[str, List[Any]], alpaca_columns: "AlpacaColumn
         prompt = []
         d_len = 0
         # preprocess history
-        if alpaca_columns.history and isinstance(
-            samples[alpaca_columns.history][i], list
-        ):
+        if alpaca_columns.history and isinstance(samples[alpaca_columns.history][i], list):
             for history_prompt, history_response in samples[alpaca_columns.history][i]:
                 prompt.extend(
                     [
@@ -100,10 +98,7 @@ def _convert_alpaca(samples: Dict[str, List[Any]], alpaca_columns: "AlpacaColumn
         if alpaca_columns.response:
             resp = samples[alpaca_columns.response][i]
             if isinstance(resp, list):
-                response = [
-                    {"role": DataRoles.ASSISTANT, "content": content}
-                    for content in resp
-                ]
+                response = [{"role": DataRoles.ASSISTANT, "content": content} for content in resp]
                 for content in resp:
                     d_len += len(content)
             elif isinstance(resp, str):
@@ -112,9 +107,7 @@ def _convert_alpaca(samples: Dict[str, List[Any]], alpaca_columns: "AlpacaColumn
 
         outputs["prompt"].append(prompt)
         outputs["response"].append(response)
-        outputs["system"].append(
-            samples[alpaca_columns.system][i] if alpaca_columns.system else ""
-        )
+        outputs["system"].append(samples[alpaca_columns.system][i] if alpaca_columns.system else "")
         outputs["d_len"].append(d_len)
         outputs["videos"].append([])  # TODO: support videos
         outputs["images"].append([])  # TODO: support images
@@ -155,13 +148,8 @@ def _convert_sharegpt(
     )
 
     for i, messages in enumerate(samples[sharegpt_columns.messages]):
-
         system_message = next(
-            (
-                msg
-                for msg in messages
-                if msg[sharegpt_tags.role_tag] == sharegpt_tags.system_tag
-            ),
+            (msg for msg in messages if msg[sharegpt_tags.role_tag] == sharegpt_tags.system_tag),
             None,
         )
 
@@ -172,9 +160,7 @@ def _convert_sharegpt(
             messages.remove(system_message)
         else:
             # try use system from global column
-            system = (
-                samples[sharegpt_columns.system][i] if sharegpt_columns.system else ""
-            )
+            system = samples[sharegpt_columns.system][i] if sharegpt_columns.system else ""
 
         aligned_messages = []
         invalid_data = False
@@ -183,8 +169,7 @@ def _convert_sharegpt(
             if message[sharegpt_tags.role_tag] not in accept_tags[turn_idx % 2]:
                 # Don't dump `messages`: one line per invalid sample made >100MB logs.
                 logger.warning(
-                    "Invalid role tag at turn %d (role=%r); roles=%s, "
-                    "total_chars=%d, skipping.",
+                    "Invalid role tag at turn %d (role=%r); roles=%s, total_chars=%d, skipping.",
                     turn_idx,
                     message[sharegpt_tags.role_tag],
                     [m.get(sharegpt_tags.role_tag) for m in messages],
@@ -203,8 +188,7 @@ def _convert_sharegpt(
         if len(aligned_messages) % 2 != 0:
             # Compact form — see the "Invalid role tag" warning above.
             logger.warning(
-                "Invalid number of turns (%d); roles=%s, total_chars=%d, "
-                "skipping.",
+                "Invalid number of turns (%d); roles=%s, total_chars=%d, skipping.",
                 len(aligned_messages),
                 [m["role"] for m in aligned_messages],
                 sum(len(m["content"]) for m in aligned_messages),
@@ -246,18 +230,14 @@ def _content_len(value: Any) -> int:
     return len(json.dumps(value, ensure_ascii=False))
 
 
-def _normalize_openai_chat_message(
-    message: Dict[str, Any], index: int
-) -> Dict[str, Any]:
+def _normalize_openai_chat_message(message: Dict[str, Any], index: int) -> Dict[str, Any]:
     """Normalize OpenAI Chat Completions fields without flattening tools."""
     normalized = dict(message)
     role = normalized.get("role")
 
     if role == "function":
         normalized["role"] = "tool"
-        normalized.setdefault(
-            "tool_call_id", normalized.get("name", f"function_{index}")
-        )
+        normalized.setdefault("tool_call_id", normalized.get("name", f"function_{index}"))
 
     if "function_call" in normalized and "tool_calls" not in normalized:
         function_call = normalized.pop("function_call")
@@ -273,10 +253,7 @@ def _normalize_openai_chat_message(
                 }
             ]
 
-    if (
-        normalized.get("role") == DataRoles.ASSISTANT
-        and normalized.get("content") is None
-    ):
+    if normalized.get("role") == DataRoles.ASSISTANT and normalized.get("content") is None:
         normalized["content"] = ""
 
     return normalized
@@ -308,26 +285,11 @@ def _convert_openai(
         if isinstance(raw_messages, str):
             raw_messages = json.loads(raw_messages)
 
-        messages = [
-            _normalize_openai_chat_message(message, index)
-            for index, message in enumerate(raw_messages or [])
-        ]
+        messages = [_normalize_openai_chat_message(message, index) for index, message in enumerate(raw_messages or [])]
 
-        tools = (
-            samples[tools_column][i]
-            if tools_column and tools_column in samples
-            else None
-        )
-        images = (
-            samples[images_column][i]
-            if images_column and images_column in samples
-            else []
-        )
-        videos = (
-            samples[videos_column][i]
-            if videos_column and videos_column in samples
-            else []
-        )
+        tools = samples[tools_column][i] if tools_column and tools_column in samples else None
+        images = samples[images_column][i] if images_column and images_column in samples else []
+        videos = samples[videos_column][i] if videos_column and videos_column in samples else []
 
         d_len = sum(
             _content_len(message.get("content"))
@@ -371,9 +333,7 @@ def convert_to_unified_format(
     else:
         raise NotImplementedError()
 
-    column_names = [
-        col for col in next(iter(dataset)).keys() if col not in ["images", "videos"]
-    ]
+    column_names = [col for col in next(iter(dataset)).keys() if col not in ["images", "videos"]]
 
     if data_format.format == SFTDataFormats.OPENAI:
         features = Features(
@@ -388,12 +348,8 @@ def convert_to_unified_format(
     else:
         features = Features(
             {
-                "prompt": [
-                    {"role": Value(dtype="string"), "content": Value(dtype="string")}
-                ],
-                "response": [
-                    {"role": Value(dtype="string"), "content": Value(dtype="string")}
-                ],
+                "prompt": [{"role": Value(dtype="string"), "content": Value(dtype="string")}],
+                "response": [{"role": Value(dtype="string"), "content": Value(dtype="string")}],
                 "system": Value(dtype="string"),
                 "d_len": Value(dtype="int64"),
                 "videos": [Value(dtype="string")],

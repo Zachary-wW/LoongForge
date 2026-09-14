@@ -43,14 +43,11 @@ def _load_pi05_pretrained(pi05_pytorch, pretrained_path: str, device=None):
     # Detect whether this checkpoint uses the bare 'model.' wrapper prefix
     # by checking if stripping it produces keys that exist in the model.
     model_sd_keys = set(pi05_pytorch.state_dict().keys())
-    needs_strip = any(
-        k.startswith("model.") and k[len("model."):] in model_sd_keys
-        for k in raw_sd
-    )
+    needs_strip = any(k.startswith("model.") and k[len("model.") :] in model_sd_keys for k in raw_sd)
     if needs_strip:
         stripped = {}
         for k, v in raw_sd.items():
-            stripped[k[len("model."):] if k.startswith("model.") else k] = v
+            stripped[k[len("model.") :] if k.startswith("model.") else k] = v
         # Write back so load_pretrained receives the corrected state dict via
         # a temporary safetensors file would be heavy; instead call
         # load_state_dict directly using the same remapping logic.
@@ -100,9 +97,7 @@ class PI05ModelFactory:
 
         pretrained_path = str(Path(server_args.ckpt_path).expanduser()) if server_args.ckpt_path else ""
         resolved_device = torch.device(
-            server_args.device
-            if torch.cuda.is_available() or not server_args.device.startswith("cuda")
-            else "cpu"
+            server_args.device if torch.cuda.is_available() or not server_args.device.startswith("cuda") else "cpu"
         )
 
         model = build_model(model_cfg)

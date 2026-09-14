@@ -35,6 +35,7 @@ def load_manifest(embodied_root):
 def list_models(embodied_root):
     return list(load_manifest(embodied_root))
 
+
 if __name__ == "__main__":
     embodied_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     manifest = load_manifest(embodied_root)

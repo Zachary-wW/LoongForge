@@ -24,7 +24,9 @@ from .ernie_config import ErnieMoeConfig
 
 class ErnieMoeModel(BaseGPTModel):
     """Ernie4.5VLMoeModel"""
-    def __init__(self, 
+
+    def __init__(
+        self,
         config: ErnieMoeConfig,
         pre_process: bool = True,
         post_process: bool = True,
@@ -36,7 +38,7 @@ class ErnieMoeModel(BaseGPTModel):
         pg_collection: Optional[ProcessGroupCollection] = None,
         vp_stage: Optional[int] = None,
         **kwargs,
-        ):
+    ):
         transformer_layer_spec = get_ernie4_5_vl_decoder_spec(config)
         rotary_pos_emb = None
         super().__init__(
@@ -48,8 +50,7 @@ class ErnieMoeModel(BaseGPTModel):
             post_process=post_process,
             fp16_lm_cross_entropy=config.fp16_lm_cross_entropy,
             parallel_output=parallel_output,
-            share_embeddings_and_output_weights=(
-                not config.untie_embeddings_and_output_weights),
+            share_embeddings_and_output_weights=(not config.untie_embeddings_and_output_weights),
             position_embedding_type=config.position_embedding_type,
             language_embedding=language_embedding,
             rotary_dtype=rotary_dtype,
@@ -64,7 +65,7 @@ class ErnieMoeModel(BaseGPTModel):
             pg_collection=pg_collection,
             vp_stage=vp_stage,
         )
-  
+
         self.rotary_pos_emb = ErnieRopeEmbedding(
             self.config.kv_channels,
             compression_ratio=1.0,
@@ -92,7 +93,6 @@ class ErnieMoeModel(BaseGPTModel):
             post_process=self.post_process,
         )
 
-
     def set_input_embeddings(self, value):
         """Sets the encoder embeddings."""
         self.language_model.set_input_embeddings(value)
@@ -110,9 +110,9 @@ class ErnieMoeModel(BaseGPTModel):
         if not isinstance(input_tensor, list):
             input_tensor = [input_tensor]
 
-        assert len(input_tensor) == 1, 'input_tensor should only be length 1'
+        assert len(input_tensor) == 1, "input_tensor should only be length 1"
         self.decoder.set_input_tensor(input_tensor[0])
- 
+
     def sharded_state_dict(
         self,
         prefix: str = "",
@@ -130,20 +130,17 @@ class ErnieMoeModel(BaseGPTModel):
         Returns:
             ShardedStateDict: sharded state dict for the GPTModel
         """
-        sharded_state_dict = super().sharded_state_dict(
-            prefix, sharded_offsets, metadata
-        )
+        sharded_state_dict = super().sharded_state_dict(prefix, sharded_offsets, metadata)
         output_layer_extra_state_key = f"{prefix}output_layer._extra_state"
 
         # Old GPT checkpoints only stored the output layer weight key. So we remove the
         # _extra_state key but check that it doesn't contain any data anyway
         output_extra_state = sharded_state_dict.pop(output_layer_extra_state_key, None)
-        assert not (
-            output_extra_state and output_extra_state.data
-        ), f"Expected output layer extra state to be empty, got: {output_extra_state}"
+        assert not (output_extra_state and output_extra_state.data), (
+            f"Expected output layer extra state to be empty, got: {output_extra_state}"
+        )
 
         return sharded_state_dict
-
 
     def forward(
         self,
@@ -160,7 +157,7 @@ class ErnieMoeModel(BaseGPTModel):
         deepstack_visual_embeds: torch.Tensor = None,
         extra_block_kwargs: dict = None,
         runtime_gather_output: Optional[bool] = None,
-    ) -> Dict: 
+    ) -> Dict:
         """
         Forward func of Ernie4.5VLMoeModel.
         """

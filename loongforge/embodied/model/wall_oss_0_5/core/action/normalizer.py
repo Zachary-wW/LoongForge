@@ -16,6 +16,7 @@ Its width defines the real action dims; anything past it is the virtual tail
 that the collator zero-pads up to the configured ``action_dim``, so these
 helpers zero the tail as well.
 """
+
 import logging
 
 import torch
@@ -39,16 +40,10 @@ def _q99_bounds(action_stats, values):
             "Wall-OSS-0.5 action (un)normalization requires action stats with "
             f"'q01' and 'q99'; got keys {sorted(action_stats)}"
         )
-    q01 = torch.as_tensor(
-        action_stats["q01"], dtype=values.dtype, device=values.device
-    ).flatten()
-    q99 = torch.as_tensor(
-        action_stats["q99"], dtype=values.dtype, device=values.device
-    ).flatten()
+    q01 = torch.as_tensor(action_stats["q01"], dtype=values.dtype, device=values.device).flatten()
+    q99 = torch.as_tensor(action_stats["q99"], dtype=values.dtype, device=values.device).flatten()
     if q01.shape[-1] != q99.shape[-1]:
-        raise ValueError(
-            f"action stats q01 dim ({q01.shape[-1]}) != q99 dim ({q99.shape[-1]})"
-        )
+        raise ValueError(f"action stats q01 dim ({q01.shape[-1]}) != q99 dim ({q99.shape[-1]})")
     width = min(int(q01.shape[-1]), int(values.shape[-1]))
     return q01[:width], q99[:width] - q01[:width], width
 

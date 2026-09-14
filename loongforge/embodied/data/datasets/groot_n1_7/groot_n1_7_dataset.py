@@ -78,8 +78,7 @@ def prepare_groot_n1d7_lerobot_dataset(
     action_horizon = _resolve_data_action_horizon(model_cfg, data_cfg)
     if not _has_episode_index(dataset):
         raise TypeError(
-            "GR00T-N1.7 requires a map-style LeRobot dataset with episode metadata; "
-            f"got {type(dataset).__name__}"
+            f"GR00T-N1.7 requires a map-style LeRobot dataset with episode metadata; got {type(dataset).__name__}"
         )
 
     if data_cfg.groot_preprocess_mode == "sharded":
@@ -218,8 +217,7 @@ def _build_isaac_sharded_step_index(
 
     if total_steps <= 0 or not episode_splits:
         raise ValueError(
-            "No valid GR00T-N1.7 sharded steps; episode lengths may be shorter "
-            f"than action horizon {action_horizon}"
+            f"No valid GR00T-N1.7 sharded steps; episode lengths may be shorter than action horizon {action_horizon}"
         )
 
     num_shards = min(int(np.ceil(total_steps / shard_size)), len(episode_splits))
@@ -398,22 +396,14 @@ class _GrootN1d7IsaacIterableDataset(IterableDataset):
                     datapoint = self._transform(datapoint)
                 datapoints.append(datapoint)
         if replays is not None and sample_position != len(replays):
-            raise RuntimeError(
-                f"Shard replay count mismatch: used {sample_position}, got {len(replays)}"
-            )
+            raise RuntimeError(f"Shard replay count mismatch: used {sample_position}, got {len(replays)}")
         return datapoints
 
     def _prepare_shard_replays(self, shard_index: int) -> list[Any] | None:
         if self._transform is None:
             return None
-        replay_count = sum(
-            len(split_step_indices)
-            for _, split_step_indices in self._sharded_episodes[shard_index]
-        )
-        return [
-            _prepare_transform_replay(self._transform)
-            for _ in range(replay_count)
-        ]
+        replay_count = sum(len(split_step_indices) for _, split_step_indices in self._sharded_episodes[shard_index])
+        return [_prepare_transform_replay(self._transform) for _ in range(replay_count)]
 
     def __getattr__(self, name: str):
         return object.__getattribute__(self._dataset, name)
@@ -437,9 +427,7 @@ def _resolve_replayable_transform(transform: Any) -> Any:
     if transforms is None:
         return transform
     if len(transforms) != 1:
-        raise RuntimeError(
-            "Deterministic shard prefetch requires exactly one replayable transform"
-        )
+        raise RuntimeError("Deterministic shard prefetch requires exactly one replayable transform")
     return transforms[0]
 
 
@@ -450,9 +438,7 @@ def _prepare_transform_replay(
     replayable = _resolve_replayable_transform(transform)
     prepare_replay = getattr(replayable, "prepare_replay", None)
     if prepare_replay is None:
-        raise RuntimeError(
-            f"Transform {type(replayable).__name__} does not support deterministic replay"
-        )
+        raise RuntimeError(f"Transform {type(replayable).__name__} does not support deterministic replay")
     return prepare_replay(datapoint)
 
 
@@ -464,9 +450,7 @@ def _apply_transform_replay(
     replayable = _resolve_replayable_transform(transform)
     apply_with_replay = getattr(replayable, "apply_with_replay", None)
     if apply_with_replay is None:
-        raise RuntimeError(
-            f"Transform {type(replayable).__name__} does not support deterministic replay"
-        )
+        raise RuntimeError(f"Transform {type(replayable).__name__} does not support deterministic replay")
     return apply_with_replay(datapoint, replay)
 
 

@@ -116,8 +116,7 @@ def _drop_broken_hopper_autotune() -> None:
 
     autotuner = chunk_kda_bwd_kernel_wy_dqkg_fused.fn
     autotuner.configs = [
-        config for config in autotuner.configs
-        if not (config.kwargs["BK"] == 32 and config.num_warps == 4)
+        config for config in autotuner.configs if not (config.kwargs["BK"] == 32 and config.num_warps == 4)
     ]
 
 

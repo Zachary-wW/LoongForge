@@ -28,8 +28,11 @@ def _default_rope_init(config, device=None):
     dim = config.head_dim if hasattr(config, "head_dim") else config.hidden_size // config.num_attention_heads
     base = config.rope_theta if hasattr(config, "rope_theta") else 10000.0
     import torch
+
     inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2, dtype=torch.float32, device=device) / dim))
     return inv_freq, 1.0
+
+
 from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS, PreTrainedModel
 from transformers.processing_utils import Unpack
 from transformers.utils.deprecation import deprecate_kwarg
@@ -42,6 +45,7 @@ TransformersKwargs = Any
 
 class Qwen3VLVisionRotaryEmbedding(nn.Module):
     """Rotary position embedding for vision encoder."""
+
     def __init__(self, dim: int, theta: float = 10000.0) -> None:
         """Initialize rotary embedding parameters."""
         super().__init__()
@@ -134,6 +138,7 @@ def eager_attention_forward(
 
 class Qwen3VLTextRotaryEmbedding(nn.Module):
     """Multimodal rotary position embedding for text decoder."""
+
     def __init__(self, config: Qwen3VLTextConfig):
         """Initialize text rotary embedding."""
         super().__init__()
@@ -208,6 +213,7 @@ class Qwen3VLTextRotaryEmbedding(nn.Module):
 
 class Qwen3VLTextRMSNorm(nn.Module):
     """RMS normalization layer for Qwen3-VL text model."""
+
     def __init__(self, hidden_size: int, eps: float = 1e-6) -> None:
         """
         Qwen3VLTextRMSNorm is equivalent to T5LayerNorm
@@ -341,6 +347,7 @@ class Qwen3VLTextAttention(nn.Module):
 
 class Qwen3VLTextMLP(nn.Module):
     """Gated MLP for Qwen3-VL text decoder."""
+
     def __init__(self, config):
         """Initialize text MLP layers."""
         super().__init__()
@@ -360,6 +367,7 @@ class Qwen3VLTextMLP(nn.Module):
 
 class Qwen3VLTextDecoderLayer(nn.Module):
     """Transformer decoder layer for Qwen3-VL text model."""
+
     def __init__(self, config: Qwen3VLTextConfig, layer_idx: int):
         """Initialize decoder layer components."""
         super().__init__()
@@ -414,6 +422,7 @@ class Qwen3VLTextDecoderLayer(nn.Module):
 
 class Qwen3VLPreTrainedModel(PreTrainedModel):
     """Base pretrained model class for Qwen3-VL."""
+
     config: Qwen3VLConfig
     base_model_prefix = "model"
     supports_gradient_checkpointing = True
@@ -449,6 +458,7 @@ class Qwen3VLPreTrainedModel(PreTrainedModel):
 
 class Qwen3VLTextModel(Qwen3VLPreTrainedModel):
     """Qwen3-VL text decoder model."""
+
     config: Qwen3VLTextConfig
     _no_split_modules = ["Qwen3VLTextDecoderLayer"]
 
@@ -581,6 +591,7 @@ class Qwen3VLTextModel(Qwen3VLPreTrainedModel):
             hidden_states=all_hidden_states,
             attentions=all_self_attns,
         )
+
 
 __all__ = [
     "Qwen3VLPreTrainedModel",

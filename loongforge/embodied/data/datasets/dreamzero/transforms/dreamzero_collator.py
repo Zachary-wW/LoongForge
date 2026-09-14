@@ -50,7 +50,7 @@ def basic_clean(text):
 
 def whitespace_clean(text):
     """Collapse repeated whitespace in ``text`` into single spaces."""
-    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r"\s+", " ", text)
     text = text.strip()
     return text
 
@@ -60,7 +60,7 @@ class HuggingfaceTokenizer:
 
     def __init__(self, name, seq_len=None, clean=None, **kwargs):
         """Load the tokenizer by name/path and store padding/cleaning options."""
-        assert clean in (None, 'whitespace')
+        assert clean in (None, "whitespace")
         self.name = name
         self.seq_len = seq_len
         self.clean = clean
@@ -76,18 +76,13 @@ class HuggingfaceTokenizer:
 
     def __call__(self, sequence, **kwargs):
         """Tokenize ``sequence``, optionally returning the attention mask."""
-        return_mask = kwargs.pop('return_mask', False)
+        return_mask = kwargs.pop("return_mask", False)
 
         # arguments
-        _kwargs = {'return_tensors': 'pt'}
+        _kwargs = {"return_tensors": "pt"}
         if self.seq_len is not None:
-            _kwargs.update({
-                'padding': 'max_length',
-                'truncation': True,
-                'max_length': self.seq_len
-            })
+            _kwargs.update({"padding": "max_length", "truncation": True, "max_length": self.seq_len})
         _kwargs.update(**kwargs)
-
 
         # tokenization
         if isinstance(sequence, str):
@@ -104,7 +99,7 @@ class HuggingfaceTokenizer:
 
     def _clean(self, text):
         """Apply the configured text-cleaning strategy to ``text``."""
-        if self.clean == 'whitespace':
+        if self.clean == "whitespace":
             text = whitespace_clean(basic_clean(text))
         # elif self.clean == 'lower':
         #     text = whitespace_clean(basic_clean(text)).lower()
@@ -139,8 +134,7 @@ def collate(features: List[dict], tokenizer: AutoTokenizer, num_views=3, embodim
                             + " The video is split into four views: The top-left view shows the camera view "
                             "from the robot's head, the top-right view shows the camera view from the right "
                             "hand, the bottom-left view shows the camera view from the left hand, and the "
-                            "bottom-right view is a black screen (inactive view). The robot "
-                            + processed_item.lower()
+                            "bottom-right view is a black screen (inactive view). The robot " + processed_item.lower()
                         )
                     elif elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.OXE_DROID.value]:
                         processed_item = (
@@ -150,8 +144,7 @@ def collate(features: List[dict], tokenizer: AutoTokenizer, num_views=3, embodim
                             "from the robot's wrist, the bottom-left view shows the camera view from the "
                             "left exterior camera, and the bottom-right view shows the camera view from the "
                             "right exterior camera. During training, one of the two bottom exterior views "
-                            "may be a black screen (dropped view). The robot "
-                            + processed_item.lower()
+                            "may be a black screen (dropped view). The robot " + processed_item.lower()
                         )
                     elif elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.LIBERO_SIM.value]:
                         processed_item = (
@@ -172,8 +165,7 @@ def collate(features: List[dict], tokenizer: AutoTokenizer, num_views=3, embodim
                             + " The video is split into four views: The top-left view shows the camera view "
                             "from the robot's head, the top-right view shows the camera view from the right "
                             "hand, the bottom-left view shows the camera view from the left hand, and the "
-                            "bottom-right view is a black screen (inactive view). The robot "
-                            + processed_item.lower()
+                            "bottom-right view is a black screen (inactive view). The robot " + processed_item.lower()
                         )
                     elif elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.YAM.value]:
                         processed_item = (
@@ -181,8 +173,7 @@ def collate(features: List[dict], tokenizer: AutoTokenizer, num_views=3, embodim
                             + processed_item.lower()
                             + " The video is split into four views: The top-left view shows the top camera, "
                             "the top-right view shows the right camera, the bottom-left view shows the left "
-                            "camera, and the bottom-right view is a black screen. The robot "
-                            + processed_item.lower()
+                            "camera, and the bottom-right view is a black screen. The robot " + processed_item.lower()
                         )
                     else:
                         raise ValueError(f"Embodiment ID {elem['embodiment_id']} not supported.")
@@ -196,8 +187,7 @@ def collate(features: List[dict], tokenizer: AutoTokenizer, num_views=3, embodim
                             + " The video is split into four views: The top-left view shows the camera view "
                             "from the robot's head, the top-right view shows the camera view from the right "
                             "hand, the bottom-left view shows the camera view from the left hand, and the "
-                            "bottom-right view is a black screen (inactive view). The robot "
-                            + str(item).lower()
+                            "bottom-right view is a black screen (inactive view). The robot " + str(item).lower()
                         )
                     elif elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.OXE_DROID.value]:
                         item = (
@@ -207,16 +197,14 @@ def collate(features: List[dict], tokenizer: AutoTokenizer, num_views=3, embodim
                             "from the robot's wrist, the bottom-left view shows the camera view from the "
                             "left exterior camera, and the bottom-right view shows the camera view from the "
                             "right exterior camera. During training, one of the two bottom exterior views "
-                            "may be a black screen (dropped view). The robot "
-                            + str(item).lower()
+                            "may be a black screen (dropped view). The robot " + str(item).lower()
                         )
                     elif elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.LIBERO_SIM.value]:
                         item = (
                             "A multi-view video shows that a robot "
                             + str(item).lower()
                             + " The video is split into two horizontal views: the left view shows the "
-                            "exterior camera and the right view shows the wrist camera. The robot "
-                            + str(item).lower()
+                            "exterior camera and the right view shows the wrist camera. The robot " + str(item).lower()
                         )
                     elif elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.GR1_UNIFIED.value]:
                         item = "A single view video shows that a human " + str(item).lower()
@@ -229,8 +217,7 @@ def collate(features: List[dict], tokenizer: AutoTokenizer, num_views=3, embodim
                             + " The video is split into four views: The top-left view shows the camera view "
                             "from the robot's head, the top-right view shows the camera view from the right "
                             "hand, the bottom-left view shows the camera view from the left hand, and the "
-                            "bottom-right view is a black screen (inactive view). The robot "
-                            + str(item).lower()
+                            "bottom-right view is a black screen (inactive view). The robot " + str(item).lower()
                         )
                     elif elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.YAM.value]:
                         item = (
@@ -238,20 +225,19 @@ def collate(features: List[dict], tokenizer: AutoTokenizer, num_views=3, embodim
                             + str(item).lower()
                             + " The video is split into four views: The top-left view shows the top camera, "
                             "the top-right view shows the right camera, the bottom-left view shows the left "
-                            "camera, and the bottom-right view is a black screen. The robot "
-                            + str(item).lower()
+                            "camera, and the bottom-right view is a black screen. The robot " + str(item).lower()
                         )
                     else:
                         raise ValueError(f"Embodiment ID {elem['embodiment_id']} not supported.")
                     output_values.append(item)
             ids, mask = tokenizer(output_values, return_mask=True, add_special_tokens=True)
             batch[key] = ids
-            batch['text_attention_mask'] = mask
+            batch["text_attention_mask"] = mask
         elif key == "text_negative":
             values = [elem[key] for elem in features]
             ids, mask = tokenizer(values, return_mask=True, add_special_tokens=True)
             batch[key] = ids
-            batch['text_attention_mask_negative'] = mask
+            batch["text_attention_mask_negative"] = mask
         else:
             values = [elem[key] for elem in features]
             try:
@@ -269,11 +255,9 @@ def collate(features: List[dict], tokenizer: AutoTokenizer, num_views=3, embodim
                     for i, value in enumerate(values)
                 ]
                 raise ValueError(
-                    f"DreamZero collate failed for key={key!r}; "
-                    f"batch_size={len(values)}; shapes={shape_info}"
+                    f"DreamZero collate failed for key={key!r}; batch_size={len(values)}; shapes={shape_info}"
                 ) from exc
     return batch
-
 
 
 class DreamZeroPreparedBatch(dict):
@@ -338,15 +322,13 @@ class DefaultDataCollator(DataCollatorMixin):
     ):
         """Build the tokenizer used to collate text fields in a batch."""
         super().__init__()
-        self.tokenizer = HuggingfaceTokenizer(name=tokenizer_path, seq_len=max_length, clean='whitespace')
+        self.tokenizer = HuggingfaceTokenizer(name=tokenizer_path, seq_len=max_length, clean="whitespace")
         self.num_views = num_views
         self.embodiment_tag_mapping = embodiment_tag_mapping
 
     def __call__(self, features: List[Dict[str, Any]]) -> "DreamZeroPreparedBatch":
         """Collate a list of feature dicts into a training batch (PreparedBatch-equivalent)."""
-        return DreamZeroPreparedBatch(
-            collate(features, self.tokenizer, self.num_views, self.embodiment_tag_mapping)
-        )
+        return DreamZeroPreparedBatch(collate(features, self.tokenizer, self.num_views, self.embodiment_tag_mapping))
 
 
 class DreamTransform(InvertibleModalityTransform):
@@ -357,9 +339,7 @@ class DreamTransform(InvertibleModalityTransform):
         default_factory=list,
         description="Inherited modality selector; DreamTransform consumes canonical batch keys.",
     )
-    training: bool = Field(
-        default=True, description="Whether to apply the transform in training mode."
-    )
+    training: bool = Field(default=True, description="Whether to apply the transform in training mode.")
 
     embodiment_tag_mapping: dict[str, int] = Field(
         default_factory=dict,
@@ -390,10 +370,7 @@ class DreamTransform(InvertibleModalityTransform):
     num_views: int = 3
 
     # Add tokenizer attribute
-    tokenizer_path: str = Field(
-        default="google/umt5-xxl",
-        description="Path to the tokenizer."
-    )
+    tokenizer_path: str = Field(default="google/umt5-xxl", description="Path to the tokenizer.")
     precomputed_video_latents: bool = False
     precomputed_video_latents_key: str = "video_latents"
     precomputed_first_frame_latents: bool = False
@@ -404,28 +381,20 @@ class DreamTransform(InvertibleModalityTransform):
         """Initialize the transform and construct its tokenizer."""
         super().__init__(**kwargs)
         # Initialize the tokenizer
-        self._tokenizer = HuggingfaceTokenizer(
-            name=self.tokenizer_path,
-            seq_len=self.max_length,
-            clean='whitespace'
-        )
+        self._tokenizer = HuggingfaceTokenizer(name=self.tokenizer_path, seq_len=self.max_length, clean="whitespace")
 
     @property
     def tokenizer(self):
         """Return the underlying tokenizer instance."""
         return self._tokenizer
 
-    def set_metadata(
-        self, dataset_metadata: DatasetMetadata
-    ):
+    def set_metadata(self, dataset_metadata: DatasetMetadata):
         """Set the embodiment tag from the dataset metadata."""
         self.embodiment_tag = dataset_metadata.embodiment_tag
 
     def get_embodiment_tag(self) -> int:
         """Get the embodiment tag from the data."""
-        assert (
-            self.embodiment_tag is not None
-        ), "Embodiment tag not set. Please call set_metadata first."
+        assert self.embodiment_tag is not None, "Embodiment tag not set. Please call set_metadata first."
         return self.embodiment_tag_mapping[self.embodiment_tag.value]
 
     def check_keys_and_batch_size(self, data):
@@ -511,9 +480,9 @@ class DreamTransform(InvertibleModalityTransform):
             # Training-time augmentation:
             # - Randomly drop (black out) either left_ext or right_ext.
             if self.embodiment_tag == EmbodimentTag.OXE_DROID and v >= 3:
-                left_exterior = images[0]   # (t, c, h, w)
+                left_exterior = images[0]  # (t, c, h, w)
                 right_exterior = images[1]  # (t, c, h, w)
-                wrist_image = images[2]     # (t, c, h, w)
+                wrist_image = images[2]  # (t, c, h, w)
 
                 concat_images = np.zeros((1, t, c, 2 * h, 2 * w), dtype=images.dtype)
 
@@ -575,10 +544,12 @@ class DreamTransform(InvertibleModalityTransform):
         selected_key = self._language_key
 
         # For DROID embodiment during training, randomly select from available language keys
-        if (self._language_keys is not None and
-            len(self._language_keys) > 1 and
-            self.training and
-            self.embodiment_tag == EmbodimentTag.OXE_DROID):
+        if (
+            self._language_keys is not None
+            and len(self._language_keys) > 1
+            and self.training
+            and self.embodiment_tag == EmbodimentTag.OXE_DROID
+        ):
             selected_key = random.choice(self._language_keys)
         elif self._language_keys is not None and len(self._language_keys) > 0 and selected_key is None:
             selected_key = self._language_keys[0]
@@ -670,9 +641,9 @@ class DreamTransform(InvertibleModalityTransform):
         n_action_tokens = actions.shape[0]  # T
         n_action_dims = actions.shape[1]
 
-        assert (
-            n_action_dims <= self.max_action_dim
-        ), f"Action dim {n_action_dims} exceeds max allowed {self.max_action_dim}."
+        assert n_action_dims <= self.max_action_dim, (
+            f"Action dim {n_action_dims} exceeds max allowed {self.max_action_dim}."
+        )
 
         # Pad the channel dimension
         actions = np.pad(actions, ((0, 0), (0, self.max_action_dim - n_action_dims)), "constant")
@@ -770,9 +741,9 @@ class DreamTransform(InvertibleModalityTransform):
             transformed_data["has_lapa_action"] = np.zeros((), dtype=bool)
 
             dream_actions = data["dream_actions"]
-            assert (
-                dream_actions.size == actions_shape[0] * actions_shape[1]
-            ), f"dream_actions size {dream_actions.size} does not match action shape {actions_shape}"
+            assert dream_actions.size == actions_shape[0] * actions_shape[1], (
+                f"dream_actions size {dream_actions.size} does not match action shape {actions_shape}"
+            )
             transformed_data["action"] = dream_actions.reshape(actions_shape)
 
         if is_lapa_instance:
@@ -784,23 +755,22 @@ class DreamTransform(InvertibleModalityTransform):
             actions_shape = transformed_data["action"].shape
             lapa_actions = data["lapa_action"]
             # Ensure total elements match before reshaping
-            assert (
-                lapa_actions.size == actions_shape[0] * actions_shape[1]
-            ), f"Cannot reshape lapa_actions of size {lapa_actions.size} to {actions_shape}"
+            assert lapa_actions.size == actions_shape[0] * actions_shape[1], (
+                f"Cannot reshape lapa_actions of size {lapa_actions.size} to {actions_shape}"
+            )
             # Reshape the lapa_actions to match the expected shape
             reshaped_lapa_actions = lapa_actions.reshape(actions_shape)
             # lapa_action should be between -1 and 1
-            assert np.all(reshaped_lapa_actions >= -1) and np.all(
-                reshaped_lapa_actions <= 1
-            ), "LAPA action values should be between -1 and 1"
+            assert np.all(reshaped_lapa_actions >= -1) and np.all(reshaped_lapa_actions <= 1), (
+                "LAPA action values should be between -1 and 1"
+            )
             transformed_data["action"] = reshaped_lapa_actions
             transformed_data["action_mask"] = np.ones(actions_shape, dtype=bool)
 
         if self.training:
             action_and_mask_keys = ["action", "action_mask", "lapa_action", "lapa_action_mask"]
             assert all(
-                transformed_data[key].shape == transformed_data["action"].shape
-                for key in action_and_mask_keys
+                transformed_data[key].shape == transformed_data["action"].shape for key in action_and_mask_keys
             ), f"Shape mismatch: {[(key, transformed_data[key].shape) for key in action_and_mask_keys]}"
 
         return transformed_data

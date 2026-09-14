@@ -62,9 +62,7 @@ class _BaseFamilies(object):
     def names(cls) -> List[str]:
         """Return a list of all string names defined in the class and its subclasses"""
         string_names = [
-            value
-            for name, value in vars(cls).items()
-            if isinstance(value, str) and not name.startswith("__")
+            value for name, value in vars(cls).items() if isinstance(value, str) and not name.startswith("__")
         ]
         return string_names
 
@@ -110,6 +108,7 @@ class VisionLanguageModelFamilies(_BaseFamilies):
 
 class CustomModelFamilies(_BaseFamilies):
     """User defined Custom Vision model families"""
+
     WAN2_1_I2V = "wan2_1_i2v"
     WAN2_2_I2V = "wan2_2_i2v"
     QWEN_IMAGE = "qwen_image"
@@ -117,6 +116,7 @@ class CustomModelFamilies(_BaseFamilies):
 
 class VisionLanguageActionModelFamilies(_BaseFamilies):
     """Vision language action model families"""
+
     PI05 = "pi05"
     GROOT_N1_6 = "groot_n1_6"
 

@@ -152,6 +152,7 @@ class FP8DynamicPolicy:
             return False  # No benchmark data → conservative BF16
         return num_tokens >= min_tokens
 
+
 # ---------------------------------------------------------------------------
 # Global cache, lazily loaded per policy_path.
 # ---------------------------------------------------------------------------
@@ -213,7 +214,9 @@ def _auto_dense_num_tokens() -> int:
                 "global args (seq_length=%d * micro_batch_size=%d). "
                 "For multimodal models with heterogeneous sequence lengths, "
                 "set fp8_dynamic_num_tokens explicitly per component config.",
-                num_tokens, seq_length, mbs,
+                num_tokens,
+                seq_length,
+                mbs,
             )
         return num_tokens
     except Exception:
@@ -252,9 +255,7 @@ def selective_fp8_init_decision(config, *, te_cls, ub_name, init_kwargs) -> bool
 
     # Expert modules: promote to grouped variants.
     if is_expert and module_kind in ("layernorm_column", "column", "row"):
-        module_kind = (
-            "column_grouped" if module_kind in ("layernorm_column", "column") else "row_grouped"
-        )
+        module_kind = "column_grouped" if module_kind in ("layernorm_column", "column") else "row_grouped"
 
     if module_kind is None:
         return _keep_fp8_for_ub_name(ub_name)
@@ -272,10 +273,6 @@ def selective_fp8_init_decision(config, *, te_cls, ub_name, init_kwargs) -> bool
     if is_expert:
         moe_topk = getattr(config, "moe_router_topk", 1) or 1
         num_tokens = dense_num_tokens * moe_topk
-        return policy.should_use_fp8(
-            module_kind, num_tokens, tp=tp, etp=etp, num_gemms=num_gemms
-        )
+        return policy.should_use_fp8(module_kind, num_tokens, tp=tp, etp=etp, num_gemms=num_gemms)
     else:
-        return policy.should_use_fp8(
-            module_kind, dense_num_tokens, tp=tp, ub_name=ub_name
-        )
+        return policy.should_use_fp8(module_kind, dense_num_tokens, tp=tp, ub_name=ub_name)

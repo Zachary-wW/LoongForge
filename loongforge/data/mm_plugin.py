@@ -88,9 +88,7 @@ class MMPlugin:
         image_resolution: int = kwargs.get("image_resolution")
         if max(image.width, image.height) > image_resolution:
             resize_factor = image_resolution / max(image.width, image.height)
-            width, height = int(image.width * resize_factor), int(
-                image.height * resize_factor
-            )
+            width, height = int(image.width * resize_factor), int(image.height * resize_factor)
             image = image.resize((width, height), resample=Image.NEAREST)
 
         if image.mode != "RGB":
@@ -105,15 +103,11 @@ class MMPlugin:
         video_fps: float = kwargs.get("video_fps")
         video_maxlen: int = kwargs.get("video_maxlen")
         total_frames = video_stream.frames
-        sample_frames = (
-            float(video_stream.duration * video_stream.time_base) * video_fps
-        )
+        sample_frames = float(video_stream.duration * video_stream.time_base) * video_fps
         sample_frames = min(total_frames, video_maxlen, sample_frames)
         return math.floor(sample_frames)
 
-    def _regularize_images(
-        self, images: Sequence["ImageInput"], **kwargs
-    ) -> List["ImageObject"]:
+    def _regularize_images(self, images: Sequence["ImageInput"], **kwargs) -> List["ImageObject"]:
         r"""
         Regularizes images to avoid error. Including reading and pre-processing.
         """
@@ -128,9 +122,7 @@ class MMPlugin:
                     image = Image.open(image["path"])
 
             if not isinstance(image, ImageObject):
-                raise ValueError(
-                    "Expect input is a list of Images, but got {}.".format(type(image))
-                )
+                raise ValueError("Expect input is a list of Images, but got {}.".format(type(image)))
 
             results.append(self._preprocess_image(image, **kwargs))
 
@@ -155,9 +147,7 @@ class MMPlugin:
         It holds num_patches == torch.prod(image_grid_thw)
         """
         image_processor: "BaseImageProcessor" = getattr(processor, "image_processor")
-        video_processor: "BaseImageProcessor" = getattr(
-            processor, "video_processor", image_processor
-        )
+        video_processor: "BaseImageProcessor" = getattr(processor, "video_processor", image_processor)
         input_dict = {"images": None}  # default key
         if len(images) != 0:
             images = self._regularize_images(
@@ -172,16 +162,10 @@ class MMPlugin:
         mm_inputs = {}
         if image_processor != video_processor:
             if input_dict.get("images") is not None:
-                mm_inputs.update(
-                    image_processor(input_dict["images"], return_tensors="pt")
-                )
+                mm_inputs.update(image_processor(input_dict["images"], return_tensors="pt"))
             if input_dict.get("videos") is not None:
-                mm_inputs.update(
-                    video_processor(input_dict["videos"], return_tensors="pt")
-                )
-        elif (
-            input_dict.get("images") is not None or input_dict.get("videos") is not None
-        ):  # same processor (qwen2-vl)
+                mm_inputs.update(video_processor(input_dict["videos"], return_tensors="pt"))
+        elif input_dict.get("images") is not None or input_dict.get("videos") is not None:  # same processor (qwen2-vl)
             mm_inputs.update(image_processor(**input_dict, return_tensors="pt"))
 
         return mm_inputs
@@ -214,11 +198,7 @@ class MMPlugin:
         self._validate_input(images, videos)
         return {}
 
-    def _calculate_timestamps(
-        self,
-        indices: Union[list[int], np.ndarray],
-        video_fps: float,
-        merge_size: int = 2):
+    def _calculate_timestamps(self, indices: Union[list[int], np.ndarray], video_fps: float, merge_size: int = 2):
         if not isinstance(indices, list):
             indices = indices.tolist()
         if len(indices) % merge_size != 0:
@@ -279,17 +259,12 @@ class Qwen2VLPlugin(MMPlugin):
             content = message["content"]
             while Placeholder.IMAGE in content:
                 if num_image_tokens > len(image_grid_thw):
-                    raise ValueError(
-                        "`len(images)` is less than the number of {} tokens.".format(
-                            Placeholder.IMAGE
-                        )
-                    )
+                    raise ValueError("`len(images)` is less than the number of {} tokens.".format(Placeholder.IMAGE))
 
                 content = content.replace(
                     Placeholder.IMAGE,
                     "<|vision_start|>{}<|vision_end|>".format(
-                        self.image_token
-                        * (image_grid_thw[num_image_tokens].prod() // merge_length)
+                        self.image_token * (image_grid_thw[num_image_tokens].prod() // merge_length)
                     ),
                     1,
                 )
@@ -297,17 +272,12 @@ class Qwen2VLPlugin(MMPlugin):
 
             while Placeholder.VIDEO in content:
                 if num_video_tokens > len(video_grid_thw):
-                    raise ValueError(
-                        "`len(videos)` is less than the number of {} tokens.".format(
-                            Placeholder.VIDEO
-                        )
-                    )
+                    raise ValueError("`len(videos)` is less than the number of {} tokens.".format(Placeholder.VIDEO))
 
                 content = content.replace(
                     Placeholder.VIDEO,
                     "<|vision_start|>{}<|vision_end|>".format(
-                        self.video_token
-                        * (video_grid_thw[num_video_tokens].prod() // merge_length)
+                        self.video_token * (video_grid_thw[num_video_tokens].prod() // merge_length)
                     ),
                     1,
                 )
@@ -316,18 +286,10 @@ class Qwen2VLPlugin(MMPlugin):
             message["content"] = content
 
         if len(images) != num_image_tokens:
-            raise ValueError(
-                "The number of images does not match the number of {} tokens".format(
-                    Placeholder.IMAGE
-                )
-            )
+            raise ValueError("The number of images does not match the number of {} tokens".format(Placeholder.IMAGE))
 
         if len(videos) != num_video_tokens:
-            raise ValueError(
-                "The number of videos does not match the number of {} tokens".format(
-                    Placeholder.VIDEO
-                )
-            )
+            raise ValueError("The number of videos does not match the number of {} tokens".format(Placeholder.VIDEO))
 
         return messages, mm_inputs
 
@@ -344,8 +306,10 @@ class Qwen2VLPlugin(MMPlugin):
         self._validate_input(images, videos)
         return self._get_mm_inputs(images, videos, processor)
 
+
 class Qwen3VLPlugin(MMPlugin):
-    """ Qwen3VL plugin """
+    """Qwen3VL plugin"""
+
     @override
     def _preprocess_image(self, image: "ImageObject", **kwargs) -> "ImageObject":
         image = super()._preprocess_image(image, **kwargs)
@@ -419,8 +383,7 @@ class Qwen3VLPlugin(MMPlugin):
                     for video, duration in zip(videos_list, durations)
                 ]
                 mm_inputs.update(
-                    video_processor(input_dict["videos"],
-                    video_metadata=video_metadata, return_metadata=True)
+                    video_processor(input_dict["videos"], video_metadata=video_metadata, return_metadata=True)
                 )
         elif input_dict.get("images") is not None or input_dict.get("videos") is not None:  # same processor (qwen2-vl)
             mm_inputs.update(image_processor(**input_dict, return_tensors="pt"))
@@ -468,28 +431,26 @@ class Qwen3VLPlugin(MMPlugin):
                 metadata = video_metadata[num_video_tokens]
 
                 if metadata.fps is None:
-                        logger.warning_once(
-                            "Qwen3VL requires frame timestamps to construct prompts,"
-                            "But the `fps` of the input video could not be inferred. "
-                            "Probably `video_metadata` was missing from inputs and you passed pre-sampled frames. "
-                            "Defaulting to `fps=24`. Please provide `video_metadata` for more accurate results."
-                        )
-                        metadata.fps = 24 if metadata.fps is None else metadata.fps
-                curr_timestamp = self._calculate_timestamps(
-                        metadata.frames_indices,
-                        metadata.fps,
-                        merge_size,
+                    logger.warning_once(
+                        "Qwen3VL requires frame timestamps to construct prompts,"
+                        "But the `fps` of the input video could not be inferred. "
+                        "Probably `video_metadata` was missing from inputs and you passed pre-sampled frames. "
+                        "Defaulting to `fps=24`. Please provide `video_metadata` for more accurate results."
                     )
+                    metadata.fps = 24 if metadata.fps is None else metadata.fps
+                curr_timestamp = self._calculate_timestamps(
+                    metadata.frames_indices,
+                    metadata.fps,
+                    merge_size,
+                )
 
                 video_placeholder = ""
                 frame_seqlen = video_grid_thw[num_video_tokens][1:].prod() // merge_length
 
                 for frame_idx in range(video_grid_thw[num_video_tokens][0]):
-                        curr_time = curr_timestamp[frame_idx]
-                        video_placeholder += f"<{curr_time:.1f} seconds>"
-                        video_placeholder += (
-                            "<|vision_start|>" + "<|placeholder|>" * frame_seqlen + "<|vision_end|>"
-                        )
+                    curr_time = curr_timestamp[frame_idx]
+                    video_placeholder += f"<{curr_time:.1f} seconds>"
+                    video_placeholder += "<|vision_start|>" + "<|placeholder|>" * frame_seqlen + "<|vision_end|>"
 
                 if f"<|vision_start|>{self.video_token}<|vision_end|>" in content:
                     content = content.replace(

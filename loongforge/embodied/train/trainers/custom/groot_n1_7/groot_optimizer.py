@@ -25,6 +25,7 @@ except ImportError:  # pragma: no cover
     _TEFusedAdam = None
 
 if _TEFusedAdam is not None:
+
     class GrootCapturableAdamW(_TEFusedAdam):
         """CUDA-graph capturable AdamW built on Transformer Engine's FusedAdam."""
 
@@ -36,8 +37,12 @@ if _TEFusedAdam is not None:
 
         def set_grad_scale(self, grad_scale: torch.Tensor) -> None:
             """Bind the device-side gradient scale used by the fused update."""
-            if not isinstance(grad_scale, torch.Tensor) or grad_scale.numel() != 1 \
-                    or grad_scale.dtype != torch.float32 or not grad_scale.is_cuda:
+            if (
+                not isinstance(grad_scale, torch.Tensor)
+                or grad_scale.numel() != 1
+                or grad_scale.dtype != torch.float32
+                or not grad_scale.is_cuda
+            ):
                 raise RuntimeError("GR00T fused grad clip requires a CUDA float32 scalar.")
             self._loongforge_grad_scale = grad_scale
 
@@ -49,12 +54,14 @@ if _TEFusedAdam is not None:
                 raise RuntimeError("GR00T capturable AdamW requires alignment_max_steps.")
             beta1, beta2 = self.param_groups[0]["betas"]
             correction1 = torch.tensor(
-                [0.0] + [1.0 - beta1 ** step for step in range(1, self._alignment_max_steps + 1)],
-                dtype=torch.float64, device=device,
+                [0.0] + [1.0 - beta1**step for step in range(1, self._alignment_max_steps + 1)],
+                dtype=torch.float64,
+                device=device,
             )
             correction2 = torch.tensor(
-                [0.0] + [math.sqrt(1.0 - beta2 ** step) for step in range(1, self._alignment_max_steps + 1)],
-                dtype=torch.float64, device=device,
+                [0.0] + [math.sqrt(1.0 - beta2**step) for step in range(1, self._alignment_max_steps + 1)],
+                dtype=torch.float64,
+                device=device,
             )
             self._alignment_bias_tables[device] = (correction1, correction2)
             return correction1, correction2
@@ -96,21 +103,36 @@ if _TEFusedAdam is not None:
                         # Eager GR00T clips gradients in-place before calling
                         # the same capturable AdamW kernel used by Graph-on.
                         capturable_step(
-                            params, grads, exp_avgs, exp_avg_sqs,
-                            lr=group["lr"], step=group["step"],
-                            bias_correction1=correction1, bias_correction2_sqrt=correction2,
-                            beta2=beta2, first_moment_weight=1.0 - beta1,
-                            second_moment_weight=1.0 - beta2, eps=group["eps"],
+                            params,
+                            grads,
+                            exp_avgs,
+                            exp_avg_sqs,
+                            lr=group["lr"],
+                            step=group["step"],
+                            bias_correction1=correction1,
+                            bias_correction2_sqrt=correction2,
+                            beta2=beta2,
+                            first_moment_weight=1.0 - beta1,
+                            second_moment_weight=1.0 - beta2,
+                            eps=group["eps"],
                             weight_decay=group["weight_decay"],
                         )
                     else:
                         capturable_grad_scaled_step(
-                            params, grads, exp_avgs, exp_avg_sqs,
-                            lr=group["lr"], step=group["step"],
-                            bias_correction1=correction1, bias_correction2_sqrt=correction2,
-                            grad_scale=self._loongforge_grad_scale, beta2=beta2,
-                            first_moment_weight=1.0 - beta1, second_moment_weight=1.0 - beta2,
-                            eps=group["eps"], weight_decay=group["weight_decay"],
+                            params,
+                            grads,
+                            exp_avgs,
+                            exp_avg_sqs,
+                            lr=group["lr"],
+                            step=group["step"],
+                            bias_correction1=correction1,
+                            bias_correction2_sqrt=correction2,
+                            grad_scale=self._loongforge_grad_scale,
+                            beta2=beta2,
+                            first_moment_weight=1.0 - beta1,
+                            second_moment_weight=1.0 - beta2,
+                            eps=group["eps"],
+                            weight_decay=group["weight_decay"],
                         )
                 else:
                     from loongforge.embodied.train.trainers.custom.groot_n1_7.groot_fused_adamw import (
@@ -121,14 +143,17 @@ if _TEFusedAdam is not None:
                     step = group["step"]
                     lr = float(group["lr"])
                     eager_step(
-                        params, grads, exp_avgs, exp_avg_sqs,
+                        params,
+                        grads,
+                        exp_avgs,
+                        exp_avg_sqs,
                         decay_factor=1.0 - lr * group["weight_decay"],
                         beta2=beta2,
                         first_moment_weight=1.0 - beta1,
                         second_moment_weight=1.0 - beta2,
                         eps=group["eps"],
-                        bias_correction1=1.0 - beta1 ** step,
-                        bias_correction2_sqrt=math.sqrt(1.0 - beta2 ** step),
+                        bias_correction1=1.0 - beta1**step,
+                        bias_correction2_sqrt=math.sqrt(1.0 - beta2**step),
                         lr=lr,
                     )
             return result
@@ -152,9 +177,7 @@ def build_groot_optimizer(model, training_args, *, capturable: bool = True):
         for group in groups:
             params = group.get("params", [])
             if params:
-                group["lr"] = torch.tensor(
-                    float(group["lr"]), dtype=torch.float64, device=params[0].device
-                )
+                group["lr"] = torch.tensor(float(group["lr"]), dtype=torch.float64, device=params[0].device)
     optimizer = GrootCapturableAdamW(
         groups,
         lr=training_args.lr_base,

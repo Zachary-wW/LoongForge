@@ -47,8 +47,9 @@ def decode_video_frames_by_timestamps(
     elif backend == "torchvision_av":
         return _decode_torchvision_av(video_path, timestamps=timestamps)
     else:
-        raise ValueError(f"Unknown video_backend: '{backend}'. "
-                         f"Supported: torchcodec, decord, opencv, pyav, torchvision_av")
+        raise ValueError(
+            f"Unknown video_backend: '{backend}'. Supported: torchcodec, decord, opencv, pyav, torchvision_av"
+        )
 
 
 def decode_video_frames_by_indices(
@@ -74,6 +75,7 @@ def decode_video_frames_by_indices(
 # ─── Backend Implementations ───────────────────────────────────────────────────
 def _decode_torchcodec(video_path, timestamps=None):
     from torchcodec.decoders import VideoDecoder
+
     decoder = VideoDecoder(str(video_path))
     frames = decoder.get_frames_played_at(seconds=timestamps).data
     return frames.permute(0, 2, 3, 1).numpy()
@@ -81,6 +83,7 @@ def _decode_torchcodec(video_path, timestamps=None):
 
 def _decode_decord(video_path, timestamps=None, indices=None, **kwargs):
     import decord
+
     decord.bridge.set_bridge("numpy")
     vr = decord.VideoReader(str(video_path), **kwargs)
     if indices is not None:
@@ -94,6 +97,7 @@ def _decode_decord(video_path, timestamps=None, indices=None, **kwargs):
 
 def _decode_opencv(video_path, timestamps=None):
     import cv2
+
     cap = cv2.VideoCapture(str(video_path))
     fps = cap.get(cv2.CAP_PROP_FPS)
     frames = []
@@ -110,8 +114,10 @@ def _decode_opencv(video_path, timestamps=None):
     cap.release()
     return np.stack(frames)
 
+
 def _decode_pyav(video_path, timestamps=None):
     import av
+
     container = av.open(str(video_path))
     stream = container.streams.video[0]
     # Single-threaded decode. CPU parallelism here is owned by --num-workers;
@@ -142,8 +148,10 @@ def _decode_pyav(video_path, timestamps=None):
 
 def _decode_torchvision_av(video_path, timestamps=None):
     import torchvision
+
     torchvision.set_video_backend("pyav")
     from torchvision.io import VideoReader
+
     reader = VideoReader(str(video_path), "video")
     frames = []
     for t in timestamps:

@@ -18,6 +18,7 @@ Setup, then run:
 Writes banner.svg, banner-dark.svg and logo.svg. Inter is SIL OFL 1.1;
 embedding outlines in a logo is a permitted use.
 """
+
 import argparse
 import os
 
@@ -32,19 +33,17 @@ WORDMARK = "LoongForge"
 
 WM_FONT, WM_SIZE, WM_TRACK = "InterDisplay-ExtraBold.otf", 86, -2.5
 
-PAD = 21          # left/right padding, matches the icon's own left inset
-GAP = 52          # optical gap between the mark and the wordmark
-TOP = 15.0        # top of the mark
+PAD = 21  # left/right padding, matches the icon's own left inset
+GAP = 52  # optical gap between the mark and the wordmark
+TOP = 15.0  # top of the mark
 BOTTOM_PAD = 14.4
 # Squircle scale carried over from the original lockup, where it keyed the
 # mark to the (now removed) tagline baseline; the wordmark is centred on it.
 ICON_SCALE = 1.7365
 
 THEMES = {
-    "light": dict(icon=("#4F46E5", "#7C3AED", "#DB2777"),
-                  text=("#4F46E5", "#7C3AED", "#DB2777")),
-    "dark": dict(icon=("#6366F1", "#8B5CF6", "#F472B6"),
-                 text=("#A5B4FC", "#FDE68A", "#F472B6")),
+    "light": dict(icon=("#4F46E5", "#7C3AED", "#DB2777"), text=("#4F46E5", "#7C3AED", "#DB2777")),
+    "dark": dict(icon=("#6366F1", "#8B5CF6", "#F472B6"), text=("#A5B4FC", "#FDE68A", "#F472B6")),
 }
 
 # The mark, drawn on a 64-unit grid. The inner group recentres and enlarges the
@@ -78,9 +77,7 @@ def outline(font_path, text, size, tracking):
     def replay(pen):
         x = 0.0
         for info, pos in shaped:
-            t = (Transform()
-                 .translate(x + pos.x_offset * scale, -pos.y_offset * scale)
-                 .scale(scale, -scale))
+            t = Transform().translate(x + pos.x_offset * scale, -pos.y_offset * scale).scale(scale, -scale)
             glyphs[tt.getGlyphName(info.codepoint)].draw(TransformPen(pen, t))
             x += pos.x_advance * scale + tracking
 
@@ -96,7 +93,7 @@ def banner(theme, font_dir):
 
     # Centre the wordmark on the mark: cap line and descender ink sit at
     # equal distances from the mark's top and bottom edges.
-    icon_x = PAD - 2 * ICON_SCALE                    # squircle ink starts at PAD
+    icon_x = PAD - 2 * ICON_SCALE  # squircle ink starts at PAD
     icon_y = TOP - 2 * ICON_SCALE
     text_x = PAD + 60 * ICON_SCALE + GAP
     b1 = TOP + 30 * ICON_SCALE - (wink[1] + wink[3]) / 2
@@ -111,14 +108,14 @@ def banner(theme, font_dir):
        identically everywhere instead of falling back to Arial. -->
   <defs>
     <linearGradient id="lf-icon" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%"   stop-color="{t['icon'][0]}"/>
-      <stop offset="50%"  stop-color="{t['icon'][1]}"/>
-      <stop offset="100%" stop-color="{t['icon'][2]}"/>
+      <stop offset="0%"   stop-color="{t["icon"][0]}"/>
+      <stop offset="50%"  stop-color="{t["icon"][1]}"/>
+      <stop offset="100%" stop-color="{t["icon"][2]}"/>
     </linearGradient>
     <linearGradient id="lf-text" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%"   stop-color="{t['text'][0]}"/>
-      <stop offset="50%"  stop-color="{t['text'][1]}"/>
-      <stop offset="100%" stop-color="{t['text'][2]}"/>
+      <stop offset="0%"   stop-color="{t["text"][0]}"/>
+      <stop offset="50%"  stop-color="{t["text"][1]}"/>
+      <stop offset="100%" stop-color="{t["text"][2]}"/>
     </linearGradient>
   </defs>
 
@@ -139,8 +136,7 @@ def banner(theme, font_dir):
 def standalone():
     """The mark on its own, for favicons and avatars."""
     icon = THEMES["light"]["icon"]
-    mark = "\n".join(line[2:] if line.startswith("  ") else line
-                     for line in MARK.split("\n"))
+    mark = "\n".join(line[2:] if line.startswith("  ") else line for line in MARK.split("\n"))
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"
      role="img" aria-label="LoongForge logo">
   <defs>
@@ -158,18 +154,22 @@ def standalone():
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--font-dir", required=True,
-                    help="directory holding the Inter static OTFs "
-                         "(the extras/otf folder of the Inter release)")
+    ap.add_argument(
+        "--font-dir",
+        required=True,
+        help="directory holding the Inter static OTFs (the extras/otf folder of the Inter release)",
+    )
     ap.add_argument("--out-dir", default=os.path.dirname(os.path.abspath(__file__)))
-    ap.add_argument("--check", action="store_true",
-                    help="report whether the files on disk are up to date "
-                         "instead of writing them")
+    ap.add_argument(
+        "--check", action="store_true", help="report whether the files on disk are up to date instead of writing them"
+    )
     args = ap.parse_args()
 
-    assets = {"banner.svg": banner("light", args.font_dir),
-              "banner-dark.svg": banner("dark", args.font_dir),
-              "logo.svg": standalone()}
+    assets = {
+        "banner.svg": banner("light", args.font_dir),
+        "banner-dark.svg": banner("dark", args.font_dir),
+        "logo.svg": standalone(),
+    }
 
     stale = []
     for name, content in assets.items():

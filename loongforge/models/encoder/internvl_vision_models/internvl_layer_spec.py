@@ -45,8 +45,7 @@ def get_vision_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
 
     qk_norm = (
         multiacc_modules.TENorm
-        if is_te_min_version("1.9.0")
-        and config.normalization in ["LayerNorm", "RMSNorm"]
+        if is_te_min_version("1.9.0") and config.normalization in ["LayerNorm", "RMSNorm"]
         else multiacc_modules.LocalNorm
     )
     if config.model_type == "intern_vit_6b":

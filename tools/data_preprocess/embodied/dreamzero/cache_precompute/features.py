@@ -75,8 +75,7 @@ def _load_vae_pretrained(vae: torch.nn.Module, path: str) -> None:
     target = getattr(vae, "model", vae)
     missing, unexpected = target.load_state_dict(state_dict, strict=False)
     print(
-        f"[dreamzero-cache] VAE loaded from {path}; "
-        f"missing={len(missing)} unexpected={len(unexpected)}",
+        f"[dreamzero-cache] VAE loaded from {path}; missing={len(missing)} unexpected={len(unexpected)}",
         flush=True,
     )
 
@@ -100,9 +99,7 @@ def _build_vae_for_cache(config: SimpleNamespace) -> torch.nn.Module:
 
 def _build_text_encoder_for_cache(config: SimpleNamespace) -> torch.nn.Module:
     if not config.text_encoder_pretrained_path:
-        raise ValueError(
-            "DreamZero prompt precompute requires config.text_encoder_pretrained_path"
-        )
+        raise ValueError("DreamZero prompt precompute requires config.text_encoder_pretrained_path")
     return _build_text_encoder(config)
 
 
@@ -130,9 +127,7 @@ def _encode_prompt_embs_for_cache(
     return prompt_embs.to(dtype=torch.bfloat16)
 
 
-def _build_transforms(
-    config: SimpleNamespace, modality_configs
-) -> ComposedModalityTransform:
+def _build_transforms(config: SimpleNamespace, modality_configs) -> ComposedModalityTransform:
     video_keys = modality_configs["video"].modality_keys
     state_keys = modality_configs["state"].modality_keys
     action_keys = modality_configs["action"].modality_keys
@@ -229,13 +224,9 @@ def _prepare_video_tensor(
     if videos.dtype == torch.uint8:
         videos = videos.float() / 255.0
         bsz, channels, frames, height, width = videos.shape
-        videos = videos.permute(0, 2, 1, 3, 4).reshape(
-            bsz * frames, channels, height, width
-        )
+        videos = videos.permute(0, 2, 1, 3, 4).reshape(bsz * frames, channels, height, width)
         videos = v2.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])(videos)
-        videos = videos.reshape(bsz, frames, channels, height, width).permute(
-            0, 2, 1, 3, 4
-        )
+        videos = videos.reshape(bsz, frames, channels, height, width).permute(0, 2, 1, 3, 4)
     videos = videos.to(dtype=dtype)
 
     target_h = config.target_video_height
@@ -265,9 +256,7 @@ def _prepare_videos(
     prepared = []
     for item in images:
         tensor = item if torch.is_tensor(item) else torch.from_numpy(item)
-        prepared.append(
-            _prepare_video_tensor(tensor.unsqueeze(0), config, device, dtype)
-        )
+        prepared.append(_prepare_video_tensor(tensor.unsqueeze(0), config, device, dtype))
     return torch.cat(prepared, dim=0)
 
 
@@ -316,9 +305,7 @@ def _collate_precompute_features(
         batch["text"] = torch.stack([feature["text"] for feature in features], dim=0)
     else:
         if tokenizer is None:
-            raise ValueError(
-                "prompt precompute requires a tokenizer for string text features"
-            )
+            raise ValueError("prompt precompute requires a tokenizer for string text features")
         text_features = [
             {
                 "text": feature["text"],

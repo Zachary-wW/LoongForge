@@ -1,7 +1,8 @@
 # Copyright 2026 The LoongForge Authors.
 # SPDX-License-Identifier: Apache-2.0
 
-""" Parallel config """
+"""Parallel config"""
+
 from dataclasses import dataclass
 from typing import Optional
 
@@ -13,6 +14,7 @@ class ParallelConfig:
     """
     Parallel config for distributed training
     """
+
     tp_size: int = 1
     pp_size: int = 1
     ep_size: Optional[int] = None

@@ -116,10 +116,7 @@ def solve_computation_coef(init=(0, 0, 0)):
 
         for terms, Ci in zip(var_groups, C):
             # Predicted per-DP loads for this iteration
-            vals = [
-                (a / S_a) * x_t + (b / S_b) * y_t + (c / S_c) * z_t
-                for (a, b, c) in terms
-            ]
+            vals = [(a / S_a) * x_t + (b / S_b) * y_t + (c / S_c) * z_t for (a, b, c) in terms]
             err += (softmax_max(vals) - Ci) ** 2
 
         return err
@@ -235,9 +232,7 @@ def set_warmup_groups(data: Union[List[Dict[str, torch.Tensor]], Dict[str, torch
     # Prepare all-gather buffers
     seq_num_list = [torch.zeros_like(seq_num_tensor) for _ in range(dp_size)]
     seq_lenth_sum_list = [torch.zeros_like(total_seq_lenth_sum) for _ in range(dp_size)]
-    seq_lenth_square_sum_list = [
-        torch.zeros_like(total_seq_lenth_square_sum) for _ in range(dp_size)
-    ]
+    seq_lenth_square_sum_list = [torch.zeros_like(total_seq_lenth_square_sum) for _ in range(dp_size)]
 
     # Gather statistics across DP ranks
     dist.all_gather(seq_num_list, seq_num_tensor, group=dp_group)

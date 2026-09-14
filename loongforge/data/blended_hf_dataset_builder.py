@@ -63,21 +63,15 @@ class BlendedHuggingFaceDatasetBuilder(object):
                 else:
                     if self.config.blend_per_split[split.value] is None:
                         continue
-                    weights_are_none = (
-                        self.config.blend_per_split[split.value][1] is None
-                    )
+                    weights_are_none = self.config.blend_per_split[split.value][1] is None
                 if size_is_none:
-                    assert (
-                        weights_are_none
-                    ), f"size_is_none => weights_are_none fails for {split.name} split"
+                    assert weights_are_none, f"size_is_none => weights_are_none fails for {split.name} split"
 
         if torch.distributed.is_initialized():
             gb_rank = torch.distributed.get_rank()
             vp_rank = get_virtual_pipeline_model_parallel_rank()
             if gb_rank == 0 and (vp_rank == 0 or vp_rank is None):
-                assert (
-                    self.is_built_on_rank()
-                ), "is_built_on_rank must return True when global rank = 0 and vp rank = 0"
+                assert self.is_built_on_rank(), "is_built_on_rank must return True when global rank = 0 and vp rank = 0"
 
     def build(self) -> List[Optional[Union[Dataset, IterableDataset]]]:
         """Build all dataset splits according to the provided blend(s)
@@ -111,19 +105,13 @@ class BlendedHuggingFaceDatasetBuilder(object):
 
         # blend consists of a single prefix
         if len(prefixes) == 1:
-            return self._build_huggingface_dataset_splits(
-                prefixes[0], dataset_names[0], split
-            )
+            return self._build_huggingface_dataset_splits(prefixes[0], dataset_names[0], split)
 
         # blend consists of multiple prefixes
         huggingface_datasets = [[] for _ in range(len(Split))]
         all_datasets_split = []
         for i in range(len(prefixes)):
-            all_datasets_split.append(
-                self._build_huggingface_dataset_splits(
-                    prefixes[i], dataset_names[i], split
-                )
-            )
+            all_datasets_split.append(self._build_huggingface_dataset_splits(prefixes[i], dataset_names[i], split))
 
         for dataset_split in all_datasets_split:
             for j in range(len(dataset_split)):
@@ -133,9 +121,7 @@ class BlendedHuggingFaceDatasetBuilder(object):
         blended_datasets = [None] * len(Split)
         for i in range(len(Split)):
             if split[i] is not None:
-                blended_datasets[i] = self._build_blend_huggingface_dataset_splits(
-                    huggingface_datasets[i], weights
-                )
+                blended_datasets[i] = self._build_blend_huggingface_dataset_splits(huggingface_datasets[i], weights)
 
         return blended_datasets
 
@@ -175,14 +161,10 @@ class BlendedHuggingFaceDatasetBuilder(object):
             all_datasets = []
             for p in range(len(prefixes)):
                 all_datasets.append(
-                    self._build_huggingface_dataset_splits(
-                        prefixes[p], dataset_names[p], split_spoof
-                    )[i]
+                    self._build_huggingface_dataset_splits(prefixes[p], dataset_names[p], split_spoof)[i]
                 )
 
-            blended_datasets[i] = self._build_blend_huggingface_dataset_splits(
-                all_datasets, weights
-            )
+            blended_datasets[i] = self._build_blend_huggingface_dataset_splits(all_datasets, weights)
 
         return blended_datasets
 

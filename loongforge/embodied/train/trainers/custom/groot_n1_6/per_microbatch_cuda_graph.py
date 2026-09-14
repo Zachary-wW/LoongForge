@@ -56,9 +56,7 @@ def _copy_into_static(dst: Any, src: Any) -> None:
         return
     if dataclasses.is_dataclass(dst) and dataclasses.is_dataclass(src):
         if dst.__class__ is not src.__class__:
-            raise RuntimeError(
-                f"PreparedBatch type changed: {dst.__class__.__name__} vs {src.__class__.__name__}"
-            )
+            raise RuntimeError(f"PreparedBatch type changed: {dst.__class__.__name__} vs {src.__class__.__name__}")
         for f in dataclasses.fields(dst):
             _copy_into_static(getattr(dst, f.name), getattr(src, f.name))
         return
@@ -127,9 +125,7 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
         self._max_grad_sync_bucket_numel = max(int(bucket_mb * 1024 * 1024 / 4), 1)
         self._grad_sync_impl = self.training_args.cuda_graph_grad_sync_impl
         self._grad_sync_dtype = self.training_args.cuda_graph_grad_sync_dtype
-        self._grad_sync_reduce_op = (
-            dist.ReduceOp.AVG if hasattr(dist.ReduceOp, "AVG") else dist.ReduceOp.SUM
-        )
+        self._grad_sync_reduce_op = dist.ReduceOp.AVG if hasattr(dist.ReduceOp, "AVG") else dist.ReduceOp.SUM
         self._grad_sync_needs_div = self._grad_sync_reduce_op == dist.ReduceOp.SUM
         self._sync_params: list[torch.nn.Parameter] | None = None
         self._sync_params_all_present = False
@@ -387,9 +383,7 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
         ddp_model.require_backward_grad_sync = should_sync
         ddp_model.require_forward_param_sync = should_sync
         if getattr(ddp_model, "find_unused_parameters", False) and not getattr(ddp_model, "static_graph", False):
-            raise RuntimeError(
-                "CUDA graph DDP sync capture requires --no-ddp-find-unused-parameters."
-            )
+            raise RuntimeError("CUDA graph DDP sync capture requires --no-ddp-find-unused-parameters.")
         if self._saved_ddp_logger is None:
             self._saved_ddp_logger = ddp_model.logger
             ddp_model.logger = self._noop_ddp_logger
@@ -414,9 +408,7 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
 
     def _load_static_batches(self, batches: list[GrootN1d6PreparedBatch]) -> None:
         if len(batches) != len(self._static_batches):
-            raise RuntimeError(
-                f"Microbatch count changed: {len(self._static_batches)} -> {len(batches)}"
-            )
+            raise RuntimeError(f"Microbatch count changed: {len(self._static_batches)} -> {len(batches)}")
         for static_batch, batch in zip(self._static_batches, batches):
             _copy_into_static(static_batch, batch)
 
@@ -588,11 +580,13 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
                     op=self._grad_sync_reduce_op,
                     async_op=True,
                 )
-                pending_coalesced.append((
-                    work,
-                    bucket_to_reduce,
-                    None if bucket_to_reduce is bucket else bucket,
-                ))
+                pending_coalesced.append(
+                    (
+                        work,
+                        bucket_to_reduce,
+                        None if bucket_to_reduce is bucket else bucket,
+                    )
+                )
             else:
                 bucket_to_reduce = self._make_comm_bucket(bucket)
                 if bucket_to_reduce is not bucket:
@@ -643,9 +637,9 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
                 self._copy_bucket(target_bucket, reduced_bucket)
         if self._captured and self._sync_params_all_present:
             self._grad_sync_buckets = built_buckets
-            self._grad_sync_comm_buckets = built_comm_buckets if any(
-                comm_bucket is not None for comm_bucket in built_comm_buckets
-            ) else None
+            self._grad_sync_comm_buckets = (
+                built_comm_buckets if any(comm_bucket is not None for comm_bucket in built_comm_buckets) else None
+            )
 
     def _sync_cached_grad_buckets(self) -> None:
         pending_coalesced: list[tuple[Any, list[torch.Tensor], list[torch.Tensor] | None]] = []
@@ -689,10 +683,7 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
             return bucket
         if all(grad.dtype == torch.bfloat16 for grad in bucket):
             return bucket
-        return [
-            torch.empty_like(grad, dtype=torch.bfloat16, memory_format=torch.preserve_format)
-            for grad in bucket
-        ]
+        return [torch.empty_like(grad, dtype=torch.bfloat16, memory_format=torch.preserve_format) for grad in bucket]
 
     @staticmethod
     def _copy_bucket(dst_bucket: list[torch.Tensor], src_bucket: list[torch.Tensor]) -> None:
@@ -710,10 +701,7 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
         def _worker() -> None:
             while True:
                 try:
-                    batches = [
-                        self.trainer._fetch_batch_cpu("vla")
-                        for _ in range(self.grad_accum)
-                    ]
+                    batches = [self.trainer._fetch_batch_cpu("vla") for _ in range(self.grad_accum)]
                     self._prefetch_queue.put(batches)
                 except BaseException as exc:  # noqa: BLE001
                     self._prefetch_queue.put(exc)
@@ -726,10 +714,7 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
         if self._prefetched_gpu_batches is None:
             self._start_gpu_prefetch()
         if self._prefetched_gpu_batches is None:
-            return [
-                self.trainer._fetch_batch("vla")
-                for _ in range(self.grad_accum)
-            ]
+            return [self.trainer._fetch_batch("vla") for _ in range(self.grad_accum)]
 
         if self._copy_stream is not None:
             torch.cuda.current_stream().wait_stream(self._copy_stream)
@@ -741,10 +726,7 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
     def _fetch_prefetched_cpu_batches(self) -> list[GrootN1d6PreparedBatch]:
         self._ensure_prefetch_thread()
         if self._prefetch_queue is None:
-            return [
-                self.trainer._fetch_batch_cpu("vla")
-                for _ in range(self.grad_accum)
-            ]
+            return [self.trainer._fetch_batch_cpu("vla") for _ in range(self.grad_accum)]
         item = self._prefetch_queue.get()
         if isinstance(item, BaseException):
             raise item
@@ -756,10 +738,7 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
         cpu_batches = self._fetch_prefetched_cpu_batches()
         stream = self._get_copy_stream()
         with torch.cuda.stream(stream):
-            self._prefetched_gpu_batches = [
-                self.trainer._move_batch_to_device(batch)
-                for batch in cpu_batches
-            ]
+            self._prefetched_gpu_batches = [self.trainer._move_batch_to_device(batch) for batch in cpu_batches]
 
     def _get_copy_stream(self) -> torch.cuda.Stream:
         if self._copy_stream is None:

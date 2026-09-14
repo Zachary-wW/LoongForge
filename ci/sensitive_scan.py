@@ -62,9 +62,7 @@ def die(msg: str) -> NoReturn:
 
 
 def git(*args: str, check: bool = True) -> str:
-    proc = subprocess.run(
-        ("git",) + args, capture_output=True, text=True, errors="replace"
-    )
+    proc = subprocess.run(("git",) + args, capture_output=True, text=True, errors="replace")
     if check and proc.returncode != 0:
         die(f"`git {' '.join(args)}` failed: {proc.stderr.strip()}")
     return proc.stdout
@@ -148,16 +146,11 @@ def candidate_files(path_filters: list[str]) -> list[str]:
     commit; ignored files are excluded because they never ship.
     """
     tracked = git("ls-files").splitlines()
-    staged = git(
-        "diff", "--cached", "--name-only", "--diff-filter=ACM"
-    ).splitlines()
+    staged = git("diff", "--cached", "--name-only", "--diff-filter=ACM").splitlines()
     untracked = git("ls-files", "--others", "--exclude-standard").splitlines()
     files = sorted({p for p in tracked + staged + untracked if p})
     if path_filters:
-        files = [
-            p for p in files
-            if any(p == f or p.startswith(f.rstrip("/") + "/") for f in path_filters)
-        ]
+        files = [p for p in files if any(p == f or p.startswith(f.rstrip("/") + "/") for f in path_filters)]
     return [p for p in files if not excluded(p)]
 
 
@@ -225,21 +218,13 @@ def scan_history(rules, allowlist) -> list[Finding]:
     """
     findings = []
     sources = {
-        "git:authors": sorted(set(
-            git("log", "--all", "--format=%an <%ae>%n%cn <%ce>").splitlines()
-        )),
-        "git:commit-messages": git(
-            "log", "--all", "--format=%s%n%b"
-        ).splitlines(),
+        "git:authors": sorted(set(git("log", "--all", "--format=%an <%ae>%n%cn <%ce>").splitlines())),
+        "git:commit-messages": git("log", "--all", "--format=%s%n%b").splitlines(),
         "git:tags": git("tag").splitlines(),
-        "git:branches": git(
-            "branch", "-a", "--format=%(refname:short)"
-        ).splitlines(),
+        "git:branches": git("branch", "-a", "--format=%(refname:short)").splitlines(),
     }
     for location, lines in sources.items():
-        findings.extend(
-            scan_text(rules, allowlist, location, [ln for ln in lines if ln], location)
-        )
+        findings.extend(scan_text(rules, allowlist, location, [ln for ln in lines if ln], location))
 
     on_disk = set(candidate_files([]))
     in_head = {p for p in git("ls-tree", "-r", "--name-only", "HEAD").splitlines() if p}
@@ -249,11 +234,7 @@ def scan_history(rules, allowlist) -> list[Finding]:
         blob = git("show", f"HEAD:{path}", check=False)
         if not blob or "\x00" in blob[:8192]:
             continue
-        findings.extend(
-            scan_text(
-                rules, allowlist, f"git:HEAD:{path}", blob.splitlines(), path
-            )
-        )
+        findings.extend(scan_text(rules, allowlist, f"git:HEAD:{path}", blob.splitlines(), path))
     return findings
 
 
@@ -302,17 +283,10 @@ def report_ci_summary(findings: list[Finding], strict: bool) -> None:
         key = (finding.severity, finding.rule)
         counts[key] = counts.get(key, 0) + 1
 
-    errors = sum(
-        count for (severity, _), count in counts.items() if severity == "error"
-    )
-    warns = sum(
-        count for (severity, _), count in counts.items() if severity == "warn"
-    )
+    errors = sum(count for (severity, _), count in counts.items() if severity == "error")
+    warns = sum(count for (severity, _), count in counts.items() if severity == "warn")
     blocking = errors + (warns if strict else 0)
-    print(
-        f"sensitive-scan: {errors} error(s), {warns} warning(s), "
-        f"{len(findings)} total"
-    )
+    print(f"sensitive-scan: {errors} error(s), {warns} warning(s), {len(findings)} total")
     if counts:
         for (severity, rule), count in sorted(counts.items()):
             print(f"sensitive-scan: {severity} {rule} ({count})")
@@ -326,11 +300,7 @@ def normalize_path_filters(path_filters: list[str], root: str) -> list[str]:
     """Convert path arguments to repository-relative paths without leaking them."""
     normalized = []
     for raw in path_filters:
-        candidate = (
-            os.path.abspath(raw)
-            if os.path.isabs(raw)
-            else os.path.abspath(os.path.join(root, raw))
-        )
+        candidate = os.path.abspath(raw) if os.path.isabs(raw) else os.path.abspath(os.path.join(root, raw))
         try:
             relative = os.path.relpath(candidate, root)
         except ValueError:
@@ -348,21 +318,21 @@ def main() -> int:
         prog="sensitive-scan",
         description="Detect internal-only information before publishing.",
     )
-    parser.add_argument("--history", action="store_true",
-                        help="also scan author emails, commit messages, tags, "
-                             "branch names, and files deleted from the worktree "
-                             "but still present in HEAD")
-    parser.add_argument("--strict", action="store_true",
-                        help="treat warnings as blocking")
-    parser.add_argument("--ci-summary", action="store_true",
-                        help="print aggregate-only output safe for CI logs")
+    parser.add_argument(
+        "--history",
+        action="store_true",
+        help="also scan author emails, commit messages, tags, "
+        "branch names, and files deleted from the worktree "
+        "but still present in HEAD",
+    )
+    parser.add_argument("--strict", action="store_true", help="treat warnings as blocking")
+    parser.add_argument("--ci-summary", action="store_true", help="print aggregate-only output safe for CI logs")
     parser.add_argument("--format", choices=("text", "json"), default="text")
-    parser.add_argument("--rule", action="append", dest="rules", metavar="ID",
-                        help="only run this rule (repeatable)")
-    parser.add_argument("--paths", nargs="*", default=[], metavar="PATH",
-                        help="restrict the worktree scan to these paths")
-    parser.add_argument("--list-rules", action="store_true",
-                        help="print the rule table and exit")
+    parser.add_argument("--rule", action="append", dest="rules", metavar="ID", help="only run this rule (repeatable)")
+    parser.add_argument(
+        "--paths", nargs="*", default=[], metavar="PATH", help="restrict the worktree scan to these paths"
+    )
+    parser.add_argument("--list-rules", action="store_true", help="print the rule table and exit")
     args = parser.parse_args()
 
     if args.list_rules:
@@ -375,9 +345,7 @@ def main() -> int:
     rules = compile_rules(args.rules)
     allowlist = compile_allowlist()
 
-    findings = scan_worktree(
-        rules, allowlist, normalize_path_filters(args.paths, root)
-    )
+    findings = scan_worktree(rules, allowlist, normalize_path_filters(args.paths, root))
     if args.history:
         findings.extend(scan_history(rules, allowlist))
 
@@ -388,8 +356,7 @@ def main() -> int:
         warns = len(findings) - errors
         json.dump(
             {
-                "summary": {"errors": errors, "warnings": warns,
-                            "total": len(findings), "strict": args.strict},
+                "summary": {"errors": errors, "warnings": warns, "total": len(findings), "strict": args.strict},
                 "findings": [asdict(f) for f in findings],
             },
             sys.stdout,
@@ -400,8 +367,7 @@ def main() -> int:
     else:
         report_text(findings, rules, args.strict)
 
-    blocking = [f for f in findings
-                if f.severity == "error" or (args.strict and f.severity == "warn")]
+    blocking = [f for f in findings if f.severity == "error" or (args.strict and f.severity == "warn")]
     return 1 if blocking else 0
 
 

@@ -41,4 +41,3 @@ def reconstruct_visual_for_vlm(tensor, visual_size):
 def reconstruct_position_ids_for_vlm(tensor):
     """Reshape position IDs to (3, 1, seq_len) for InternVL-style VLM."""
     return tensor.reshape(3, 1, -1)
-

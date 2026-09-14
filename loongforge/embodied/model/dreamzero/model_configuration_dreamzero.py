@@ -175,7 +175,7 @@ class DreamZeroConfig(PreTrainedConfig):
     # ------------------------------------------------------------------
     # External encoders (frozen; default loaded from HF)
     # ------------------------------------------------------------------
-    text_encoder_pretrained_path: str = ""   # google/umt5-xxl
+    text_encoder_pretrained_path: str = ""  # google/umt5-xxl
     image_encoder_pretrained_path: str = ""  # CLIP (Wan2.1 only)
     vae_pretrained_path: str = ""
     # Directory containing diffusion_pytorch_model*.safetensors[.index.json].
@@ -202,9 +202,7 @@ class DreamZeroConfig(PreTrainedConfig):
     # ------------------------------------------------------------------
     # Multi-embodiment routing. IDs must match the action-head projector table.
     # ------------------------------------------------------------------
-    action_loss_embodiment_ids: list[int] = field(
-        default_factory=lambda: [26, 17, 32]
-    )
+    action_loss_embodiment_ids: list[int] = field(default_factory=lambda: [26, 17, 32])
     max_num_embodiments: int = 32
 
     # ------------------------------------------------------------------
@@ -280,8 +278,7 @@ class DreamZeroConfig(PreTrainedConfig):
 
         if self.backbone_variant not in _BACKBONE_PRESETS:
             raise ValueError(
-                f"backbone_variant must be one of {list(_BACKBONE_PRESETS)}; "
-                f"got {self.backbone_variant!r}"
+                f"backbone_variant must be one of {list(_BACKBONE_PRESETS)}; got {self.backbone_variant!r}"
             )
         preset = _BACKBONE_PRESETS[self.backbone_variant]
 
@@ -328,14 +325,10 @@ class DreamZeroConfig(PreTrainedConfig):
             elif rounding_dtype in {"fp16", "float16", "half"}:
                 self.fsdp_initial_param_rounding_dtype = "fp16"
             else:
-                raise ValueError(
-                    "fsdp_initial_param_rounding_dtype must be one of "
-                    "null/bf16/bfloat16/fp16/float16"
-                )
+                raise ValueError("fsdp_initial_param_rounding_dtype must be one of null/bf16/bfloat16/fp16/float16")
         if self.n_action_steps > self.action_horizon:
             raise ValueError(
-                f"n_action_steps ({self.n_action_steps}) cannot exceed "
-                f"action_horizon ({self.action_horizon})"
+                f"n_action_steps ({self.n_action_steps}) cannot exceed action_horizon ({self.action_horizon})"
             )
 
     # ------------------------------------------------------------------
@@ -408,66 +401,30 @@ def dreamzero_dit_performance_options(
 ) -> dict[str, object]:
     """Collect normalized DiT performance-switch options from ``model_config``."""
     return {
-        "compile_causal_attention": _dreamzero_bool(
-            model_config.compile_causal_attention
-        ),
-        "compile_causal_attention_parts": _dreamzero_str(
-            model_config.compile_causal_attention_parts
-        ),
-        "compile_causal_attention_block": _dreamzero_bool(
-            model_config.compile_causal_attention_block
-        ),
-        "compile_causal_attention_warmup_frames": _dreamzero_str(
-            model_config.compile_causal_attention_warmup_frames
-        ),
-        "compile_causal_attention_warmup_blocks": _dreamzero_str(
-            model_config.compile_causal_attention_warmup_blocks
-        ),
-        "compile_causal_attention_warmup_batch": _dreamzero_int(
-            model_config.compile_causal_attention_warmup_batch
-        ),
+        "compile_causal_attention": _dreamzero_bool(model_config.compile_causal_attention),
+        "compile_causal_attention_parts": _dreamzero_str(model_config.compile_causal_attention_parts),
+        "compile_causal_attention_block": _dreamzero_bool(model_config.compile_causal_attention_block),
+        "compile_causal_attention_warmup_frames": _dreamzero_str(model_config.compile_causal_attention_warmup_frames),
+        "compile_causal_attention_warmup_blocks": _dreamzero_str(model_config.compile_causal_attention_warmup_blocks),
+        "compile_causal_attention_warmup_batch": _dreamzero_int(model_config.compile_causal_attention_warmup_batch),
         "compile_causal_attention_warmup_backward": _dreamzero_bool(
             model_config.compile_causal_attention_warmup_backward
         ),
-        "compile_causal_cross_attention": _dreamzero_bool(
-            model_config.compile_causal_cross_attention
-        ),
+        "compile_causal_cross_attention": _dreamzero_bool(model_config.compile_causal_cross_attention),
         "compile_cross_attention_emulate_precision_casts": _dreamzero_bool(
             model_config.compile_cross_attention_emulate_precision_casts
         ),
-        "compile_block_norm_modulate": _dreamzero_bool(
-            model_config.compile_block_norm_modulate
-        ),
-        "block_norm_modulate_impl": _dreamzero_str(
-            model_config.block_norm_modulate_impl
-        ),
-        "block_norm_modulate_triton_warps": _dreamzero_int(
-            model_config.block_norm_modulate_triton_warps
-        ),
-        "qk_rmsnorm_impl": _dreamzero_str(
-            model_config.qk_rmsnorm_impl
-        ),
-        "skip_single_state_attention": _dreamzero_bool(
-            model_config.skip_single_state_attention
-        ),
-        "manual_self_attn_linear_backward": _dreamzero_bool(
-            model_config.manual_self_attn_linear_backward
-        ),
-        "flash_attention_dense": _dreamzero_bool(
-            model_config.flash_attention_dense
-        ),
-        "flash_attention_dense_min_q": _dreamzero_int(
-            model_config.flash_attention_dense_min_q
-        ),
-        "flash_attention_dense_policy": _dreamzero_str(
-            model_config.flash_attention_dense_policy
-        ),
-        "cache_fa_lens": _dreamzero_bool(
-            model_config.cache_fa_lens
-        ),
-        "cache_fa_lens_clone": _dreamzero_bool(
-            model_config.cache_fa_lens_clone
-        ),
+        "compile_block_norm_modulate": _dreamzero_bool(model_config.compile_block_norm_modulate),
+        "block_norm_modulate_impl": _dreamzero_str(model_config.block_norm_modulate_impl),
+        "block_norm_modulate_triton_warps": _dreamzero_int(model_config.block_norm_modulate_triton_warps),
+        "qk_rmsnorm_impl": _dreamzero_str(model_config.qk_rmsnorm_impl),
+        "skip_single_state_attention": _dreamzero_bool(model_config.skip_single_state_attention),
+        "manual_self_attn_linear_backward": _dreamzero_bool(model_config.manual_self_attn_linear_backward),
+        "flash_attention_dense": _dreamzero_bool(model_config.flash_attention_dense),
+        "flash_attention_dense_min_q": _dreamzero_int(model_config.flash_attention_dense_min_q),
+        "flash_attention_dense_policy": _dreamzero_str(model_config.flash_attention_dense_policy),
+        "cache_fa_lens": _dreamzero_bool(model_config.cache_fa_lens),
+        "cache_fa_lens_clone": _dreamzero_bool(model_config.cache_fa_lens_clone),
         "fused_rope": _dreamzero_bool(model_config.fused_rope),
         "fused_rope_fp64": _dreamzero_bool(model_config.fused_rope_fp64),
     }

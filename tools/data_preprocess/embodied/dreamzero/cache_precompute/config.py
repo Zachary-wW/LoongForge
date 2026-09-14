@@ -56,12 +56,8 @@ def _load_config(path: Path) -> SimpleNamespace:
         model_values = dict(raw.get("model", {}) or {})
         data_values = dict(raw.get("data", {}) or {})
     else:
-        model_values = {
-            key: value for key, value in raw.items() if key in _MODEL_CONFIG_FIELDS
-        }
-        data_values = {
-            key: value for key, value in raw.items() if key in _DATA_CONFIG_FIELDS
-        }
+        model_values = {key: value for key, value in raw.items() if key in _MODEL_CONFIG_FIELDS}
+        data_values = {key: value for key, value in raw.items() if key in _DATA_CONFIG_FIELDS}
 
     model_values.pop("_target_", None)
     model_values.pop("model_type", None)

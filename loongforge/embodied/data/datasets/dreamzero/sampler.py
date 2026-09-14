@@ -296,9 +296,7 @@ class DreamZeroShardedSampler(Sampler[int]):
         ds = self.dataset
         discarded: list[int] = []
         if ds.discard_bad_trajectories:
-            discarded = list(
-                ds.lerobot_info_meta.get("discarded_episode_indices", []) or []
-            )
+            discarded = list(ds.lerobot_info_meta.get("discarded_episode_indices", []) or [])
 
         traj_ids = [int(t) for t in ds.trajectory_ids if int(t) not in discarded]
         if not traj_ids:
@@ -377,10 +375,7 @@ class DreamZeroShardedSampler(Sampler[int]):
         return self._build_rank_indices(num_workers=1, worker_id=0)
 
     def _use_upstream_worker_batching(self) -> bool:
-        return (
-            self.worker_batching_mode == _WORKER_BATCHING_UPSTREAM_ITERABLE
-            and self.dataloader_num_workers > 1
-        )
+        return self.worker_batching_mode == _WORKER_BATCHING_UPSTREAM_ITERABLE and self.dataloader_num_workers > 1
 
     def _build_worker_interleaved_indices(self) -> list[int]:
         """Mimic DreamZero IterableDataset multi-worker batch order.

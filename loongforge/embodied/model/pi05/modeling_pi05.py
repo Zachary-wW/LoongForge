@@ -46,6 +46,7 @@ try:
         _gated_residual,
         layernorm_forward,
     )
+
     _transformers_available = True
 except ImportError:
     CONFIG_MAPPING = None
@@ -69,9 +70,11 @@ DEFAULT_IMAGE_SIZE = 224
 # Internal low-level config (backbone structure is fixed, not externally visible)
 # ═══════════════════════════════════════════════════════════════
 
+
 @dataclass
 class _PI05InternalConfig:
     """Internal parameters for PI05, backbone structure is fixed, populated by PI05Pytorch.__init__."""
+
     paligemma_variant: str = "gemma_2b"
     action_expert_variant: str = "gemma_300m"
     dtype: str = "bfloat16"
@@ -103,6 +106,7 @@ class _PI05InternalConfig:
 # ═══════════════════════════════════════════════════════════════
 # Utility Functions
 # ═══════════════════════════════════════════════════════════════
+
 
 def get_safe_dtype(target_dtype, device_type):
     """Return a dtype safe for the given device, falling back to float32 on MPS/CPU."""
@@ -174,9 +178,7 @@ def pad_vector(vector, new_dim):
     return F.pad(vector, (0, new_dim - vector.shape[-1]))
 
 
-def resize_with_pad_torch(
-    images: torch.Tensor, height: int, width: int, mode: str = "bilinear"
-) -> torch.Tensor:
+def resize_with_pad_torch(images: torch.Tensor, height: int, width: int, mode: str = "bilinear") -> torch.Tensor:
     """Resize images with padding to maintain aspect ratio."""
     if images.shape[-1] <= 4:
         channels_last = True
@@ -216,8 +218,7 @@ def resize_with_pad_torch(
 
 
 def tokenize_prompts(
-    prompts: list, tokenizer, max_length: int = 200,
-    padding: str = "max_length", padding_side: str = "right"
+    prompts: list, tokenizer, max_length: int = 200, padding: str = "max_length", padding_side: str = "right"
 ) -> dict:
     """Tokenize a list of prompts with specified padding."""
     original_padding_side = tokenizer.padding_side
@@ -235,8 +236,7 @@ def _q99_unnormalize_actions(actions: torch.Tensor, action_stats: Optional[dict]
         return actions
     if "q01" not in action_stats or "q99" not in action_stats:
         raise ValueError(
-            "PI05 is configured for quantile action unnormalization and requires "
-            "dataset_stats['action'].q01 and q99"
+            "PI05 is configured for quantile action unnormalization and requires dataset_stats['action'].q01 and q99"
         )
     q01 = torch.as_tensor(action_stats["q01"], dtype=actions.dtype, device=actions.device)
     q99 = torch.as_tensor(action_stats["q99"], dtype=actions.dtype, device=actions.device)
@@ -256,6 +256,7 @@ def build_tokenizer(tokenizer_name: str, local_files_only: bool = True):
 # ═══════════════════════════════════════════════════════════════
 # Gemma Config Helpers
 # ═══════════════════════════════════════════════════════════════
+
 
 class _GemmaConfig:
     """Internal Gemma architecture configuration."""
@@ -284,12 +285,17 @@ def _get_gemma_config(variant: str) -> _GemmaConfig:
 # compute_layer_complete (gradient checkpointing helper)
 # ═══════════════════════════════════════════════════════════════
 
+
 def _joint_attention_flex(query_states, key_states, value_states, block_mask, scaling):
     """FlexAttention joint attention.  enable_gqa broadcasts the single kv head to the
     8 query heads inside the kernel, so repeat_kv never materializes."""
     att_output = flex_attention(
-        query_states, key_states, value_states,
-        block_mask=block_mask, scale=scaling, enable_gqa=True,
+        query_states,
+        key_states,
+        value_states,
+        block_mask=block_mask,
+        scale=scaling,
+        enable_gqa=True,
     )
     return att_output.transpose(1, 2).contiguous()
 
@@ -311,8 +317,7 @@ def _flex_block_mask(att_2d_masks):
 
 
 def _compute_layer_complete(
-    layer_idx, inputs_embeds, attention_mask, position_ids,
-    adarms_cond, paligemma, gemma_expert
+    layer_idx, inputs_embeds, attention_mask, position_ids, adarms_cond, paligemma, gemma_expert
 ):
     """Compute one transformer layer with joint attention across models."""
     models = [paligemma.model.language_model, gemma_expert.model]
@@ -330,14 +335,23 @@ def _compute_layer_complete(
     query_states = torch.cat(query_states, dim=2)
     key_states = torch.cat(key_states, dim=2)
     value_states = torch.cat(value_states, dim=2)
-    dummy_tensor = torch.zeros(query_states.shape[0], query_states.shape[2], query_states.shape[-1],
-                               device=query_states.device, dtype=query_states.dtype)
+    dummy_tensor = torch.zeros(
+        query_states.shape[0],
+        query_states.shape[2],
+        query_states.shape[-1],
+        device=query_states.device,
+        dtype=query_states.dtype,
+    )
     cos, sin = paligemma.model.language_model.rotary_emb(dummy_tensor, position_ids)
     query_states, key_states = modeling_gemma.apply_rotary_pos_emb(query_states, key_states, cos, sin, unsqueeze_dim=1)
     scaling = paligemma.model.language_model.layers[layer_idx].self_attn.scaling
     # attention_mask is a BlockMask here, not an additive tensor.
     att_output = _joint_attention_flex(
-        query_states, key_states, value_states, attention_mask, scaling,
+        query_states,
+        key_states,
+        value_states,
+        attention_mask,
+        scaling,
     )
     head_dim = paligemma.model.language_model.layers[layer_idx].self_attn.head_dim
     att_output = att_output.reshape(query_states.shape[0], -1, 1 * 8 * head_dim)
@@ -366,19 +380,28 @@ def _compute_layer_complete(
 # PaliGemmaWithExpertModel
 # ═══════════════════════════════════════════════════════════════
 
+
 class PaliGemmaWithExpertModel(nn.Module):
     """PaliGemma + Gemma action expert with joint attention."""
 
     _FP32_PARAM_SELECTORS = [
-        "vision_tower", "multi_modal_projector",
-        "input_layernorm", "post_attention_layernorm", "model.norm",
+        "vision_tower",
+        "multi_modal_projector",
+        "input_layernorm",
+        "post_attention_layernorm",
+        "model.norm",
     ]
 
-    def __init__(self, vlm_config, action_expert_config, use_adarms=None,
-                 precision: Literal["bfloat16", "float32"] = "bfloat16",
-                 image_size: int = DEFAULT_IMAGE_SIZE,
-                 freeze_vision_encoder: bool = False,
-                 train_expert_only: bool = False):
+    def __init__(
+        self,
+        vlm_config,
+        action_expert_config,
+        use_adarms=None,
+        precision: Literal["bfloat16", "float32"] = "bfloat16",
+        image_size: int = DEFAULT_IMAGE_SIZE,
+        freeze_vision_encoder: bool = False,
+        train_expert_only: bool = False,
+    ):
         """Initialize PaliGemma with joint attention expert model."""
         if use_adarms is None:
             use_adarms = [False, False]
@@ -443,9 +466,7 @@ class PaliGemmaWithExpertModel(nn.Module):
         except StopIteration:
             return False
 
-    def to_bfloat16_for_selected_params(
-        self, precision: Literal["bfloat16", "float32"] = "bfloat16"
-    ):
+    def to_bfloat16_for_selected_params(self, precision: Literal["bfloat16", "float32"] = "bfloat16"):
         """Convert model to bfloat16 while keeping selected params in fp32."""
         if precision == "bfloat16":
             fp32_saved = {
@@ -497,7 +518,7 @@ class PaliGemmaWithExpertModel(nn.Module):
             image = image.to(torch.float32)
         image_outputs = self.paligemma.model.get_image_features(image)
         img_tensor = image_outputs if isinstance(image_outputs, torch.Tensor) else image_outputs.pooler_output
-        features = img_tensor * self._text_hidden_size ** 0.5
+        features = img_tensor * self._text_hidden_size**0.5
         return features.to(out_dtype) if features.dtype != out_dtype else features
 
     def embed_language_tokens(self, tokens: torch.Tensor):
@@ -511,58 +532,83 @@ class PaliGemmaWithExpertModel(nn.Module):
         PI05Pytorch._apply_compile_scope for the "multi_group" scope).
         """
         models = [self.paligemma.model.language_model, self.gemma_expert.model]
-        return [
-            layernorm_forward(models[i].norm, h, adarms_cond[i])[0]
-            for i, h in enumerate(inputs_embeds)
-        ]
+        return [layernorm_forward(models[i].norm, h, adarms_cond[i])[0] for i, h in enumerate(inputs_embeds)]
 
-    def forward(self, attention_mask=None, position_ids=None,
-                past_key_values=None, inputs_embeds=None,
-                use_cache=None, adarms_cond=None):
+    def forward(
+        self,
+        attention_mask=None,
+        position_ids=None,
+        past_key_values=None,
+        inputs_embeds=None,
+        use_cache=None,
+        adarms_cond=None,
+    ):
         """Forward pass with joint attention between PaliGemma and expert."""
         if adarms_cond is None:
             adarms_cond = [None, None]
         if inputs_embeds[1] is None:
             prefix_output = self.paligemma.model.language_model.forward(
-                inputs_embeds=inputs_embeds[0], attention_mask=attention_mask,
-                position_ids=position_ids, past_key_values=past_key_values,
-                use_cache=use_cache, adarms_cond=adarms_cond[0],
+                inputs_embeds=inputs_embeds[0],
+                attention_mask=attention_mask,
+                position_ids=position_ids,
+                past_key_values=past_key_values,
+                use_cache=use_cache,
+                adarms_cond=adarms_cond[0],
             )
             return [prefix_output.last_hidden_state, None], prefix_output.past_key_values
         elif inputs_embeds[0] is None:
             suffix_output = self.gemma_expert.model.forward(
-                inputs_embeds=inputs_embeds[1], attention_mask=attention_mask,
-                position_ids=position_ids, past_key_values=past_key_values,
-                use_cache=use_cache, adarms_cond=adarms_cond[1],
+                inputs_embeds=inputs_embeds[1],
+                attention_mask=attention_mask,
+                position_ids=position_ids,
+                past_key_values=past_key_values,
+                use_cache=use_cache,
+                adarms_cond=adarms_cond[1],
             )
             return [None, suffix_output.last_hidden_state], None
         else:
             use_gc = (
-                (hasattr(self.gemma_expert.model, "gradient_checkpointing") and
-                 self.gemma_expert.model.gradient_checkpointing and self.training)
-                or (hasattr(self, "gradient_checkpointing") and self.gradient_checkpointing and self.training)
-            )
+                hasattr(self.gemma_expert.model, "gradient_checkpointing")
+                and self.gemma_expert.model.gradient_checkpointing
+                and self.training
+            ) or (hasattr(self, "gradient_checkpointing") and self.gradient_checkpointing and self.training)
             for layer_idx in range(self._num_hidden_layers):
                 if use_gc:
                     # compile-inside-checkpoint: self._layer_fn may be a
                     # torch.compile'd wrapper (see _apply_compile_scope).
                     inputs_embeds = torch.utils.checkpoint.checkpoint(
-                        self._layer_fn, layer_idx, inputs_embeds, attention_mask,
-                        position_ids, adarms_cond,
-                        use_reentrant=False, preserve_rng_state=False,
-                        paligemma=self.paligemma, gemma_expert=self.gemma_expert,
+                        self._layer_fn,
+                        layer_idx,
+                        inputs_embeds,
+                        attention_mask,
+                        position_ids,
+                        adarms_cond,
+                        use_reentrant=False,
+                        preserve_rng_state=False,
+                        paligemma=self.paligemma,
+                        gemma_expert=self.gemma_expert,
                     )
                 else:
                     inputs_embeds = self._layer_fn(
-                        layer_idx, inputs_embeds, attention_mask, position_ids, adarms_cond,
-                        paligemma=self.paligemma, gemma_expert=self.gemma_expert,
+                        layer_idx,
+                        inputs_embeds,
+                        attention_mask,
+                        position_ids,
+                        adarms_cond,
+                        paligemma=self.paligemma,
+                        gemma_expert=self.gemma_expert,
                     )
 
             outputs_embeds = (
                 torch.utils.checkpoint.checkpoint(
-                    self._final_norms_fn, inputs_embeds, adarms_cond,
-                    use_reentrant=False, preserve_rng_state=False,
-                ) if use_gc else self._final_norms_fn(inputs_embeds, adarms_cond)
+                    self._final_norms_fn,
+                    inputs_embeds,
+                    adarms_cond,
+                    use_reentrant=False,
+                    preserve_rng_state=False,
+                )
+                if use_gc
+                else self._final_norms_fn(inputs_embeds, adarms_cond)
             )
             return outputs_embeds, None
 
@@ -571,11 +617,15 @@ class PaliGemmaWithExpertModel(nn.Module):
 # PI05Pytorch — core training/inference model
 # ═══════════════════════════════════════════════════════════════
 
+
 class PI05Pytorch(nn.Module):
     """Core PI05 PyTorch model, aligned with LeRobot's PI05Pytorch layer."""
 
     _FP32_PARAM_SELECTORS = [
-        "action_in_proj", "action_out_proj", "time_mlp_in", "time_mlp_out",
+        "action_in_proj",
+        "action_out_proj",
+        "time_mlp_in",
+        "time_mlp_out",
     ]
 
     def __init__(self, config: _PI05InternalConfig):
@@ -590,7 +640,8 @@ class PI05Pytorch(nn.Module):
 
         # ── BACKBONE ──────────────────────────────────────────────────────────
         self.paligemma_with_expert = PaliGemmaWithExpertModel(
-            paligemma_config, action_expert_config,
+            paligemma_config,
+            action_expert_config,
             use_adarms=[False, True],
             precision=config.dtype,
             image_size=config.image_resolution[0],
@@ -638,7 +689,9 @@ class PI05Pytorch(nn.Module):
             )
             logging.info(
                 "PI05 torch.compile: scope=backbone mode=%s fullgraph=%s dynamic=%s",
-                mode, config.compile_fullgraph, dynamic,
+                mode,
+                config.compile_fullgraph,
+                dynamic,
             )
             return
 
@@ -655,7 +708,8 @@ class PI05Pytorch(nn.Module):
         if scope == "per_layer":
             logging.info(
                 "PI05 torch.compile: scope=per_layer mode=%s dynamic=%s",
-                mode, dynamic,
+                mode,
+                dynamic,
             )
             return
 
@@ -684,14 +738,21 @@ class PI05Pytorch(nn.Module):
                 return action_out_proj(out)
 
             self._action_in_bundle_fn = torch.compile(
-                _action_in_bundle, mode=mode, fullgraph=True, dynamic=dynamic,
+                _action_in_bundle,
+                mode=mode,
+                fullgraph=True,
+                dynamic=dynamic,
             )
             self._action_out_bundle_fn = torch.compile(
-                _action_out_bundle, mode=mode, fullgraph=True, dynamic=dynamic,
+                _action_out_bundle,
+                mode=mode,
+                fullgraph=True,
+                dynamic=dynamic,
             )
             logging.info(
                 "PI05 torch.compile: scope=multi_group mode=%s dynamic=%s",
-                mode, dynamic,
+                mode,
+                dynamic,
             )
             return
 
@@ -716,7 +777,8 @@ class PI05Pytorch(nn.Module):
         """Apply gradient checkpointing if enabled and in training mode."""
         if self.gradient_checkpointing_enabled and self.training:
             return torch.utils.checkpoint.checkpoint(
-                func, *args, use_reentrant=False, preserve_rng_state=False, **kwargs)
+                func, *args, use_reentrant=False, preserve_rng_state=False, **kwargs
+            )
         return func(*args, **kwargs)
 
     def _prepare_attention_masks_4d(self, att_2d_masks):
@@ -726,20 +788,21 @@ class PI05Pytorch(nn.Module):
     def sample_noise(self, shape, device):
         """Sample Gaussian noise for diffusion."""
         return torch.normal(
-            mean=0.0, std=1.0, size=shape, dtype=torch.float32,
+            mean=0.0,
+            std=1.0,
+            size=shape,
+            dtype=torch.float32,
             device=(torch.device("cpu") if self.config.random_fallback_cpu else device),
         ).to(device)
 
     def sample_time(self, bsize, device):
         """Sample diffusion timesteps from a scaled Beta distribution."""
         time_beta = sample_beta(
-            self.config.time_sampling_beta_alpha,
-            self.config.time_sampling_beta_beta, bsize, device
+            self.config.time_sampling_beta_alpha, self.config.time_sampling_beta_beta, bsize, device
         )
-        return (
-            time_beta * self.config.time_sampling_scale
-            + self.config.time_sampling_offset
-        ).to(dtype=torch.float32, device=device)
+        return (time_beta * self.config.time_sampling_scale + self.config.time_sampling_offset).to(
+            dtype=torch.float32, device=device
+        )
 
     def embed_prefix(self, images, img_masks, tokens, masks):
         """Embed prefix (images + language tokens) for joint attention."""
@@ -767,11 +830,17 @@ class PI05Pytorch(nn.Module):
     def embed_suffix(self, noisy_actions, timestep):
         """Embed suffix (noisy actions + time) for action expert."""
         noisy_actions = noisy_actions.to(dtype=self.action_in_proj.weight.dtype)
-        time_emb = create_sinusoidal_pos_embedding(
-            timestep, self.action_in_proj.out_features,
-            min_period=self.config.min_period, max_period=self.config.max_period,
-            device=torch.device("cpu") if self.config.random_fallback_cpu else timestep.device,
-        ).to(timestep.device).type(dtype=timestep.dtype)
+        time_emb = (
+            create_sinusoidal_pos_embedding(
+                timestep,
+                self.action_in_proj.out_features,
+                min_period=self.config.min_period,
+                max_period=self.config.max_period,
+                device=torch.device("cpu") if self.config.random_fallback_cpu else timestep.device,
+            )
+            .to(timestep.device)
+            .type(dtype=timestep.dtype)
+        )
 
         if hasattr(self, "_action_in_bundle_fn"):
             # multi_group scope: compiled fused (action_in_proj + time_mlp).
@@ -783,6 +852,7 @@ class PI05Pytorch(nn.Module):
 
             def _time_mlp(t):
                 return F.silu(self.time_mlp_out(F.silu(self.time_mlp_in(t))))
+
             adarms_cond = self._apply_checkpoint(_time_mlp, time_emb)
 
         bsize, action_time_dim = action_emb.shape[:2]
@@ -806,8 +876,10 @@ class PI05Pytorch(nn.Module):
         prefix_embs, prefix_pad_masks, prefix_att_masks = self.embed_prefix(images, img_masks, tokens, masks)
         suffix_embs, suffix_pad_masks, suffix_att_masks, adarms_cond = self.embed_suffix(x_t, time)
 
-        if (self.paligemma_with_expert.paligemma.model.language_model.layers[0]
-                .self_attn.q_proj.weight.dtype == torch.bfloat16):
+        if (
+            self.paligemma_with_expert.paligemma.model.language_model.layers[0].self_attn.q_proj.weight.dtype
+            == torch.bfloat16
+        ):
             suffix_embs = suffix_embs.to(dtype=torch.bfloat16)
             prefix_embs = prefix_embs.to(dtype=torch.bfloat16)
 
@@ -821,14 +893,16 @@ class PI05Pytorch(nn.Module):
 
         def _fwd(prefix_embs, suffix_embs, joint_mask, position_ids, adarms_cond):
             (_, suffix_out), _ = self.paligemma_with_expert.forward(
-                attention_mask=joint_mask, position_ids=position_ids,
-                inputs_embeds=[prefix_embs, suffix_embs], use_cache=False,
+                attention_mask=joint_mask,
+                position_ids=position_ids,
+                inputs_embeds=[prefix_embs, suffix_embs],
+                use_cache=False,
                 adarms_cond=[None, adarms_cond],
             )
             return suffix_out
 
         suffix_out = self._apply_checkpoint(_fwd, prefix_embs, suffix_embs, joint_mask, position_ids, adarms_cond)
-        suffix_out = suffix_out[:, -self.config.chunk_size:]
+        suffix_out = suffix_out[:, -self.config.chunk_size :]
         if hasattr(self, "_action_out_bundle_fn"):
             v_t = self._action_out_bundle_fn(suffix_out)
         else:
@@ -854,8 +928,10 @@ class PI05Pytorch(nn.Module):
 
         self.paligemma_with_expert.paligemma.model.language_model.config._attn_implementation = "eager"
         _, past_key_values = self.paligemma_with_expert.forward(
-            attention_mask=prefix_att_2d_masks_4d, position_ids=prefix_position_ids,
-            inputs_embeds=[prefix_embs, None], use_cache=True,
+            attention_mask=prefix_att_2d_masks_4d,
+            position_ids=prefix_position_ids,
+            inputs_embeds=[prefix_embs, None],
+            use_cache=True,
         )
 
         dt = -1.0 / num_steps
@@ -882,12 +958,14 @@ class PI05Pytorch(nn.Module):
 
         self.paligemma_with_expert.gemma_expert.model.config._attn_implementation = "eager"
         outputs_embeds, _ = self.paligemma_with_expert.forward(
-            attention_mask=full_att_2d_masks_4d, position_ids=position_ids,
+            attention_mask=full_att_2d_masks_4d,
+            position_ids=position_ids,
             past_key_values=copy.deepcopy(past_key_values),
-            inputs_embeds=[None, suffix_embs], use_cache=False,
+            inputs_embeds=[None, suffix_embs],
+            use_cache=False,
             adarms_cond=[None, adarms_cond],
         )
-        suffix_out = outputs_embeds[1][:, -self.config.chunk_size:].to(dtype=torch.float32)
+        suffix_out = outputs_embeds[1][:, -self.config.chunk_size :].to(dtype=torch.float32)
         return self.action_out_proj(suffix_out)
 
     def load_pretrained(self, pretrained_path: str, strict: bool = True, device=None):
@@ -906,15 +984,17 @@ class PI05Pytorch(nn.Module):
             new_key = key
             for prefix in _PREFIXES:
                 if new_key.startswith(prefix):
-                    new_key = new_key[len(prefix):]
+                    new_key = new_key[len(prefix) :]
                     break
-            new_key = new_key.replace(
-                "action_time_mlp_in.", "time_mlp_in."
-            ).replace("action_time_mlp_out.", "time_mlp_out.")
+            new_key = new_key.replace("action_time_mlp_in.", "time_mlp_in.").replace(
+                "action_time_mlp_out.", "time_mlp_out."
+            )
             if new_key.startswith("state_proj."):
                 continue
-            if new_key in ("model.paligemma_with_expert.paligemma.lm_head.weight",
-                           "paligemma_with_expert.paligemma.lm_head.weight"):
+            if new_key in (
+                "model.paligemma_with_expert.paligemma.lm_head.weight",
+                "paligemma_with_expert.paligemma.lm_head.weight",
+            ):
                 fixed["paligemma_with_expert.paligemma.model.language_model.embed_tokens.weight"] = value.clone()
             fixed[new_key] = value
 
@@ -928,6 +1008,7 @@ class PI05Pytorch(nn.Module):
 # PI05Policy — Trainer entry point
 # ═══════════════════════════════════════════════════════════════
 
+
 @register_model("pi05")
 class PI05Policy(nn.Module):
     """LoongForge policy wrapper around PI05Pytorch, aligned with LeRobot's PI05Policy layer."""
@@ -939,10 +1020,7 @@ class PI05Policy(nn.Module):
 
         _VALID_COMPILE_SCOPES = ("backbone", "multi_group", "per_layer")
         if config.compile_scope not in _VALID_COMPILE_SCOPES:
-            raise ValueError(
-                f"Invalid compile_scope={config.compile_scope!r}; "
-                f"expected one of {_VALID_COMPILE_SCOPES}"
-            )
+            raise ValueError(f"Invalid compile_scope={config.compile_scope!r}; expected one of {_VALID_COMPILE_SCOPES}")
 
         pi05_cfg = _PI05InternalConfig(
             chunk_size=config.action_horizon,
@@ -997,7 +1075,7 @@ class PI05Policy(nn.Module):
             resized.append(img)
 
         loss_map = self.model(resized, img_masks, tokens, masks, actions)
-        loss_value = loss_map[:, :, :self.config.action_dim].mean()
+        loss_value = loss_map[:, :, : self.config.action_dim].mean()
         return loss_value, {"action_loss": loss_value.detach().item()}
 
     @torch.no_grad()
@@ -1022,7 +1100,7 @@ class PI05Policy(nn.Module):
             resized.append(img)
 
         actions = self.model.sample_actions(resized, img_masks, tokens, masks, **kwargs)
-        return actions[:, :, :self.config.action_dim]
+        return actions[:, :, : self.config.action_dim]
 
     @torch.no_grad()
     def select_action(self, batch, **kwargs) -> torch.Tensor:
@@ -1066,11 +1144,17 @@ class PI05Policy(nn.Module):
                 state = state.unsqueeze(0)
             state_stats = convert_stats(dataset_stats.get("observation.state")) if dataset_stats else None
             state_transform = StateDiscretizationTransform(
-                apply_to=["prompt"], state_key="observation.state", task_key="task",
-                num_bins=256, normalization_mode="q99", statistics=state_stats,
+                apply_to=["prompt"],
+                state_key="observation.state",
+                task_key="task",
+                num_bins=256,
+                normalization_mode="q99",
+                statistics=state_stats,
             )
-            prompts = [state_transform.apply({"observation.state": state[i], "task": instructions[i]})["prompt"]
-                       for i in range(B)]
+            prompts = [
+                state_transform.apply({"observation.state": state[i], "task": instructions[i]})["prompt"]
+                for i in range(B)
+            ]
         else:
             prompts = [f"Task: {t.strip()};\nAction: " for t in instructions]
 

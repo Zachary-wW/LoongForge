@@ -23,6 +23,7 @@ DiT (Diffusion Transformer) modules for Groot N1.6.
 
 Ported from gr00t-orig/model/modules/dit.py
 """
+
 from contextlib import nullcontext
 
 import torch
@@ -32,6 +33,7 @@ from diffusers.configuration_utils import register_to_config
 from diffusers.models.attention import Attention, FeedForward
 from diffusers.models.embeddings import SinusoidalPositionalEmbedding, TimestepEmbedding, Timesteps
 from torch import nn
+
 
 def _is_spark_sm121() -> bool:
     if not torch.cuda.is_available():
@@ -60,9 +62,10 @@ def _sdpa_context():
 class TimestepEncoder(nn.Module):
     """
     Timestep Encoder class.
-    
+
     Encodes timesteps into embeddings using timestep projection and embedding layers.
     """
+
     def __init__(self, embedding_dim, compute_dtype=torch.float32):
         super().__init__()
         self.time_proj = Timesteps(num_channels=256, flip_sin_to_cos=True, downscale_freq_shift=1)
@@ -79,9 +82,10 @@ class TimestepEncoder(nn.Module):
 class AdaLayerNorm(nn.Module):
     """
     AdaLayerNorm class.
-    
+
     Implements adaptive layer normalization with optional elementwise affine transformation.
     """
+
     def __init__(
         self,
         embedding_dim: int,
@@ -111,9 +115,10 @@ class AdaLayerNorm(nn.Module):
 class BasicTransformerBlock(nn.Module):
     """
     Basic Transformer Block class.
-    
+
     Implements a transformer block with optional cross attention and various normalization types.
     """
+
     def __init__(
         self,
         dim: int,
@@ -152,8 +157,7 @@ class BasicTransformerBlock(nn.Module):
 
         if positional_embeddings and (num_positional_embeddings is None):
             raise ValueError(
-                "If `positional_embedding` type is defined, "
-                "`num_positional_embeddings` must also be defined."
+                "If `positional_embedding` type is defined, `num_positional_embeddings` must also be defined."
             )
 
         if positional_embeddings == "sinusoidal":
@@ -213,11 +217,7 @@ class BasicTransformerBlock(nn.Module):
             norm_hidden_states = self.pos_embed(norm_hidden_states)
 
         with _sdpa_context():
-            selected_attention_mask = (
-                encoder_attention_mask
-                if encoder_hidden_states is not None
-                else attention_mask
-            )
+            selected_attention_mask = encoder_attention_mask if encoder_hidden_states is not None else attention_mask
             attn_output = self.attn1(
                 norm_hidden_states,
                 encoder_hidden_states=encoder_hidden_states,
@@ -253,6 +253,7 @@ class DiT(ModelMixin, ConfigMixin):
         - Supports timestep conditioning via ``TimestepEncoder``.
         - Can optionally return hidden states from all transformer layers.
     """
+
     _supports_gradient_checkpointing = True
 
     @register_to_config
@@ -284,9 +285,7 @@ class DiT(ModelMixin, ConfigMixin):
         self.gradient_checkpointing = False
 
         # Timestep encoder
-        self.timestep_encoder = TimestepEncoder(
-            embedding_dim=self.inner_dim, compute_dtype=self.compute_dtype
-        )
+        self.timestep_encoder = TimestepEncoder(embedding_dim=self.inner_dim, compute_dtype=self.compute_dtype)
 
         all_blocks = []
         for idx in range(self.config.num_layers):
@@ -467,6 +466,7 @@ class SelfAttentionTransformer(ModelMixin, ConfigMixin):
         - Supports optional sinusoidal positional embeddings.
         - Can optionally return hidden states from all layers.
     """
+
     _supports_gradient_checkpointing = True
 
     @register_to_config
@@ -518,11 +518,11 @@ class SelfAttentionTransformer(ModelMixin, ConfigMixin):
     ):
         """
         Forward pass through SelfAttentionTransformer.
-        
+
         Args:
             hidden_states: Input hidden states.
             return_all_hidden_states: Whether to return all hidden states.
-            
+
         Returns:
             Output hidden states or tuple of output and all hidden states.
         """

@@ -46,13 +46,9 @@ class LingBotVAFlowMatchScheduler:
         self.timesteps = self.sigmas * self.num_train_timesteps
         if training:
             x = self.timesteps
-            weights = torch.exp(
-                -2 * ((x - num_inference_steps / 2) / num_inference_steps) ** 2
-            )
+            weights = torch.exp(-2 * ((x - num_inference_steps / 2) / num_inference_steps) ** 2)
             weights = weights - weights.min()
-            self.linear_timesteps_weights = weights * (
-                num_inference_steps / weights.sum()
-            )
+            self.linear_timesteps_weights = weights * (num_inference_steps / weights.sum())
 
     def _cached_tensor(self, name: str, source: torch.Tensor, device, dtype=None):
         key = (name, str(device), dtype)
@@ -70,9 +66,7 @@ class LingBotVAFlowMatchScheduler:
         t_dim: int = 2,
     ):
         """Blend a sample with noise according to the selected timestep."""
-        ids = torch.argmin(
-            (self.timesteps[:, None] - timestep.detach().cpu()[None]).abs(), dim=0
-        )
+        ids = torch.argmin((self.timesteps[:, None] - timestep.detach().cpu()[None]).abs(), dim=0)
         shape = [1] * noise.ndim
         shape[t_dim] = ids.numel()
         sigma = self.sigmas[ids].to(sample).view(shape)
@@ -124,24 +118,18 @@ class LingBotVAFlowMatchScheduler:
 
     def timesteps_from_ids(self, timestep_ids: torch.Tensor):
         """Materialize selected schedule values from a device-local cache."""
-        timesteps = self._cached_tensor(
-            "timesteps", self.timesteps, timestep_ids.device, self.timesteps.dtype
-        )
+        timesteps = self._cached_tensor("timesteps", self.timesteps, timestep_ids.device, self.timesteps.dtype)
         return timesteps[timestep_ids]
 
     @staticmethod
-    def training_target(
-        sample: torch.Tensor, noise: torch.Tensor, timestep: torch.Tensor
-    ):
+    def training_target(sample: torch.Tensor, noise: torch.Tensor, timestep: torch.Tensor):
         """Return the velocity target used for flow matching training."""
         del timestep
         return noise - sample
 
     def training_weight(self, timestep: torch.Tensor):
         """Look up per-timestep loss weights for training."""
-        ids = torch.argmin(
-            (self.timesteps[:, None].to(timestep.device) - timestep[None]).abs(), dim=0
-        )
+        ids = torch.argmin((self.timesteps[:, None].to(timestep.device) - timestep[None]).abs(), dim=0)
         return self.linear_timesteps_weights.to(timestep.device)[ids]
 
     def training_weight_from_ids(self, timestep_ids: torch.Tensor):
@@ -164,23 +152,17 @@ def sample_timestep_id(
 ) -> torch.Tensor:
     """Sample random timestep ids within the configured fractional bounds."""
     values = torch.rand(count, generator=generator)
-    values = (
-        values * (max_timestep_boundary - min_timestep_boundary) + min_timestep_boundary
-    )
+    values = values * (max_timestep_boundary - min_timestep_boundary) + min_timestep_boundary
     return (values * num_train_timesteps).clamp(0, num_train_timesteps - 1).long()
 
 
-def get_mesh_id(
-    frames: int, height: int, width: int, token_type: int, action: bool = False
-):
+def get_mesh_id(frames: int, height: int, width: int, token_type: int, action: bool = False):
     """Create frame, height, width, and token-type grid ids."""
     frame_grid, height_grid, width_grid = torch.meshgrid(
         torch.arange(frames), torch.arange(height), torch.arange(width), indexing="ij"
     )
     if action:
-        frame_grid = frame_grid + (torch.arange(1, height + 1) / (height + 1)).view(
-            1, -1, 1
-        )
+        frame_grid = frame_grid + (torch.arange(1, height + 1) / (height + 1)).view(1, -1, 1)
         height_grid = torch.full_like(frame_grid, -1)
         width_grid = torch.full_like(frame_grid, -1)
     grid = torch.stack((frame_grid, height_grid, width_grid)).flatten(1)

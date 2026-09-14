@@ -47,19 +47,11 @@ class DreamZeroInferenceModel:
         """Load the local tokenizer once for the inference process."""
         if self._tokenizer is None:
             if not self._tokenizer_path:
-                raise ValueError(
-                    "DreamZero eval requires a tokenizer path for inference"
-                )
+                raise ValueError("DreamZero eval requires a tokenizer path for inference")
             from transformers import AutoTokenizer
 
-            load_kwargs = (
-                {"local_files_only": True}
-                if Path(self._tokenizer_path).is_dir()
-                else {}
-            )
-            self._tokenizer = AutoTokenizer.from_pretrained(
-                self._tokenizer_path, **load_kwargs
-            )
+            load_kwargs = {"local_files_only": True} if Path(self._tokenizer_path).is_dir() else {}
+            self._tokenizer = AutoTokenizer.from_pretrained(self._tokenizer_path, **load_kwargs)
         return self._tokenizer
 
     @staticmethod
@@ -82,7 +74,7 @@ class DreamZeroInferenceModel:
         half = w // 2
         out = np.empty_like(video)
         for start in (0, half):  # crop each view independently (grid = ext|wrist)
-            view = torch.from_numpy(video[:, :, start:start + half]).permute(0, 3, 1, 2).float()
+            view = torch.from_numpy(video[:, :, start : start + half]).permute(0, 3, 1, 2).float()
             view = tvf.center_crop(view, [int(h * 0.95), int(half * 0.95)])
             view = tvf.resize(
                 view,
@@ -90,7 +82,7 @@ class DreamZeroInferenceModel:
                 interpolation=tvf.InterpolationMode.BILINEAR,
                 antialias=True,
             )
-            out[:, :, start:start + half] = view.permute(0, 2, 3, 1).to(torch.uint8).numpy()
+            out[:, :, start : start + half] = view.permute(0, 2, 3, 1).to(torch.uint8).numpy()
         return out
 
     def predict(
@@ -118,12 +110,18 @@ class DreamZeroInferenceModel:
         video = self._eval_image_transform(np.asarray(video))
         tokenizer = self._load_tokenizer()
         tokens = tokenizer(
-            [prompt], return_tensors="pt", padding="max_length", truncation=True,
+            [prompt],
+            return_tensors="pt",
+            padding="max_length",
+            truncation=True,
             max_length=self._text_len,
         )
         negative_tokens = tokenizer(
-            [negative_prompt], return_tensors="pt", padding="max_length",
-            truncation=True, max_length=self._text_len,
+            [negative_prompt],
+            return_tensors="pt",
+            padding="max_length",
+            truncation=True,
+            max_length=self._text_len,
         )
         batch = {
             "images": torch.from_numpy(video)[None].to(self._device),
@@ -132,9 +130,7 @@ class DreamZeroInferenceModel:
             "text_negative": negative_tokens.input_ids.to(self._device),
             "text_attention_mask_negative": negative_tokens.attention_mask.to(self._device),
             "state": torch.from_numpy(state)[None, None].to(self._device),
-            "embodiment_id": torch.tensor(
-                [self._embodiment_id], dtype=torch.long, device=self._device
-            ),
+            "embodiment_id": torch.tensor([self._embodiment_id], dtype=torch.long, device=self._device),
         }
         return self.predict_action_chunk(batch)
 

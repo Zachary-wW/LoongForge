@@ -29,11 +29,7 @@ def get_grad_norm(model: nn.Module) -> float:
         return float(total_norm)
 
     else:
-        gradients = [
-            parameter.grad
-            for parameter in model.parameters()
-            if parameter.grad is not None
-        ]
+        gradients = [parameter.grad for parameter in model.parameters() if parameter.grad is not None]
         if not gradients:
             return 0.0
 
@@ -92,9 +88,5 @@ def clean_nan_gradients(model: nn.Module):
     """
     for param in model.parameters():
         if param.grad is not None:
-            grad = (
-                param.grad.to_local()
-                if isinstance(param.grad, DTensor)
-                else param.grad
-            )
+            grad = param.grad.to_local() if isinstance(param.grad, DTensor) else param.grad
             torch.nan_to_num(grad, nan=0.0, posinf=0.0, neginf=0.0, out=grad)

@@ -104,7 +104,6 @@ def resolve_domain_id(robot_type: str | None) -> int:
     return int(DOMAIN_ID_MAP.get(robot_type or "", 0))
 
 
-
 def _coerce_to_dict(value: Any) -> Any:
     """Convert dataclass schema instances to plain dicts, pass others through."""
     if is_dataclass(value) and not isinstance(value, type):
@@ -147,9 +146,7 @@ class Florence2VisionConfig(PretrainedConfig):
         self.patch_size = patch_size if patch_size is not None else [7, 3, 3, 3]
         self.patch_stride = patch_stride if patch_stride is not None else [4, 2, 2, 2]
         self.patch_padding = patch_padding if patch_padding is not None else [3, 1, 1, 1]
-        self.patch_prenorm = (
-            patch_prenorm if patch_prenorm is not None else [False, True, True, True]
-        )
+        self.patch_prenorm = patch_prenorm if patch_prenorm is not None else [False, True, True, True]
         self.enable_checkpoint = enable_checkpoint
         # When True, WindowAttention uses FlashAttention-2 (fused, faster) instead of the
         # explicit q·kᵀ→softmax→·v path. Mathematically equivalent (loss curve unchanged).
@@ -163,9 +160,7 @@ class Florence2VisionConfig(PretrainedConfig):
         self.visual_temporal_embedding = visual_temporal_embedding
         self.image_pos_embed = image_pos_embed
         self.image_feature_source = (
-            image_feature_source
-            if image_feature_source is not None
-            else ["spatial_avg_pool", "temporal_avg_pool"]
+            image_feature_source if image_feature_source is not None else ["spatial_avg_pool", "temporal_avg_pool"]
         )
         super().__init__(**kwargs)
 
@@ -228,9 +223,7 @@ class Florence2LanguageConfig(PretrainedConfig):
         self.classifier_dropout = classifier_dropout
         self.scale_embedding = scale_embedding
         self.use_cache = use_cache
-        self.num_hidden_layers = (
-            num_hidden_layers if num_hidden_layers is not None else encoder_layers
-        )
+        self.num_hidden_layers = num_hidden_layers if num_hidden_layers is not None else encoder_layers
         # When True, Florence2SdpaAttention prefers flash_attn_func (no-mask CUDA
         # fp16/bf16) and falls back to SDPA. Default off keeps the original SDPA path.
         self.sdpa_use_fa2 = sdpa_use_fa2
@@ -389,7 +382,8 @@ class XVLAConfig(PretrainedConfig):
 
 @dataclass
 class Florence2VisionConfigSchema:
-    """ Schema for Florence2VisionConfig. """
+    """Schema for Florence2VisionConfig."""
+
     model_type: str = "davit"
     drop_path_rate: float = 0.1
     patch_size: list[int] = field(default_factory=lambda: [7, 3, 3, 3])
@@ -410,14 +404,13 @@ class Florence2VisionConfigSchema:
     image_pos_embed: dict[str, Any] = field(
         default_factory=lambda: {"type": "learned_abs_2d", "max_pos_embeddings": 50}
     )
-    image_feature_source: list[str] = field(
-        default_factory=lambda: ["spatial_avg_pool", "temporal_avg_pool"]
-    )
+    image_feature_source: list[str] = field(default_factory=lambda: ["spatial_avg_pool", "temporal_avg_pool"])
 
 
 @dataclass
 class Florence2LanguageConfigSchema:
-    """ Schema for Florence2LanguageConfig. """
+    """Schema for Florence2LanguageConfig."""
+
     model_type: str = "florence2_language"
     vocab_size: int = 51289
     activation_dropout: float = 0.1
@@ -436,7 +429,8 @@ class Florence2LanguageConfigSchema:
 
 @dataclass
 class Florence2ConfigSchema:
-    """ Schema for Florence2Config. """
+    """Schema for Florence2Config."""
+
     model_type: str = "florence2"
     bos_token_id: int = 0
     eos_token_id: int = 2
@@ -446,12 +440,8 @@ class Florence2ConfigSchema:
     vocab_size: int = 51289
     torch_dtype: str = "float32"
     is_encoder_decoder: bool = True
-    vision_config: Florence2VisionConfigSchema = field(
-        default_factory=Florence2VisionConfigSchema
-    )
-    text_config: Florence2LanguageConfigSchema = field(
-        default_factory=Florence2LanguageConfigSchema
-    )
+    vision_config: Florence2VisionConfigSchema = field(default_factory=Florence2VisionConfigSchema)
+    text_config: Florence2LanguageConfigSchema = field(default_factory=Florence2LanguageConfigSchema)
 
 
 @dataclass

@@ -98,9 +98,7 @@ class _Q99Stats:
         """x -> [-1, 1] via 2*(x-q01)/(q99-q01)-1 (StateActionTransform q99)."""
         x = np.asarray(x, dtype=np.float32).reshape(-1)
         if x.size != self.q01.size:
-            raise ValueError(
-                f"q99 normalize: input dim {x.size} != stats dim {self.q01.size}"
-            )
+            raise ValueError(f"q99 normalize: input dim {x.size} != stats dim {self.q01.size}")
         span = self.q99 - self.q01
         out = np.zeros_like(x)
         valid = span != 0
@@ -117,9 +115,7 @@ class _Q99Stats:
         return out.astype(np.float32)
 
 
-def _load_q99_stats(
-    metadata_path: str, embodiment_tag: str
-) -> Tuple[_Q99Stats, _Q99Stats]:
+def _load_q99_stats(metadata_path: str, embodiment_tag: str) -> Tuple[_Q99Stats, _Q99Stats]:
     """Load state/action q99 statistics from a DreamZero ``metadata.json``.
 
     Actual layout (RLinf ``generate_dreamzero_metadata.py`` / Step26000
@@ -132,20 +128,14 @@ def _load_q99_stats(
         metadata = json.load(f)
     entry = metadata.get(embodiment_tag) if isinstance(metadata, dict) else None
     if not isinstance(entry, dict):
-        raise ValueError(
-            f"metadata.json at {metadata_path} has no entry for embodiment {embodiment_tag!r}"
-        )
+        raise ValueError(f"metadata.json at {metadata_path} has no entry for embodiment {embodiment_tag!r}")
     stats = entry.get("statistics") or {}
     try:
         state_stats = stats["state"]["state"]
         action_stats = stats["action"]["actions"]
     except (KeyError, TypeError) as exc:
-        raise ValueError(
-            f"metadata.json statistics missing {exc!r} (keys: {sorted(stats)})"
-        ) from exc
-    return _Q99Stats(state_stats["q01"], state_stats["q99"]), _Q99Stats(
-        action_stats["q01"], action_stats["q99"]
-    )
+        raise ValueError(f"metadata.json statistics missing {exc!r} (keys: {sorted(stats)})") from exc
+    return _Q99Stats(state_stats["q01"], state_stats["q99"]), _Q99Stats(action_stats["q01"], action_stats["q99"])
 
 
 class DreamZeroLiberoEvalModel:
@@ -246,9 +236,7 @@ class DreamZeroLiberoEvalModel:
             raise ValueError("DreamZero LIBERO eval requires exterior + wrist views")
         exterior, wrist = np.asarray(views[0]), np.asarray(views[1])
         if exterior.shape != wrist.shape:
-            raise ValueError(
-                f"exterior/wrist shape mismatch: {exterior.shape} vs {wrist.shape}"
-            )
+            raise ValueError(f"exterior/wrist shape mismatch: {exterior.shape} vs {wrist.shape}")
         # Official grid: exterior left, wrist right (matches prompt text). The
         # eval image transform (95% center crop) lives in the inference facade.
         grid = np.concatenate([exterior, wrist], axis=1)
@@ -295,9 +283,7 @@ class DreamZeroLiberoEvalModel:
                 raise RuntimeError("DreamZero predict returned an empty action chunk")
         action = queue.popleft()
         if action.shape[0] != self._action_dim:
-            raise ValueError(
-                f"DreamZero action dim {action.shape[0]} != expected {self._action_dim}"
-            )
+            raise ValueError(f"DreamZero action dim {action.shape[0]} != expected {self._action_dim}")
         return action[None, :]
 
 
@@ -318,9 +304,7 @@ class DreamZeroModelFactory:
 
         ckpt_path = str(Path(server_args.ckpt_path).expanduser()) if server_args.ckpt_path else ""
         resolved_device = torch.device(
-            server_args.device
-            if torch.cuda.is_available() or not server_args.device.startswith("cuda")
-            else "cpu"
+            server_args.device if torch.cuda.is_available() or not server_args.device.startswith("cuda") else "cpu"
         )
 
         # The full DreamZero checkpoint (action_head.model.* keys) loads through
@@ -345,9 +329,7 @@ class DreamZeroModelFactory:
             device=resolved_device,
         )
 
-        state_stats, action_stats = _load_q99_stats(
-            server_args.dataset_statistics_path, "libero_sim"
-        )
+        state_stats, action_stats = _load_q99_stats(server_args.dataset_statistics_path, "libero_sim")
         eval_model = DreamZeroLiberoEvalModel(
             infer_model=infer_model,
             state_stats=state_stats,

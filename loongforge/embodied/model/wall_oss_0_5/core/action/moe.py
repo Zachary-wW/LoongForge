@@ -4,6 +4,7 @@
 # Modified from Wall-X under the Apache-2.0 License.
 
 """moe module."""
+
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint as cp
@@ -14,6 +15,7 @@ from loongforge.embodied.model.wall_oss_0_5.wall_oss_05_fused_ops import permute
 
 class TokenTypeRouter(nn.Module):
     """TokenTypeRouter."""
+
     def __init__(self, num_experts: int):
         """Initialize the instance."""
         super().__init__()
@@ -37,6 +39,7 @@ class TokenTypeRouter(nn.Module):
 
 class BlockSparseMLP(nn.Module):
     """BlockSparseMLP."""
+
     def __init__(self, config, use_selective_recompute: bool = False):
         """Initialize the instance."""
         super().__init__()
@@ -46,9 +49,7 @@ class BlockSparseMLP(nn.Module):
 
         self.use_selective_recompute = use_selective_recompute
 
-        self.gate_up_proj = nn.Linear(
-            self.hidden_size, 2 * self.intermediate_size, bias=False
-        )
+        self.gate_up_proj = nn.Linear(self.hidden_size, 2 * self.intermediate_size, bias=False)
         self.down_proj = nn.Linear(self.intermediate_size, self.hidden_size, bias=False)
 
         self.act_fn = ACT2FN[self.hidden_act]
@@ -57,9 +58,7 @@ class BlockSparseMLP(nn.Module):
     def _full_mlp(self, hidden_state):
         """Full mlp."""
         gate_up_out = self.gate_up_proj(hidden_state)
-        gate_out, up_out = gate_up_out.split(
-            [self.intermediate_size, self.intermediate_size], dim=-1
-        )
+        gate_out, up_out = gate_up_out.split([self.intermediate_size, self.intermediate_size], dim=-1)
 
         if self.hidden_act == "silu":
             act_out = swiglu(gate_out, up_out)
@@ -82,6 +81,7 @@ class BlockSparseMLP(nn.Module):
 
 class SparseMoeBlock(nn.Module):
     """SparseMoeBlock."""
+
     def __init__(self, config, num_experts: int, use_selective_recompute: bool = False):
         """Initialize the instance."""
         super().__init__()
@@ -91,9 +91,7 @@ class SparseMoeBlock(nn.Module):
         # Pass use_selective_recompute to each expert
         self.experts = nn.ModuleList(
             [
-                BlockSparseMLP(
-                    config.experts[i], use_selective_recompute=use_selective_recompute
-                )
+                BlockSparseMLP(config.experts[i], use_selective_recompute=use_selective_recompute)
                 for i in range(num_experts)
             ]
         )
@@ -111,7 +109,6 @@ class SparseMoeBlock(nn.Module):
         start_indices: torch.Tensor,
         end_indices: torch.Tensor,
     ) -> torch.Tensor:
-
         """Run the forward pass."""
         if self.permuted:
             permuted_inputs = hidden_states

@@ -79,9 +79,7 @@ def compute_vision_grid_metadata(
         max_seqlen_full = max(max_seqlen_full, grid_h * grid_w)
         max_seqlen_window = max(
             max_seqlen_window,
-            min(vit_window, llm_h)
-            * min(vit_window, llm_w)
-            * spatial_merge_unit,
+            min(vit_window, llm_h) * min(vit_window, llm_w) * spatial_merge_unit,
         )
 
     return VisionGridMetadata(

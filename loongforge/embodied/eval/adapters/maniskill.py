@@ -149,7 +149,7 @@ class ManiSkillAdapter(BaseBenchmarkAdapter):
             },
             "state": state,
             "state_raw": {
-                "joint": joint,       # 8D joint proprio for PayloadBuilder passthrough
+                "joint": joint,  # 8D joint proprio for PayloadBuilder passthrough
                 "qpos": qpos if qpos.size else None,
                 "qvel": qvel if qvel.size else None,
             },

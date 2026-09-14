@@ -75,10 +75,10 @@ def apply_rotary_pos_emb_vision(
 
 def get_ernie_vl_vision_layer_spec(config: TransformerConfig) -> ModuleSpec:
     """Return the ModuleSpec for one ERNIE ViT transformer layer.
-      → pre-attn LayerNorm
-      → SelfAttention with QKV bias
-      → pre-MLP LayerNorm (fused into fc1 by TE)
-      → MLP (QuickGELU)
+    → pre-attn LayerNorm
+    → SelfAttention with QKV bias
+    → pre-MLP LayerNorm (fused into fc1 by TE)
+    → MLP (QuickGELU)
     """
     return ModuleSpec(
         module=TransformerLayer,

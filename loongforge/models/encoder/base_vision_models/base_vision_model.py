@@ -30,16 +30,14 @@ from typing import Optional
 from megatron.core.transformer.enums import ModelType
 
 from loongforge.models.encoder.vision_transformer_block import TransformerBlock
-from loongforge.models.encoder.qwen2_vl_vision_models.qwen2_vl_config import (
-    Qwen2VisionModelConfig
-) 
+from loongforge.models.encoder.qwen2_vl_vision_models.qwen2_vl_config import Qwen2VisionModelConfig
 from loongforge.models.common import BaseMegatronVisionModule
 from loongforge.models.utils import import_module
 
 
 # adapted from https://github.com/huggingface/transformers/blob/main/src/transformers/models/qwen2_5_vl/modeling_qwen2_5_vl.py # pylint: disable=line-too-long
 class PatchEmbed(torch.nn.Module):
-    """ Patch Embedding"""
+    """Patch Embedding"""
 
     def __init__(
         self,
@@ -74,14 +72,12 @@ class PatchEmbed(torch.nn.Module):
             self.patch_size,
             self.patch_size,
         )
-        hidden_states = self.proj(hidden_states.to(dtype=target_dtype)).view(
-            -1, self.embed_dim
-        )
+        hidden_states = self.proj(hidden_states.to(dtype=target_dtype)).view(-1, self.embed_dim)
         return hidden_states
 
 
 class VisionRotaryEmbedding(torch.nn.Module):
-    """ Rotary Position Embedding"""
+    """Rotary Position Embedding"""
 
     def __init__(self, dim: int, theta: float = 10000.0) -> None:
         super().__init__()
@@ -90,15 +86,14 @@ class VisionRotaryEmbedding(torch.nn.Module):
 
     def forward(self, seqlen: int) -> torch.Tensor:
         """Forward Pass"""
-        seq = torch.arange(
-            seqlen, device=self.inv_freq.device, dtype=self.inv_freq.dtype
-        )
+        seq = torch.arange(seqlen, device=self.inv_freq.device, dtype=self.inv_freq.dtype)
         freqs = torch.outer(seq, self.inv_freq)
         return freqs
 
 
 class BaseVisionModel(BaseMegatronVisionModule):
     """VisionTransformer model."""
+
     # NOTE: This model class is adapted from Qwen2VisionModel
     config_class = Qwen2VisionModelConfig
 
@@ -124,7 +119,7 @@ class BaseVisionModel(BaseMegatronVisionModule):
             in_channels=self.config.in_channels,
             embed_dim=self.config.hidden_size,
         )
-    
+
         self.decoder = TransformerBlock(
             config=self.config,
             spec=self.transformer_layer_spec,
@@ -132,7 +127,7 @@ class BaseVisionModel(BaseMegatronVisionModule):
             post_process=False,
             vp_stage=vp_stage,
         )
-        if hasattr(config, 'freeze') and config.freeze:
+        if hasattr(config, "freeze") and config.freeze:
             self.freeze()
 
     def set_input_tensor(self, input_tensor: torch.Tensor) -> None:
@@ -173,9 +168,7 @@ class BaseVisionModel(BaseMegatronVisionModule):
         rotary_pos_emb = rotary_pos_emb_full[pos_ids].flatten(1)
         return rotary_pos_emb
 
-    def forward(
-        self, images: torch.Tensor, image_grid_thw: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, images: torch.Tensor, image_grid_thw: torch.Tensor) -> torch.Tensor:
         """forward function"""
         rotary_pos_emb = self.rot_pos_emb(image_grid_thw)
         rotary_pos_emb = rotary_pos_emb.unsqueeze(1).unsqueeze(2).float()

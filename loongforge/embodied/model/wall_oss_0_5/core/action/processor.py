@@ -4,6 +4,7 @@
 # Modified from Wall-X under the Apache-2.0 License.
 
 """processor module."""
+
 import torch
 import torch.nn as nn
 
@@ -49,53 +50,33 @@ class ActionProcessor(nn.Module):
 
         if not self.config.use_state_string_representation:
             if self.config.proj_with_mask:
-                self.propri_proj = nn.Linear(
-                    self.propri_dim * 2, self.state_hidden_size, bias=False
-                )
+                self.propri_proj = nn.Linear(self.propri_dim * 2, self.state_hidden_size, bias=False)
             else:
-                self.propri_proj = nn.Linear(
-                    self.propri_dim, self.state_hidden_size, bias=False
-                )
+                self.propri_proj = nn.Linear(self.propri_dim, self.state_hidden_size, bias=False)
 
         # noise scheduler configing
         if getattr(self.config, "use_flow_action_expert", True):
             noise_scheduler_config = config.noise_scheduler
             self.s = noise_scheduler_config.get("s", 0.999)
-            self.time_shift = noise_scheduler_config.get(
-                "time_shift", 1.0
-            )  # time shift factor
+            self.time_shift = noise_scheduler_config.get("time_shift", 1.0)  # time shift factor
             self.time_embed = SinusoidalPosEmb(self.action_hidden_size)
 
             # project to hidden space
             if self.config.proj_with_mask:
-                self.w1 = nn.Linear(
-                    self.action_dim * 2, self.action_hidden_size, bias=False
-                )
+                self.w1 = nn.Linear(self.action_dim * 2, self.action_hidden_size, bias=False)
             else:
-                self.w1 = nn.Linear(
-                    self.action_dim, self.action_hidden_size, bias=False
-                )
+                self.w1 = nn.Linear(self.action_dim, self.action_hidden_size, bias=False)
             if not self.config.use_adarms:
-                self.w2 = nn.Linear(
-                    self.action_hidden_size * 2, self.action_hidden_size, bias=False
-                )
-                self.w3 = nn.Linear(
-                    self.action_hidden_size, self.action_hidden_size, bias=False
-                )
+                self.w2 = nn.Linear(self.action_hidden_size * 2, self.action_hidden_size, bias=False)
+                self.w3 = nn.Linear(self.action_hidden_size, self.action_hidden_size, bias=False)
                 self.act_fn = nn.SiLU()
             else:
-                self.time_mlp_in = nn.Linear(
-                    self.action_hidden_size, self.action_hidden_size
-                )
-                self.time_mlp_out = nn.Linear(
-                    self.action_hidden_size, self.action_hidden_size
-                )
+                self.time_mlp_in = nn.Linear(self.action_hidden_size, self.action_hidden_size)
+                self.time_mlp_out = nn.Linear(self.action_hidden_size, self.action_hidden_size)
                 self.act_fn = nn.SiLU()
 
             # project back to action space
-            self.action_proj_back = nn.Linear(
-                self.action_hidden_size, self.action_dim, bias=False
-            )
+            self.action_proj_back = nn.Linear(self.action_hidden_size, self.action_dim, bias=False)
             self.mse_loss = nn.MSELoss(reduction="none")
 
     def get_inference_times(self, num_steps, device, dtype):
@@ -118,9 +99,7 @@ class ActionProcessor(nn.Module):
         times = times * self.s
         return times
 
-    def proprioception_proj(
-        self, proprioception, dataset_names=None, dof_mask=None, use_history=False
-    ):
+    def proprioception_proj(self, proprioception, dataset_names=None, dof_mask=None, use_history=False):
         """
         Args:
             proprioception: [batch_size, 1, action_dim]
@@ -128,20 +107,16 @@ class ActionProcessor(nn.Module):
             dof_mask: [batch_size, action_dim]
         """
         with torch.autocast("cuda", dtype=torch.float32):
-            proprioception = proprioception.to(
-                device=self.propri_proj.weight.device
-            ).to(dtype=self.propri_proj.weight.dtype)
+            proprioception = proprioception.to(device=self.propri_proj.weight.device).to(
+                dtype=self.propri_proj.weight.dtype
+            )
             if dof_mask is not None:
                 if self.config.proj_with_mask:
-                    proprioception = torch.cat(
-                        [proprioception, dof_mask], dim=-1
-                    )  # .unsqueeze(1)
-            proprioception = proprioception.to(
-                device=self.propri_proj.weight.device
-            ).to(dtype=self.propri_proj.weight.dtype)
-            proprio_embed = self.propri_proj(
-                proprioception
-            )  # [batch_size, 1, state_hidden_size]
+                    proprioception = torch.cat([proprioception, dof_mask], dim=-1)  # .unsqueeze(1)
+            proprioception = proprioception.to(device=self.propri_proj.weight.device).to(
+                dtype=self.propri_proj.weight.dtype
+            )
+            proprio_embed = self.propri_proj(proprioception)  # [batch_size, 1, state_hidden_size]
             if self.state_hidden_size < self.hidden_size:
                 # padding to hidden size
                 padding_size = self.hidden_size - self.state_hidden_size
@@ -189,11 +164,7 @@ class ActionProcessor(nn.Module):
             self.time_expanded = time_expanded  # for new x-pred
 
             if not self.config.use_adarms:
-                time_embed = (
-                    time_embed.unsqueeze(1)
-                    .repeat(1, action_embed.shape[1], 1)
-                    .to(dtype=self.w2.weight.dtype)
-                )
+                time_embed = time_embed.unsqueeze(1).repeat(1, action_embed.shape[1], 1).to(dtype=self.w2.weight.dtype)
                 concat_embed = torch.cat([action_embed, time_embed], dim=-1)
                 concat_embed = self.w2(concat_embed)
                 action_time_embed = self.w3(self.act_fn(concat_embed))
@@ -235,12 +206,8 @@ class ActionProcessor(nn.Module):
             action_embed = self.w1(noisy_action)
 
             if not self.config.use_adarms:
-                time_embed = time_embed.unsqueeze(1).repeat(
-                    1, action_embed.shape[1], 1
-                )
-                time_embed = time_embed.to(device=noisy_action.device).to(
-                    dtype=noisy_action.dtype
-                )
+                time_embed = time_embed.unsqueeze(1).repeat(1, action_embed.shape[1], 1)
+                time_embed = time_embed.to(device=noisy_action.device).to(dtype=noisy_action.dtype)
                 concat_embed = torch.cat([action_embed, time_embed], dim=-1)
                 concat_embed = self.w2(concat_embed)
                 embed = self.w3(self.act_fn(concat_embed))  # is this right?
@@ -276,36 +243,22 @@ class ActionProcessor(nn.Module):
     ):
         """Flow loss."""
         with torch.autocast("cuda", dtype=torch.float32):
-            action_pred = self.action_proj_back(
-                action_hidden_states[:, : self.action_hidden_size]
-            )
+            action_pred = self.action_proj_back(action_hidden_states[:, : self.action_hidden_size])
 
             if getattr(self.config, "use_x_pred", False):
-                noisy_action_flat = self.noisy_action.reshape(
-                    -1, self.noisy_action.shape[-1]
-                )
-                time_expanded_flat = self.time_expanded.expand(
-                    -1, self.noisy_action.shape[1], -1
-                ).reshape(-1, 1)
-                v_pred = (action_pred - noisy_action_flat) / torch.clamp(
-                    1 - time_expanded_flat, min=0.05
-                )
+                noisy_action_flat = self.noisy_action.reshape(-1, self.noisy_action.shape[-1])
+                time_expanded_flat = self.time_expanded.expand(-1, self.noisy_action.shape[1], -1).reshape(-1, 1)
+                v_pred = (action_pred - noisy_action_flat) / torch.clamp(1 - time_expanded_flat, min=0.05)
                 x_pred = action_pred
             else:
                 v_pred = action_pred
-                time_expanded_flat = self.time_expanded.expand(
-                    -1, self.noisy_action.shape[1], -1
-                ).reshape(-1, 1)
-                x_pred = (1 - time_expanded_flat) * v_pred + self.noisy_action.reshape(
-                    -1, self.noisy_action.shape[-1]
-                )
+                time_expanded_flat = self.time_expanded.expand(-1, self.noisy_action.shape[1], -1).reshape(-1, 1)
+                x_pred = (1 - time_expanded_flat) * v_pred + self.noisy_action.reshape(-1, self.noisy_action.shape[-1])
 
             if getattr(self.config, "use_x_loss", False):
                 loss = self.mse_loss(
                     x_pred,
-                    action_chunk.reshape(-1, action_chunk.shape[-1]).to(
-                        dtype=x_pred.dtype
-                    ),
+                    action_chunk.reshape(-1, action_chunk.shape[-1]).to(dtype=x_pred.dtype),
                 )
             else:
                 loss = self.mse_loss(v_pred, flow)
@@ -315,10 +268,6 @@ class ActionProcessor(nn.Module):
                 loss = loss * dof_mask
 
             if flow_loss_mask is not None:
-                flow_loss_mask = (
-                    flow_loss_mask.unsqueeze(-1)
-                    .reshape(-1, 1)
-                    .expand(-1, loss.shape[-1])
-                )
+                flow_loss_mask = flow_loss_mask.unsqueeze(-1).reshape(-1, 1).expand(-1, loss.shape[-1])
                 loss = loss * flow_loss_mask
         return loss

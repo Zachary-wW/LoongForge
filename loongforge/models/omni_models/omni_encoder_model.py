@@ -154,9 +154,7 @@ class OmniEncoderModel(torch.nn.Module):
         super().__init__()
         self.config = config
         self.mix_used_vision_encoder = getattr(config, "mix_used_vision_encoder", True)
-        self.mix_used_vision_projector = getattr(
-            config, "mix_used_vision_projector", True
-        )
+        self.mix_used_vision_projector = getattr(config, "mix_used_vision_projector", True)
         self.text_encoder = LanguageModelEmbedding(
             config=self.config.foundation,
             vocab_size=vocab_size,
@@ -165,62 +163,38 @@ class OmniEncoderModel(torch.nn.Module):
             scatter_to_sequence_parallel=scatter_embedding_sequence_parallel,
         )
         self.encoder_modality = {}
-        if (
-            hasattr(self.config, "image_encoder")
-            and self.config.image_encoder is not None
-        ):
+        if hasattr(self.config, "image_encoder") and self.config.image_encoder is not None:
             change_parallel_state("image_encoder")
             self.image_encoder: BaseMegatronModule = AutoModel.from_config(
                 config.image_encoder, vp_stage=vp_stage, **kwargs
             )
             self.encoder_modality["image"] = True
-            self.image_encoder.register_forward_pre_hook(
-                make_encoder_forward_pre_hook("image_encoder")
-            )
-            self.image_encoder.register_forward_hook(
-                make_encoder_forward_hook("text_decoder")
-            )
+            self.image_encoder.register_forward_pre_hook(make_encoder_forward_pre_hook("image_encoder"))
+            self.image_encoder.register_forward_hook(make_encoder_forward_hook("text_decoder"))
 
-        if (
-            hasattr(self.config, "video_encoder")
-            and self.config.video_encoder is not None
-        ):
+        if hasattr(self.config, "video_encoder") and self.config.video_encoder is not None:
             change_parallel_state("video_encoder")
             self.video_encoder: BaseMegatronModule = AutoModel.from_config(
                 self.config.video_encoder, vp_stage=vp_stage, **kwargs
             )
             self.encoder_modality["video"] = True
-            self.video_encoder.register_forward_pre_hook(
-                make_encoder_forward_pre_hook("video_encoder")
-            )
-            self.video_encoder.register_forward_hook(
-                make_encoder_forward_hook("text_decoder")
-            )
+            self.video_encoder.register_forward_pre_hook(make_encoder_forward_pre_hook("video_encoder"))
+            self.video_encoder.register_forward_hook(make_encoder_forward_hook("text_decoder"))
         elif self.mix_used_vision_encoder:
             self.encoder_modality["video"] = True
 
-        if (
-            hasattr(self.config, "audio_encoder")
-            and self.config.audio_encoder is not None
-        ):
+        if hasattr(self.config, "audio_encoder") and self.config.audio_encoder is not None:
             change_parallel_state("audio_encoder")
             self.audio_encoder: BaseMegatronModule = AutoModel.from_config(
                 self.config.audio_encoder, vp_stage=vp_stage, **kwargs
             )
             self.encoder_modality["audio"] = True
-            self.audio_encoder.register_forward_pre_hook(
-                make_encoder_forward_pre_hook("audio_encoder")
-            )
-            self.audio_encoder.register_forward_hook(
-                make_encoder_forward_hook("text_decoder")
-            )
+            self.audio_encoder.register_forward_pre_hook(make_encoder_forward_pre_hook("audio_encoder"))
+            self.audio_encoder.register_forward_hook(make_encoder_forward_hook("text_decoder"))
 
         change_parallel_state("text_decoder")
 
-        if (
-            hasattr(self.config, "image_projector")
-            and self.config.image_projector is not None
-        ):
+        if hasattr(self.config, "image_projector") and self.config.image_projector is not None:
             self.image_projector: BaseMegatronModule = AutoModel.from_config(
                 config.image_projector,
                 input_size=config.image_encoder.hidden_size,
@@ -229,53 +203,34 @@ class OmniEncoderModel(torch.nn.Module):
             )
             if allow_missing_adapter_checkpoint:
                 adapter_param_names = [
-                    f"encoder_model.image_projector.{name}"
-                    for name in self.image_projector.state_dict()
+                    f"encoder_model.image_projector.{name}" for name in self.image_projector.state_dict()
                 ]
                 self.image_projector.register_load_state_dict_post_hook(
-                    partial(
-                        _load_state_dict_hook_ignore_param_names, adapter_param_names
-                    )
+                    partial(_load_state_dict_hook_ignore_param_names, adapter_param_names)
                 )
         else:
             self.image_projector = None
 
-        if (
-            hasattr(self.config, "video_projector")
-            and self.config.video_projector is not None
-        ):
-            self.video_projector: BaseMegatronModule = AutoModel.from_config(
-                self.config.video_projector, **kwargs
-            )
+        if hasattr(self.config, "video_projector") and self.config.video_projector is not None:
+            self.video_projector: BaseMegatronModule = AutoModel.from_config(self.config.video_projector, **kwargs)
             if allow_missing_adapter_checkpoint:
                 adapter_param_names = [
-                    f"encoder_model.video_projector.{name}"
-                    for name in self.video_projector.state_dict().keys()
+                    f"encoder_model.video_projector.{name}" for name in self.video_projector.state_dict().keys()
                 ]
                 self.video_projector.register_load_state_dict_post_hook(
-                    partial(
-                        _load_state_dict_hook_ignore_param_names, adapter_param_names
-                    )
+                    partial(_load_state_dict_hook_ignore_param_names, adapter_param_names)
                 )
         else:
             self.video_projector = None
 
-        if (
-            hasattr(self.config, "audio_projector")
-            and self.config.audio_projector is not None
-        ):
-            self.audio_projector: BaseMegatronModule = AutoModel.from_config(
-                self.config.audio_projector, **kwargs
-            )
+        if hasattr(self.config, "audio_projector") and self.config.audio_projector is not None:
+            self.audio_projector: BaseMegatronModule = AutoModel.from_config(self.config.audio_projector, **kwargs)
             if allow_missing_adapter_checkpoint:
                 adapter_param_names = [
-                    f"encoder_model.audio_projector.{name}"
-                    for name in self.audio_projector.state_dict().keys()
+                    f"encoder_model.audio_projector.{name}" for name in self.audio_projector.state_dict().keys()
                 ]
                 self.audio_projector.register_load_state_dict_post_hook(
-                    partial(
-                        _load_state_dict_hook_ignore_param_names, adapter_param_names
-                    )
+                    partial(_load_state_dict_hook_ignore_param_names, adapter_param_names)
                 )
         else:
             self.audio_projector = None
@@ -290,35 +245,31 @@ class OmniEncoderModel(torch.nn.Module):
         """Aggregates deepstack embeddings and position masks from image and video modalities."""
         visual_pos_masks = None
         deepstack_visual_embeds = None
-        
-        if (
-            len(deepstack_image_embeds) != 0 
-            or len(deepstack_video_embeds) != 0
-        ):
+
+        if len(deepstack_image_embeds) != 0 or len(deepstack_video_embeds) != 0:
             if images_mask is not None and videos_mask is not None:
                 images_mask = images_mask[..., 0]
                 videos_mask = videos_mask[..., 0]
                 visual_pos_masks = images_mask | videos_mask
-                
+
                 deepstack_visual_embeds = []
                 images_mask_joint = images_mask[visual_pos_masks]
                 videos_mask_joint = videos_mask[visual_pos_masks]
-                
+
                 for img_embed, vid_embed in zip(deepstack_image_embeds, deepstack_video_embeds):
                     # Create a zero tensor to hold joint embeddings, size is (N_visual_tokens, Hidden_size)
-                    embed_joint = img_embed.new_zeros(
-                        visual_pos_masks.sum().item(), 
-                        img_embed.shape[-1]
-                    ).to(img_embed.device)
+                    embed_joint = img_embed.new_zeros(visual_pos_masks.sum().item(), img_embed.shape[-1]).to(
+                        img_embed.device
+                    )
                     embed_joint[images_mask_joint, :] = img_embed
                     embed_joint[videos_mask_joint, :] = vid_embed
                     deepstack_visual_embeds.append(embed_joint)
-                    
+
             elif images_mask is not None:
                 images_mask = images_mask[..., 0]
                 visual_pos_masks = images_mask
                 deepstack_visual_embeds = deepstack_image_embeds
-                
+
             elif videos_mask is not None:
                 videos_mask = videos_mask[..., 0]
                 visual_pos_masks = videos_mask
@@ -375,20 +326,12 @@ class OmniEncoderModel(torch.nn.Module):
         n_image_features = image_embeddings.shape[0]
 
         if n_image_tokens != n_image_features:
-            raise ValueError(
-                f"Image features {n_image_features} != image tokens {n_image_tokens}"
-            )
+            raise ValueError(f"Image features {n_image_features} != image tokens {n_image_tokens}")
         if inference_params is not None:
-            inference_params.key_value_memory_dict["image_tokens_count"] = (
-                image_embeddings.shape[0]
-            )
+            inference_params.key_value_memory_dict["image_tokens_count"] = image_embeddings.shape[0]
 
         images_mask = (
-            (input_ids == image_token_id)
-            .transpose(0, 1)
-            .unsqueeze(-1)
-            .expand_as(input_embeds)
-            .to(input_embeds.device)
+            (input_ids == image_token_id).transpose(0, 1).unsqueeze(-1).expand_as(input_embeds).to(input_embeds.device)
         )
 
         image_embeddings = image_embeddings.to(input_embeds.device, input_embeds.dtype)
@@ -407,8 +350,9 @@ class OmniEncoderModel(torch.nn.Module):
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         """Forward function for video encoding."""
         if self.mix_used_vision_encoder:
-            video_embeddings, window_index, deepstack_video_embeds = self.image_encoder(pixel_values_videos, 
-                                                                 image_grid_thw=video_grid_thw)
+            video_embeddings, window_index, deepstack_video_embeds = self.image_encoder(
+                pixel_values_videos, image_grid_thw=video_grid_thw
+            )
             video_token_id = self.image_encoder.config.video_token_id
         else:
             video_embeddings, window_index, deepstack_video_embeds = self.video_encoder(
@@ -419,27 +363,19 @@ class OmniEncoderModel(torch.nn.Module):
             video_embeddings = self.image_projector(video_embeddings, window_index)
         elif self.video_projector is not None:
             video_embeddings = self.video_projector(video_embeddings, window_index)
-        
+
         n_video_tokens = (input_ids == video_token_id).sum().item()
         n_video_features = video_embeddings.shape[0]
         if n_video_tokens != n_video_features:
-            raise ValueError(
-                f"video features {n_video_features} != video tokens {n_video_tokens}"
-            )
+            raise ValueError(f"video features {n_video_features} != video tokens {n_video_tokens}")
 
         # If running inference, the language model KV cache will be updated for image token positions.
         # Here we store the image tokens sequence length, which can be used as an offset to the KV cache later.
         if inference_params is not None:
-            inference_params.key_value_memory_dict["video_tokens_count"] = (
-                video_embeddings.shape[0]
-            )
+            inference_params.key_value_memory_dict["video_tokens_count"] = video_embeddings.shape[0]
 
         videos_mask = (
-            (input_ids == video_token_id)
-            .transpose(0, 1)
-            .unsqueeze(-1)
-            .expand_as(input_embeds)
-            .to(input_embeds.device)
+            (input_ids == video_token_id).transpose(0, 1).unsqueeze(-1).expand_as(input_embeds).to(input_embeds.device)
         )
         video_embeddings = video_embeddings.to(input_embeds.device, input_embeds.dtype)
         combined_embeddings = input_embeds.masked_scatter(videos_mask, video_embeddings)
@@ -450,9 +386,7 @@ class OmniEncoderModel(torch.nn.Module):
         """Forward function for audio encoding."""
         pass
 
-    def text_forward(
-        self, input_ids: torch.Tensor, position_ids, **kwargs
-    ) -> torch.Tensor:
+    def text_forward(self, input_ids: torch.Tensor, position_ids, **kwargs) -> torch.Tensor:
         """Forward function for text encoding."""
         input_embeds = self.text_encoder(input_ids=input_ids, position_ids=position_ids)
         return input_embeds
@@ -494,15 +428,13 @@ class OmniEncoderModel(torch.nn.Module):
         decoder_inputs: Dict[str, torch.Tensor] = {}
         for modality in self.encoder_modality:
             self.encoder_modality[modality] = False
-        
+
         images_mask, videos_mask = None, None
         deepstack_image_embeds, deepstack_video_embeds = [], []
         # Process image modality
         if "image" in self.encoder_modality:
             if image_inputs is None and not self.encoder_modality["image"]:
-                input_embeds = self.encoder_dummy_forward(
-                    input_embeds, self.image_encoder, self.image_projector
-                )
+                input_embeds = self.encoder_dummy_forward(input_embeds, self.image_encoder, self.image_projector)
             else:
                 input_embeds, images_mask, deepstack_image_embeds = self.image_forward(
                     input_ids=input_ids,
@@ -515,9 +447,7 @@ class OmniEncoderModel(torch.nn.Module):
         # Process audio modality
         if "audio" in self.encoder_modality:
             if audio_inputs is None and not self.encoder_modality["audio"]:
-                input_embeds = self.encoder_dummy_forward(
-                    input_embeds, self.audio_encoder, self.audio_projector
-                )
+                input_embeds = self.encoder_dummy_forward(input_embeds, self.audio_encoder, self.audio_projector)
             else:
                 input_embeds = self.audio_forward(
                     input_ids=input_ids,
@@ -531,9 +461,7 @@ class OmniEncoderModel(torch.nn.Module):
         if "video" in self.encoder_modality:
             if video_inputs is None and not self.encoder_modality["video"]:
                 if self.mix_used_vision_encoder and not self.encoder_modality["image"]:
-                    input_embeds = self.encoder_dummy_forward(
-                        input_embeds, self.video_encoder, self.video_projector
-                    )
+                    input_embeds = self.encoder_dummy_forward(input_embeds, self.video_encoder, self.video_projector)
             else:
                 input_embeds, videos_mask, deepstack_video_embeds = self.video_forward(
                     input_ids=input_ids,
@@ -542,14 +470,14 @@ class OmniEncoderModel(torch.nn.Module):
                     **video_inputs,
                 )
             self.encoder_modality["video"] = True
-        
+
         visual_pos_masks, deepstack_visual_embeds = self._aggregate_deepstack_embeds(
             images_mask=images_mask,
             videos_mask=videos_mask,
             deepstack_image_embeds=deepstack_image_embeds,
             deepstack_video_embeds=deepstack_video_embeds,
         )
-                 
+
         return input_embeds, decoder_inputs, visual_pos_masks, deepstack_visual_embeds
 
     def encoder_dummy_forward(self, input_embeds, encoder_model, projector_model):

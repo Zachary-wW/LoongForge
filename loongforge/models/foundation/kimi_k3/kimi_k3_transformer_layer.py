@@ -44,9 +44,7 @@ class KimiK3TransformerLayer(TransformerLayer):
         stage_start = get_transformer_layer_offset(self.config)
         stage_end = stage_start + get_num_layers_to_build(self.config)
         self.is_stage_entry = layer_idx == stage_start and layer_idx > 0
-        self.is_stage_exit = (
-            layer_idx + 1 == stage_end and stage_end < self.config.num_layers
-        )
+        self.is_stage_exit = layer_idx + 1 == stage_end and stage_end < self.config.num_layers
 
     def _score_pair(self) -> tuple[RMSNorm, nn.Linear]:
         """Build one AttnRes scoring head: an RMSNorm and a rank-1 projection."""
@@ -87,9 +85,7 @@ class KimiK3TransformerLayer(TransformerLayer):
             block_residual = context
         elif layer_idx == 0:
             prefix_sum = hidden_states
-            block_residual = hidden_states.new_empty(
-                *hidden_states.shape[:-1], 0, hidden_states.shape[-1]
-            )
+            block_residual = hidden_states.new_empty(*hidden_states.shape[:-1], 0, hidden_states.shape[-1])
         else:
             if not self.is_stage_entry:
                 raise ValueError("AttnRes snapshot bank is missing")

@@ -67,8 +67,7 @@ def _arm_static_graph_bucket_warmup(model) -> None:
         (module_name, module, parameter_name, parameter)
         for module_name, module in raw_model.named_modules()
         for parameter_name, parameter in module.named_parameters(recurse=False)
-        if parameter.requires_grad
-        and f"{module_name}.{parameter_name}" not in ignored_names
+        if parameter.requires_grad and f"{module_name}.{parameter_name}" not in ignored_names
     ]
     parameters = []
     sparse = []
@@ -81,9 +80,7 @@ def _arm_static_graph_bucket_warmup(model) -> None:
         sparse.append(isinstance(module, (nn.Embedding, nn.EmbeddingBag)) and module.sparse)
     state = _StaticGraphBucketWarmup(parameters, sparse)
     state.hook_handles = [
-        parameter.register_post_accumulate_grad_hook(
-            partial(state.record_ready, index)
-        )
+        parameter.register_post_accumulate_grad_hook(partial(state.record_ready, index))
         for index, parameter in enumerate(parameters)
     ]
     model._loong_static_graph_bucket_warmup = state
@@ -120,9 +117,7 @@ def _align_static_graph_buckets_after_warmup(model) -> bool:
         )
         ordered = [state.parameters[index] for index in ready_order]
         sparse = [state.expect_sparse_gradients[index] for index in ready_order]
-        bucket_indices, _ = dist._compute_bucket_assignment_by_size(
-            ordered, limits, sparse, ready_order
-        )
+        bucket_indices, _ = dist._compute_bucket_assignment_by_size(ordered, limits, sparse, ready_order)
         from loongforge.embodied.train.trainers.custom.groot_n1_7.groot_ddp_reducer_bucket_control import (
             initialize_buckets,
         )
@@ -157,8 +152,7 @@ def _select_cuda_graph_runner_type(trainer):
             )
         return GrootN1d7FullIterationCudaGraphRunner
     raise RuntimeError(
-        "GR00T-N1.7 only supports --cuda-graph-scope=full_iteration; "
-        f"got {training_args.cuda_graph_scope!r}."
+        f"GR00T-N1.7 only supports --cuda-graph-scope=full_iteration; got {training_args.cuda_graph_scope!r}."
     )
 
 
@@ -241,10 +235,7 @@ class GrootN1d7Trainer(FinetuneTrainer):
                 metrics[key] = value.detach().cpu().item()
             elif hasattr(value, "item") and value.__class__.__module__.split(".")[0] == "numpy":
                 metrics[key] = value.item()
-        if (
-            isinstance(self._train_step_runner, GrootN1d7FullIterationCudaGraphRunner)
-            and self.completed_steps == 1
-        ):
+        if isinstance(self._train_step_runner, GrootN1d7FullIterationCudaGraphRunner) and self.completed_steps == 1:
             _align_static_graph_buckets_after_warmup(self.model)
 
     def _train_step(self):

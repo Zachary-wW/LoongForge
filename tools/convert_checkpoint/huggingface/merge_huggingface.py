@@ -8,6 +8,7 @@ import argparse
 import os
 
 from os.path import dirname
+
 SCRIPT_DIR = dirname(os.path.abspath(__file__))
 sys.path.append(dirname(dirname(SCRIPT_DIR)))
 
@@ -16,14 +17,15 @@ from convert_checkpoint.utils.ckpt_util import (
     save_huggingface_checkpoint,
 )
 
+
 def parse_args():
     """Parse all arguments."""
-    parser = argparse.ArgumentParser(description='Merger Arguments', allow_abbrev=False)
-    group = parser.add_argument_group(title='checkpoint')
-    group.add_argument('--language_model_path', type=str, help="Path to language expert model."),
-    group.add_argument('--vision_model_path', type=str, help="Path to vision model."),
-    group.add_argument('--vision_patch', type=str, help="Path to vision patch."),
-    group.add_argument('--adapter_path', type=str, help="Path to adapter."),
+    parser = argparse.ArgumentParser(description="Merger Arguments", allow_abbrev=False)
+    group = parser.add_argument_group(title="checkpoint")
+    (group.add_argument("--language_model_path", type=str, help="Path to language expert model."),)
+    (group.add_argument("--vision_model_path", type=str, help="Path to vision model."),)
+    (group.add_argument("--vision_patch", type=str, help="Path to vision patch."),)
+    (group.add_argument("--adapter_path", type=str, help="Path to adapter."),)
     group.add_argument("--save_ckpt_path", type=str, help="Path to save checkpoint.")
     group.add_argument("--megatron_path", type=str, help="Base directory of Megatron repository")
 
@@ -31,7 +33,7 @@ def parse_args():
 
 
 def merge_dict(source, destination):
-    """ merge two dictionaries recursively """
+    """merge two dictionaries recursively"""
     for key, value in source.items():
         if isinstance(value, dict):
             node = destination.setdefault(key, {})

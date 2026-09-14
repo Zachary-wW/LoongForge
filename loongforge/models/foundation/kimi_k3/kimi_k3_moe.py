@@ -21,9 +21,7 @@ class KimiK3MoELayer(MoELayer):
         if not latent_size:
             raise ValueError("Kimi K3 MoE layers require a non-zero moe_latent_size")
 
-        self.fc1_latent_proj = self._latent_linear(
-            self.config.hidden_size, latent_size, self.config.init_method
-        )
+        self.fc1_latent_proj = self._latent_linear(self.config.hidden_size, latent_size, self.config.init_method)
         self.fc2_latent_proj = self._latent_linear(
             latent_size, self.config.hidden_size, self.config.output_layer_init_method
         )
@@ -57,9 +55,7 @@ class KimiK3MoELayer(MoELayer):
         metadata = self.token_dispatcher.preprocess(routing_map)
 
         hidden_states, _ = self.fc1_latent_proj(hidden_states)
-        hidden_states, probs = self.token_dispatcher.dispatch_preprocess(
-            hidden_states, probs, metadata
-        )
+        hidden_states, probs = self.token_dispatcher.dispatch_preprocess(hidden_states, probs, metadata)
         return hidden_states, probs, metadata, residual
 
     def post_combine(

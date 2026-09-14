@@ -23,9 +23,7 @@ CREDENTIAL_PATTERN = re.compile(
 )
 # AK/SK are accepted only as explicit uppercase field names.  Short variable
 # names such as `sk` are common in CUDA/C++ source and are not credentials.
-SHORT_CREDENTIAL_PATTERN = re.compile(
-    r"\b(?:AK|SK)\s*[:=]\s*['\"]?[A-Za-z0-9/+_.-]{16,}"
-)
+SHORT_CREDENTIAL_PATTERN = re.compile(r"\b(?:AK|SK)\s*[:=]\s*['\"]?[A-Za-z0-9/+_.-]{16,}")
 INTERNAL_PATTERN = re.compile(
     r"(?i)(?:[a-z0-9-]+\.)*baidu-int\.com\b|"
     r"(?:[a-z0-9-]+\.)*baidubce\.com\b|"

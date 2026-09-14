@@ -89,7 +89,7 @@ class Qwen35RotaryEmbedding(MultimodalRotaryEmbedding):
 
         freqs = self.apply_interleaved_mrope(freqs, self.mrope_section)
         emb = torch.cat((freqs, freqs), dim=-1)
-        
+
         # shape (seq_length, bs, 1, 2 * dim)
         emb = emb[..., None, :].transpose(0, 1).contiguous()
         return emb
@@ -152,7 +152,6 @@ class Qwen35Model(BaseGPTModel):
         vp_stage: Optional[int] = None,
         **kwargs,
     ) -> None:
-
         if config.model_spec is None:
             model_spec = [
                 "loongforge.models.foundation.qwen3_5.qwen3_5_layer_spec",
@@ -161,9 +160,7 @@ class Qwen35Model(BaseGPTModel):
         else:
             model_spec = config.model_spec
 
-        transformer_layer_spec, mtp_layer_spec = import_module(
-            model_spec, config, vp_stage=vp_stage
-        )
+        transformer_layer_spec, mtp_layer_spec = import_module(model_spec, config, vp_stage=vp_stage)
 
         rotary_pos_emb = Qwen35RotaryEmbedding(config)
 
@@ -176,9 +173,7 @@ class Qwen35Model(BaseGPTModel):
             post_process=post_process,
             fp16_lm_cross_entropy=config.fp16_lm_cross_entropy,
             parallel_output=parallel_output,
-            share_embeddings_and_output_weights=(
-                not config.untie_embeddings_and_output_weights
-            ),
+            share_embeddings_and_output_weights=(not config.untie_embeddings_and_output_weights),
             position_embedding_type=config.position_embedding_type,
             language_embedding=language_embedding,
             rotary_dtype=rotary_dtype,
@@ -195,13 +190,13 @@ class Qwen35Model(BaseGPTModel):
             vp_stage=vp_stage,
         )
 
-        if getattr(self, 'mtp', None) is not None:
+        if getattr(self, "mtp", None) is not None:
             for layer in self.mtp.layers:
                 attention = layer.transformer_layer.self_attention
                 attention.config = deepcopy(attention.config)
                 attention.config.apply_rope_fusion = False
 
-        if hasattr(config, 'freeze') and config.freeze:
+        if hasattr(config, "freeze") and config.freeze:
             self.freeze()
 
     def _preprocess(
@@ -221,9 +216,7 @@ class Qwen35Model(BaseGPTModel):
         # Decoder embedding.
         if decoder_input is None:
             if self.pre_process:
-                decoder_input = self.embedding(
-                    input_ids=input_ids, position_ids=position_ids
-                )
+                decoder_input = self.embedding(input_ids=input_ids, position_ids=position_ids)
             else:
                 # intermediate stage of pipeline
                 # decoder will get hidden_states from encoder.input_tensor
@@ -234,7 +227,7 @@ class Qwen35Model(BaseGPTModel):
             position_ids,
             packed_seq=packed_seq_params,
         )
-            
+
         return decoder_input, rotary_pos_emb
 
     def forward(
