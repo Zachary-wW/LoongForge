@@ -9,7 +9,7 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Sequence
+from typing import Iterator, List, Optional, Sequence
 
 import yaml
 import webdataset as wds
@@ -398,7 +398,8 @@ def convert_to_wds(cfg: PackedWDSConfig):
         )
     else:
         stream_fn = stream_samples_caption
-        construct_fn = lambda entry, roots: construct_sample(entry, roots)
+        def construct_fn(entry, roots):
+            return construct_sample(entry, roots)
 
     with wds.ShardWriter(str(tar_pattern), maxcount=cfg.maxcount, maxsize=cfg.maxsize) as sink:
         for idx, entry in enumerate(tqdm(stream_fn(cfg.json_dir))):

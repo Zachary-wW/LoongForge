@@ -199,7 +199,7 @@ def pack_data_for_intern_vl(
         device=input_ids.device if input_ids.numel() else torch.device("cpu"),
     )
 
-    use_sequence_parallel = get_args().sequence_parallel
+    get_args().sequence_parallel
     attention_mask.unsqueeze_(0)
 
     batch_data = {
@@ -338,7 +338,7 @@ def pack_data_for_vlm(vlm_samples):
     assert len(vlm_samples) > 0, "Empty vlm_samples"
 
     device = vlm_samples[0].tokens.device
-    dtype = vlm_samples[0].tokens.dtype
+    vlm_samples[0].tokens.dtype
 
     # -------- text --------
     tokens_list = []
@@ -399,7 +399,7 @@ def pack_data_for_vlm(vlm_samples):
     else:
         video_grid_thw = None
 
-    use_sequence_parallel = get_args().sequence_parallel
+    get_args().sequence_parallel
     max_lengths = (cu_lengths[1:] - cu_lengths[:-1]).max().view(1)
     cu_lengths = cu_lengths.unsqueeze(0)
 

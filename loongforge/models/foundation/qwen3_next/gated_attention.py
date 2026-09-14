@@ -7,7 +7,6 @@
 """GatedSoftmaxAttention"""
 
 import torch
-from torch import Tensor
 
 from typing import Optional, Tuple, Union
 
@@ -41,9 +40,6 @@ except ImportError:
     SplitAlongDim = None
 
 try:
-    from flashattn_hopper.flash_attn_interface import (
-        flash_attn_with_kvcache as flash_attn3_with_kvcache,
-    )
 
     HAVE_FA3 = True
 except:

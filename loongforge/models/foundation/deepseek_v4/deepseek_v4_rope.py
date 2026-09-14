@@ -221,7 +221,7 @@ def apply_thd_cp_local_rope(
     local_freqs = torch.index_select(freqs, 0, position_ids.long())
 
     # Apply RoPE (add batch dim if needed for _apply_rotary_pos_emb_bshd)
-    needs_batch_dim = t.ndim == 2 or (t.ndim == 3 and t.shape[1] != 1)
+    t.ndim == 2 or (t.ndim == 3 and t.shape[1] != 1)
     if t.ndim == 2:
         # (rows, dim) -> (rows, 1, dim) for bshd format
         t_input = t.unsqueeze(1)

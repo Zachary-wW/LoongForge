@@ -5,21 +5,15 @@
 
 from tasks.base_task import BaseTask, TaskResut
 from tools.color_logger import create_color_logger
-import os, time
-from copy import deepcopy
-import json, re, yaml
-import subprocess
 import os
+import json
+import yaml
 import sys
 import shutil
-import random
 from typing import Dict, List, Any
 
 logger = create_color_logger(name=__name__)
-import json
-import yaml
 import glob
-from datetime import timedelta
 
 
 class PrecessDataCheckTask(BaseTask):
@@ -179,8 +173,6 @@ class PrecessDataCheckTask(BaseTask):
 
         # Data preprocessing
         model_name = self.model_name
-        node_nums = self.input_cmd_args.node_nums
-        timeout = self.input_cmd_args.timeout
         scripts_root_path = model_config["scripts_root_path"]
         model_lock_file_path = model_config["model_lock_file_path"]
         training_log_path = model_config["training_log_path"]

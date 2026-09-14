@@ -10,7 +10,7 @@ from megatron.core.process_groups_config import ProcessGroupCollection
 from megatron.core.transformer.attention import Attention
 from megatron.core.transformer.spec_utils import ModuleSpec, build_module
 from dataclasses import dataclass
-from typing import NoReturn, Optional, Tuple, Union
+from typing import Union
 
 import torch
 
@@ -22,7 +22,6 @@ from megatron.core.parallel_state import (
     get_tensor_model_parallel_rank,
     get_tensor_model_parallel_world_size,
 )
-from megatron.core.transformer.spec_utils import ModuleSpec, build_module
 
 from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.transformer.transformer_config import TransformerConfig

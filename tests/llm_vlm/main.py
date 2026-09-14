@@ -8,7 +8,6 @@ from tools.color_logger import create_color_logger
 from tools.config_manager import ConfigManager
 from tasks.base_task import BaseTask
 from utils.resume_state import load_state, save_state, mark_model, get_completed_models
-from tqdm import tqdm
 import time
 import sys
 import os
@@ -91,7 +90,6 @@ def main() -> None:
 
     logger.info(f"Begin to run test, all model test num is {total_scenarios_num}. \n")
     scenario_result = []
-    error_scenario = []
 
     # Loop through all models
     for index, model in enumerate(model_configer.all_model_configs):

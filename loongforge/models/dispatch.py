@@ -59,7 +59,7 @@ def _gpu_backend_transformer_layer_modules() -> MultiAccModules:
     )
     from loongforge.models.common.local_layers.local_norm import LocalNorm
 
-    args = get_args()
+    get_args()
 
     return MultiAccModules(
         # dense linear

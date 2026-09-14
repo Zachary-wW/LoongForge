@@ -28,7 +28,6 @@ import numpy as np
 
 from .utils.constant import DATATYPE_2_ID, IDTYPES_2_ID, IMAGETYPES_2_ID
 from .utils.image_enhance import ImageEnhance
-import logging
 
 logger = logging.getLogger(__name__)
 from .utils.processor_base import ProcessorBase
@@ -417,7 +416,7 @@ class ImageModificationProcessor(ProcessorBase):
                 grid_thw = np.array([[1, 2, 2]])
                 input_ids = np.array([self.im_patch_id] * 1 + [1])
                 labels = np.ones_like([self.im_patch_id] * 1 + [1]) * self.tokenizer.ignored_index
-                print(f"Exception create: labels")
+                print("Exception create: labels")
                 token_type_ids = np.array(
                     1 * [IDTYPES_2_ID["image"]] + 1 * [IDTYPES_2_ID["text"]],
                     dtype="int64",

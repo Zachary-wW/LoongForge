@@ -4,7 +4,7 @@
 """VLMTaskEncoder class."""
 
 import torch
-from typing import Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Union
 from typing_extensions import override
 from dataclasses import dataclass
 
@@ -650,7 +650,6 @@ class VLMTaskEncoder(BaseTaskEncoder):
             )
         has_text_only = not has_images and not has_videos
         media_list = images if has_images else videos
-        media_type = "image" if has_images else ("video" if has_videos else "text")
 
         if not has_text_only and len(media_list) != n_orig_sample:
             raise ValueError(

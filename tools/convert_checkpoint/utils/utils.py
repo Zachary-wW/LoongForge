@@ -12,7 +12,6 @@ from bisect import bisect_left
 from math import floor, ceil
 
 from typing import Tuple, Literal
-from typing import List
 
 
 import logging
@@ -371,7 +370,7 @@ def make_hf_sub_checkpoints(base_path):
                             i_str = file_base.split("-")[-1]
                             sub_count_str = file_count.split(".")[0]
                             i = int(i_str)
-                            sub_count = int(sub_count_str)
+                            int(sub_count_str)
 
                             # Update global counter
                             local_file_count += 1

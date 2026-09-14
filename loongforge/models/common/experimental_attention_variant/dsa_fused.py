@@ -805,7 +805,7 @@ class DSAttentionFused(MegatronModule):
             output: Output tensor [sq, b, hidden_size]
         """
         sq = query.size(0)
-        skv = key.size(0)
+        key.size(0)
 
         topk_holder = (
             get_dsa_index_share_topk_holder(

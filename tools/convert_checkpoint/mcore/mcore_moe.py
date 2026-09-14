@@ -3,8 +3,6 @@
 
 """Convert MoE checkpoint parameters between common and Megatron Core formats."""
 
-import io
-import torch
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -214,10 +212,10 @@ class McoreMoe(McoreBase):
             return
         for mt in range(m_tp):
             if self.etp is None:
-                t = mt
+                pass
             else:
                 et = mt
-                t = etp_to_tp[et]
+                etp_to_tp[et]
             if mt not in m_dict:
                 continue
             if t_name not in m_dict[mt]:

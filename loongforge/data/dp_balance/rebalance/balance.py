@@ -21,7 +21,6 @@ import torch
 from functools import partial
 from megatron.core import mpu
 import torch.distributed as dist
-from typing import List
 
 from megatron.training import get_args
 from loongforge.utils import constants
@@ -319,7 +318,8 @@ def solve_sample_dp_reorder_plan(
     # 1) cost function
     # ----------------------------------------
     if cost_fn is None:
-        cost_fn = lambda x: float(x * x)  # default: ViT
+        def cost_fn(x):
+            return float(x * x)  # default: ViT
 
     # ----------------------------------------
     # 2) build items

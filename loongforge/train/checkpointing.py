@@ -1414,7 +1414,6 @@ def _load_base_checkpoint(
         try:
             state_dict = torch.load(checkpoint_name, map_location="cpu", weights_only=False)
         except ModuleNotFoundError:
-            from megatron.legacy.fp16_deprecated import loss_scaler
 
             # For backward compatibility.
             if not rank0:

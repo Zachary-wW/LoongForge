@@ -90,7 +90,8 @@ def _validate_extra_model_args(args, config):
         _target = config.get("_target_") if hasattr(config, "get") else getattr(config, "_target_", None)
         if _target:
             try:
-                import importlib, dataclasses as _dc
+                import importlib
+                import dataclasses as _dc
 
                 _mod_path, _cls_name = _target.rsplit(".", 1)
                 _mod = importlib.import_module(_mod_path)
@@ -118,7 +119,7 @@ def _validate_extra_model_args(args, config):
     if args.enable_fa_within_mla:
         args.attention_backend = AttnBackend.flash
         print_rank_0(
-            f"--enable-fa-within-mla is enabled, setting attention backend to FlashAttention",
+            "--enable-fa-within-mla is enabled, setting attention backend to FlashAttention",
             args.rank,
         )
 
@@ -146,7 +147,7 @@ def _validate_extra_sft_args(args):
         raise ValueError("--tokenizer-type should be HFTokenizer when training phase is sft")
 
     args.dataloader_type = "external"
-    print_rank_0(f"INFO: Set dataloader type to external since --training-phase=SFT", args.rank)
+    print_rank_0("INFO: Set dataloader type to external since --training-phase=SFT", args.rank)
 
     if args.chat_template is None:
         raise ValueError("--chat-template is required when training phase is sft")
@@ -812,7 +813,8 @@ def _validate_custom_model_args(name, args, defaults={}):
         "fp16": torch.float16,
         "fp8": torch.uint8,
     }
-    map_dtype = lambda d: d if isinstance(d, torch.dtype) else dtype_map[d]
+    def map_dtype(d):
+        return d if isinstance(d, torch.dtype) else dtype_map[d]
 
     args.main_grads_dtype = map_dtype(args.main_grads_dtype)
     args.main_params_dtype = map_dtype(args.main_params_dtype)

@@ -9,7 +9,7 @@ import torch.distributed as dist
 import numpy as np
 from scipy.optimize import minimize
 
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Union
 
 from megatron.training import get_args
 from megatron.core import mpu
@@ -75,7 +75,7 @@ def solve_computation_coef(init=(0, 0, 0)):
     args_train = get_args()
     iteration = args_train.curr_iteration
 
-    dp_group = mpu.get_data_parallel_group_gloo(
+    mpu.get_data_parallel_group_gloo(
         with_context_parallel=False,
         partial_data_parallel=False,
     )
@@ -148,7 +148,7 @@ def set_warmup_c1(c1):
     iteration = args_train.curr_iteration
     if (
         not args_train.use_vlm_dp_balance
-        or not iteration in args_train.vlm_dp_balance_warmup_iters
+        or iteration not in args_train.vlm_dp_balance_warmup_iters
         or iteration == args_train.vlm_dp_balance_warmup_iters[0]
     ):
         return
@@ -178,7 +178,7 @@ def set_warmup_groups(data: Union[List[Dict[str, torch.Tensor]], Dict[str, torch
 
     if (
         not args_train.use_vlm_dp_balance
-        or not iteration in args_train.vlm_dp_balance_warmup_iters
+        or iteration not in args_train.vlm_dp_balance_warmup_iters
         or iteration == args_train.vlm_dp_balance_warmup_iters[0]
     ):
         return

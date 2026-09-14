@@ -36,7 +36,6 @@ from megatron.core.transformer.multi_token_prediction import (
     MTPLossLoggingHelper,
     MultiTokenPredictionBlock,
     roll_tensor,
-    tie_output_layer_state_dict,
     tie_word_embeddings_state_dict,
 )
 from megatron.core.transformer.spec_utils import ModuleSpec
@@ -878,7 +877,7 @@ class BaseGPTModel(BaseMegatronLanguageModule):
             # So there will be both embedding layer and output layer in the mtp process stage.
             # In this case, if share_embeddings_and_output_weights is True, the shared weights
             # will be stored in embedding layer, and output layer will not have any weight.
-            assert hasattr(self, "embedding"), f"embedding is needed in this pipeline stage, but it is not initialized."
+            assert hasattr(self, "embedding"), "embedding is needed in this pipeline stage, but it is not initialized."
             return self.embedding.word_embeddings.weight
         elif self.post_process:
             return self.output_layer.weight

@@ -10,10 +10,8 @@ from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 
-from convert_checkpoint.arguments import parse_args
 from convert_checkpoint.common.common_checkpoint import CommonCheckpoint
 from convert_checkpoint.utils.utils import (
-    transpose_shape0,
     convert_fp8_to_bf16,
 )
 from convert_checkpoint.huggingface.compressed_tensors_dequant import DTYPE_MAP
@@ -32,7 +30,6 @@ from convert_checkpoint.common.common_checkpoint import (
     MIXER_ATT_IN_PROJ,
     MIXER_ATT_IN_PROJ_QKVZ,
     MIXER_ATT_IN_PROJ_BA,
-    MIXER_ATT_CONV1D,
     ATTENTION_DENSE,
     ATTENTION_QNORM,
     ATTENTION_KNORM,
@@ -253,7 +250,7 @@ class HuggingfaceBase:
 
         if name in [ROTARY_EMB_INV_FREQ, ATTENTION_ROTARY_EMB_INV_FREQ]:
             assert self.use_rotary_position_embeddings, (
-                f"mcore args.use_rotary_position_embeddings is required to be set to True \
+                "mcore args.use_rotary_position_embeddings is required to be set to True \
                     since we capture the rotary_emb op"
             )
         hf_name, is_direct_name, is_dict_for_expert, need_transpose, no_layer_id, depend_on_key, _ = (
@@ -548,7 +545,7 @@ class HuggingfaceBase:
         else:
             if name in [ROTARY_EMB_INV_FREQ, ATTENTION_ROTARY_EMB_INV_FREQ]:
                 assert self.use_rotary_position_embeddings == True, (
-                    f"mcore args.use_rotary_position_embeddings is required to be set to True \
+                    "mcore args.use_rotary_position_embeddings is required to be set to True \
                         since we capture the rotary_emb op"
                 )
             if name == ATTENTION_QUERY_KEY_VALUE:

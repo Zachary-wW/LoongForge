@@ -9,7 +9,7 @@
 import weakref
 from contextlib import nullcontext
 from functools import partial
-from typing import Optional, Callable
+from typing import Callable
 
 import torch
 
@@ -165,7 +165,6 @@ class PreProcessNode(ScheduleNode):
         packed_seq_params = self.chunk_state.packed_seq_params
         image_inputs = self.chunk_state.image_inputs
         video_inputs = self.chunk_state.video_inputs
-        audio_inputs = self.chunk_state.audio_inputs
         decoder_input = self.chunk_state.decoder_input
 
         has_encoder_model = hasattr(model, "encoder_model")
@@ -181,7 +180,7 @@ class PreProcessNode(ScheduleNode):
                 inference_params is not None and "image_tokens_count" in inference_params.key_value_memory_dict
             )
             if use_inference_kv_cache:
-                vision_embeddings = None
+                pass
 
             if model.add_encoder and mpu.is_pipeline_first_stage() and self.enable_encoder_hetero_dp:
                 from loongforge.train.initialize import (
@@ -1093,7 +1092,7 @@ def build_mtp_layer_callables(layer):
 
         # MTP Layer Preprocess
         # norm, linear projection and transformer
-        assert node.chunk_state.context is None, f"multi token prediction + cross attention is not yet supported."
+        assert node.chunk_state.context is None, "multi token prediction + cross attention is not yet supported."
 
         if layer.config.sequence_parallel:
             rng_context = tensor_parallel.get_cuda_rng_tracker().fork()

@@ -18,11 +18,9 @@ import numpy as np
 import torch
 from PIL import Image
 from torchvision.transforms import InterpolationMode
-import torchvision
 import torchvision.transforms as T
 import torch.nn.functional as F
 import transformers
-import av
 import sys
 import cv2
 

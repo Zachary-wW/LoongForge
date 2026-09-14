@@ -4,11 +4,9 @@
 """utils for sft"""
 
 import logging
-import math
 from collections import deque, defaultdict, namedtuple
 
 from typing import TYPE_CHECKING, List, Optional, Union, Any, Type, Dict
-from dataclasses import dataclass
 import os
 import torch
 from torch.utils.data import DataLoader
@@ -643,10 +641,11 @@ class ChunkPipeGroupBatchSampler:
         synth_slots = []
         consumed = []
 
-        sizes_desc = lambda: sorted(
-            (k for k, dq in pool.items() if k != exclude_size and k < length and dq),
-            reverse=True,
-        )
+        def sizes_desc():
+            return sorted(
+                    (k for k, dq in pool.items() if k != exclude_size and k < length and dq),
+                    reverse=True,
+                )
 
         for _ in range(count):
             slot_components = []

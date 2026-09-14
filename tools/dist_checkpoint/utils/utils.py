@@ -10,7 +10,7 @@ Provides:
 
 import time
 import functools
-from typing import Callable, Any, Dict, Optional, TypeVar, Tuple, List
+from typing import Callable, Any, Dict, TypeVar, List
 from contextlib import contextmanager
 import torch
 import torch.distributed as dist
@@ -181,7 +181,7 @@ def profile_checkpoint_operation(
     if memory_tracker:
         memory_tracker.start()
 
-    start_time = timer.__enter__()
+    timer.__enter__()
 
     try:
         # Store memory_tracker in stats so nested code can update peak
@@ -226,7 +226,7 @@ def time_checkpoint_operation(func: F) -> F:
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        with profile_checkpoint_operation(operation_name=f"{func.__name__}", track_memory=True) as stats:
+        with profile_checkpoint_operation(operation_name=f"{func.__name__}", track_memory=True):
             result = func(*args, **kwargs)
         return result
 
@@ -331,9 +331,9 @@ class RankProfiler:
             import pickle
 
             if rank == 0:
-                stats_bytes = pickle.dumps(all_stats)
+                pickle.dumps(all_stats)
             else:
-                stats_bytes = None
+                pass
 
             # Simple gather: each rank sends to rank 0
             obj_list = [None] * world_size if rank == 0 else None

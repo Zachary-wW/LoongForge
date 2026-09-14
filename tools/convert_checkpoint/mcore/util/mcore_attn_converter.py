@@ -3,7 +3,6 @@
 
 """Mcore_checkpoint converter for megatron lm."""
 
-import io
 import torch
 import logging
 
@@ -13,7 +12,7 @@ logging.basicConfig(level=logging.INFO)
 class McoreAttnGateQkvConverter:
     def __init__(self, c_config):
         self.c_config = c_config
-        margs = self.c_config.get_args("mcore")
+        self.c_config.get_args("mcore")
         cargs = self.c_config.get_args("common")
 
         self.name_map = self.c_config.get_name_map("huggingface")

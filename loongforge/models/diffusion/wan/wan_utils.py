@@ -22,10 +22,10 @@ try:
     from .custom_ops import apply_rotary_interleaved
 
     _TRITON_ROPE_AVAILABLE = True
-    print_rank_0(f"triton available")
+    print_rank_0("triton available")
 except Exception as _e:
     _TRITON_ROPE_AVAILABLE = False
-    print_rank_0(f"triton not available")
+    print_rank_0("triton not available")
 
 
 def wan_rope_apply(

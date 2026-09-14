@@ -4,14 +4,12 @@
 """Utility helpers for loading, saving, and inspecting checkpoint artifacts."""
 
 import os
-import sys
 import torch
 import json
 import re
-from os.path import dirname
 from safetensors.torch import load_file, save_file
 from huggingface_hub import split_torch_state_dict_into_shards
-from transformers.modeling_utils import SAFE_WEIGHTS_INDEX_NAME, SAFE_WEIGHTS_NAME
+from transformers.modeling_utils import SAFE_WEIGHTS_INDEX_NAME
 from typing import List, Dict, Tuple
 
 
@@ -71,7 +69,7 @@ def load_huggingface_checkpoint(load_path):
 def save_huggingface_checkpoint(state_dict, save_path):
     """save ckpt"""
     os.makedirs(save_path, exist_ok=True)
-    checkpoint_path = os.path.join(save_path, "model.safetensors")
+    os.path.join(save_path, "model.safetensors")
 
     state_dict_split = split_torch_state_dict_into_shards(state_dict)
     for shard_file, tensors in state_dict_split.filename_to_tensors.items():

@@ -10,7 +10,6 @@ from torch import Tensor
 from typing import Dict
 
 from megatron.core import mpu
-from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.models.common.embeddings.rope_utils import (
     get_pos_emb_on_this_cp_rank as mcore_get_pos_emb_on_this_cp_rank,
 )
@@ -93,7 +92,7 @@ class _Select(torch.autograd.Function):
                 dtype=grad_output.dtype,
                 device=grad_output.device,
             )
-            cp_rank = mpu.get_context_parallel_rank()
+            mpu.get_context_parallel_rank()
             output[ctx.index] = grad_output.view(2, -1, *grad_output.shape[1:])
             output = output.view(-1, *output.shape[2:])
             return output, None

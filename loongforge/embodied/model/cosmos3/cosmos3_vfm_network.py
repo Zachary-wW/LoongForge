@@ -21,9 +21,7 @@ from .sequence_packing import ModalityData, PackedSequence
 from .attention import build_packed_sequence
 from .domain_aware_linear import DomainAwareLinear
 from .modeling_utils import (
-    FlattenedSinCosPositionEmbedding,
     TimestepEmbedder,
-    VideoRopePosition3DEmb,
 )
 
 
@@ -395,7 +393,7 @@ class Cosmos3VFMNetwork(PreTrainedModel):
                 w_patches = w_padded // p
             else:
                 # Fallback: use token shapes directly (assumes no padding was needed)
-                t_orig, h_orig, w_orig = t_c, h_c * p, w_c * p
+                _t_orig, h_orig, w_orig = t_c, h_c * p, w_c * p
                 h_patches, w_patches = h_c, w_c
 
             # noisy_frame_indexes_vision is a list of tensors, each with shape (T,),

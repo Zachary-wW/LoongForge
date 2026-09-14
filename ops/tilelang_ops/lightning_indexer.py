@@ -1,9 +1,7 @@
 """Lightning Indexer Kernels"""
 
 import torch
-import time
-from typing import Tuple, Optional
-import numpy as np
+from typing import Tuple
 import tilelang
 import tilelang.language as T
 
@@ -19,7 +17,7 @@ def fp8_index_baseline(
     Baseline for indexer forward.
     """
     b, m, h, d = q.shape
-    n = k.shape[1]
+    k.shape[1]
 
     logits = torch.einsum("bmhd,bnd->bmhn", q, k)
     relu_logits = torch.relu(logits)

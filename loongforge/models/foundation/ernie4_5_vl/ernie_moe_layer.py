@@ -13,7 +13,6 @@ from megatron.core.process_groups_config import ProcessGroupCollection
 from megatron.core.transformer.moe.moe_layer import MoESubmodules, MoELayer
 from megatron.core.transformer.moe.moe_utils import get_default_pg_collection
 from megatron.core.transformer.spec_utils import ModuleSpec, build_module
-from megatron.core import parallel_state
 from megatron.core.transformer import TransformerConfig
 from megatron.core.extensions.transformer_engine import te_checkpoint
 from loongforge.utils import get_args
@@ -87,7 +86,6 @@ class ErnieMoeLayer(MoELayer):
         """
         device = hidden_states.device
         num_rows, bs, hidden_size = hidden_states.shape
-        num_experts = self.config.num_moe_experts
         k = self.config.moe_router_topk
         expert_ids_flat = expert_id.reshape(-1)  # [num_rows * k]
 

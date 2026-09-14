@@ -187,7 +187,7 @@ def broadcast_qwen_image_batch_on_tp_group(batch):
 
 def get_batch(data_iterator):
     """Pull the next batch, broadcast across TP, and return the tensors used by ``forward_step``."""
-    args = get_args()
+    get_args()
     should_broadcast_batch = data_iterator is not None and mpu.get_tensor_model_parallel_world_size() > 1
     should_load_data = data_iterator is not None and mpu.get_tensor_model_parallel_rank() == 0
     if data_iterator is not None and not should_load_data:

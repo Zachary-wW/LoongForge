@@ -16,7 +16,6 @@ from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.transformer.module import MegatronModule
 from megatron.core.packed_seq_params import PackedSeqParams
 from megatron.core.transformer.transformer_config import TransformerConfig
-from megatron.core.transformer.dot_product_attention import DotProductAttention
 
 
 try:

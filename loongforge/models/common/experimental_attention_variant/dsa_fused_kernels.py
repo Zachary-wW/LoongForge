@@ -4,7 +4,7 @@
 """Kernels for Deepseek Sparse Attention."""
 
 import dataclasses
-from typing import Optional, Tuple, Any
+from typing import Optional
 from packaging.version import Version as PkgVersion
 
 import torch
@@ -33,7 +33,6 @@ from megatron.core.packed_seq_params import PackedSeqParams
 from megatron.core.transformer.enums import AttnMaskType
 from megatron.core.utils import get_te_version, is_te_min_version
 from megatron.core.fusions.fused_mla_yarn_rope_apply import _get_thd_token_idx
-from megatron.core.fusions.fused_mla_yarn_rope_apply import ApplyMLARotaryEmbQ as ApplyMLARotaryEmbQNonInterleaved
 
 try:
     import transformer_engine.pytorch as te
@@ -276,7 +275,8 @@ class ApplyMLARotaryEmbQInterleaved(torch.autograd.Function):
         assert headdim == qk_head_dim + emb_dim
         assert emb_dim % 4 == 0
 
-        grid = lambda META: (total_seqlen, triton.cdiv(nheads, META["BLOCK_H"]))
+        def grid(META):
+            return (total_seqlen, triton.cdiv(nheads, META["BLOCK_H"]))
         rotary_fwd_q_kernel_interleaved[grid](
             q,
             cos,
@@ -326,7 +326,8 @@ class ApplyMLARotaryEmbQInterleaved(torch.autograd.Function):
             total_seqlen, nheads, headdim = grad.shape
         assert grad.stride(-1) == 1
 
-        grid = lambda META: (total_seqlen, triton.cdiv(nheads, META["BLOCK_H"]))
+        def grid(META):
+            return (total_seqlen, triton.cdiv(nheads, META["BLOCK_H"]))
         rotary_bwd_q_kernel_interleaved[grid](
             grad,
             cos,
@@ -536,7 +537,8 @@ class ApplyMLARotaryEmbQNonInterleavedWithOffset(torch.autograd.Function):
         assert headdim == qk_head_dim + emb_dim
         assert emb_dim % 4 == 0
 
-        grid = lambda META: (total_seqlen, triton.cdiv(nheads, META["BLOCK_H"]))
+        def grid(META):
+            return (total_seqlen, triton.cdiv(nheads, META["BLOCK_H"]))
         rotary_fwd_q_kernel_non_interleaved[grid](
             q,
             cos,
@@ -580,7 +582,8 @@ class ApplyMLARotaryEmbQNonInterleavedWithOffset(torch.autograd.Function):
             total_seqlen, nheads, headdim = grad.shape
         assert grad.stride(-1) == 1
 
-        grid = lambda META: (total_seqlen, triton.cdiv(nheads, META["BLOCK_H"]))
+        def grid(META):
+            return (total_seqlen, triton.cdiv(nheads, META["BLOCK_H"]))
         rotary_bwd_q_kernel_non_interleaved[grid](
             grad,
             cos,
@@ -656,7 +659,7 @@ def fused_rope_permute_cat_fwd_kernel_non_interleaved(
     h_offs = pid_head * BLOCK_H + tl.arange(0, BLOCK_H)  # [BLOCK_H]
     h_mask = h_offs < head_num
 
-    d_total = d_out + emb_dim
+    d_out + emb_dim
 
     # Part 1: permute q_content (HSD → SHD)
     # Read  Q_CONTENT[h_offs, pid_m, d] and write to OUTPUT[pid_m, h_offs, d]
@@ -751,7 +754,7 @@ def fused_rope_permute_cat_fwd_kernel_interleaved(
     h_offs = pid_head * BLOCK_H + tl.arange(0, BLOCK_H)
     h_mask = h_offs < head_num
 
-    d_total = d_out + emb_dim
+    d_out + emb_dim
 
     # Part 1: permute q_content (HSD → SHD)
     for d_start in range(0, d_out, 64):
@@ -844,7 +847,7 @@ def fused_rope_permute_cat_bwd_kernel_non_interleaved(
     h_offs = pid_head * BLOCK_H + tl.arange(0, BLOCK_H)
     h_mask = h_offs < head_num
 
-    d_total = d_out + emb_dim
+    d_out + emb_dim
 
     # Part 1: grad_q_content: SHD → HSD (inverse permute)
     for d_start in range(0, d_out, 64):
@@ -942,7 +945,7 @@ def fused_rope_permute_cat_bwd_kernel_interleaved(
     h_offs = pid_head * BLOCK_H + tl.arange(0, BLOCK_H)
     h_mask = h_offs < head_num
 
-    d_total = d_out + emb_dim
+    d_out + emb_dim
 
     # Part 1: inverse permute (SHD → HSD)
     for d_start in range(0, d_out, 64):
@@ -1039,7 +1042,8 @@ class FusedRopePermuteCat(torch.autograd.Function):
         batch_size = b if cu_seqlens_q is None else None
         seq_num = (len(cu_seqlens_q) - 1) if cu_seqlens_q is not None else None
 
-        grid = lambda META: (S, triton.cdiv(nheads, META["BLOCK_H"]))
+        def grid(META):
+            return (S, triton.cdiv(nheads, META["BLOCK_H"]))
 
         kernel = (
             fused_rope_permute_cat_fwd_kernel_interleaved
@@ -1098,7 +1102,8 @@ class FusedRopePermuteCat(torch.autograd.Function):
         batch_size = b if ctx.cu_seqlens_q is None else None
         seq_num = (len(ctx.cu_seqlens_q) - 1) if ctx.cu_seqlens_q is not None else None
 
-        grid = lambda META: (S, triton.cdiv(nheads, META["BLOCK_H"]))
+        def grid(META):
+            return (S, triton.cdiv(nheads, META["BLOCK_H"]))
 
         kernel = (
             fused_rope_permute_cat_bwd_kernel_interleaved
@@ -1668,7 +1673,8 @@ class ApplyMLARotaryEmbAbsorbKV(torch.autograd.Function):
 
         o_key = kv.new_empty(total_seqlen, nheads, emb_dim + k_dim)
 
-        grid = lambda META: (total_seqlen, triton.cdiv(nheads, META["BLOCK_H"]))
+        def grid(META):
+            return (total_seqlen, triton.cdiv(nheads, META["BLOCK_H"]))
 
         # Choose kernel based on mode
         if rotary_interleaved:
@@ -1751,7 +1757,8 @@ class ApplyMLARotaryEmbAbsorbKV(torch.autograd.Function):
         d_kv = dk.new_empty(total_seqlen, nheads, ctx.k_dim)
         d_emb = dk.new_empty(total_seqlen, 1, ctx.emb_dim)
 
-        grid = lambda META: (total_seqlen, triton.cdiv(nheads, META["BLOCK_H"]))
+        def grid(META):
+            return (total_seqlen, triton.cdiv(nheads, META["BLOCK_H"]))
 
         # Choose kernel based on mode
         if ctx.rotary_interleaved:

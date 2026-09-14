@@ -25,7 +25,6 @@ from megatron.core.tensor_parallel.mappings import (
     gather_from_sequence_parallel_region,
     gather_from_tensor_model_parallel_region,
     reduce_from_tensor_model_parallel_region,
-    scatter_to_sequence_parallel_region,
 )
 
 from megatron.core.transformer.enums import AttnMaskType
@@ -43,7 +42,6 @@ from megatron.core.transformer.experimental_attention_variant.dsa_kernels import
     build_flat_topk_idxs,
     dsa_sparse_attn,
     fused_indexer_sparse_attn,
-    indexer_topk,
 )
 
 from megatron.core.transformer.module import MegatronModule
@@ -3145,7 +3143,6 @@ class CompressedSparseAttention(MegatronModule):
         compressed_kv_local = None
         seq_to_rank_row = None
         compressed_topk = None
-        n_compressed_all = 0
         compressed_kv_rank_major = kv_local.new_empty((0, kv_local.shape[-1]))
         # Indexer-loss state (only populated on ratio==4 layers while training).
         q_indexer_cp = None
@@ -3239,7 +3236,7 @@ class CompressedSparseAttention(MegatronModule):
                 if compressed_kv_local.ndim == 3 and compressed_kv_local.shape[1] == 1:
                     compressed_kv_local = compressed_kv_local.squeeze(1)
                 compressed_kv_rank_major = gather_from_sequence_parallel_region(compressed_kv_local, group=cp_group)
-                n_compressed_all = compressed_kv_rank_major.shape[0]
+                compressed_kv_rank_major.shape[0]
 
         # Step 6: Build kv_full (Megatron-LM layout: boundary | local | rank-major compressed)
         d_window = boundary_kv.shape[0] if boundary_kv is not None else 0

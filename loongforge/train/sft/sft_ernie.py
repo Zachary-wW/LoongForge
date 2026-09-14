@@ -3,9 +3,7 @@
 
 """Sft script for Ernie"""
 
-import os
 import logging
-import numpy as np
 import torch
 import torch.nn.functional as F
 from functools import partial
@@ -182,7 +180,6 @@ def forward_step(data_iterator, model):
         ) = get_batch(data_iterator)
     timers("batch-generator").stop()
 
-    extra_input = {}
     model_config = get_model_config()
     image_mask = input_ids == model_config.foundation.im_patch_id
     # breakpoint()

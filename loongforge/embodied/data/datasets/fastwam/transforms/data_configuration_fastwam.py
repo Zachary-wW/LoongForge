@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from loongforge.embodied.model.fastwam.modeling_configuration_fastwam import FastWAMModelConfig
+    pass
 
 
 @dataclass(frozen=True)

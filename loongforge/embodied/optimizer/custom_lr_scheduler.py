@@ -7,7 +7,6 @@
 
 """Module for custom_lr_scheduler."""
 
-from typing import Optional
 
 import numpy as np
 import logging

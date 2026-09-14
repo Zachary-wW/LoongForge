@@ -299,7 +299,7 @@ class Cosmos3ActionTransform(BaseTransform):
         fps = data.get("conditioning_fps", torch.tensor(15.0))
         domain_id = data.get("domain_id", torch.tensor(0, dtype=torch.long))
         idle_frames = data.get("idle_frames", torch.tensor(0, dtype=torch.long))
-        mode = data.get("mode", "policy")
+        data.get("mode", "policy")
         description = data.get("additional_view_description")
 
         # 1. Frame alignment: (T - 1) % temporal_compression == 0

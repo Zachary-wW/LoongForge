@@ -17,7 +17,7 @@ from contextlib import contextmanager, nullcontext
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import TYPE_CHECKING, Any, Callable, Container, Optional
+from typing import Callable, Container, Optional
 from einops import rearrange
 import logging
 

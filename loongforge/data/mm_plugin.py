@@ -28,14 +28,11 @@ from typing import (
     List,
     Optional,
     Sequence,
-    Tuple,
     TypedDict,
     Union,
-    Type,
 )
 
 import numpy as np
-from transformers.image_utils import get_image_size, to_numpy_array
 from typing_extensions import override
 
 from loongforge.utils.constants import Placeholder

@@ -8,15 +8,10 @@ import sys
 import argparse
 from os.path import dirname
 import torch
-import shutil
 
 SCRIPT_DIR = dirname(os.path.abspath(__file__))
 sys.path.append(dirname(dirname(SCRIPT_DIR)))
 
-from convert_checkpoint.utils.ckpt_util import (
-    load_megatron_checkpoint,
-    save_megatron_checkpoint,
-)
 
 
 from convert_checkpoint.key_mappings.to_vanilla_key import transform_key_reverse
@@ -100,7 +95,7 @@ def process_checkpoint_shards(
     sub_dirs = sorted([x for x in os.listdir(input_dir) if x.startswith("mp_rank")])
     for sub_dir in sub_dirs:
         splits = sub_dir.split("_")
-        t = int(splits[2])
+        int(splits[2])
         checkpoint_name = f"{sub_dir}/model_optim_rng.pt"
         checkpoint_path = os.path.join(input_dir, checkpoint_name)
         print(f"Load Megatron Shard:{checkpoint_path}")

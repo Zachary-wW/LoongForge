@@ -49,7 +49,7 @@ from megatron.core.num_microbatches_calculator import (
 from megatron.core.fp8_utils import correct_amax_history_if_needed
 from megatron.core.transformer.module import Float16Module
 from megatron.core.enums import ModelType
-from megatron.core import mpu, tensor_parallel
+from megatron.core import tensor_parallel
 from megatron.training.utils import to_empty_if_meta_device
 from megatron.core.distributed import (
     DistributedDataParallelConfig,
@@ -81,7 +81,6 @@ from megatron.training.global_vars import get_energy_monitor
 from megatron.core.parallel_state import update_pg_timeout
 
 from megatron.training import (
-    get_signal_handler,
     get_timers,
     get_tensorboard_writer,
     get_wandb_writer,
@@ -94,7 +93,6 @@ from megatron.training.initialize import (
     set_jit_fusion_options,
 )
 from .checkpointing import (
-    load_checkpoint,
     save_checkpoint,
     checkpoint_exists,
 )
@@ -135,8 +133,6 @@ from loongforge.data.dp_balance.train_hooks import train_step_decorator, train_l
 
 
 # Add project root to Python path
-import sys
-import os
 
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if project_root not in sys.path:
@@ -314,7 +310,8 @@ def add_hooks(model, args, prefix):
     """add hooks for model, only enable hooks when open the switch: enable-log-tensor"""
     print_rank_0(f"Set up Log Tensor Hook:\n  name pattern: {args.log_tensor_name_pattern}\n")
     rank = torch.distributed.get_rank()
-    log_fn = lambda string: print(f"[Rank {rank}] {string}")
+    def log_fn(string):
+        return print(f"[Rank {rank}] {string}")
     matched_modules = register_hooks(model, args, rank, log_fn, prefix)
     if len(matched_modules) > 0:
         print_rank_0(f"For log tensor name pattern: {args.log_tensor_name_pattern}, find the following layers:")
@@ -627,27 +624,27 @@ def check_vlm_peft_config(model_config):
         and model_config.image_encoder.freeze
         and peft_config.apply_to_image_encoder
     ):
-        raise ValueError(f"Cannot freeze image encoder when using PEFT.")
+        raise ValueError("Cannot freeze image encoder when using PEFT.")
     if (
         model_config.image_projector is not None
         and model_config.image_projector.freeze
         and peft_config.apply_to_image_projector
     ):
-        raise ValueError(f"Cannot freeze image projector when using PEFT.")
+        raise ValueError("Cannot freeze image projector when using PEFT.")
     if model_config.foundation is not None and model_config.foundation.freeze and peft_config.apply_to_foundation:
-        raise ValueError(f"Cannot freeze foundation model when using PEFT.")
+        raise ValueError("Cannot freeze foundation model when using PEFT.")
     if (
         model_config.video_encoder is not None
         and model_config.video_encoder.freeze
         and peft_config.apply_to_video_encoder
     ):
-        raise ValueError(f"Cannot freeze video encoder when using PEFT.")
+        raise ValueError("Cannot freeze video encoder when using PEFT.")
     if (
         model_config.video_projector is not None
         and model_config.video_projector.freeze
         and peft_config.apply_to_video_projector
     ):
-        raise ValueError(f"Cannot freeze video projector when using PEFT.")
+        raise ValueError("Cannot freeze video projector when using PEFT.")
     target_prefix = []
     if peft_config.apply_to_foundation:
         target_prefix.append("foundation")
@@ -1419,11 +1416,11 @@ def train_step(
     timers = get_timers()
 
     if args.enable_full_hetero_dp:
-        import itertools, copy
+        import itertools
+        import copy
         from loongforge.train.initialize import (
             get_num_micro_batches_per_decoder_dp,
             get_num_real_micro_batches_per_decoder_dp,
-            change_parallel_state,
         )
         from loongforge.train.pretrain.pretrain_vlm import (
             get_batch,
@@ -1470,7 +1467,6 @@ def train_step(
         for round in range(encoder_rounds):
             batch_list.clear()
             front = pp_layer * tp_size + round * model_size
-            all_mock_in_range = front >= num_real_microbatch
             for tp_idx in range(tp_size):
                 global_mb_idx = front + tp_idx
                 if global_mb_idx >= num_real_microbatch:
