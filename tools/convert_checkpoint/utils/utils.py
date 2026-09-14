@@ -494,6 +494,7 @@ def get_layer_ids(c_config, args, p):
         args.mtp_num_layers if args.mtp_num_layers is not None else cargs.get("mtp_num_layers", 0)
     )  # MTP additional layers, default 0
     num_layers_per_stage = args.num_layers_per_virtual_pipeline_stage
+    pp = args.pipeline_model_parallel_size  # Pipeline parallel size
     # Calculate number of virtual pipeline stages
     if num_layers_per_stage:
         stage = num_layers // pp // num_layers_per_stage
@@ -501,7 +502,6 @@ def get_layer_ids(c_config, args, p):
         stage = args.num_virtual_stages_per_pipeline_rank or 1
 
     dualpipev = args.vpp_scheduler == "dualpipev"  # Check whether to use dualpipev scheduler
-    pp = args.pipeline_model_parallel_size  # Pipeline parallel size
     custom_pipeline_layers = args.custom_pipeline_layers  # Custom pipeline layer assignment
     num_layers_in_first_pipeline_stage = (
         args.decoder_first_pipeline_num_layers

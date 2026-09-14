@@ -23,7 +23,7 @@ try:
     import rearrange
 
     HAVE_FLASH_ATTN = True
-except:
+except Exception:
     HAVE_FLASH_ATTN = False
 
 

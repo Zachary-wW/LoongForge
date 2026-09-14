@@ -40,8 +40,10 @@ except ImportError:
     SplitAlongDim = None
 
 try:
+    from flashattn_hopper.flash_attn_interface import flash_attn_with_kvcache as flash_attn3_with_kvcache  # noqa: F401
+
     HAVE_FA3 = True
-except:
+except Exception:
     HAVE_FA3 = False
 
 

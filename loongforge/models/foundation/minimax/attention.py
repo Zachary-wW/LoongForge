@@ -29,7 +29,7 @@ from megatron.core.extensions.transformer_engine import SplitAlongDim
 
 try:
     from flash_attn import flash_attn_with_kvcache
-except:
+except Exception:
     flash_attn_with_kvcache = None
 
 from megatron.core.tensor_parallel.mappings import (

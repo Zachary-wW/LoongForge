@@ -13,14 +13,14 @@ try:
     from apex.normalization.fused_layer_norm import FusedRMSNorm as ApexFusedRMSNorm
 
     HAVE_FUSED_RMS_NORM = True
-except:
+except Exception:
     HAVE_FUSED_RMS_NORM = False
 
 try:
     from apex.normalization.fused_layer_norm import FusedLayerNorm as ApexFusedLayerNorm
 
     HAVE_FUSED_LAYER_NORM = True
-except:
+except Exception:
     HAVE_FUSED_LAYER_NORM = False
 
 

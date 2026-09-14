@@ -34,6 +34,7 @@ from megatron.core import tensor_parallel
 from megatron.core.transformer.mlp import MLP, apply_swiglu_sharded_factory
 from megatron.core.transformer.moe.experts import SequentialMLP as MegaSequentialMLP
 from megatron.core.process_groups_config import ProcessGroupCollection
+from loongforge.utils import is_te_min_version
 
 try:
     import transformer_engine  # pylint: disable=unused-import  # noqa: F401

@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 from megatron.core.transformer.module import MegatronModule
 from megatron.core.models.common.language_module.language_module import LanguageModule
 from megatron.core.process_groups_config import ProcessGroupCollection
+from megatron.core.models.common.vision_module.vision_module import VisionModule  # noqa: F401  # re-export
 
 
 class BaseMegatronLanguageModule(LanguageModule):
