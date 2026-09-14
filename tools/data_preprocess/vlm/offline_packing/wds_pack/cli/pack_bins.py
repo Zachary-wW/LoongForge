@@ -139,7 +139,8 @@ def run_hashbucket_processor(processor, tracker, max_token_len):
         return bins_boxs
     int(mean - (mean - min_) * 0.1)
     print(
-        f"in the first round of end ----------the current processing box number: {len(bin_boxs_001)}, total box {len(bins_boxs)}, handle the {num - tmp_num} items, remaining {num} the items"
+        f"in the first round of end ----------the current processing box number: {len(bin_boxs_001)}, "
+        f"total box {len(bins_boxs)}, handle the {num - tmp_num} items, remaining {num} the items"
     )
     # tmp_items=[(1,0.96),(5,0.96),(5,0.94),(6,0.92),(4,0.92),(4,0.92)]
     tmp_items = [(1, 0.96), (1, 0.95), (8, 0.9), (4, 0.92), (6, 0.92), (4, 0.9)]
@@ -162,7 +163,9 @@ def run_hashbucket_processor(processor, tracker, max_token_len):
         bins_boxs.extend(bin_boxs_turn)
         mean, min_, max_, tmp_num = get_hs(processor.hash_buckets)
         print(
-            f" the {turn + i + 1} th round ends ---------- current number of processed boxes: {len(bin_boxs_turn)}, total box {len(bins_boxs)}, processed {num - tmp_num}items, remaining {tmp_num}items"
+            f" the {turn + i + 1} th round ends ---------- current number of processed boxes: "
+            f"{len(bin_boxs_turn)}, total box {len(bins_boxs)}, "
+            f"processed {num - tmp_num}items, remaining {tmp_num}items"
         )
         num = tmp_num
 
@@ -183,7 +186,8 @@ def run_hashbucket_processor(processor, tracker, max_token_len):
             bins_boxs.extend(bin_boxs_TOP)
             mean, min_, max_, tmp_num = get_hs(processor.hash_buckets)
             print(
-                f"top{i} end----------the current processing box number: {len(bin_boxs_TOP)}, total box{len(bins_boxs)},handle the{num - tmp_num}items,remaining {tmp_num} items"
+                f"top{i} end----------the current processing box number: {len(bin_boxs_TOP)}, "
+                f"total box{len(bins_boxs)},handle the{num - tmp_num}items,remaining {tmp_num} items"
             )
             if num - tmp_num < 3000:
                 break
@@ -208,7 +212,9 @@ def run_hashbucket_processor(processor, tracker, max_token_len):
             bins_boxs.extend(bin_boxs_turn)
             mean, min_, max_, tmp_num = get_hs(processor.hash_buckets)
             print(
-                f" the final pack_with_flexible_seeds end ---------- current number of processed boxes: {len(bin_boxs_turn)}, total box {len(bins_boxs)}, processed {num - tmp_num}items, remaining {tmp_num}items"
+                f" the final pack_with_flexible_seeds end ---------- "
+                f"current number of processed boxes: {len(bin_boxs_turn)}, "
+                f"total box {len(bins_boxs)}, processed {num - tmp_num}items, remaining {tmp_num}items"
             )
             num = tmp_num
 
@@ -228,7 +234,8 @@ def run_hashbucket_processor(processor, tracker, max_token_len):
             print(len(bin_boxs_simplest))
             bins_boxs.extend(bin_boxs_simplest)
             print(
-                f"finally----------the current processing box number: {len(bin_boxs_simplest)}, total box{len(bins_boxs)}"
+                f"finally----------the current processing box number: {len(bin_boxs_simplest)}, "
+                f"total box{len(bins_boxs)}"
             )
     return bins_boxs
 

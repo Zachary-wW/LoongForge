@@ -69,7 +69,8 @@ def get_chat_template(sample_type: str, model_type: str) -> Template:
     Retrieve a chat template string and wrap it as a Template object.
 
     Args:
-        sample_type (str): The logical task category, e.g. "packed_captioning", "packed_vqa", "packed_multi_mix_qa", etc.
+        sample_type (str): The logical task category, e.g. "packed_captioning", "packed_vqa",
+            "packed_multi_mix_qa", etc.
         model_type (str): The model identifier, used for selecting model-specific templates.
 
     Returns:
@@ -447,7 +448,8 @@ def process_sample(json_path: Union[str, Path], chat_template, processor) -> Tup
         if not text_data:
             raise ValueError(f"Missing '{TEMPLATE_TEXT_KEY}' field in {json_path}")
         # Allow templates to reference either the configured key or a default "messages".
-        # This keeps existing templates (which hardcode `messages`) working when config uses another key (e.g., `texts`).
+        # This keeps existing templates (which hardcode `messages`) working when config
+        # uses another key (e.g., `texts`).
         render_payload = {TEMPLATE_TEXT_KEY: text_data}
         if TEMPLATE_TEXT_KEY != "messages":
             render_payload["messages"] = text_data
@@ -518,7 +520,8 @@ def process_chunk(
         json_paths = [webdataset_dir / f"{fn}.json" for fn in sample_record_chunk]
         n_samples = len(json_paths)
         logger.info(
-            f"Process {multiprocessing.current_process().name} starts processing chunk {chunk_idx}, containing {n_samples} samples"
+            f"Process {multiprocessing.current_process().name} starts processing chunk {chunk_idx}, "
+            f"containing {n_samples} samples"
         )
 
         # 1. Prepare processor & worker pool
@@ -614,7 +617,8 @@ def merge_by_batch(
                     buffer.append(file_path)
                     queue_to_merge.task_done()
                     logger.debug(
-                        f"merge_by_batch received file {Path(file_path)}, current buffer: {len(buffer)}/{merge_batch_size}"
+                        f"merge_by_batch received file {Path(file_path)}, "
+                        f"current buffer: {len(buffer)}/{merge_batch_size}"
                     )
 
                     # Start merging when the number of files in the buffer reaches batch_size
@@ -878,7 +882,8 @@ def main():
 
         if total_processed != original_sample_count:
             logger.warning(
-                f"Data incomplete! Original {original_sample_count}, valid processed {total_processed}, difference {original_sample_count - total_processed}"
+                f"Data incomplete! Original {original_sample_count}, valid processed {total_processed}, "
+                f"difference {original_sample_count - total_processed}"
             )
         else:
             logger.info("Data integrity verification passed, all samples processed successfully")

@@ -13,7 +13,7 @@ import shutil
 from typing import Dict, List, Any
 
 logger = create_color_logger(name=__name__)
-import glob
+import glob  # noqa: E402
 
 
 class PrecessDataCheckTask(BaseTask):
@@ -92,7 +92,8 @@ class PrecessDataCheckTask(BaseTask):
             assert len(bin_files) > 0, "No .bin files found in " + output_dir
             assert len(idx_files) > 0, "No .idx files found in " + output_dir
             logger.info(
-                f"LLM pretrain preprocess data check passed: found {len(bin_files)} .bin files and {len(idx_files)} .idx files in {output_dir}"
+                f"LLM pretrain preprocess data check passed: found {len(bin_files)} .bin files "
+                f"and {len(idx_files)} .idx files in {output_dir}"
             )
 
         elif step_stage == "llm_sft":
@@ -120,7 +121,8 @@ class PrecessDataCheckTask(BaseTask):
                 json_data = json.load(f)
             expected_count = len(json_data)
             assert total_shard_count == expected_count, (
-                f"Shard count mismatch: .info.yaml has {total_shard_count} samples, but JSON has {expected_count} messages"
+                f"Shard count mismatch: .info.yaml has {total_shard_count} samples, "
+                f"but JSON has {expected_count} messages"
             )
             logger.info(
                 f"VLM preprocess data check passed: {total_shard_count} samples match {expected_count} messages"
@@ -190,9 +192,15 @@ class PrecessDataCheckTask(BaseTask):
         self.create_shell_file(model_config, script_path, new_script_path)
 
         # Open a new file to write script output
-        training_log_file = f"{training_log_path}/precess_data#{model_name}#nodes_{self.input_cmd_args.node_nums}#{self.rank_name}#run.log"
+        training_log_file = (
+            f"{training_log_path}/precess_data#{model_name}#nodes_"
+            f"{self.input_cmd_args.node_nums}#{self.rank_name}#run.log"
+        )
 
-        start_command = f'{env_vars_str} bash -c "set -o pipefail; bash {scripts_root_path}/executor/{step_name}/run.sh |tee {training_log_file}"'
+        start_command = (
+            f'{env_vars_str} bash -c "set -o pipefail; '
+            f'bash {scripts_root_path}/executor/{step_name}/run.sh |tee {training_log_file}"'
+        )
         logger.info(f"{step_stage} {step_name} Start: {start_command} .")
         if os.system(start_command) != 0:
             raise RuntimeError(f"Start {step_stage} {step_name} error, cmd is {start_command}")
@@ -240,7 +248,8 @@ class PrecessDataCheckTask(BaseTask):
     def __call__(self) -> TaskResut:
         if not self.MODEL_RUNNABLE:
             logger.warn(
-                f"{self.class_name} current model {self.model_name} does not support {self.class_name} task, skipping!!!"
+                f"{self.class_name} current model {self.model_name} does not support "
+                f"{self.class_name} task, skipping!!!"
             )
             return TaskResut()
 
@@ -255,7 +264,8 @@ class PrecessDataCheckTask(BaseTask):
                     # pretrain, sft:
                     step_name = key
                     logger.info(
-                        f"{self.class_name} Model [{model_name}] - [{scenario_name}] - [{step_name}] Execution Start ..."
+                        f"{self.class_name} Model [{model_name}] - [{scenario_name}] - [{step_name}] "
+                        f"Execution Start ..."
                     )
 
                     runnable_flag = self.model["scenarios"][index][scenario_name][step_name].get("RUNNABLE_FLAG")
@@ -281,7 +291,8 @@ class PrecessDataCheckTask(BaseTask):
                         )
                     else:
                         logger.info(
-                            f"{self.class_name} Model [{model_name}] - [{scenario_name}] - [{step_name}] RUNNABLE_FLAG is false, skipping.\n"
+                            f"{self.class_name} Model [{model_name}] - [{scenario_name}] - [{step_name}] "
+                            f"RUNNABLE_FLAG is false, skipping.\n"
                         )
 
                 logger.info(f"{self.class_name} Model [{model_name}] - [{scenario_name}] Execution End \n")

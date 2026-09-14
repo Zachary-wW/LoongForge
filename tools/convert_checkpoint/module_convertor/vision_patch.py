@@ -13,15 +13,15 @@ from copy import deepcopy
 SCRIPT_DIR = dirname(os.path.abspath(__file__))
 sys.path.append(dirname(dirname(SCRIPT_DIR)))
 
-from convert_checkpoint.arguments import parse_args
-from convert_checkpoint.utils.ckpt_util import (
+from convert_checkpoint.arguments import parse_args  # noqa: E402
+from convert_checkpoint.utils.ckpt_util import (  # noqa: E402
     load_megatron_checkpoint,
     save_megatron_checkpoint,
     load_huggingface_checkpoint,
     save_huggingface_checkpoint,
 )
 
-from convert_checkpoint.utils.config_utils import parse_at_configs, load_config, parallel_param_parser
+from convert_checkpoint.utils.config_utils import parse_at_configs, load_config, parallel_param_parser  # noqa: E402
 
 
 args = parse_args()

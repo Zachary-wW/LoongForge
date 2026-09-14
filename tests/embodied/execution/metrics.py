@@ -14,7 +14,8 @@ Two sources (the execution layer prefers JSONL, falling back to the stdout log w
    throughput (samples/sec/per_device): 0.530 | learning rate: 5.000000E-08 |
    global batch size: 64 | action loss: 4.337645E-01 | loss scale: 1.0 | grad norm: 4.188855 | ...
 
-   Note: loss keys are printed with spaces in the log (key.replace("_", " ")), and are restored to the underscore form after parsing.
+   Note: loss keys are printed with spaces in the log (key.replace("_", " ")), and are restored to
+   the underscore form after parsing.
 
 Unified output record format (aligned with the baseline JSON):
    {"iteration": 1, "elapsed_time_ms": 15098.4, "throughput": 0.53,

@@ -40,9 +40,9 @@ from .utils.io_utils import image_info_2_hash
 import logging
 
 logger = logging.getLogger(__name__)
-from .utils.processor_base import ProcessorBase
-from .utils.video_utils import group_frame_by_video
-from .tokenizer_vl import (
+from .utils.processor_base import ProcessorBase  # noqa: E402
+from .utils.video_utils import group_frame_by_video  # noqa: E402
+from .tokenizer_vl import (  # noqa: E402
     NOT_FOUND_TOKEN_ID,
     SFT_IMAGE_END_TOKEN,
     SFT_IMAGE_START_TOKEN,

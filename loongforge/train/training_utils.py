@@ -27,35 +27,35 @@ from megatron.core.optimizer.distrib_optimizer import DistributedOptimizer
 # Make default logging level INFO, but filter out all log messages not from MCore.
 logging.basicConfig(handlers=[CustomHandler()], level=logging.INFO)
 
-import time
+import time  # noqa: E402
 
 # The earliest we can measure the start time.
 _TRAIN_START_TIME = time.time()
-import torch
-from collections import OrderedDict
-from .checkpointing import load_checkpoint, _load_checkpoint_from_path
-from megatron.core import mpu
-from megatron.core.utils import (
+import torch  # noqa: E402
+from collections import OrderedDict  # noqa: E402
+from .checkpointing import load_checkpoint, _load_checkpoint_from_path  # noqa: E402
+from megatron.core import mpu  # noqa: E402
+from megatron.core.utils import (  # noqa: E402
     check_param_hashes_across_dp_replicas,
     get_model_config,
     StragglerDetector,
 )
-from megatron.core.num_microbatches_calculator import (
+from megatron.core.num_microbatches_calculator import (  # noqa: E402
     get_num_microbatches,
     update_num_microbatches,
     get_current_global_batch_size,
     get_current_running_global_batch_size,
 )
-from megatron.core.fp8_utils import correct_amax_history_if_needed
-from megatron.core.transformer.module import Float16Module
-from megatron.core.enums import ModelType
-from megatron.core import tensor_parallel
-from megatron.training.utils import to_empty_if_meta_device
-from megatron.core.distributed import (
+from megatron.core.fp8_utils import correct_amax_history_if_needed  # noqa: E402
+from megatron.core.transformer.module import Float16Module  # noqa: E402
+from megatron.core.enums import ModelType  # noqa: E402
+from megatron.core import tensor_parallel  # noqa: E402
+from megatron.training.utils import to_empty_if_meta_device  # noqa: E402
+from megatron.core.distributed import (  # noqa: E402
     DistributedDataParallelConfig,
     TorchFullyShardedDataParallelConfig,
 )
-from megatron.core.transformer.cuda_graphs import TECudaGraphHelper
+from megatron.core.transformer.cuda_graphs import TECudaGraphHelper  # noqa: E402
 
 try:
     from megatron.core.distributed import TorchFullyShardedDataParallel as torch_FSDP
@@ -64,23 +64,23 @@ try:
 except ImportError:
     HAVE_FSDP2 = False
 
-from megatron.core.distributed import (
+from megatron.core.distributed import (  # noqa: E402
     DistributedDataParallel as DDP,
     finalize_model_grads,
 )
-from megatron.core.distributed.fsdp.mcore_fsdp_adapter import (
+from megatron.core.distributed.fsdp.mcore_fsdp_adapter import (  # noqa: E402
     FullyShardedDataParallel as megatron_FSDP,
 )
-from megatron.core.pipeline_parallel import get_forward_backward_func
-from megatron.core.optimizer import get_megatron_optimizer, OptimizerConfig
-from megatron.core.rerun_state_machine import get_rerun_state_machine, RerunDataIterator, RerunState
-from megatron.core.transformer.moe import upcycling_utils
-from megatron.core.transformer.moe.moe_utils import track_moe_metrics
-from megatron.training.global_vars import get_energy_monitor
+from megatron.core.pipeline_parallel import get_forward_backward_func  # noqa: E402
+from megatron.core.optimizer import get_megatron_optimizer, OptimizerConfig  # noqa: E402
+from megatron.core.rerun_state_machine import get_rerun_state_machine, RerunDataIterator, RerunState  # noqa: E402
+from megatron.core.transformer.moe import upcycling_utils  # noqa: E402
+from megatron.core.transformer.moe.moe_utils import track_moe_metrics  # noqa: E402
+from megatron.training.global_vars import get_energy_monitor  # noqa: E402
 
-from megatron.core.parallel_state import update_pg_timeout
+from megatron.core.parallel_state import update_pg_timeout  # noqa: E402
 
-from megatron.training import (
+from megatron.training import (  # noqa: E402
     get_timers,
     get_tensorboard_writer,
     get_wandb_writer,
@@ -88,15 +88,15 @@ from megatron.training import (
     print_rank_last,
     ft_integration,
 )
-from megatron.training.initialize import (
+from megatron.training.initialize import (  # noqa: E402
     write_args_to_tensorboard,
     set_jit_fusion_options,
 )
-from .checkpointing import (
+from .checkpointing import (  # noqa: E402
     save_checkpoint,
     checkpoint_exists,
 )
-from megatron.training.utils import (
+from megatron.training.utils import (  # noqa: E402
     calc_params_l2_norm,
     report_memory,
     unwrap_model,
@@ -105,9 +105,9 @@ from megatron.training.utils import (
     reduce_max_stat_across_model_parallel_group,
     is_last_rank,
 )
-from megatron.training.theoretical_memory_usage import report_theoretical_memory
-from megatron.training.async_utils import maybe_finalize_async_save
-from megatron.training.training import (
+from megatron.training.theoretical_memory_usage import report_theoretical_memory  # noqa: E402
+from megatron.training.async_utils import maybe_finalize_async_save  # noqa: E402
+from megatron.training.training import (  # noqa: E402
     append_to_progress_log,
     print_datetime,
     build_train_valid_test_data_iterators,
@@ -123,13 +123,13 @@ from megatron.training.training import (
     post_training_step_callbacks,
     checkpoint_and_decide_exit,
 )
-from loongforge.models.common.peft.lora import LoRA, VLMLoRA
-from loongforge.models.common.peft.utils import apply_peft_transformation
-from megatron.core.transformer.multi_token_prediction import MTPLossLoggingHelper
-from dataclasses import asdict
-from loongforge.utils import get_args, constants, global_vars
-from .initialize import initialize_loongforge_megatron
-from loongforge.data.dp_balance.train_hooks import train_step_decorator, train_log_decorator
+from loongforge.models.common.peft.lora import LoRA, VLMLoRA  # noqa: E402
+from loongforge.models.common.peft.utils import apply_peft_transformation  # noqa: E402
+from megatron.core.transformer.multi_token_prediction import MTPLossLoggingHelper  # noqa: E402
+from dataclasses import asdict  # noqa: E402
+from loongforge.utils import get_args, constants, global_vars  # noqa: E402
+from .initialize import initialize_loongforge_megatron  # noqa: E402
+from loongforge.data.dp_balance.train_hooks import train_step_decorator, train_log_decorator  # noqa: E402
 
 
 # Add project root to Python path
@@ -143,8 +143,8 @@ tools_path = os.path.join(project_root, "tools")
 if tools_path not in sys.path:
     sys.path.insert(0, tools_path)
 
-from dist_checkpoint.checkpoint.hf_checkpoint_loader import load_hf_checkpoint_online
-from dist_checkpoint.checkpoint.hf_checkpoint_saver import save_hf_checkpoint_online
+from dist_checkpoint.checkpoint.hf_checkpoint_loader import load_hf_checkpoint_online  # noqa: E402
+from dist_checkpoint.checkpoint.hf_checkpoint_saver import save_hf_checkpoint_online  # noqa: E402
 
 try:
     from inspector.hooks import register_hooks

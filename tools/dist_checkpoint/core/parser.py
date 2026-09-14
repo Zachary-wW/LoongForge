@@ -13,8 +13,8 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(o
 sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "tools"))
 
-from tools.dist_checkpoint.config.parallel_config import ParallelConfig
-from loongforge.utils.config_map import get_config_from_model_name
+from tools.dist_checkpoint.config.parallel_config import ParallelConfig  # noqa: E402
+from loongforge.utils.config_map import get_config_from_model_name  # noqa: E402
 
 
 class Parser:
@@ -220,7 +220,8 @@ def get_module_convert_file(model_cfg, module_type):
         # Debug: print what's available
         print(f"DEBUG: Failed to get convert_file for {module_type}")
         print(
-            f"DEBUG: model_cfg.model keys: {list(model_cfg.model.keys()) if hasattr(model_cfg, 'model') else 'no model'}"
+            f"DEBUG: model_cfg.model keys: "
+            f"{list(model_cfg.model.keys()) if hasattr(model_cfg, 'model') else 'no model'}"
         )
         if hasattr(model_cfg, "model"):
             if hasattr(model_cfg.model, module_type):

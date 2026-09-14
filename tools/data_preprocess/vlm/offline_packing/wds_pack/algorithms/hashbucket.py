@@ -77,10 +77,12 @@ class HashBucketProcessor:
 
     DTYPE_SAMPLE_INFO = np.dtype(
         [
+            # Used to store the weights of the ViT part (which can be the number of pixels of the ViT part or
+            # the processing capacity of the ViT part)
             (
                 HASH_BUCKET_WEIGHT_KEY,
                 np.uint16,
-            ),  # Used to store the weights of the ViT part (which can be the number of pixels of the ViT part or the processing capacity of the ViT part)
+            ),
             (HASH_BUCKET_TOKEN_LEN_KEY, TOKEN_LEN_DTYPE),  # Stores token length. uint16 cannot represent 64k (=65536).
             (
                 HASH_BUCKET_SAMPLE_ID_KEY,
@@ -455,7 +457,8 @@ class HashBucketProcessor:
             print(f"Key {key} does not exist.")
 
     def pack_with_deletion(self, box_capacity: int = 16384) -> List[np.ndarray]:
-        """Pack by capacity, prioritize diversity, and delete used elements from the original bucket immediately after packing
+        """Pack by capacity, prioritize diversity, and delete used elements from the original bucket
+        immediately after packing
         (Used for separately handling keys where (box_capacity/key) == 2^n)
         When encountering a non-full box, change the packing strategy once
         """
@@ -508,7 +511,8 @@ class HashBucketProcessor:
                     # Update the deque in key_queues
                     key_queues[key] = deque(enumerate(self.hash_buckets[key]))
             else:
-                # Add a judgment: if the number of elements in each queue is exactly the same, change the packing strategy once
+                # Add a judgment: if the number of elements in each queue is exactly the same,
+                # change the packing strategy once
                 self._logger.info(f"Current box not full: {current_sum}")
                 self._logger.info(f"Current box items: {current_box_items}")
 
@@ -566,7 +570,8 @@ class HashBucketProcessor:
         return boxes
 
     def pack_with_deletion_recursion(self, box_capacity: int = 16384) -> List[np.ndarray]:
-        """Recursive diversity-first packing: Only output/delete full boxes, all non-full boxes are mixed and repacked until only one non-full box remains.
+        """Recursive diversity-first packing: Only output/delete full boxes, all non-full boxes are mixed and repacked
+        until only one non-full box remains.
         (Used for separately handling keys where (box_capacity/key)==2^n)
         Implemented recursively
         """
@@ -710,7 +715,8 @@ class HashBucketProcessor:
         self, box_capacity: int = 16384, min_ratio: float = 0.95, max_workers: int = None
     ) -> List[np.ndarray]:
         """
-        Multithreaded version (processing elements after pack_with_deletion): Large seed parallel packing, small elements as shared resources, real-time element deletion
+        Multithreaded version (processing elements after pack_with_deletion): Large seed parallel packing,
+        small elements as shared resources, real-time element deletion
          (No restrictions on the number of items in a box, will be relatively faster)
         Parameters:
             box_capacity: Box capacity
@@ -2314,7 +2320,7 @@ def analyze_packing_history(tracker):
         print(f"  Average success rate: {avg_boxes / 4:.1%}")  # Assuming 4 threads are used
 
 
-import pickle
+import pickle  # noqa: E402
 
 
 def save_ckpt(tracker, file_path: str):

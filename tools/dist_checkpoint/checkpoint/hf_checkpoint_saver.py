@@ -202,7 +202,8 @@ def save_hf_checkpoint_online(
         peak_mem_gb = torch.cuda.max_memory_allocated() / (1024**3)
         mem_after = torch.cuda.memory_allocated() / (1024**3)
         print_rank_0(
-            f"State_dict extracted. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
+            f"State_dict extracted. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → "
+            f"After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
         )
 
     c_config = get_yaml_config(
@@ -243,7 +244,8 @@ def save_hf_checkpoint_online(
         peak_mem_gb = torch.cuda.max_memory_allocated() / (1024**3)
         mem_after = torch.cuda.memory_allocated() / (1024**3)
         print_rank_0(
-            f"State_dicts gathered within TP group. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
+            f"State_dicts gathered within TP group. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → "
+            f"After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
         )
 
     if all_ckpt_empty:
@@ -394,7 +396,8 @@ def save_hf_checkpoint_online(
             peak_mem_gb = torch.cuda.max_memory_allocated() / (1024**3)
             mem_after = torch.cuda.memory_allocated() / (1024**3)
             print_rank_0(
-                f"Mcore_dict prepared. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
+                f"Mcore_dict prepared. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → "
+                f"After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
             )
 
         # Create save directory
@@ -412,7 +415,8 @@ def save_hf_checkpoint_online(
                 peak_mem_gb = torch.cuda.max_memory_allocated() / (1024**3)
                 mem_after = torch.cuda.memory_allocated() / (1024**3)
                 print_rank_0(
-                    f"HF checkpoint saved successfully. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
+                    f"HF checkpoint saved successfully. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → "
+                    f"After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
                 )
         except Exception as e:
             print_rank_0(f"Error saving HF checkpoint: {e}")

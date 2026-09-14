@@ -63,8 +63,8 @@ elif TV_TRANSFORMS_VERSION == "v1":
     import torchvision.transforms as T
 else:
     raise ValueError(f"COSMOS3_TV_TRANSFORMS must be 'v1' or 'v2', got {TV_TRANSFORMS_VERSION!r}")
-from lerobot.datasets.video_utils import decode_video_frames
-from torch.utils.data import Dataset
+from lerobot.datasets.video_utils import decode_video_frames  # noqa: E402
+from torch.utils.data import Dataset  # noqa: E402
 
 
 _IMAGE_FEATURES: Dict[str, str] = {

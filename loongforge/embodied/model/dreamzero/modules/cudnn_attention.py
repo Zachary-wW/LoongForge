@@ -34,11 +34,11 @@ except ImportError:
     # transformer_engine < 2.8.0
     import transformer_engine.pytorch.dot_product_attention.utils as dpa_utils
 
-import transformer_engine_torch as tex
-from transformer_engine.pytorch.constants import (
+import transformer_engine_torch as tex  # noqa: E402
+from transformer_engine.pytorch.constants import (  # noqa: E402
     TE_DType,
 )
-from transformer_engine.pytorch.cpp_extensions.fused_attn import (
+from transformer_engine.pytorch.cpp_extensions.fused_attn import (  # noqa: E402
     AttnBiasType,
     AttnMaskType,
     FusedAttnBackend,

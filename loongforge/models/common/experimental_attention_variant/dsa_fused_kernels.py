@@ -27,12 +27,12 @@ try:
 except ImportError as exc:
     raise ImportError(_DSA_FUSED_DEPS_HINT) from exc
 
-from megatron.core.transformer.module import MegatronModule
-from megatron.core.transformer.transformer_config import TransformerConfig
-from megatron.core.packed_seq_params import PackedSeqParams
-from megatron.core.transformer.enums import AttnMaskType
-from megatron.core.utils import get_te_version, is_te_min_version
-from megatron.core.fusions.fused_mla_yarn_rope_apply import _get_thd_token_idx
+from megatron.core.transformer.module import MegatronModule  # noqa: E402
+from megatron.core.transformer.transformer_config import TransformerConfig  # noqa: E402
+from megatron.core.packed_seq_params import PackedSeqParams  # noqa: E402
+from megatron.core.transformer.enums import AttnMaskType  # noqa: E402
+from megatron.core.utils import get_te_version, is_te_min_version  # noqa: E402
+from megatron.core.fusions.fused_mla_yarn_rope_apply import _get_thd_token_idx  # noqa: E402
 
 try:
     import transformer_engine.pytorch as te  # noqa: F401
@@ -46,7 +46,7 @@ try:
     from flash_mla_bwd import flash_mla_sparse_bwd
 except ImportError as exc:
     raise ImportError(_DSA_FUSED_DEPS_HINT) from exc
-from .sparse_mla_bwd import sparse_mla_bwd_interface
+from .sparse_mla_bwd import sparse_mla_bwd_interface  # noqa: E402
 
 
 @triton.autotune(

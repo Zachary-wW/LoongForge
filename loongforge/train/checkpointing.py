@@ -636,7 +636,8 @@ def save_checkpoint(
 
     if args.async_save and not is_empty_async_queue():
         print_rank_0(
-            "WARNING: Starting a checkpoint save before previous has finished. Consider increasing the checkpoint interval."
+            "WARNING: Starting a checkpoint save before previous has finished. "
+            "Consider increasing the checkpoint interval."
         )
 
     # Prepare E2E metrics at start of save checkpoint
@@ -830,7 +831,8 @@ def save_checkpoint(
                 ]:
                     # Note: Currently full reshardabilty is not supported when local checkpoints are used.
                     raise RuntimeError(
-                        f"Local checkpointing does not support optimizer sharding type '{sharded_sd_metadata['distrib_optim_sharding_type']}'. "
+                        "Local checkpointing does not support optimizer sharding type "
+                        f"'{sharded_sd_metadata['distrib_optim_sharding_type']}'. "
                         "Don't use '--dist-ckpt-optim-fully-reshardable' when saving local checkpoints."
                     )
                 algo = args.non_persistent_local_ckpt_algo
@@ -1277,7 +1279,8 @@ def _load_global_dist_base_checkpoint(
             args.use_dist_ckpt,
         )
         raise RuntimeError(
-            "Detected load from a distributed checkpoint, but neither --use-dist-ckpt nor --auto-detect-ckpt-format is set."
+            "Detected load from a distributed checkpoint, but neither --use-dist-ckpt nor "
+            "--auto-detect-ckpt-format is set."
         )
 
     checkpoint_name = get_checkpoint_name(load_dir, iteration, release, return_base_dir=True)
@@ -1630,7 +1633,8 @@ def load_checkpoint(
     pretrained_dir = getattr(args, "pretrained_checkpoint", None)
     if pretrained_dir is not None and not checkpoint_exists(load_dir):
         print_rank_0(
-            f"Checkpoint file not found in load directory {load_dir} attempting to finetune with checkpoint in {pretrained_dir}"
+            f"Checkpoint file not found in load directory {load_dir} "
+            f"attempting to finetune with checkpoint in {pretrained_dir}"
         )
         load_dir = pretrained_dir
         if not checkpoint_exists(load_dir):

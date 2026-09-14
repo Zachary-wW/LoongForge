@@ -37,9 +37,9 @@ _MEGATRON_ROOT = Path(os.getenv("MEGATRON_PATH", str(_DEFAULT_MEGATRON_ROOT)))
 if _MEGATRON_ROOT.exists() and str(_MEGATRON_ROOT) not in sys.path:
     sys.path.insert(0, str(_MEGATRON_ROOT))
 
-import torch
-from cache_precompute.config import _load_config
-from cache_precompute.features import (
+import torch  # noqa: E402
+from cache_precompute.config import _load_config  # noqa: E402
+from cache_precompute.features import (  # noqa: E402
     _build_dataset,
     _build_precompute_loader,
     _build_text_encoder_for_cache,
@@ -50,7 +50,7 @@ from cache_precompute.features import (
     _prepare_videos,
     _rank_indices_for_sampler_order,
 )
-from cache_precompute.storage import (
+from cache_precompute.storage import (  # noqa: E402
     _CSV_FIELDNAMES,
     _cache_path,
     _merge_compare_summaries,
@@ -68,7 +68,7 @@ from cache_precompute.storage import (
     _write_tensor_shard_index,
 )
 
-from loongforge.embodied.model.dreamzero.precomputed_cache.artifact import (
+from loongforge.embodied.model.dreamzero.precomputed_cache.artifact import (  # noqa: E402
     DREAMZERO_PRECOMPUTED_FEATURES_KIND,
     TENSOR_SHARDS_FORMAT,
     dataset_fingerprint,

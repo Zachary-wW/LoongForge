@@ -30,8 +30,8 @@ from .utils.constant import DATATYPE_2_ID, IDTYPES_2_ID, IMAGETYPES_2_ID
 from .utils.image_enhance import ImageEnhance
 
 logger = logging.getLogger(__name__)
-from .utils.processor_base import ProcessorBase
-from .tokenizer_vl import special_tokens_info
+from .utils.processor_base import ProcessorBase  # noqa: E402
+from .tokenizer_vl import special_tokens_info  # noqa: E402
 
 try:
     from .utils.io_utils import get_downloadable_image
@@ -40,7 +40,7 @@ except Exception as e:
     get_downloadable_image = None
 
 # ── pure-transformers replacement ────────────────────────────────────────────
-from transformers.image_utils import ChannelDimension
+from transformers.image_utils import ChannelDimension  # noqa: E402
 # ─────────────────────────────────────────────────────────────────────────────
 
 VisionExample = namedtuple(

@@ -60,21 +60,21 @@ for _p in [_project_root, os.path.join(_project_root, "tools")]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-import torch
-import torch.distributed as dist
+import torch  # noqa: E402
+import torch.distributed as dist  # noqa: E402
 
-from megatron.core.enums import ModelType
-from megatron.training.training import get_model
-from megatron.training import print_rank_0
+from megatron.core.enums import ModelType  # noqa: E402
+from megatron.training.training import get_model  # noqa: E402
+from megatron.training import print_rank_0  # noqa: E402
 
-from loongforge.train.parser import parse_train_args
-from loongforge.train.initialize import initialize_loongforge_megatron
-from loongforge.models.foundation.llm_model_provider import llm_model_provider
-from loongforge.models.omni_models.omni_model_provider import omni_model_provider
-from loongforge.utils import get_model_config
+from loongforge.train.parser import parse_train_args  # noqa: E402
+from loongforge.train.initialize import initialize_loongforge_megatron  # noqa: E402
+from loongforge.models.foundation.llm_model_provider import llm_model_provider  # noqa: E402
+from loongforge.models.omni_models.omni_model_provider import omni_model_provider  # noqa: E402
+from loongforge.utils import get_model_config  # noqa: E402
 
-from dist_checkpoint.checkpoint.hf_checkpoint_loader import load_hf_checkpoint_online
-from dist_checkpoint.checkpoint.hf_checkpoint_saver import save_hf_checkpoint_online
+from dist_checkpoint.checkpoint.hf_checkpoint_loader import load_hf_checkpoint_online  # noqa: E402
+from dist_checkpoint.checkpoint.hf_checkpoint_saver import save_hf_checkpoint_online  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +191,8 @@ def _compare_shard(
                     mean_diff = diff.mean().item()
                     std_diff = diff.std().item()
                     print(
-                        f"  [CLOSE] {key}: max={max_diff:.6e}, mean={mean_diff:.6e}, std={std_diff:.6e}, shape={tuple(b.shape)}",
+                        f"  [CLOSE] {key}: max={max_diff:.6e}, mean={mean_diff:.6e}, std={std_diff:.6e}, "
+                        f"shape={tuple(b.shape)}",
                         flush=True,
                     )
                     print(f"          baseline: min={b.min():.6f}, max={b.max():.6f}, mean={b.mean():.6f}", flush=True)
@@ -219,7 +220,8 @@ def _compare_shard(
                     }
                     diff_details.append(detail)
                     print(
-                        f"  [DIFF] {key}: max={max_diff:.6e}, mean={mean_diff:.6e}, std={std_diff:.6e}, shape={tuple(b.shape)}",
+                        f"  [DIFF] {key}: max={max_diff:.6e}, mean={mean_diff:.6e}, std={std_diff:.6e}, "
+                        f"shape={tuple(b.shape)}",
                         flush=True,
                     )
                     print(f"          baseline: {detail['baseline_stats']}", flush=True)

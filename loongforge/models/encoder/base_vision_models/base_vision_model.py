@@ -34,7 +34,8 @@ from loongforge.models.common import BaseMegatronVisionModule
 from loongforge.models.utils import import_module
 
 
-# adapted from https://github.com/huggingface/transformers/blob/main/src/transformers/models/qwen2_5_vl/modeling_qwen2_5_vl.py # pylint: disable=line-too-long
+# adapted from
+# https://github.com/huggingface/transformers/blob/main/src/transformers/models/qwen2_5_vl/modeling_qwen2_5_vl.py
 class PatchEmbed(torch.nn.Module):
     """Patch Embedding"""
 

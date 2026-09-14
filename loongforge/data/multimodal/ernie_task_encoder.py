@@ -41,20 +41,20 @@ from loongforge.data.multimodal.base.task_encoder import (
 logger = logging.getLogger(__name__)
 
 # ERNIE components — now directly importable as submodules of the ernie package.
-from loongforge.data.multimodal.ernie.tokenizer_vl import (
+from loongforge.data.multimodal.ernie.tokenizer_vl import (  # noqa: E402
     Ernie45VLTokenizer,
     special_tokens_info as ERNIE_SPECIAL_TOKENS_INFO,
 )
-from loongforge.data.multimodal.ernie.chat_template_utils import (
+from loongforge.data.multimodal.ernie.chat_template_utils import (  # noqa: E402
     apply_chat_training_template,
 )
-from loongforge.data.multimodal.ernie.example_to_feature import (
+from loongforge.data.multimodal.ernie.example_to_feature import (  # noqa: E402
     ExampleToFeature,
 )
-from loongforge.data.multimodal.ernie.image_preprocessor import (
+from loongforge.data.multimodal.ernie.image_preprocessor import (  # noqa: E402
     AdaptiveImageProcessor,
 )
-from loongforge.data.multimodal.ernie.image_modification import (
+from loongforge.data.multimodal.ernie.image_modification import (  # noqa: E402
     ImageModificationProcessor,
 )
 

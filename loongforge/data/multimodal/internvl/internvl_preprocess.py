@@ -27,9 +27,6 @@ import io
 import logging
 import random
 
-IGNORE_TOKEN_ID = -100
-IGNORE_INDEX = -100
-
 from .internvl_constants import (
     IMG_CONTEXT_TOKEN,
     IMG_END_TOKEN,
@@ -41,6 +38,9 @@ from .internvl_constants import (
     SIGLIP_MEAN,
     SIGLIP_STD,
 )
+
+IGNORE_TOKEN_ID = -100
+IGNORE_INDEX = -100
 
 logger = logging.getLogger(__name__)
 

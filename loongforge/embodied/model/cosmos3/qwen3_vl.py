@@ -33,12 +33,12 @@ def _default_rope_init(config, device=None):
     return inv_freq, 1.0
 
 
-from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS, PreTrainedModel
-from transformers.processing_utils import Unpack
-from transformers.utils.deprecation import deprecate_kwarg
+from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS, PreTrainedModel  # noqa: E402
+from transformers.processing_utils import Unpack  # noqa: E402
+from transformers.utils.deprecation import deprecate_kwarg  # noqa: E402
 
-from .qwen3_vl_utils import create_causal_mask
-from .configuration_qwen3_vl import Qwen3VLConfig, Qwen3VLTextConfig
+from .qwen3_vl_utils import create_causal_mask  # noqa: E402
+from .configuration_qwen3_vl import Qwen3VLConfig, Qwen3VLTextConfig  # noqa: E402
 
 TransformersKwargs = Any
 

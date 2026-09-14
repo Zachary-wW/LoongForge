@@ -254,7 +254,8 @@ class TokenInfoReader:
     """
     Token information reader
 
-    It supports batch reading, full reading and breakpoint resumption functions, and is suitable for processing text files containing token information.
+    It supports batch reading, full reading and breakpoint resumption functions, and is
+    suitable for processing text files containing token information.
     File format requirements: One record per line, in the format of "base_name: token_len"
     """
 

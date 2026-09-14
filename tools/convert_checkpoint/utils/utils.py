@@ -413,7 +413,8 @@ def make_hf_sub_checkpoints(base_path):
                         merged_weight_map[key] = one_dict[value]
                     else:
                         # If no replacement item found, keep original value (can be adjusted as needed)
-                        # Note: Keeping original value here may not have meaning, as typically we don't want to keep filename as weight name
+                        # Note: Keeping original value here may not have meaning, as typically we don't
+                        # want to keep filename as weight name
                         # But for completeness of the example, I kept this line
                         # In actual application, you may want to throw an error or log a warning
                         merged_weight_map[key] = value  # This is usually not expected behavior, only for example

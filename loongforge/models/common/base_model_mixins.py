@@ -17,10 +17,10 @@ from transformers import (
 import logging
 
 logger = logging.getLogger(__name__)
-from megatron.core.transformer.module import MegatronModule
-from megatron.core.models.common.language_module.language_module import LanguageModule
-from megatron.core.process_groups_config import ProcessGroupCollection
-from megatron.core.models.common.vision_module.vision_module import VisionModule  # noqa: F401  # re-export
+from megatron.core.transformer.module import MegatronModule  # noqa: E402
+from megatron.core.models.common.language_module.language_module import LanguageModule  # noqa: E402
+from megatron.core.process_groups_config import ProcessGroupCollection  # noqa: E402
+from megatron.core.models.common.vision_module.vision_module import VisionModule  # noqa: F401, E402  # re-export
 
 
 class BaseMegatronLanguageModule(LanguageModule):

@@ -8,7 +8,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-from convert_checkpoint.utils.utils import transpose_shape0
+from convert_checkpoint.utils.utils import transpose_shape0  # noqa: E402
 
 
 class HfAttnQkvConverter:

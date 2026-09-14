@@ -34,9 +34,9 @@ from megatron.energon import (
 from megatron.energon.task_encoder.base import stateless
 from loongforge.utils import get_args, get_tokenizer
 from .packer import Packer
+from importlib.metadata import version as _energon_version
 
 IGNORE_INDEX = -100  # ID for labels that should be ignored.
-from importlib.metadata import version as _energon_version
 
 try:
     _ENERGON_NEEDS_SUBFLAVOR = _energon_version("megatron-energon") < "7.0.0"

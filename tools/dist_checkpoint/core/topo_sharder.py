@@ -28,7 +28,7 @@ except ImportError:
     parallel_state = None
     print_rank_0 = None
 
-from tools.dist_checkpoint.config.parallel_config import ParallelConfig
+from tools.dist_checkpoint.config.parallel_config import ParallelConfig  # noqa: E402
 
 # Type definitions
 RankTopoTuple = Tuple[Optional[int], Optional[int], Optional[int], Optional[int], Optional[int]]

@@ -7,11 +7,11 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-from convert_checkpoint.common.common_checkpoint import LAYER_IS_DICT_FOR_EXPERT, CommonCheckpoint
+from convert_checkpoint.common.common_checkpoint import LAYER_IS_DICT_FOR_EXPERT, CommonCheckpoint  # noqa: E402
 
-from convert_checkpoint.huggingface.huggingface_base import HuggingfaceBase
+from convert_checkpoint.huggingface.huggingface_base import HuggingfaceBase  # noqa: E402
 
-from convert_checkpoint.common.common_checkpoint import (
+from convert_checkpoint.common.common_checkpoint import (  # noqa: E402
     WEIGHT,
     BIAS,
     MOE_EXPERT_H_TO_4H,

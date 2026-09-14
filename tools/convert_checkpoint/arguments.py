@@ -184,7 +184,10 @@ def _add_checkpoint_args(parser):
     group.add_argument("--config_file", type=str, help="Config file for model configuration.")
     group.add_argument("--convert_file", type=str, help="Convert file for checkpoint conversion.")
     # group.add_argument('--config_name', type=str, help="Config file name for model configuration.")
-    # group.add_argument('--module', type=str, default="language", help="Module type, default: language", choices=["language", "vit"])
+    # group.add_argument(
+    #     '--module', type=str, default="language", help="Module type, default: language",
+    #     choices=["language", "vit"]
+    # )
     group.add_argument(
         "--mtp_num_layers",
         type=int,
@@ -269,7 +272,8 @@ def _add_megatron_args(parser):
     Add MegaTron related parameters to the parser.
 
     Args:
-        parser (ArgumentParser, str): ArgumentParser object or parameter string, used to add MegaTron related parameters.
+        parser (ArgumentParser, str): ArgumentParser object or parameter string, used to add MegaTron
+        related parameters.
 
     Returns:
         None, void: No return value, directly modify the passed ArgumentParser object.

@@ -26,7 +26,8 @@ class CorrectnessCheckTask(BaseTask):
     def __call__(self) -> TaskResut:
         if not self.MODEL_RUNNABLE:
             logger.warn(
-                f"CorrectnessCheckTask current model {self.model_name} does not support CorrectnessCheckTask, skipping!!!"
+                f"CorrectnessCheckTask current model {self.model_name} does not support CorrectnessCheckTask, "
+                f"skipping!!!"
             )
             return TaskResut()
 
@@ -39,7 +40,8 @@ class CorrectnessCheckTask(BaseTask):
                         continue
                     model_name = self.model_name
                     logger.info(
-                        f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] - [{training_type_name}] Execution Start ..."
+                        f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] - [{training_type_name}] "
+                        f"Execution Start ..."
                     )
 
                     # Step1:
@@ -67,7 +69,8 @@ class CorrectnessCheckTask(BaseTask):
                                 step1_scenario_lock_file, model_name, f"{scenario_name}_{step1_name}"
                             )
                             logger.info(
-                                f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] - [{training_type_name}] - [{step1_name}] Completed \n"
+                                f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] "
+                                f"- [{training_type_name}] - [{step1_name}] Completed \n"
                             )
 
                     # Step1.5: mcore to hf reverse convert and check
@@ -97,7 +100,8 @@ class CorrectnessCheckTask(BaseTask):
                                 step1_5_scenario_lock_file, model_name, f"{scenario_name}_{step1_5_name}"
                             )
                             logger.info(
-                                f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] - [{training_type_name}] - [{step1_5_name}] Completed \n"
+                                f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] "
+                                f"- [{training_type_name}] - [{step1_5_name}] Completed \n"
                             )
 
                     # Step2:
@@ -125,7 +129,8 @@ class CorrectnessCheckTask(BaseTask):
                                 step2_scenario_lock_file, model_name, f"{scenario_name}_{step2_name}"
                             )
                             logger.info(
-                                f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] - [{training_type_name}] - [{step2_name}] Completed \n"
+                                f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] "
+                                f"- [{training_type_name}] - [{step2_name}] Completed \n"
                             )
 
                     # Step3:
@@ -153,11 +158,13 @@ class CorrectnessCheckTask(BaseTask):
                                 step3_scenario_lock_file, model_name, f"{scenario_name}_{step3_name}"
                             )
                             logger.info(
-                                f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] - [{step3_name}] Completed \n"
+                                f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] - [{step3_name}] "
+                                f"Completed \n"
                             )
 
                     logger.info(
-                        f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] - [{training_type_name}] Execution End \n"
+                        f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] - [{training_type_name}] "
+                        f"Execution End \n"
                     )
 
         # Clean up ckpt files etc.

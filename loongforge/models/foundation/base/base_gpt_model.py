@@ -13,38 +13,38 @@ from typing import Dict, Optional, Literal
 from collections import OrderedDict
 
 logger = logging.getLogger(__name__)
-from megatron.core import parallel_state, tensor_parallel
-from megatron.core.config_logger import has_config_logger_enabled, log_config_to_disk
-from megatron.core.dist_checkpointing.mapping import ShardedStateDict
-from megatron.core.inference.contexts import BaseInferenceContext
-from megatron.core.models.common.embeddings import YarnRotaryEmbedding
-from megatron.core.models.common.embeddings.language_model_embedding import LanguageModelEmbedding
-from megatron.core.models.common.embeddings.rotary_pos_embedding import (
+from megatron.core import parallel_state, tensor_parallel  # noqa: E402
+from megatron.core.config_logger import has_config_logger_enabled, log_config_to_disk  # noqa: E402
+from megatron.core.dist_checkpointing.mapping import ShardedStateDict  # noqa: E402
+from megatron.core.inference.contexts import BaseInferenceContext  # noqa: E402
+from megatron.core.models.common.embeddings import YarnRotaryEmbedding  # noqa: E402
+from megatron.core.models.common.embeddings.language_model_embedding import LanguageModelEmbedding  # noqa: E402
+from megatron.core.models.common.embeddings.rotary_pos_embedding import (  # noqa: E402
     MultimodalRotaryEmbedding,
     RotaryEmbedding,
 )
-from megatron.core.pipeline_parallel.fine_grained_activation_offload import (
+from megatron.core.pipeline_parallel.fine_grained_activation_offload import (  # noqa: E402
     fine_grained_offloading_init_chunk_handler,
 )
-from megatron.core.packed_seq_params import PackedSeqParams
-from megatron.core.process_groups_config import ProcessGroupCollection
-from megatron.core.quantization.utils import get_quant_config_or_none
-from megatron.core.tensor_parallel import gather_from_sequence_parallel_region
-from megatron.core.transformer.enums import ModelType
-from megatron.core.transformer.multi_token_prediction import (
+from megatron.core.packed_seq_params import PackedSeqParams  # noqa: E402
+from megatron.core.process_groups_config import ProcessGroupCollection  # noqa: E402
+from megatron.core.quantization.utils import get_quant_config_or_none  # noqa: E402
+from megatron.core.tensor_parallel import gather_from_sequence_parallel_region  # noqa: E402
+from megatron.core.transformer.enums import ModelType  # noqa: E402
+from megatron.core.transformer.multi_token_prediction import (  # noqa: E402
     MTPLossAutoScaler,
     MTPLossLoggingHelper,
     MultiTokenPredictionBlock,
     roll_tensor,
     tie_word_embeddings_state_dict,
 )
-from megatron.core.transformer.spec_utils import ModuleSpec
-from megatron.core.transformer.transformer_config import TransformerConfig
-from megatron.core.utils import WrappedTensor, deprecate_inference_params
-from megatron.core.num_microbatches_calculator import get_num_microbatches
+from megatron.core.transformer.spec_utils import ModuleSpec  # noqa: E402
+from megatron.core.transformer.transformer_config import TransformerConfig  # noqa: E402
+from megatron.core.utils import WrappedTensor, deprecate_inference_params  # noqa: E402
+from megatron.core.num_microbatches_calculator import get_num_microbatches  # noqa: E402
 
-from loongforge.models.foundation.language_transformer_block import TransformerBlock
-from loongforge.models.common.base_model_mixins import BaseMegatronLanguageModule
+from loongforge.models.foundation.language_transformer_block import TransformerBlock  # noqa: E402
+from loongforge.models.common.base_model_mixins import BaseMegatronLanguageModule  # noqa: E402
 
 
 class BaseGPTModel(BaseMegatronLanguageModule):

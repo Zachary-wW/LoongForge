@@ -189,7 +189,7 @@ class Head(nn.Module):
         return x
 
 
-from .wan_config import WanConfig
+from .wan_config import WanConfig  # noqa: E402
 
 
 class WanModel(VisionModule):

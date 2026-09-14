@@ -179,7 +179,8 @@ class BaseTask(object):
 
     # Check lock file
     def check_lock_file(self, lock_file_path, task_flag):
-        # Traverse the total number of file contents under lock_file_path folder to see if it equals expected, if equal True, else False, then check if content is all task_flag, if so True, else False
+        # Traverse the total number of file contents under lock_file_path folder to see if it equals expected,
+        # if equal True, else False, then check if content is all task_flag, if so True, else False
         count = 0
         flag = True
 
@@ -213,7 +214,8 @@ class BaseTask(object):
         else:
             raise TimeoutError(f"ERROR: Waited for other Pods more than {self.input_cmd_args.timeout} seconds")
 
-    # lock_file exists and content == MASTER_ADDR, proving this task has completed writing to file, can continue execution
+    # lock_file exists and content == MASTER_ADDR, proving this task has completed writing to file,
+    # can continue execution
     # Otherwise, if not exists then create, and write content MASTER_ADDR
     def initialize_lock_file(self, lock_file, task_flag):
         # Check if directory exists, if not create it
@@ -257,12 +259,14 @@ class BaseTask(object):
             file.truncate()  # Clear file content
             file.write(task_flag)
 
-        # Step 2: Check lock_file, if all Pods completed, enter next stage: 1. All file states are Finish. 2. File count is node_nums.
+        # Step 2: Check lock_file, if all Pods completed, enter next stage:
+        # 1. All file states are Finish. 2. File count is node_nums.
         for _ in range(self.input_cmd_args.timeout // 10):
             finish_count, state = self.check_lock_file(lock_file, task_flag)
             if state:
                 logger.info(
-                    f"Model [{model_name}] {scenarios_name} all Pods completed, {finish_count} / {self.input_cmd_args.node_nums}"
+                    f"Model [{model_name}] {scenarios_name} all Pods completed, "
+                    f"{finish_count} / {self.input_cmd_args.node_nums}"
                 )
 
                 if is_function and self.is_final_pod:
@@ -281,7 +285,8 @@ class BaseTask(object):
                 break
             else:
                 logger.info(
-                    f"Model [{model_name}] {scenarios_name} has pending Pods, {finish_count} / {self.input_cmd_args.node_nums} waiting..."
+                    f"Model [{model_name}] {scenarios_name} has pending Pods, "
+                    f"{finish_count} / {self.input_cmd_args.node_nums} waiting..."
                 )
                 time.sleep(10)
         else:
@@ -436,7 +441,8 @@ class BaseTask(object):
                     import re
 
                     value = re.sub(r"\s+", " ", value).strip()
-                    # For _ARGS, need to wrap the whole value in quotes to ensure values with spaces are passed correctly
+                    # For _ARGS, need to wrap the whole value in quotes to ensure values with
+                    # spaces are passed correctly
                     # Escape quotes in value, then wrap with quotes
                     value = value.replace('"', '\\"')
                     value = f'"{value}"'
@@ -481,7 +487,8 @@ class BaseTask(object):
     def validate_metrics(self, model_name, training_type=None):
         """
         Unified validation of training accuracy and performance metrics.
-        Accuracy metrics (lm_loss, grad_norm) use relative_tolerance=0.02, performance metrics (elapsed_time_ms, throughput) use relative_tolerance=0.05.
+        Accuracy metrics (lm_loss, grad_norm) use relative_tolerance=0.02, performance metrics
+        (elapsed_time_ms, throughput) use relative_tolerance=0.05.
         Args:
             model_name: Model name, used to locate baseline JSON file
             training_type: Training type (e.g. 'pretrain', 'sft')
@@ -556,11 +563,13 @@ class BaseTask(object):
 
             if rel_err <= tol:
                 logger.info(
-                    f"{name} avg comparison: Actual: {avg_actual:.4f} vs Expected: {avg_expected:.4f}, Relative Error: {rel_err * 100:.2f}%, Passed!"
+                    f"{name} avg comparison: Actual: {avg_actual:.4f} vs Expected: {avg_expected:.4f}, "
+                    f"Relative Error: {rel_err * 100:.2f}%, Passed!"
                 )
             else:
                 logger.warning(
-                    f"{name} avg comparison: Actual: {avg_actual:.4f} vs Expected: {avg_expected:.4f}, Relative Error: {rel_err * 100:.2f}% Exceeds {tol * 100:.0f}%, Failed (Warning Only)!"
+                    f"{name} avg comparison: Actual: {avg_actual:.4f} vs Expected: {avg_expected:.4f}, "
+                    f"Relative Error: {rel_err * 100:.2f}% Exceeds {tol * 100:.0f}%, Failed (Warning Only)!"
                 )
 
         # elapsed_time_ms
@@ -845,7 +854,8 @@ class BaseTask(object):
         self, actual_list, expected_list, metric_name, tolerance, is_relative=False, raise_on_fail=True
     ):
         """
-        Generic metric comparison function, supports absolute and relative error, allows some iterations to exceed tolerance range
+        Generic metric comparison function, supports absolute and relative error, allows some
+        iterations to exceed tolerance range
         :param actual_list: Actual value list
         :param expected_list: Expected value list
         :param metric_name: Metric name
@@ -869,37 +879,52 @@ class BaseTask(object):
                     relative_error = abs(actual_value - expected_value) / abs(expected_value)
                 if relative_error <= tolerance:
                     logger.info(
-                        f"Group {index + 1} {metric_name} performance comparison: Actual: {actual_value} vs Expected: {expected_value} Relative Error: {relative_error * 100:.2f}% (Tolerance: {tolerance * 100:.0f}%), Test Passed!"
+                        f"Group {index + 1} {metric_name} performance comparison: "
+                        f"Actual: {actual_value} vs Expected: {expected_value} "
+                        f"Relative Error: {relative_error * 100:.2f}% "
+                        f"(Tolerance: {tolerance * 100:.0f}%), Test Passed!"
                     )
                     is_close.append(True)
                 else:
                     logger.warning(
-                        f"Group {index + 1} {metric_name} performance comparison: Actual: {actual_value} vs Expected: {expected_value} Relative Error: {relative_error * 100:.2f}% Exceeds tolerance {tolerance * 100:.0f}%, Test Failed!!!"
+                        f"Group {index + 1} {metric_name} performance comparison: "
+                        f"Actual: {actual_value} vs Expected: {expected_value} "
+                        f"Relative Error: {relative_error * 100:.2f}% "
+                        f"Exceeds tolerance {tolerance * 100:.0f}%, Test Failed!!!"
                     )
                     is_close.append(False)
             else:
                 difference = abs(actual_value - expected_value)
                 if difference <= float(tolerance):
                     logger.info(
-                        f"Group {index + 1} {metric_name} comparison: Actual: {actual_value} vs Expected: {expected_value} Difference within expected {tolerance}, Test Passed!"
+                        f"Group {index + 1} {metric_name} comparison: "
+                        f"Actual: {actual_value} vs Expected: {expected_value} "
+                        f"Difference within expected {tolerance}, Test Passed!"
                     )
                     is_close.append(True)
                 else:
                     logger.warning(
-                        f"Group {index + 1} {metric_name} comparison: Actual: {actual_value} vs Expected: {expected_value} Difference exceeds {tolerance}, Actual difference is: {difference}, Test Failed!!!"
+                        f"Group {index + 1} {metric_name} comparison: "
+                        f"Actual: {actual_value} vs Expected: {expected_value} "
+                        f"Difference exceeds {tolerance}, "
+                        f"Actual difference is: {difference}, Test Failed!!!"
                     )
                     is_close.append(False)
 
         num_failing_steps_allowed = min(max(total_steps_evaluated // 100, 1), 50)
         passing = np.sum(is_close) >= (total_steps_evaluated - num_failing_steps_allowed)
         if not passing:
-            message = f"{metric_name} comparison failed: Allowed failing steps {num_failing_steps_allowed}, Actual passed steps {np.sum(is_close)}, Total steps {total_steps_evaluated}"
+            message = (
+                f"{metric_name} comparison failed: Allowed failing steps {num_failing_steps_allowed}, "
+                f"Actual passed steps {np.sum(is_close)}, Total steps {total_steps_evaluated}"
+            )
             if raise_on_fail:
                 raise ValueError(message)
             logger.warning(message)
             return False
         logger.info(
-            f"{metric_name} comparison passed: Allowed failing steps {num_failing_steps_allowed}, Actual passed steps {np.sum(is_close)}, Total steps {total_steps_evaluated}"
+            f"{metric_name} comparison passed: Allowed failing steps {num_failing_steps_allowed}, "
+            f"Actual passed steps {np.sum(is_close)}, Total steps {total_steps_evaluated}"
         )
         return True
 
@@ -975,7 +1000,8 @@ class BaseTask(object):
             diff_src = list(src_set - dst_set)
             diff_dst = list(dst_set - src_set)
             raise ValueError(
-                f"key mismatch.\nPresent in source but not in destination: {diff_src}\nPresent in destination but not in source: {diff_dst}"
+                f"key mismatch.\nPresent in source but not in destination: {diff_src}\n"
+                f"Present in destination but not in source: {diff_dst}"
             )
 
         # Check if tensors corresponding to each key match
@@ -1079,7 +1105,10 @@ class BaseTask(object):
 
         # Open a new file to write script output
         training_log_file = f"{training_log_path}/convert_ckpt_{model_name}_{self.rank_name}_run.log"
-        start_command = f'{env_vars_str} bash -c "set -o pipefail; bash {scripts_root_path}/executor/{step_name}/run.sh |tee {training_log_file}"'
+        start_command = (
+            f'{env_vars_str} bash -c "set -o pipefail; '
+            f'bash {scripts_root_path}/executor/{step_name}/run.sh |tee {training_log_file}"'
+        )
         logger.info(f"{step_stage} {step_name} Start: {start_command} .")
         if os.system(start_command) != 0:
             raise RuntimeError(f"Start {step_stage} {step_name} error, cmd is {start_command}")
@@ -1091,7 +1120,8 @@ class BaseTask(object):
 
     def start_loongforge_reverse_convert_ckpt(self, index, step_stage, scenario_name, training_type_name):
         """
-        Execute mcore -> hf reverse conversion and verify consistency between converted hf checkpoint and source hf checkpoint
+        Execute mcore -> hf reverse conversion and verify consistency between converted hf checkpoint
+        and source hf checkpoint
         """
         step_name = "loongforge_convert_ckpt"
         logger.info(f"{step_stage} reverse_{step_name} Start Running ...")
@@ -1114,7 +1144,10 @@ class BaseTask(object):
 
         # Open a new file to write script output
         training_log_file = f"{training_log_path}/reverse_convert_ckpt_{model_name}_{self.rank_name}_run.log"
-        start_command = f'{env_vars_str} bash -c "set -o pipefail; bash {scripts_root_path}/executor/{step_name}/reverse_run.sh |tee {training_log_file}"'
+        start_command = (
+            f'{env_vars_str} bash -c "set -o pipefail; '
+            f'bash {scripts_root_path}/executor/{step_name}/reverse_run.sh |tee {training_log_file}"'
+        )
         logger.info(f"{step_stage} reverse_{step_name} Start: {start_command} .")
         if os.system(start_command) != 0:
             raise RuntimeError(f"Start {step_stage} reverse_{step_name} error, cmd is {start_command}")
@@ -1129,7 +1162,8 @@ class BaseTask(object):
                 self.check_hf_checkpoint(hf_ckpt_path, reverse_hf_ckpt_path, hf_check_model_name)
         else:
             logger.warning(
-                f"Missing HF check config, skipping consistency check: HF_CKPT_PATH={hf_ckpt_path}, REVERSE_HF_CKPT_PATH={reverse_hf_ckpt_path}, HF_CHECK_MODEL_NAME={hf_check_model_name}"
+                f"Missing HF check config, skipping consistency check: HF_CKPT_PATH={hf_ckpt_path}, "
+                f"REVERSE_HF_CKPT_PATH={reverse_hf_ckpt_path}, HF_CHECK_MODEL_NAME={hf_check_model_name}"
             )
 
         # Wait for all pods to complete
@@ -1169,9 +1203,15 @@ class BaseTask(object):
         self.create_shell_file(model_config, script_path, new_script_path)
 
         # Open a new file to write script output
-        training_log_file = f"{training_log_path}/training#{model_name}#{training_type_name}#nodes_{self.input_cmd_args.node_nums}#{self.rank_name}#run.log"
+        training_log_file = (
+            f"{training_log_path}/training#{model_name}#{training_type_name}#nodes_"
+            f"{self.input_cmd_args.node_nums}#{self.rank_name}#run.log"
+        )
 
-        start_command = f'{env_vars_str} bash -c "set -o pipefail; bash {scripts_root_path}/executor/{step_name}/run.sh |tee {training_log_file}"'
+        start_command = (
+            f'{env_vars_str} bash -c "set -o pipefail; '
+            f'bash {scripts_root_path}/executor/{step_name}/run.sh |tee {training_log_file}"'
+        )
         logger.info(f"{step_stage} {step_name} Start: {start_command} .")
         if os.system(start_command) != 0:
             raise RuntimeError(f"Start {step_stage} {step_name} error, cmd is {start_command}")

@@ -11,15 +11,15 @@ from os.path import dirname
 SCRIPT_DIR = dirname(os.path.abspath(__file__))
 sys.path.append(dirname(dirname(SCRIPT_DIR)))
 
-from convert_checkpoint.utils.ckpt_util import (
+from convert_checkpoint.utils.ckpt_util import (  # noqa: E402
     load_megatron_checkpoint,
     save_megatron_checkpoint,
 )
 
 
-from convert_checkpoint.key_mappings.to_vanilla_key import transform_key_reverse
+from convert_checkpoint.key_mappings.to_vanilla_key import transform_key_reverse  # noqa: E402
 
-from convert_checkpoint.utils.config_utils import load_config, parallel_param_parser
+from convert_checkpoint.utils.config_utils import load_config, parallel_param_parser  # noqa: E402
 
 
 def reverse_map_checkpoint_keys(
@@ -168,7 +168,8 @@ def parse_args(title=None):
     parser = argparse.ArgumentParser(description="Reverse checkpoint shard keys using predefined mappings")
     parser.add_argument("--load_omni_ckpt_path", type=str, help="Path to load the omni checkpoint.")
     parser.add_argument("--save_original_ckpt_path", type=str, help="Path to save the original checkpoint.")
-    # parser.add_argument("--encoder_tensor_model_parallel_size", type=int, default=None, help="Tensor parallel size for encoder.")
+    # parser.add_argument("--encoder_tensor_model_parallel_size", type=int, default=None,
+    #     help="Tensor parallel size for encoder.")
     parser.add_argument(
         "--decoder_tensor_model_parallel_size", type=int, default=1, help="Tensor parallel size for decoder."
     )  # Use this as tp

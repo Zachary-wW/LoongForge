@@ -60,7 +60,8 @@ class McoreConfig(AbstractConfig):
             raise ValueError(
                 "Megatron-LM checkpoint does not contain arguments. This utility only supports Megatron-LM checkpoints"
                 " containing all the megatron arguments. This is because it loads all config related to model"
-                " architecture, the tensor and pipeline model parallel size from the checkpoint insead of user having to"
+                " architecture, the tensor and pipeline model parallel size from the checkpoint insead of "
+                "user having to"
                 " manually specify all the details. Please save Megatron-LM checkpoint along with all the megatron"
                 " arguments to use this utility."
             )

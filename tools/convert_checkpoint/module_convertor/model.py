@@ -15,20 +15,20 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-from os.path import dirname
+from os.path import dirname  # noqa: E402
 
 SCRIPT_DIR = dirname(os.path.abspath(__file__))
 sys.path.append(dirname(dirname(SCRIPT_DIR)))
 
-from convert_checkpoint.huggingface.huggingface_checkpoint import HuggingFaceCheckpoint
-from convert_checkpoint.huggingface.huggingface_config import HuggingFaceConfig
-from convert_checkpoint.mcore.mcore_checkpoint import McoreCheckpoint
-from convert_checkpoint.mcore.mcore_config import McoreConfig
-from convert_checkpoint.common.common_config import CommonConfig
-from convert_checkpoint.arguments import parse_args, set_args
-from convert_checkpoint.utils import utils
+from convert_checkpoint.huggingface.huggingface_checkpoint import HuggingFaceCheckpoint  # noqa: E402
+from convert_checkpoint.huggingface.huggingface_config import HuggingFaceConfig  # noqa: E402
+from convert_checkpoint.mcore.mcore_checkpoint import McoreCheckpoint  # noqa: E402
+from convert_checkpoint.mcore.mcore_config import McoreConfig  # noqa: E402
+from convert_checkpoint.common.common_config import CommonConfig  # noqa: E402
+from convert_checkpoint.arguments import parse_args, set_args  # noqa: E402
+from convert_checkpoint.utils import utils  # noqa: E402
 
-from convert_checkpoint.utils.utils import (
+from convert_checkpoint.utils.utils import (  # noqa: E402
     _flatten_expert_ids,
     get_pipeline_by_rank_id,
     get_layer_ids,
@@ -37,7 +37,7 @@ from convert_checkpoint.utils.utils import (
     convert_layout_to_custom_pipeline_layers,
 )
 
-from convert_checkpoint.utils.config_utils import get_yaml_config
+from convert_checkpoint.utils.config_utils import get_yaml_config  # noqa: E402
 
 
 BIG_MODEL_LIST = ["llama2-70b", "qwen-72b", "codellama-70b", "codellama-34b"]
@@ -487,7 +487,7 @@ def test():
     verl_convert_mcore_to_hf_v3(v3_params, args)
 
 
-from convert_checkpoint.utils.utils import make_hf_sub_checkpoints
+from convert_checkpoint.utils.utils import make_hf_sub_checkpoints  # noqa: E402
 
 
 def test_merge_hf_ckpt():

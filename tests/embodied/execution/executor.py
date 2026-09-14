@@ -1,11 +1,13 @@
 # Copyright 2026 The LoongForge Authors.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Single-script regression execution: directly run a script under examples/embodied -> timeout control -> metric parsing and baseline comparison.
+"""Single-script regression execution: directly run a script under examples/embodied -> timeout control
+-> metric parsing and baseline comparison.
 
 Scripts are executed verbatim (bash <script>) without injecting training parameters; only the
 OUTPUT_DIR / TENSORBOARD_DIR environment variables are pointed to this run's log directory (the examples
-scripts all support overriding via ``${OUTPUT_DIR:-...}``), so that the metrics.jsonl flushed by the trainer can be read.
+scripts all support overriding via ``${OUTPUT_DIR:-...}``), so that the metrics.jsonl flushed by the
+trainer can be read.
 """
 
 import os
@@ -21,7 +23,8 @@ from reporting import baseline as baseline_mod
 BASELINE_KEY = "train"
 
 # Valid shell variable name: starts with a letter/underscore, followed by letters/digits/underscores.
-# When a model name starts with a digit (e.g. "5b..."), the derived variable name starts with a digit and bash cannot reference it,
+# When a model name starts with a digit (e.g. "5b..."), the derived variable name starts with a digit
+# and bash cannot reference it,
 # so it is skipped here with a warning, to avoid silently injecting a variable that the script cannot use.
 _VALID_BASH_VAR = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -170,7 +173,8 @@ def run_script(model_name, script_path, args, log_dir, logger):
             logger.error(f"[{model_name}] {item}")
     else:
         logger.info(f"[{model_name}] Metric validation passed ({len(records)} iterations)")
-        # When performance improved (beyond tolerance and with no degradation), update the baseline's performance metrics to this run's values
+        # When performance improved (beyond tolerance and with no degradation), update the baseline's
+        # performance metrics to this run's values
         updated = baseline_mod.update_perf_baseline(
             args.chip, model_name, BASELINE_KEY, records, expected, performance_tol=args.performance_relative_tolerance
         )

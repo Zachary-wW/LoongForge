@@ -40,7 +40,7 @@ from loongforge.utils.constants import Placeholder
 from PIL import Image
 
 logger = logging.getLogger(__name__)
-from PIL.Image import Image as ImageObject
+from PIL.Image import Image as ImageObject  # noqa: E402
 
 
 if TYPE_CHECKING:

@@ -22,7 +22,7 @@ from .data_utils import get_text_token_num
 import logging
 
 logger = logging.getLogger(__name__)
-from .utils.video_utils import group_frame_by_video
+from .utils.video_utils import group_frame_by_video  # noqa: E402
 
 
 class Adaptive:

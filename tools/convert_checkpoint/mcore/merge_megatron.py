@@ -12,17 +12,17 @@ from os.path import dirname
 SCRIPT_DIR = dirname(os.path.abspath(__file__))
 sys.path.append(dirname(dirname(SCRIPT_DIR)))
 
-from convert_checkpoint.utils.ckpt_util import (
+from convert_checkpoint.utils.ckpt_util import (  # noqa: E402
     load_megatron_checkpoint,
     save_megatron_checkpoint,
 )
-from convert_checkpoint.key_mappings.to_omni_key import (
+from convert_checkpoint.key_mappings.to_omni_key import (  # noqa: E402
     transform_key,
     transform_language_model_key,
 )
 
 
-from convert_checkpoint.utils.config_utils import load_config, parallel_param_parser
+from convert_checkpoint.utils.config_utils import load_config, parallel_param_parser  # noqa: E402
 
 
 def parse_args(title=None):

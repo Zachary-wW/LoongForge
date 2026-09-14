@@ -35,7 +35,8 @@ class ModalityTransform(BaseModel, ABC):
 
     def set_metadata(self, dataset_metadata: DatasetMetadata):
         """
-        Set the dataset metadata. This is useful for transforms that need to know the dataset metadata, e.g. to normalize actions.
+        Set the dataset metadata. This is useful for transforms that need to know the dataset
+        metadata, e.g. to normalize actions.
         Subclasses can override this method if they need to do something more complex.
         """
         self.dataset_metadata = dataset_metadata
@@ -63,7 +64,8 @@ class ModalityTransform(BaseModel, ABC):
 
     @abstractmethod
     def apply(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Apply the transformation to the data corresponding to keys matching the `apply_to` regular expression and return the processed data."""
+        """Apply the transformation to the data corresponding to keys matching the `apply_to`
+        regular expression and return the processed data."""
         pass
 
     def train(self):
@@ -76,7 +78,8 @@ class ModalityTransform(BaseModel, ABC):
 class InvertibleModalityTransform(ModalityTransform):
     @abstractmethod
     def unapply(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Reverse the transformation to the data corresponding to keys matching the `apply_to` regular expression and return the processed data."""
+        """Reverse the transformation to the data corresponding to keys matching the `apply_to`
+        regular expression and return the processed data."""
         pass
 
 

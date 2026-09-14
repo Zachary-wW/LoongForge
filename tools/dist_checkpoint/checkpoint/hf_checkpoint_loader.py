@@ -192,7 +192,8 @@ def load_hf_checkpoint_online(model, optimizer, opt_param_scheduler, args) -> Tu
         peak_mem_gb = torch.cuda.max_memory_allocated() / (1024**3)
         mem_after = torch.cuda.memory_allocated() / (1024**3)
         print_rank_0(
-            f"Mcore conversion completed. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
+            f"Mcore conversion completed. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → "
+            f"After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
         )
 
     if mcore_dict is None:
@@ -250,7 +251,8 @@ def load_hf_checkpoint_online(model, optimizer, opt_param_scheduler, args) -> Tu
         peak_mem_gb = torch.cuda.max_memory_allocated() / (1024**3)
         mem_after = torch.cuda.memory_allocated() / (1024**3)
         print_rank_0(
-            f"Model state_dict loaded successfully. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
+            f"Model state_dict loaded successfully. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → "
+            f"After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
         )
     else:
         print_rank_0("Model state_dict loaded successfully")

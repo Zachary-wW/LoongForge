@@ -26,9 +26,9 @@ from .utils.io_utils import get_hashable, image_info_2_hash
 import logging
 
 logger = logging.getLogger(__name__)
-from .utils.image_enhance import RandomSeedContext
-from .utils.video_utils import group_frame_by_video
-from .tokenizer_vl import (
+from .utils.image_enhance import RandomSeedContext  # noqa: E402
+from .utils.video_utils import group_frame_by_video  # noqa: E402
+from .tokenizer_vl import (  # noqa: E402
     SFT_IMAGE_END_TOKEN,
     SFT_IMAGE_START_TOKEN,
 )

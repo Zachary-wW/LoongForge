@@ -10,16 +10,16 @@ from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 
-from convert_checkpoint.common.common_checkpoint import CommonCheckpoint
-from convert_checkpoint.utils.utils import (
+from convert_checkpoint.common.common_checkpoint import CommonCheckpoint  # noqa: E402
+from convert_checkpoint.utils.utils import (  # noqa: E402
     convert_fp8_to_bf16,
 )
-from convert_checkpoint.huggingface.compressed_tensors_dequant import DTYPE_MAP
+from convert_checkpoint.huggingface.compressed_tensors_dequant import DTYPE_MAP  # noqa: E402
 
-from omegaconf import ListConfig
-from omegaconf.dictconfig import DictConfig
+from omegaconf import ListConfig  # noqa: E402
+from omegaconf.dictconfig import DictConfig  # noqa: E402
 
-from convert_checkpoint.common.common_checkpoint import (
+from convert_checkpoint.common.common_checkpoint import (  # noqa: E402
     WEIGHT,
     BIAS,
     WEIGHT_SCALE,
@@ -49,8 +49,11 @@ from convert_checkpoint.common.common_checkpoint import (
     LAYER_DTYPE,
 )
 
-from convert_checkpoint.huggingface.util.hf_attn_converter import HfAttnQkvConverter, HfAttnGateQkvConverter
-from convert_checkpoint.huggingface.util.hf_mixer_attn_converter import HfMixerAttnConverter
+from convert_checkpoint.huggingface.util.hf_attn_converter import (  # noqa: E402
+    HfAttnQkvConverter,
+    HfAttnGateQkvConverter,
+)
+from convert_checkpoint.huggingface.util.hf_mixer_attn_converter import HfMixerAttnConverter  # noqa: E402
 
 
 def is_dsv4_hybrid_config(c_config):

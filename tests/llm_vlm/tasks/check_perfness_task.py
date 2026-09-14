@@ -34,7 +34,8 @@ class PerfnessCheckTask(BaseTask):
     def __call__(self) -> TaskResut:
         if not self.MODEL_RUNNABLE:
             logger.warn(
-                f"{self.class_name} current model {self.model_name} does not support {self.class_name} task, skipping!!!"
+                f"{self.class_name} current model {self.model_name} does not support {self.class_name} task, "
+                f"skipping!!!"
             )
             return TaskResut()
 
