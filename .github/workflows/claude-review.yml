@@ -241,10 +241,14 @@ jobs:
             Post confirmed findings with create_inline_comment and set
             commit_id to ${{ steps.pr.outputs.head_sha }} on every inline
             comment so findings stay attached to the reviewed revision.
-            Return the one top-level verdict required by the Skill in the
-            verdict_comment structured-output field; the workflow will
-            post it. Do not modify files, commits, branches, labels, or
-            PR state.
+            Only the code-review Skill, Read, Grep, Glob, and the GitHub
+            MCP tools named in your tool list are permitted; every other
+            tool call is denied, so do not attempt them.
+            Return the one top-level verdict required by the Skill as
+            your final message, starting with the "## Verdict:" header
+            and nothing after the checklist table; the workflow will
+            post that message verbatim as the review comment. Do not
+            modify files, commits, branches, labels, or PR state.
           # claude-code-action (v1.0.189) joins this value onto one line after
           # its own --mcp-config argument and then re-parses the result with a
           # shell tokenizer. A '#' anywhere in the string opens a shell comment
@@ -254,6 +258,12 @@ jobs:
           # The 45-minute job timeout is the hard limit. In this provider,
           # --max-turns can reject an otherwise successful result post hoc.
           # CLAUDE_REVIEW_MODEL must be an ID accepted by ANTHROPIC_BASE_URL.
+          # Do NOT pass --json-schema: it makes the CLI force a final
+          # structured-output tool call, and this gateway never returns it,
+          # so claude-code-action hard-fails every run with "Claude did not
+          # return structured_output" (observed on 100% of runs through
+          # ANTHROPIC_BASE_URL). The verdict is instead taken from the final
+          # result text in the execution file; see "Post top-level verdict".
           claude_args: |
             --model "${{ vars.CLAUDE_REVIEW_MODEL }}"
             --permission-mode dontAsk
@@ -261,7 +271,6 @@ jobs:
             --strict-mcp-config
             --no-session-persistence
             --add-dir "${{ steps.pr.outputs.review_dir }}"
-            --json-schema '{"type":"object","properties":{"verdict_comment":{"type":"string"}},"required":["verdict_comment"],"additionalProperties":false}'
             --allowedTools "Skill(code-review),Read,Grep,Glob,mcp__github_inline_comment__create_inline_comment,mcp__github_ci__get_ci_status,mcp__github_ci__get_workflow_run_details,mcp__github_ci__download_job_log"
             --disallowedTools "Edit,Write,NotebookEdit,Bash,WebFetch,WebSearch"
 
@@ -277,26 +286,37 @@ jobs:
           fi
           # Keep public logs to stable SDK metadata. The execution file also
           # contains model/tool content and must not be dumped to the log.
+          # The `node` on this runner's PATH predates optional chaining
+          # (`?.` and `??` need Node 14+, the shell `node` is far older),
+          # so keep this script free of modern syntax. Actions themselves
+          # run on the runner's external Node 24 runtime and are unaffected.
           node - "$EXECUTION_FILE" <<'NODE'
-          const fs = require('node:fs');
-          const file = process.argv[2];
-          const messages = JSON.parse(fs.readFileSync(file, 'utf8'));
-          const results = messages.filter((message) => message?.type === 'result');
-          if (!results.length) {
+          var fs = require('fs');
+          var file = process.argv[2];
+          var messages = JSON.parse(fs.readFileSync(file, 'utf8'));
+          var results = messages.filter(function (message) {
+            return message && message.type === 'result';
+          });
+          if (results.length === 0) {
             console.log('Claude result metadata: unavailable');
             process.exit(0);
           }
-          for (const result of results) {
+          results.forEach(function (result) {
+            var hasVerdict = false;
+            if (typeof result.result === 'string') {
+              hasVerdict = result.result.indexOf('## Verdict:') === 0;
+            }
             console.log(JSON.stringify({
               subtype: result.subtype,
               is_error: result.is_error,
               num_turns: result.num_turns,
               duration_ms: result.duration_ms,
               duration_api_ms: result.duration_api_ms,
-              api_error_status: result.api_error_status ?? null,
-              terminal_reason: result.terminal_reason ?? null,
+              api_error_status: result.api_error_status === undefined ? null : result.api_error_status,
+              terminal_reason: result.terminal_reason === undefined ? null : result.terminal_reason,
+              has_verdict: hasVerdict,
             }));
-          }
+          });
           NODE
 
       - name: Post top-level verdict
@@ -304,12 +324,25 @@ jobs:
         env:
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
-          REVIEW_OUTPUT: ${{ steps.claude.outputs.structured_output }}
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
         with:
           script: |
-            const output = JSON.parse(process.env.REVIEW_OUTPUT || '{}');
-            const body = output.verdict_comment?.trim();
-            if (!body?.startsWith('## Verdict:')) {
+            const fs = require('fs');
+            const executionFile = process.env.EXECUTION_FILE;
+            if (!executionFile || !fs.existsSync(executionFile)) {
+              core.setFailed('Claude execution output file is missing.');
+              return;
+            }
+            const messages = JSON.parse(fs.readFileSync(executionFile, 'utf8'));
+            const resultMessage = [...messages]
+              .reverse()
+              .find((message) => message?.type === 'result');
+            if (!resultMessage || resultMessage.is_error) {
+              core.setFailed('Claude did not produce a successful result message.');
+              return;
+            }
+            const body = (resultMessage.result ?? '').trim();
+            if (!body.startsWith('## Verdict:')) {
               core.setFailed('Claude did not return the required verdict format.');
               return;
             }
