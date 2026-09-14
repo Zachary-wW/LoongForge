@@ -30,7 +30,7 @@ from loongforge.models.foundation.qwen3_next.qwen3_next_layer_spec import (
 )
 
 try:
-    import transformer_engine  # pylint: disable=unused-import
+    import transformer_engine  # pylint: disable=unused-import  # noqa: F401
 
     HAVE_TE = True
 except ImportError:

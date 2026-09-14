@@ -398,6 +398,7 @@ def convert_to_wds(cfg: PackedWDSConfig):
         )
     else:
         stream_fn = stream_samples_caption
+
         def construct_fn(entry, roots):
             return construct_sample(entry, roots)
 

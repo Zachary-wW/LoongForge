@@ -9,8 +9,6 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 
-
-
 class HfMixerAttnConverter:
     def __init__(self, c_config):
         self.c_config = c_config

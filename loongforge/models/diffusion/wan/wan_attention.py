@@ -20,7 +20,7 @@ _MISSING = object()
 
 
 try:
-    import transformer_engine  # pylint: disable=unused-import
+    import transformer_engine  # pylint: disable=unused-import  # noqa: F401
 
     HAVE_TE = True
     from megatron.core.extensions.transformer_engine import SplitAlongDim

@@ -23,7 +23,7 @@ from typing import List
 import cv2
 
 try:
-    import imgaug
+    import imgaug  # noqa: F401
 
     IMGAUG_AVAILABLE = True
     import imgaug as ia

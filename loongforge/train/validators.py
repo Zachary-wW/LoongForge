@@ -582,7 +582,9 @@ def _validate_custom_model_args(name, args, defaults={}):
     )
     if args.non_persistent_ckpt_type == "local":
         try:
-            from nvidia_resiliency_ext.checkpointing.local.ckpt_managers.local_manager import LocalCheckpointManager
+            from nvidia_resiliency_ext.checkpointing.local.ckpt_managers.local_manager import (
+                LocalCheckpointManager,  # noqa: F401
+            )
         except ModuleNotFoundError as e:
             raise RuntimeError("nvidia_resiliency_ext is required for local checkpointing") from e
 
@@ -813,6 +815,7 @@ def _validate_custom_model_args(name, args, defaults={}):
         "fp16": torch.float16,
         "fp8": torch.uint8,
     }
+
     def map_dtype(d):
         return d if isinstance(d, torch.dtype) else dtype_map[d]
 

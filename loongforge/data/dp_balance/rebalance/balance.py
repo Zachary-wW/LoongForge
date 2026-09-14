@@ -318,6 +318,7 @@ def solve_sample_dp_reorder_plan(
     # 1) cost function
     # ----------------------------------------
     if cost_fn is None:
+
         def cost_fn(x):
             return float(x * x)  # default: ViT
 

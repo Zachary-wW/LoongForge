@@ -38,14 +38,14 @@ from megatron.core.transformer.transformer_block import (
 )
 
 try:
-    import transformer_engine.pytorch as te  # pylint: disable=unused-import
+    import transformer_engine.pytorch as te  # pylint: disable=unused-import  # noqa: F401
 
     HAVE_TE = True
 except ImportError:
     HAVE_TE = False
 
 try:
-    import apex  # pylint: disable=unused-import
+    import apex  # pylint: disable=unused-import  # noqa: F401
 
     HAVE_APEX = True
 except ImportError:

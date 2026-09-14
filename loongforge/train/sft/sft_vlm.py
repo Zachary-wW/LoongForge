@@ -3,7 +3,6 @@
 
 """default pretrain for generative models like GPTS"""
 
-
 from megatron.core.enums import ModelType
 from megatron.core.utils import StragglerDetector
 

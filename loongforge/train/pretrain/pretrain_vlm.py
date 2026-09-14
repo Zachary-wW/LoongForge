@@ -56,8 +56,6 @@ from loongforge.train.initialize import (
     is_mock_microbatch,
 )
 
-from loongforge.utils.global_vars import get_model_config
-
 stimer = StragglerDetector()
 
 

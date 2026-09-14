@@ -643,9 +643,9 @@ class ChunkPipeGroupBatchSampler:
 
         def sizes_desc():
             return sorted(
-                    (k for k, dq in pool.items() if k != exclude_size and k < length and dq),
-                    reverse=True,
-                )
+                (k for k, dq in pool.items() if k != exclude_size and k < length and dq),
+                reverse=True,
+            )
 
         for _ in range(count):
             slot_components = []

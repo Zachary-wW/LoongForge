@@ -14,7 +14,9 @@ import torch
 
 if TYPE_CHECKING:
     from transformers import PreTrainedTokenizerBase
+    from transformers.processing_utils import ProcessorMixin
     from transformers.utils import PaddingStrategy
+    from loongforge.data.mm_plugin import MMPlugin
 
 
 @dataclass
@@ -86,7 +88,7 @@ class DataCollatorForSupervisedDataset:
         loss_mask = [feature["loss_mask"] for feature in features] if "loss_mask" in features[0].keys() else None
 
         if loss_mask is not None and self.padding and self.padding != PaddingStrategy.DO_NOT_PAD:
-            max_loss_length = max(len(l) for l in loss_mask)
+            max_loss_length = max(len(seq) for seq in loss_mask)
             if self.padding == PaddingStrategy.MAX_LENGTH and self.max_length is not None:
                 max_loss_length = self.max_length
             if self.pad_to_multiple_of is not None:

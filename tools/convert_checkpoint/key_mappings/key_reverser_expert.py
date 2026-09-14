@@ -13,7 +13,6 @@ SCRIPT_DIR = dirname(os.path.abspath(__file__))
 sys.path.append(dirname(dirname(SCRIPT_DIR)))
 
 
-
 from convert_checkpoint.key_mappings.to_vanilla_key import transform_key_reverse
 
 from convert_checkpoint.utils.config_utils import load_config, parallel_param_parser

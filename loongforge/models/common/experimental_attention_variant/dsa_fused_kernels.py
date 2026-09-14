@@ -35,7 +35,7 @@ from megatron.core.utils import get_te_version, is_te_min_version
 from megatron.core.fusions.fused_mla_yarn_rope_apply import _get_thd_token_idx
 
 try:
-    import transformer_engine.pytorch as te
+    import transformer_engine.pytorch as te  # noqa: F401
     import transformer_engine_torch as tex
     from transformer_engine.pytorch.tensor.float8_blockwise_tensor import Float8BlockQuantizer
 except ImportError as exc:
@@ -277,6 +277,7 @@ class ApplyMLARotaryEmbQInterleaved(torch.autograd.Function):
 
         def grid(META):
             return (total_seqlen, triton.cdiv(nheads, META["BLOCK_H"]))
+
         rotary_fwd_q_kernel_interleaved[grid](
             q,
             cos,
@@ -328,6 +329,7 @@ class ApplyMLARotaryEmbQInterleaved(torch.autograd.Function):
 
         def grid(META):
             return (total_seqlen, triton.cdiv(nheads, META["BLOCK_H"]))
+
         rotary_bwd_q_kernel_interleaved[grid](
             grad,
             cos,
@@ -539,6 +541,7 @@ class ApplyMLARotaryEmbQNonInterleavedWithOffset(torch.autograd.Function):
 
         def grid(META):
             return (total_seqlen, triton.cdiv(nheads, META["BLOCK_H"]))
+
         rotary_fwd_q_kernel_non_interleaved[grid](
             q,
             cos,
@@ -584,6 +587,7 @@ class ApplyMLARotaryEmbQNonInterleavedWithOffset(torch.autograd.Function):
 
         def grid(META):
             return (total_seqlen, triton.cdiv(nheads, META["BLOCK_H"]))
+
         rotary_bwd_q_kernel_non_interleaved[grid](
             grad,
             cos,

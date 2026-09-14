@@ -46,6 +46,8 @@ from PIL.Image import Image as ImageObject
 if TYPE_CHECKING:
     import torch
     from transformers.image_processing_utils import BaseImageProcessor
+    from transformers.image_utils import Stream
+    from transformers.processing_utils import ProcessorMixin
 
     class EncodedImage(TypedDict):
         """Encoded image type."""

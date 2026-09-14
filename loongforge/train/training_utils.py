@@ -310,13 +310,15 @@ def add_hooks(model, args, prefix):
     """add hooks for model, only enable hooks when open the switch: enable-log-tensor"""
     print_rank_0(f"Set up Log Tensor Hook:\n  name pattern: {args.log_tensor_name_pattern}\n")
     rank = torch.distributed.get_rank()
+
     def log_fn(string):
         return print(f"[Rank {rank}] {string}")
+
     matched_modules = register_hooks(model, args, rank, log_fn, prefix)
     if len(matched_modules) > 0:
         print_rank_0(f"For log tensor name pattern: {args.log_tensor_name_pattern}, find the following layers:")
-        for l in matched_modules:
-            print_rank_0(f"  {l}")
+        for module in matched_modules:
+            print_rank_0(f"  {module}")
     else:
         print_rank_0(f"No layers found for the log tensor name pattern: {args.log_tensor_name_pattern}")
 
@@ -423,8 +425,8 @@ def pretrain(
                 LocalCheckpointManager,
             )
             from nvidia_resiliency_ext.checkpointing.local.replication.group_utils import (
-                parse_group_sequence,
-                GroupWrapper,
+                parse_group_sequence,  # noqa: F401
+                GroupWrapper,  # noqa: F401
             )
             from nvidia_resiliency_ext.checkpointing.local.replication.strategies import (
                 CliqueReplicationStrategy,

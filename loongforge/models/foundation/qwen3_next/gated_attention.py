@@ -29,7 +29,7 @@ except ImportError:
     rearrange = None
 
 try:
-    import transformer_engine  # pylint: disable=unused-import
+    import transformer_engine  # pylint: disable=unused-import  # noqa: F401
 
     HAVE_TE = True
     from megatron.core.extensions.transformer_engine import (
@@ -40,7 +40,6 @@ except ImportError:
     SplitAlongDim = None
 
 try:
-
     HAVE_FA3 = True
 except:
     HAVE_FA3 = False

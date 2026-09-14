@@ -544,7 +544,7 @@ class HuggingfaceBase:
                 weight, bias, weight_scale = self.get_from_state_dict(h_dict, hf_weight_path)
         else:
             if name in [ROTARY_EMB_INV_FREQ, ATTENTION_ROTARY_EMB_INV_FREQ]:
-                assert self.use_rotary_position_embeddings == True, (
+                assert self.use_rotary_position_embeddings, (
                     "mcore args.use_rotary_position_embeddings is required to be set to True \
                         since we capture the rotary_emb op"
                 )
