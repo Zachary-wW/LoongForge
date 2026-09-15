@@ -112,7 +112,7 @@ class VariableResolutionResamplerModel(nn.Module):
         self.temporal_dim = self.in_dim * self.spatial_conv_size * self.spatial_conv_size * self.temporal_conv_size
 
         # using unique name space start with "mm_resampler_"
-        with UniqueNameGuard("mm_resampler_"):
+        with UniqueNameGuard("mm_resampler_") as guard:  # noqa: F841
             self.spatial_linear = nn.Sequential(
                 nn.Linear(self.spatial_dim, self.spatial_dim),
                 nn.GELU(),

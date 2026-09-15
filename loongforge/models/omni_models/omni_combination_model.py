@@ -272,7 +272,7 @@ class OmniCombinationModel(BaseMegatronModule):
             inference_params is not None and "image_tokens_count" in inference_params.key_value_memory_dict
         )
         if use_inference_kv_cache:
-            pass
+            vision_embeddings = None  # noqa: F841
         elif self.add_encoder:
             if not enable_encoder_hetero_dp and not enable_full_hetero_dp:
                 combined_embeddings, decode_input, visual_pos_masks, deepstack_visual_embeds = self.encoder_model(

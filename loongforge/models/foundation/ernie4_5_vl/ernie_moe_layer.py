@@ -86,6 +86,7 @@ class ErnieMoeLayer(MoELayer):
         """
         device = hidden_states.device
         num_rows, bs, hidden_size = hidden_states.shape
+        num_experts = self.config.num_moe_experts  # noqa: F841
         k = self.config.moe_router_topk
         expert_ids_flat = expert_id.reshape(-1)  # [num_rows * k]
 

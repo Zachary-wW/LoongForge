@@ -397,7 +397,7 @@ def _convert_checkpoint(args):
         concurrent.futures.wait(futures)
         for future in futures:
             try:
-                future.result()
+                result = future.result()  # noqa: F841
             except Exception as e:
                 logging.info(f"An error occurred: {e}")
                 raise e

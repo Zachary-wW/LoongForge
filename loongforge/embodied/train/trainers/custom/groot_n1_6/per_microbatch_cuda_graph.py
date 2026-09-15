@@ -340,7 +340,7 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
                 self._eager_rng_single(micro_idx)
                 self._set_rng_buf_on_model(micro_idx)
                 graph.replay()
-                self._graph_outputs[micro_idx]
+                output = self._graph_outputs[micro_idx]  # noqa: F841
 
         wait_start = time.perf_counter()
         self._wait_default_on_graph_stream()

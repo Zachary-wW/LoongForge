@@ -113,7 +113,7 @@ def load_hf_checkpoint_online(model, optimizer, opt_param_scheduler, args) -> Tu
     Returns:
         (iteration, num_floating_point_operations_so_far)
     """
-    dist.get_rank()
+    rank = dist.get_rank()  # noqa: F841
     world_size = dist.get_world_size()
 
     print_rank_0("=" * 80)

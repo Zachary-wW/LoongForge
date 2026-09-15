@@ -94,7 +94,7 @@ def process_checkpoint_shards(
     sub_dirs = sorted([x for x in os.listdir(input_dir) if x.startswith("mp_rank")])
     for sub_dir in sub_dirs:
         splits = sub_dir.split("_")
-        int(splits[2])
+        t = int(splits[2])  # noqa: F841
         checkpoint_name = f"{sub_dir}/model_optim_rng.pt"
         checkpoint_path = os.path.join(input_dir, checkpoint_name)
         print(f"Load Megatron Shard:{checkpoint_path}")

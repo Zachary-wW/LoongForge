@@ -17,7 +17,7 @@ def fp8_index_baseline(
     Baseline for indexer forward.
     """
     b, m, h, d = q.shape
-    k.shape[1]
+    n = k.shape[1]  # noqa: F841
 
     logits = torch.einsum("bmhd,bnd->bmhn", q, k)
     relu_logits = torch.relu(logits)

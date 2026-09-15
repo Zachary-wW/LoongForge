@@ -1469,6 +1469,7 @@ def train_step(
         for round in range(encoder_rounds):
             batch_list.clear()
             front = pp_layer * tp_size + round * model_size
+            all_mock_in_range = front >= num_real_microbatch  # noqa: F841
             for tp_idx in range(tp_size):
                 global_mb_idx = front + tp_idx
                 if global_mb_idx >= num_real_microbatch:

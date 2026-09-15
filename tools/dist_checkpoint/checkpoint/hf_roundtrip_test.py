@@ -208,7 +208,7 @@ def _compare_shard(
                     # Get some sample values with largest differences
                     flat_diff = diff.flatten()
                     top_vals, top_idx = torch.topk(flat_diff, min(5, flat_diff.numel()))
-                    (diff == diff.max()).nonzero(as_tuple=True)
+                    max_pos = (diff == diff.max()).nonzero(as_tuple=True)  # noqa: F841
                     detail = {
                         "key": key,
                         "max_diff": max_diff,

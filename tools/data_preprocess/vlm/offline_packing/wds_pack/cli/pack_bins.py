@@ -87,6 +87,7 @@ def init(cfg):
 
 
 def run_hashbucket(token_info_file, max_token_len):
+    bins_boxs = []  # noqa: F841
     processor, tracker = init_from_file(token_info_file, max_token_len)
     return run_hashbucket_processor(processor, tracker, max_token_len)
 
@@ -196,7 +197,7 @@ def run_hashbucket_processor(processor, tracker, max_token_len):
 
     for i in range(2):
         if num > 10000:
-            int(mean - (mean - min_) * 0.1)
+            scale = int(mean - (mean - min_) * 0.1)  # noqa: F841
             min_items, min_ratio = 4, 0.90
             bin_boxs_turn = tracker.track_packing(
                 "pack_with_flexible_seeds",
@@ -230,7 +231,7 @@ def run_hashbucket_processor(processor, tracker, max_token_len):
                 max_workers=os.cpu_count(),
             )
             update_stats = processor.update_hash_buckets(remove_empty=True, verbose=True)
-            update_info(update_stats)
+            rest_items = update_info(update_stats)  # noqa: F841
             print(len(bin_boxs_simplest))
             bins_boxs.extend(bin_boxs_simplest)
             print(

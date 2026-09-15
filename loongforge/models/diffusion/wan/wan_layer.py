@@ -275,6 +275,7 @@ class WanLayer(TransformerLayer):
         num_samples = self._packing_num_samples
         cu_seqlens_q_padded = self._packing_cu_seqlens_q_padded
         ca_params = self._packing_cross_packed_seq_params
+        dim = self.config.hidden_size  # noqa: F841
 
         # Extract video, trailing t_mod, t_s from concatenated hidden_states
         num_trailing = 7 * num_samples

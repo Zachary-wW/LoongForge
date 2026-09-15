@@ -181,7 +181,7 @@ def profile_checkpoint_operation(
     if memory_tracker:
         memory_tracker.start()
 
-    timer.__enter__()
+    start_time = timer.__enter__()  # noqa: F841
 
     try:
         # Store memory_tracker in stats so nested code can update peak
@@ -226,7 +226,7 @@ def time_checkpoint_operation(func: F) -> F:
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        with profile_checkpoint_operation(operation_name=f"{func.__name__}", track_memory=True):
+        with profile_checkpoint_operation(operation_name=f"{func.__name__}", track_memory=True) as stats:  # noqa: F841
             result = func(*args, **kwargs)
         return result
 
@@ -331,9 +331,9 @@ class RankProfiler:
             import pickle
 
             if rank == 0:
-                pickle.dumps(all_stats)
+                stats_bytes = pickle.dumps(all_stats)  # noqa: F841
             else:
-                pass
+                stats_bytes = None  # noqa: F841
 
             # Simple gather: each rank sends to rank 0
             obj_list = [None] * world_size if rank == 0 else None

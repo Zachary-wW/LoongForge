@@ -663,7 +663,7 @@ def fused_rope_permute_cat_fwd_kernel_non_interleaved(
     h_offs = pid_head * BLOCK_H + tl.arange(0, BLOCK_H)  # [BLOCK_H]
     h_mask = h_offs < head_num
 
-    d_out + emb_dim
+    d_total = d_out + emb_dim  # noqa: F841
 
     # Part 1: permute q_content (HSD → SHD)
     # Read  Q_CONTENT[h_offs, pid_m, d] and write to OUTPUT[pid_m, h_offs, d]
@@ -758,7 +758,7 @@ def fused_rope_permute_cat_fwd_kernel_interleaved(
     h_offs = pid_head * BLOCK_H + tl.arange(0, BLOCK_H)
     h_mask = h_offs < head_num
 
-    d_out + emb_dim
+    d_total = d_out + emb_dim  # noqa: F841
 
     # Part 1: permute q_content (HSD → SHD)
     for d_start in range(0, d_out, 64):
@@ -851,7 +851,7 @@ def fused_rope_permute_cat_bwd_kernel_non_interleaved(
     h_offs = pid_head * BLOCK_H + tl.arange(0, BLOCK_H)
     h_mask = h_offs < head_num
 
-    d_out + emb_dim
+    d_total = d_out + emb_dim  # noqa: F841
 
     # Part 1: grad_q_content: SHD → HSD (inverse permute)
     for d_start in range(0, d_out, 64):
@@ -949,7 +949,7 @@ def fused_rope_permute_cat_bwd_kernel_interleaved(
     h_offs = pid_head * BLOCK_H + tl.arange(0, BLOCK_H)
     h_mask = h_offs < head_num
 
-    d_out + emb_dim
+    d_total = d_out + emb_dim  # noqa: F841
 
     # Part 1: inverse permute (SHD → HSD)
     for d_start in range(0, d_out, 64):

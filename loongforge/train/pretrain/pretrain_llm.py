@@ -219,7 +219,7 @@ def train_valid_test_datasets_provider(train_val_test_num_samples, vp_stage=None
 
     print_rank_0(f"> building train, validation, and test datasets for {args.model_name} ...")
 
-    partial(_is_dataset_built_on_rank, vp_stage=vp_stage)
+    is_dataset_built = partial(_is_dataset_built_on_rank, vp_stage=vp_stage)  # noqa: F841
 
     train_ds, valid_ds, test_ds = BlendedMegatronDatasetBuilder(
         GPTDataset if not args.mock_data else MockGPTDataset,

@@ -371,5 +371,5 @@ def _add_megatron_args(parser):
 
 
 def _add_huggingface_args(parser):
-    parser.add_argument_group(title="huggingface")
+    group = parser.add_argument_group(title="huggingface")  # noqa: F841
     pass

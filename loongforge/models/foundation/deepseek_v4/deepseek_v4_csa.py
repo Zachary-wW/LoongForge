@@ -3143,6 +3143,7 @@ class CompressedSparseAttention(MegatronModule):
         compressed_kv_local = None
         seq_to_rank_row = None
         compressed_topk = None
+        n_compressed_all = 0  # noqa: F841
         compressed_kv_rank_major = kv_local.new_empty((0, kv_local.shape[-1]))
         # Indexer-loss state (only populated on ratio==4 layers while training).
         q_indexer_cp = None
@@ -3236,7 +3237,7 @@ class CompressedSparseAttention(MegatronModule):
                 if compressed_kv_local.ndim == 3 and compressed_kv_local.shape[1] == 1:
                     compressed_kv_local = compressed_kv_local.squeeze(1)
                 compressed_kv_rank_major = gather_from_sequence_parallel_region(compressed_kv_local, group=cp_group)
-                compressed_kv_rank_major.shape[0]
+                n_compressed_all = compressed_kv_rank_major.shape[0]  # noqa: F841
 
         # Step 6: Build kv_full (Megatron-LM layout: boundary | local | rank-major compressed)
         d_window = boundary_kv.shape[0] if boundary_kv is not None else 0

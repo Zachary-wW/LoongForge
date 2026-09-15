@@ -75,7 +75,7 @@ def solve_computation_coef(init=(0, 0, 0)):
     args_train = get_args()
     iteration = args_train.curr_iteration
 
-    mpu.get_data_parallel_group_gloo(
+    dp_group = mpu.get_data_parallel_group_gloo(  # noqa: F841
         with_context_parallel=False,
         partial_data_parallel=False,
     )

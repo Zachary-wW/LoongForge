@@ -92,7 +92,7 @@ class _Select(torch.autograd.Function):
                 dtype=grad_output.dtype,
                 device=grad_output.device,
             )
-            mpu.get_context_parallel_rank()
+            cp_rank = mpu.get_context_parallel_rank()  # noqa: F841
             output[ctx.index] = grad_output.view(2, -1, *grad_output.shape[1:])
             output = output.view(-1, *output.shape[2:])
             return output, None

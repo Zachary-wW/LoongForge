@@ -259,7 +259,7 @@ class TransformerBlock(MegatronTransformerBlock):
 
                     with self.offload_context, inner_quantization_context:
                         if isinstance(packed_seq_params, list) and len(packed_seq_params) > 0:
-                            packed_seq_params[l_no]
+                            packed_seq_params_l_no = packed_seq_params[l_no]  # noqa: F841
                         hidden_states, context = layer(
                             hidden_states=hidden_states,
                             attention_mask=attention_mask,

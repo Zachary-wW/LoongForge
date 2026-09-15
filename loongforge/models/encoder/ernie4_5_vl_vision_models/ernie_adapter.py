@@ -100,7 +100,7 @@ class ErnieAdapter(BaseMegatronVisionModule):
         args = get_args()
         self.out_dtype = torch.bfloat16 if args.bf16 else torch.float16
         # using unique name space start with "mm_resampler_"
-        with UniqueNameGuard("mm_resampler_"):
+        with UniqueNameGuard("mm_resampler_") as guard:  # noqa: F841
             self.mlp = nn.Linear(self.in_dim, self.out_dim)
             out_config = deepcopy(config)
             out_config.hidden_size = self.out_dim

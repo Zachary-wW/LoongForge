@@ -69,7 +69,7 @@ def load_huggingface_checkpoint(load_path):
 def save_huggingface_checkpoint(state_dict, save_path):
     """save ckpt"""
     os.makedirs(save_path, exist_ok=True)
-    os.path.join(save_path, "model.safetensors")
+    checkpoint_path = os.path.join(save_path, "model.safetensors")  # noqa: F841
 
     state_dict_split = split_torch_state_dict_into_shards(state_dict)
     for shard_file, tensors in state_dict_split.filename_to_tensors.items():

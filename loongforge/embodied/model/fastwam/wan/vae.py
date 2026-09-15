@@ -920,7 +920,7 @@ class Decoder3d38(nn.Module):
 
         # dimensions
         dims = [dim * u for u in [dim_mult[-1]] + dim_mult[::-1]]
-        1.0 / 2 ** (len(dim_mult) - 2)
+        scale = 1.0 / 2 ** (len(dim_mult) - 2)  # noqa: F841
         # init block
         self.conv1 = CausalConv3d(z_dim, dims[0], 3, padding=1)
 

@@ -650,6 +650,7 @@ class VLMTaskEncoder(BaseTaskEncoder):
             )
         has_text_only = not has_images and not has_videos
         media_list = images if has_images else videos
+        media_type = "image" if has_images else ("video" if has_videos else "text")  # noqa: F841
 
         if not has_text_only and len(media_list) != n_orig_sample:
             raise ValueError(

@@ -91,7 +91,7 @@ class HfAttnQkvConverter:
 class HfAttnGateQkvConverter:
     def __init__(self, c_config):
         self.c_config = c_config
-        self.c_config.get_args("mcore")
+        margs = self.c_config.get_args("mcore")  # noqa: F841
         cargs = self.c_config.get_args("common")
 
         self.name_map = self.c_config.get_name_map("huggingface")

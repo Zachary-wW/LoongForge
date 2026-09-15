@@ -175,6 +175,8 @@ class PrecessDataCheckTask(BaseTask):
 
         # Data preprocessing
         model_name = self.model_name
+        node_nums = self.input_cmd_args.node_nums  # noqa: F841
+        timeout = self.input_cmd_args.timeout  # noqa: F841
         scripts_root_path = model_config["scripts_root_path"]
         model_lock_file_path = model_config["model_lock_file_path"]
         training_log_path = model_config["training_log_path"]

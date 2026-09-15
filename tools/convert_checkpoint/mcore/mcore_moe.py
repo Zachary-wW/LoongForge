@@ -215,7 +215,7 @@ class McoreMoe(McoreBase):
                 pass
             else:
                 et = mt
-                etp_to_tp[et]
+                t = etp_to_tp[et]  # noqa: F841
             if mt not in m_dict:
                 continue
             if t_name not in m_dict[mt]:

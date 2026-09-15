@@ -180,6 +180,7 @@ def forward_step(data_iterator, model):
         ) = get_batch(data_iterator)
     timers("batch-generator").stop()
 
+    extra_input = {}  # noqa: F841
     model_config = get_model_config()
     image_mask = input_ids == model_config.foundation.im_patch_id
     # breakpoint()

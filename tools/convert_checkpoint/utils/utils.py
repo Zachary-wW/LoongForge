@@ -370,7 +370,7 @@ def make_hf_sub_checkpoints(base_path):
                             i_str = file_base.split("-")[-1]
                             sub_count_str = file_count.split(".")[0]
                             i = int(i_str)
-                            int(sub_count_str)
+                            sub_count = int(sub_count_str)  # noqa: F841
 
                             # Update global counter
                             local_file_count += 1
