@@ -304,7 +304,7 @@ jobs:
           results.forEach(function (result) {
             var hasVerdict = false;
             if (typeof result.result === 'string') {
-              hasVerdict = result.result.indexOf('## Verdict:') === 0;
+              hasVerdict = result.result.indexOf('## Verdict:') !== -1;
             }
             console.log(JSON.stringify({
               subtype: result.subtype,
@@ -341,11 +341,17 @@ jobs:
               core.setFailed('Claude did not produce a successful result message.');
               return;
             }
-            const body = (resultMessage.result ?? '').trim();
-            if (!body.startsWith('## Verdict:')) {
+            const raw = resultMessage.result ?? '';
+            const verdictIndex = raw.indexOf('## Verdict:');
+            if (verdictIndex === -1) {
               core.setFailed('Claude did not return the required verdict format.');
               return;
             }
+            // Take the verdict block from its header onward, tolerating any
+            // preamble the model may emit before it. A strict startsWith check
+            // rejected otherwise-valid reviews whenever the model prefixed the
+            // verdict with a sentence of explanation.
+            const body = raw.slice(verdictIndex).trim();
             const reviewedBody = `${body}\n\n_Reviewed commit \`${process.env.HEAD_SHA}\`._`;
             if (Buffer.byteLength(reviewedBody, 'utf8') > 65536) {
               core.setFailed('Claude review exceeds the GitHub comment size limit.');
