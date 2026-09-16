@@ -25,6 +25,7 @@ Usage:
     python cli.py <subcommand> --help   # Show options for a subcommand.
     python cli.py run-all --input_dir <zarr-dir> --output_dir <output-root>
 """
+
 import argparse
 import importlib
 import sys
@@ -76,6 +77,7 @@ def build_parser():
 
     if requested != "path-b":
         import pipeline
+
         run_all_parser = pipeline.build_arg_parser()
         sub.add_parser(
             "run-all",
@@ -94,6 +96,7 @@ def main():
 
     if args.command == "run-all":
         import pipeline
+
         pipeline.run(args)
         return
 
@@ -110,6 +113,7 @@ def main():
             args.bg_video_dir = args.ik_dir
         if args.tmp_dir is None:
             from pathlib import Path
+
             args.tmp_dir = str(Path(args.output_dir) / "_tmp_av1")
 
     module.run(args)

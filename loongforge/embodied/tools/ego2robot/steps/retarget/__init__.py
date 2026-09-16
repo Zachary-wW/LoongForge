@@ -8,6 +8,4 @@ import os
 
 # MuJoCo reads its rendering backend during import. Keep the legacy selection
 # at package initialization so every retarget submodule observes the same value.
-os.environ["MUJOCO_GL"] = os.environ.get(
-    "EGO2ROBOT_GL", os.environ.get("MUJOCO_GL", "osmesa")
-)
+os.environ["MUJOCO_GL"] = os.environ.get("EGO2ROBOT_GL", os.environ.get("MUJOCO_GL", "osmesa"))

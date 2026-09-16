@@ -27,16 +27,21 @@ import numpy as np
 def _compat_numpy_chumpy():
     if not hasattr(inspect, "getargspec"):
         inspect.getargspec = inspect.getfullargspec
-    for name, value in {"bool": bool, "int": int, "float": float,
-                        "complex": complex, "object": object,
-                        "unicode": str, "str": str}.items():
+    for name, value in {
+        "bool": bool,
+        "int": int,
+        "float": float,
+        "complex": complex,
+        "object": object,
+        "unicode": str,
+        "str": str,
+    }.items():
         if not hasattr(np, name):
             setattr(np, name, value)
 
 
 def _find_result(root: Path):
-    candidates = sorted(root.rglob("*_smooth_fit_results.npz"),
-                        key=lambda p: p.stat().st_mtime)
+    candidates = sorted(root.rglob("*_smooth_fit_results.npz"), key=lambda p: p.stat().st_mtime)
     if not candidates:
         candidates = sorted(root.rglob("*.npz"), key=lambda p: p.stat().st_mtime)
     if not candidates:
@@ -140,23 +145,37 @@ def _write_dynhamr_inputs(root: Path, video: Path, seq: str, predictions: Path):
         body[:, :2] = kp
         body[:, 2] = 1.0
         import json
-        (tracks / f"{i:06d}_keypoints.json").write_text(json.dumps(
-            {"people": [{"pose_keypoints_2d": body.reshape(-1).tolist()}]}))
+
+        (tracks / f"{i:06d}_keypoints.json").write_text(
+            json.dumps({"people": [{"pose_keypoints_2d": body.reshape(-1).tolist()}]})
+        )
         pose = np.asarray(raw["hand_pose"])[j]
         orient = np.asarray(raw["global_orient"])[j]
         pose_aa = np.stack([_to_axis_angle(x) for x in pose[:15]])
         orient_aa = _to_axis_angle(orient)
-        (tracks / f"{i:06d}_mano.json").write_text(json.dumps({
-            "body_pose": pose_aa.tolist(), "global_orient": orient_aa.tolist(),
-            "cam_trans": np.asarray(raw["cam_trans"])[j].tolist(),
-            "betas": np.asarray(raw["betas"])[j].tolist(), "is_right": int(right[j] > 0.5)}))
+        (tracks / f"{i:06d}_mano.json").write_text(
+            json.dumps(
+                {
+                    "body_pose": pose_aa.tolist(),
+                    "global_orient": orient_aa.tolist(),
+                    "cam_trans": np.asarray(raw["cam_trans"])[j].tolist(),
+                    "betas": np.asarray(raw["betas"])[j].tolist(),
+                    "is_right": int(right[j] > 0.5),
+                }
+            )
+        )
     (shots / f"{seq}.json").write_text(json.dumps({f"{i:06d}.jpg": 0 for i in range(n)}))
     # Static camera file prevents the upstream preprocessor from invoking
     # DROID-SLAM. Dyn-HaMR uses its own fallback intrinsics for static cameras.
     focal = 0.5 * (width + height)
-    np.savez(cameras / "cameras.npz", height=height, width=width, focal=focal,
-             intrins=np.tile([focal, focal, width / 2.0, height / 2.0], (n, 1)),
-             w2c=np.tile(np.eye(4, dtype=np.float32), (n, 1, 1)))
+    np.savez(
+        cameras / "cameras.npz",
+        height=height,
+        width=width,
+        focal=focal,
+        intrins=np.tile([focal, focal, width / 2.0, height / 2.0], (n, 1)),
+        w2c=np.tile(np.eye(4, dtype=np.float32), (n, 1, 1)),
+    )
     return track_id
 
 
@@ -182,19 +201,25 @@ def _mano_joints(result, mano_dir: Path):
     if betas.ndim == 2:
         betas = np.repeat(betas[:, None, :], pose.shape[1], axis=1)
     b, t = pose.shape[:2]
-    model = smplx.create(str(mano_dir / "MANO_RIGHT.pkl"), model_type="mano", is_rhand=True,
-                         use_pca=False, num_pca_comps=45, batch_size=b * t,
-                         flat_hand_mean=False)
+    model = smplx.create(
+        str(mano_dir / "MANO_RIGHT.pkl"),
+        model_type="mano",
+        is_rhand=True,
+        use_pca=False,
+        num_pca_comps=45,
+        batch_size=b * t,
+        flat_hand_mean=False,
+    )
+
     def tensor(x):
         return torch.as_tensor(x.reshape(b * t, -1), dtype=torch.float32)
-    out = model(global_orient=tensor(root), hand_pose=tensor(pose),
-                betas=tensor(betas), transl=tensor(trans))
+
+    out = model(global_orient=tensor(root), hand_pose=tensor(pose), betas=tensor(betas), transl=tensor(trans))
     base = out.joints
     extras = out.vertices[:, [vertex_ids["mano"][k] for k in vertex_ids["mano"]]]
     # smplx's MANO order is rearranged to OpenPose order by this fixed map.
     joints = torch.cat([base, extras], dim=1)
-    order = [0, 13, 14, 15, 16, 1, 2, 3, 17, 4, 5, 6, 18, 10, 11, 12,
-             19, 7, 8, 9, 20]
+    order = [0, 13, 14, 15, 16, 1, 2, 3, 17, 4, 5, 6, 18, 10, 11, 12, 19, 7, 8, 9, 20]
     joints = joints[:, order].reshape(b, t, 21, 3).detach().cpu().numpy()
     return joints
 
@@ -210,13 +235,11 @@ def run(args):
     output = Path(args.output).resolve()
     output.mkdir(parents=True, exist_ok=True)
     data_root = repo / "_DATA" / "data"
-    _link_asset(Path(args.mano_dir).expanduser().resolve() / "MANO_RIGHT.pkl",
-                data_root / "mano" / "MANO_RIGHT.pkl")
+    _link_asset(Path(args.mano_dir).expanduser().resolve() / "MANO_RIGHT.pkl", data_root / "mano" / "MANO_RIGHT.pkl")
     if args.mano_mean_params:
         # Do not call resolve() here: a stale destination may be a cyclic
         # symlink, and _link_asset handles replacing it safely.
-        _link_asset(Path(args.mano_mean_params).expanduser(),
-                    data_root / "mano_mean_params.npz")
+        _link_asset(Path(args.mano_mean_params).expanduser(), data_root / "mano_mean_params.npz")
     if not (repo / "_DATA" / "BMC").is_dir():
         raise FileNotFoundError(
             f"Dyn-HaMR BMC assets missing: {repo / '_DATA' / 'BMC'}. "
@@ -232,21 +255,30 @@ def run(args):
         except OSError:
             shutil.copy2(video, target)
         track_id = _write_dynhamr_inputs(root, video, seq, Path(args.predictions))
-        cmd = [sys.executable, str(run_opt), "data=video_driod", "run_opt=True",
-               f"data.root={root}", "data.video_dir=videos", f"data.seq={seq}",
-               "data.ext=mp4", f"is_static={'True' if args.is_static else 'False'}",
-               f"data.track_ids={track_id}", "data.shot_idx=0",
-               "run_vis=False", "run_prior=False", f"gpu={args.gpu}",
-               f"log_root={output / 'logs'}"]
+        cmd = [
+            sys.executable,
+            str(run_opt),
+            "data=video_driod",
+            "run_opt=True",
+            f"data.root={root}",
+            "data.video_dir=videos",
+            f"data.seq={seq}",
+            "data.ext=mp4",
+            f"is_static={'True' if args.is_static else 'False'}",
+            f"data.track_ids={track_id}",
+            "data.shot_idx=0",
+            "run_vis=False",
+            "run_prior=False",
+            f"gpu={args.gpu}",
+            f"log_root={output / 'logs'}",
+        ]
         # Load the local compatibility shim before Dyn-HaMR's legacy imports.
         shim_dir = Path(__file__).resolve().parent
         pythonpath = os.pathsep.join((str(shim_dir), str(repo / "dyn-hamr")))
         env = {**os.environ, "PYTHONPATH": pythonpath}
-        proc = subprocess.run(cmd, cwd=str(repo / "dyn-hamr"), env=env,
-                              text=True, capture_output=True)
+        proc = subprocess.run(cmd, cwd=str(repo / "dyn-hamr"), env=env, text=True, capture_output=True)
         if proc.returncode:
-            raise RuntimeError("Dyn-HaMR failed (last output):\n" +
-                               (proc.stdout + "\n" + proc.stderr)[-10000:])
+            raise RuntimeError("Dyn-HaMR failed (last output):\n" + (proc.stdout + "\n" + proc.stderr)[-10000:])
         result_path = _find_result(output / "logs")
         with np.load(result_path, allow_pickle=True) as data:
             result = {k: data[k] for k in data.files}
@@ -255,10 +287,13 @@ def run(args):
         if right.ndim == 1:
             right = right[:, None]
         frame = np.arange(joints.shape[1], dtype=np.int64)[None].repeat(joints.shape[0], 0)
-        np.savez_compressed(output / "dynhamr_predictions.npz",
-                            pred_keypoints_3d=joints.reshape(-1, 21, 3),
-                            right=right.reshape(-1), frame=frame.reshape(-1),
-                            score=np.ones(joints.shape[:2], np.float32).reshape(-1))
+        np.savez_compressed(
+            output / "dynhamr_predictions.npz",
+            pred_keypoints_3d=joints.reshape(-1, 21, 3),
+            right=right.reshape(-1),
+            frame=frame.reshape(-1),
+            score=np.ones(joints.shape[:2], np.float32).reshape(-1),
+        )
     print(f"Dyn-HaMR predictions: {output / 'dynhamr_predictions.npz'}")
 
 

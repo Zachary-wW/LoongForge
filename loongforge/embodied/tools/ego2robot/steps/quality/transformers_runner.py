@@ -23,15 +23,14 @@ VLM_MODEL_ENV = "EGO2ROBOT_VLM_MODEL"
 
 def _extract_json(content: Any) -> dict[str, Any]:
     if isinstance(content, list):
-        content = "".join(str(x.get("text", x)) if isinstance(x, dict) else str(x)
-                            for x in content)
+        content = "".join(str(x.get("text", x)) if isinstance(x, dict) else str(x) for x in content)
     text = str(content).strip()
     match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, flags=re.I | re.S)
     candidate = match.group(1) if match else text
     if not match:
         start, end = candidate.find("{"), candidate.rfind("}")
         if start >= 0 and end > start:
-            candidate = candidate[start:end + 1]
+            candidate = candidate[start : end + 1]
     # Small checkpoints occasionally emit a trailing comma in JSON objects.
     candidate = re.sub(r",\s*([}\]])", r"\1", candidate)
     parsed = json.loads(candidate)
@@ -44,22 +43,26 @@ def _extract_json(content: Any) -> dict[str, Any]:
     }
 
 
-def review_one(model: Any, processor: Any, request: dict[str, Any],
-               device: Any, max_tokens: int, max_frames: int | None) -> dict[str, Any]:
+def review_one(
+    model: Any, processor: Any, request: dict[str, Any], device: Any, max_tokens: int, max_frames: int | None
+) -> dict[str, Any]:
     import torch
 
     video = Path(request["video"])
     if not video.is_file():
-        return {"is_consistent": False, "confidence": 0.0,
-                "reasoning": f"video not found: {video}"}
+        return {"is_consistent": False, "confidence": 0.0, "reasoning": f"video not found: {video}"}
     task = str(request.get("task_description", "manipulation"))
     prompt = str(request.get("prompt") or f"Task Description: {task}")
-    messages = [{"role": "user", "content": [
-        {"type": "video", "video": str(video)},
-        {"type": "text", "text": prompt},
-    ]}]
-    text = processor.apply_chat_template(messages, tokenize=False,
-                                          add_generation_prompt=True)
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "video", "video": str(video)},
+                {"type": "text", "text": prompt},
+            ],
+        }
+    ]
+    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     processor_kwargs = {
         "text": [text],
         "videos": [str(video)],
@@ -71,24 +74,31 @@ def review_one(model: Any, processor: Any, request: dict[str, Any],
         processor_kwargs["max_frames"] = max_frames
     inputs = processor(**processor_kwargs).to(device)
     with torch.inference_mode():
-        output = model.generate(**inputs, max_new_tokens=max_tokens,
-                                do_sample=False)
-    generated = output[:, inputs["input_ids"].shape[1]:]
+        output = model.generate(**inputs, max_new_tokens=max_tokens, do_sample=False)
+    generated = output[:, inputs["input_ids"].shape[1] :]
     content = processor.batch_decode(generated, skip_special_tokens=True)[0]
     try:
         return _extract_json(content)
     except (ValueError, TypeError, json.JSONDecodeError) as exc:
-        return {"is_consistent": False, "confidence": 0.0,
-                "reasoning": f"invalid VLM JSON: {exc}; raw={content[:1000]}"}
+        return {
+            "is_consistent": False,
+            "confidence": 0.0,
+            "reasoning": f"invalid VLM JSON: {exc}; raw={content[:1000]}",
+        }
 
 
-def run(model_dir: str | None, requests_path: str, output_path: str,
-        max_tokens: int = 256, max_frames: int | None = None,
-        max_episodes: int | None = None, device: str | None = None) -> None:
+def run(
+    model_dir: str | None,
+    requests_path: str,
+    output_path: str,
+    max_tokens: int = 256,
+    max_frames: int | None = None,
+    max_episodes: int | None = None,
+    device: str | None = None,
+) -> None:
     model_dir = (model_dir or os.environ.get(VLM_MODEL_ENV) or "").strip()
     if not model_dir:
-        raise ValueError(
-            f"model directory is required; pass --model_dir or set {VLM_MODEL_ENV}")
+        raise ValueError(f"model directory is required; pass --model_dir or set {VLM_MODEL_ENV}")
     import torch
     from transformers import AutoProcessor, Qwen3_5ForConditionalGeneration
 
@@ -100,7 +110,8 @@ def run(model_dir: str | None, requests_path: str, output_path: str,
     print(f"loading {model_path} on {torch_device} with {dtype}", flush=True)
     processor = AutoProcessor.from_pretrained(model_path, local_files_only=True)
     model = Qwen3_5ForConditionalGeneration.from_pretrained(
-        model_path, dtype=dtype, device_map=None, local_files_only=True)
+        model_path, dtype=dtype, device_map=None, local_files_only=True
+    )
     model.to(torch_device).eval()
 
     results: dict[str, dict[str, Any]] = {}
@@ -112,11 +123,13 @@ def run(model_dir: str | None, requests_path: str, output_path: str,
             episode = str(request["episode"])
             print(f"[{index + 1}] reviewing {episode}", flush=True)
             try:
-                result = review_one(model, processor, request, torch_device,
-                                    max_tokens, max_frames)
+                result = review_one(model, processor, request, torch_device, max_tokens, max_frames)
             except Exception as exc:
-                result = {"is_consistent": False, "confidence": 0.0,
-                          "reasoning": f"VLM request failed: {type(exc).__name__}: {exc}"}
+                result = {
+                    "is_consistent": False,
+                    "confidence": 0.0,
+                    "reasoning": f"VLM request failed: {type(exc).__name__}: {exc}",
+                }
             result["model_name"] = str(model_path)
             results[episode] = result
             print(json.dumps(result, ensure_ascii=False), flush=True)
@@ -130,19 +143,20 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run Qwen3.5 L3 review directly with Transformers")
     env_model = os.environ.get(VLM_MODEL_ENV) or None
     parser.add_argument(
-        "--model_dir", default=env_model, required=env_model is None,
-        help=f"local Qwen3.5 checkpoint (or set {VLM_MODEL_ENV})")
+        "--model_dir",
+        default=env_model,
+        required=env_model is None,
+        help=f"local Qwen3.5 checkpoint (or set {VLM_MODEL_ENV})",
+    )
     parser.add_argument("--requests", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--device", default=None, help="default: cuda:0 when CUDA is available")
     parser.add_argument("--max_tokens", type=int, default=256)
-    parser.add_argument("--max_frames", type=int, default=None,
-                        help="debug cap; omit to use the model video sampler")
+    parser.add_argument("--max_frames", type=int, default=None, help="debug cap; omit to use the model video sampler")
     parser.add_argument("--max_episodes", type=int, default=None)
     return parser
 
 
 if __name__ == "__main__":
     args = build_arg_parser().parse_args()
-    run(args.model_dir, args.requests, args.output, args.max_tokens,
-        args.max_frames, args.max_episodes, args.device)
+    run(args.model_dir, args.requests, args.output, args.max_tokens, args.max_frames, args.max_episodes, args.device)

@@ -36,10 +36,11 @@ import zarr
 # 1. Zarr v3 episode loading
 # ============================================================
 
+
 def load_episode(episode_path: str) -> dict:
     """Load all fields from one EgoVerse zarr v3 episode."""
     store = zarr.open_group(episode_path, mode="r")
-    attrs = store.attrs.asdict() if hasattr(store.attrs, 'asdict') else dict(store.attrs)
+    attrs = store.attrs.asdict() if hasattr(store.attrs, "asdict") else dict(store.attrs)
 
     total_frames = attrs.get("total_frames", None)
     if total_frames is None:
@@ -101,6 +102,7 @@ def decode_frame_jpeg(episode_path: str, frame_idx: int) -> Optional[np.ndarray]
 # 2. Filter 1e9 sentinel frames
 # ============================================================
 
+
 def find_invalid_frames(data: dict, sentinel: float = 1e9) -> np.ndarray:
     """
     Detect frames containing 1e9 sentinel values. A value greater than or equal
@@ -113,17 +115,20 @@ def find_invalid_frames(data: dict, sentinel: float = 1e9) -> np.ndarray:
     valid = np.ones(n, dtype=bool)
 
     pose_keys = [
-        "left_obs_ee_pose", "right_obs_ee_pose",
-        "left_obs_wrist_pose", "right_obs_wrist_pose",
+        "left_obs_ee_pose",
+        "right_obs_ee_pose",
+        "left_obs_wrist_pose",
+        "right_obs_wrist_pose",
         "obs_head_pose",
-        "left_obs_keypoints", "right_obs_keypoints",
+        "left_obs_keypoints",
+        "right_obs_keypoints",
     ]
 
     for key in pose_keys:
         arr = data[key]
         # A value above the sentinel in any dimension invalidates the frame.
         frame_max = np.abs(arr).max(axis=1) if arr.ndim == 2 else np.abs(arr)
-        valid &= (frame_max < sentinel)
+        valid &= frame_max < sentinel
 
     return valid
 
@@ -132,14 +137,17 @@ def find_invalid_frames(data: dict, sentinel: float = 1e9) -> np.ndarray:
 # 3. Head-relative coordinate transform
 # ============================================================
 
+
 def quat_wxyz_to_matrix(quat_wxyz: np.ndarray) -> np.ndarray:
     """Convert a quaternion (w, x, y, z) to a 3x3 rotation matrix."""
     w, x, y, z = quat_wxyz
-    return np.array([
-        [1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
-        [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
-        [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)],
-    ])
+    return np.array(
+        [
+            [1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+            [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
+            [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)],
+        ]
+    )
 
 
 def pose7_to_matrix(pose7: np.ndarray) -> np.ndarray:
@@ -254,6 +262,7 @@ def apply_head_relative_transform(data: dict) -> dict:
 # 4. FPS resampling (normalize to 30fps)
 # ============================================================
 
+
 def estimate_fps(timestamps_ns: np.ndarray) -> float:
     """Estimate the actual FPS from nanosecond timestamps."""
     if len(timestamps_ns) < 2:
@@ -287,10 +296,13 @@ def resample_to_target_fps(data: dict, target_fps: float = 30.0) -> dict:
 
     # Interpolate each numeric field.
     numeric_keys = [
-        "left_obs_ee_pose", "right_obs_ee_pose",
-        "left_obs_wrist_pose", "right_obs_wrist_pose",
+        "left_obs_ee_pose",
+        "right_obs_ee_pose",
+        "left_obs_wrist_pose",
+        "right_obs_wrist_pose",
         "obs_head_pose",
-        "left_obs_keypoints", "right_obs_keypoints",
+        "left_obs_keypoints",
+        "right_obs_keypoints",
     ]
 
     for key in numeric_keys:
@@ -310,11 +322,7 @@ def resample_to_target_fps(data: dict, target_fps: float = 30.0) -> dict:
         data[key] = resampled
 
     # Rebuild timestamps.
-    data["timestamps_ns"] = np.linspace(
-        data["timestamps_ns"][0],
-        data["timestamps_ns"][-1],
-        n_target
-    ).astype(np.int64)
+    data["timestamps_ns"] = np.linspace(data["timestamps_ns"][0], data["timestamps_ns"][-1], n_target).astype(np.int64)
 
     data["total_frames"] = n_target
     data["_resampled_from_fps"] = actual_fps
@@ -325,6 +333,7 @@ def resample_to_target_fps(data: dict, target_fps: float = 30.0) -> dict:
 # ============================================================
 # 5. Main pipeline
 # ============================================================
+
 
 def process_episode(episode_path: str, target_fps: float = 30.0) -> Optional[dict]:
     """
@@ -356,10 +365,13 @@ def process_episode(episode_path: str, target_fps: float = 30.0) -> Optional[dic
     if n_invalid > 0:
         # Keep only valid frames.
         numeric_keys = [
-            "left_obs_ee_pose", "right_obs_ee_pose",
-            "left_obs_wrist_pose", "right_obs_wrist_pose",
+            "left_obs_ee_pose",
+            "right_obs_ee_pose",
+            "left_obs_wrist_pose",
+            "right_obs_wrist_pose",
             "obs_head_pose",
-            "left_obs_keypoints", "right_obs_keypoints",
+            "left_obs_keypoints",
+            "right_obs_keypoints",
             "timestamps_ns",
         ]
         for key in numeric_keys:
@@ -412,7 +424,7 @@ def run(args):
     results = []
     for i, ep_path in enumerate(episodes):
         ep_name = Path(ep_path).name
-        print(f"\n[{i+1}/{len(episodes)}] Episode: {ep_name}")
+        print(f"\n[{i + 1}/{len(episodes)}] Episode: {ep_name}")
 
         data = process_episode(ep_path, args.target_fps)
         if data is None:
@@ -435,15 +447,17 @@ def run(args):
             episode_path=str(data["_episode_path"]),
             attributes=json.dumps(data["attributes"]),
         )
-        results.append({
-            "name": ep_name,
-            "frames": data["total_frames"],
-            "file": output_file,
-        })
+        results.append(
+            {
+                "name": ep_name,
+                "frames": data["total_frames"],
+                "file": output_file,
+            }
+        )
         print(f"    Saved → {output_file}")
 
     # Summary.
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Step 1 Complete: {len(results)}/{len(episodes)} episodes processed")
     for r in results:
         print(f"  {r['name']}: {r['frames']} frames")

@@ -85,15 +85,15 @@ def _fit_matrix(value: Any, n: int, width: int, default: Any) -> np.ndarray:
 
 
 def _episode_names(retarget_dir: Path, requested: list[str] | None) -> list[str]:
-    names = sorted(p.name[:-7] for p in retarget_dir.glob("*_ik.npz")
-                   if (retarget_dir / f"{p.name[:-7]}_quality.npz").exists())
+    names = sorted(
+        p.name[:-7] for p in retarget_dir.glob("*_ik.npz") if (retarget_dir / f"{p.name[:-7]}_quality.npz").exists()
+    )
     if requested is None:
         return names
     requested_set = set(requested)
     missing = sorted(requested_set - set(names))
     if missing:
-        raise FileNotFoundError(
-            f"episodes missing *_ik.npz or *_quality.npz in {retarget_dir}: {missing}")
+        raise FileNotFoundError(f"episodes missing *_ik.npz or *_quality.npz in {retarget_dir}: {missing}")
     return [name for name in names if name in requested_set]
 
 
@@ -146,16 +146,16 @@ def _interior_short_runs(valid: np.ndarray, min_length: int) -> np.ndarray:
     return result
 
 
-def _l1(ik: dict[str, np.ndarray], quality: dict[str, np.ndarray],
-        min_valid_run_frames: int) -> tuple[np.ndarray, np.ndarray, dict[str, int]]:
+def _l1(
+    ik: dict[str, np.ndarray], quality: dict[str, np.ndarray], min_valid_run_frames: int
+) -> tuple[np.ndarray, np.ndarray, dict[str, int]]:
     """Compute paper L1 validity and stability erosion masks."""
     lengths = []
     for key in ("state", "qpos"):
         if key in ik:
             lengths.append(len(ik[key]))
             break
-    lengths.extend(len(quality[key]) for key in quality
-                   if np.asarray(quality[key]).ndim > 0)
+    lengths.extend(len(quality[key]) for key in quality if np.asarray(quality[key]).ndim > 0)
     n = min(lengths) if lengths else 0
     if n <= 0:
         raise ValueError("episode has no frame-aligned IK/quality arrays")
@@ -170,8 +170,7 @@ def _l1(ik: dict[str, np.ndarray], quality: dict[str, np.ndarray],
     self_collision = _fit_array(quality.get("self_collision"), n, bool, True)
     self_contact_count = _fit_array(quality.get("self_contact_count"), n, np.int64, 0)
     self_penetration = _fit_array(quality.get("self_penetration"), n, np.float64, 0.0)
-    cross_contacts = _fit_array(
-        quality.get("cross_arm_contact_count"), n, np.int64, np.iinfo(np.int64).max)
+    cross_contacts = _fit_array(quality.get("cross_arm_contact_count"), n, np.int64, np.iinfo(np.int64).max)
 
     # Older retarget artifacts were generated with the Kinova Gen3 menagerie
     # mesh overlap counted as self-collision. Recognize only the deterministic
@@ -190,15 +189,22 @@ def _l1(ik: dict[str, np.ndarray], quality: dict[str, np.ndarray],
             self_collision = np.zeros(n, dtype=bool)
 
     finite_ik = np.isfinite(err_pos).all(axis=1)
-    valid = (hand & ik_ok.all(axis=1) & finite_ik & (err_pos.max(axis=1) < 0.05)
-             & rendered & (pixels > 0) & (~self_collision)
-             & (cross_contacts <= 1) & np.isfinite(mask_ratio)
-             & (mask_ratio <= 0.70))
+    valid = (
+        hand
+        & ik_ok.all(axis=1)
+        & finite_ik
+        & (err_pos.max(axis=1) < 0.05)
+        & rendered
+        & (pixels > 0)
+        & (~self_collision)
+        & (cross_contacts <= 1)
+        & np.isfinite(mask_ratio)
+        & (mask_ratio <= 0.70)
+    )
     eroded = _interior_short_runs(valid, max(int(min_valid_run_frames), 1))
     reasons = {
         "hand_missing": int((~hand).sum()),
-        "ik_failure_or_error": int((~(ik_ok.all(axis=1) & finite_ik
-                                        & (err_pos.max(axis=1) < 0.05))).sum()),
+        "ik_failure_or_error": int((~(ik_ok.all(axis=1) & finite_ik & (err_pos.max(axis=1) < 0.05))).sum()),
         "not_rendered_or_empty": int((~(rendered & (pixels > 0))).sum()),
         "self_collision": int(self_collision.sum()),
         "baseline_self_collision_ignored": int(baseline_collision.sum()),
@@ -276,14 +282,17 @@ def _l2(records: list[dict[str, Any]], multiplier: float, sudden_quantile: float
         }
         for r, residual, accel, jerk in zip(group_records, residuals, accels, jerks):
             q_outlier = ((r["action"] < lower) | (r["action"] > upper)).any(axis=1)
-            sudden = ((np.abs(residual) > thresholds["residual"]) |
-                      (np.abs(accel) > thresholds["acceleration"]) |
-                      (np.abs(jerk) > thresholds["jerk"])).any(axis=1)
+            sudden = (
+                (np.abs(residual) > thresholds["residual"])
+                | (np.abs(accel) > thresholds["acceleration"])
+                | (np.abs(jerk) > thresholds["jerk"])
+            ).any(axis=1)
             r["l2_q_outlier"] = q_outlier
             r["l2_sudden_change"] = sudden
             r["l2_valid"] = r["l1_valid"] & ~q_outlier & ~sudden
             r["l2_thresholds"] = {
-                "q01": lower.tolist(), "q99": upper.tolist(),
+                "q01": lower.tolist(),
+                "q99": upper.tolist(),
                 "residual": thresholds["residual"].tolist(),
                 "acceleration": thresholds["acceleration"].tolist(),
                 "jerk": thresholds["jerk"].tolist(),
@@ -301,17 +310,21 @@ def _load_vlm_results(path: Path | None) -> dict[str, dict[str, Any]]:
     return {str(k): v for k, v in data.items() if isinstance(v, dict)}
 
 
-def _prepare_records(retarget: Path, state_path: Path | None,
-                     episodes: list[str] | None, min_valid_run_frames: int,
-                     max_invalid_ratio: float, q_fence_multiplier: float,
-                     sudden_quantile: float) -> list[dict[str, Any]]:
+def _prepare_records(
+    retarget: Path,
+    state_path: Path | None,
+    episodes: list[str] | None,
+    min_valid_run_frames: int,
+    max_invalid_ratio: float,
+    q_fence_multiplier: float,
+    sudden_quantile: float,
+) -> list[dict[str, Any]]:
     """Compute L1/L2 once and return records ready for an L3 decision."""
     if not 0.0 <= max_invalid_ratio < 1.0:
         raise ValueError("max_invalid_ratio must be in [0, 1)")
     episode_names = _episode_names(retarget, episodes)
     if not episode_names:
-        raise FileNotFoundError(
-            f"no matching *_ik.npz and *_quality.npz files in {retarget}")
+        raise FileNotFoundError(f"no matching *_ik.npz and *_quality.npz files in {retarget}")
 
     records = []
     for episode in episode_names:
@@ -320,42 +333,44 @@ def _prepare_records(retarget: Path, state_path: Path | None,
         state, action = _state_action(ik)
         l1, l1_eroded, reasons = _l1(ik, quality, min_valid_run_frames)
         # L1 uses the shortest frame-aligned artifact, so keep L2 aligned to it.
-        state, action = state[:len(l1_eroded)], action[:len(l1_eroded)]
-        robot_type = str(_scalar(
-            ik.get("robot_type"), _scalar(quality.get("robot_type"), "unknown")))
-        records.append({
-            "episode": episode, "robot_type": robot_type,
-            "task": _task_text(state_path, episode),
-            "state": state, "action": action,
-            "l1_valid_raw": l1, "l1_valid": l1_eroded,
-            "l1_valid_eroded": l1_eroded,
-            "l2_q_outlier": np.zeros(len(state), dtype=bool),
-            "l2_sudden_change": np.zeros(len(state), dtype=bool),
-            "l2_valid": l1_eroded.copy(), "l1_reasons": reasons,
-            "vlm": None, "max_invalid_ratio": max_invalid_ratio,
-            "l3_keep": False,
-        })
+        state, action = state[: len(l1_eroded)], action[: len(l1_eroded)]
+        robot_type = str(_scalar(ik.get("robot_type"), _scalar(quality.get("robot_type"), "unknown")))
+        records.append(
+            {
+                "episode": episode,
+                "robot_type": robot_type,
+                "task": _task_text(state_path, episode),
+                "state": state,
+                "action": action,
+                "l1_valid_raw": l1,
+                "l1_valid": l1_eroded,
+                "l1_valid_eroded": l1_eroded,
+                "l2_q_outlier": np.zeros(len(state), dtype=bool),
+                "l2_sudden_change": np.zeros(len(state), dtype=bool),
+                "l2_valid": l1_eroded.copy(),
+                "l1_reasons": reasons,
+                "vlm": None,
+                "max_invalid_ratio": max_invalid_ratio,
+                "l3_keep": False,
+            }
+        )
     _l2(records, q_fence_multiplier, sudden_quantile)
     return records
 
 
-def _apply_l3(records: list[dict[str, Any]],
-              vlm: dict[str, dict[str, Any]], require_vlm: bool) -> None:
+def _apply_l3(records: list[dict[str, Any]], vlm: dict[str, dict[str, Any]], require_vlm: bool) -> None:
     """Attach L3 decisions and compute the final per-episode keep flags."""
     for record in records:
         result = vlm.get(record["episode"])
         if result is not None and "is_consistent" not in result:
-            raise ValueError(
-                f"VLM result for {record['episode']} lacks is_consistent")
+            raise ValueError(f"VLM result for {record['episode']} lacks is_consistent")
         record["vlm"] = result
         record["l3_keep"] = result is not None and bool(result["is_consistent"])
 
         invalid_ratio = float((~record["l2_valid"]).mean())
-        l2_keep = (invalid_ratio <= record["max_invalid_ratio"]
-                   and bool(record["l2_valid"].any()))
+        l2_keep = invalid_ratio <= record["max_invalid_ratio"] and bool(record["l2_valid"].any())
         has_l3_gate = result is not None or require_vlm
-        record["keep_episode"] = bool(
-            l2_keep and record["l3_keep"] if has_l3_gate else l2_keep)
+        record["keep_episode"] = bool(l2_keep and record["l3_keep"] if has_l3_gate else l2_keep)
         reasons = []
         if not l2_keep:
             reasons.append("invalid_ratio>threshold_or_no_valid_frames")
@@ -372,29 +387,31 @@ def _write_manifest(records: list[dict[str, Any]], output_dir: Path) -> None:
         vlm = r["vlm"]
         invalid = ~r["l2_valid"]
         vlm_status = "pending" if vlm is None else ("consistent" if vlm["is_consistent"] else "inconsistent")
-        rows.append({
-            "episode": r["episode"],
-            "episode_index_original": index,
-            "robot_type": r["robot_type"],
-            "task": r["task"],
-            "num_frames": int(len(r["l2_valid"])),
-            "l1_valid_frames": int(r["l1_valid"].sum()),
-            "l1_valid_frames_raw": int(r["l1_valid_raw"].sum()),
-            "l2_invalid_frames": int(invalid.sum()),
-            "invalid_ratio": float(invalid.mean()),
-            "l1_keep": bool(r["l1_valid"].any()),
-            "l2_keep": bool(invalid.mean() <= r["max_invalid_ratio"] and r["l2_valid"].any()),
-            "vlm_status": vlm_status,
-            "vlm_is_consistent": None if vlm is None else bool(vlm["is_consistent"]),
-            "vlm_confidence": None if vlm is None else float(vlm.get("confidence", float("nan"))),
-            "vlm_reasoning": "" if vlm is None else str(vlm.get("reasoning", "")),
-            "vlm_backend": "" if vlm is None else str(vlm.get("backend", "unknown")),
-            "vlm_model_name": "" if vlm is None else str(vlm.get("model_name", "unknown")),
-            "vlm_sample_fps": None if vlm is None else float(vlm.get("sample_fps", 4.0)),
-            "vlm_sampled_frames": None if vlm is None else int(vlm.get("sampled_frames", 0)),
-            "keep_episode": bool(r["keep_episode"]),
-            "drop_reason": r["drop_reason"],
-        })
+        rows.append(
+            {
+                "episode": r["episode"],
+                "episode_index_original": index,
+                "robot_type": r["robot_type"],
+                "task": r["task"],
+                "num_frames": int(len(r["l2_valid"])),
+                "l1_valid_frames": int(r["l1_valid"].sum()),
+                "l1_valid_frames_raw": int(r["l1_valid_raw"].sum()),
+                "l2_invalid_frames": int(invalid.sum()),
+                "invalid_ratio": float(invalid.mean()),
+                "l1_keep": bool(r["l1_valid"].any()),
+                "l2_keep": bool(invalid.mean() <= r["max_invalid_ratio"] and r["l2_valid"].any()),
+                "vlm_status": vlm_status,
+                "vlm_is_consistent": None if vlm is None else bool(vlm["is_consistent"]),
+                "vlm_confidence": None if vlm is None else float(vlm.get("confidence", float("nan"))),
+                "vlm_reasoning": "" if vlm is None else str(vlm.get("reasoning", "")),
+                "vlm_backend": "" if vlm is None else str(vlm.get("backend", "unknown")),
+                "vlm_model_name": "" if vlm is None else str(vlm.get("model_name", "unknown")),
+                "vlm_sample_fps": None if vlm is None else float(vlm.get("sample_fps", 4.0)),
+                "vlm_sampled_frames": None if vlm is None else int(vlm.get("sampled_frames", 0)),
+                "keep_episode": bool(r["keep_episode"]),
+                "drop_reason": r["drop_reason"],
+            }
+        )
         np.savez_compressed(
             output_dir / f"{r['episode']}_frame_mask.npz",
             l1_valid=r["l1_valid"],
@@ -415,15 +432,13 @@ def _write_manifest(records: list[dict[str, Any]], output_dir: Path) -> None:
         "kept_episodes": sum(row["keep_episode"] for row in rows),
         "dropped_episodes": sum(not row["keep_episode"] for row in rows),
         "pending_vlm": sum(row["vlm_status"] == "pending" for row in rows),
-        "kept_frames": int(sum(np.load(output_dir / f"{r['episode']}_frame_mask.npz")["valid"].sum()
-                                for r in records)),
+        "kept_frames": int(sum(np.load(output_dir / f"{r['episode']}_frame_mask.npz")["valid"].sum() for r in records)),
     }
     with (output_dir / "summary.json").open("w", encoding="utf-8") as handle:
         json.dump(summary, handle, indent=2, ensure_ascii=False)
 
 
-def _write_vlm_requests(records: list[dict[str, Any]], output_dir: Path,
-                        retarget_dir: Path) -> None:
+def _write_vlm_requests(records: list[dict[str, Any]], output_dir: Path, retarget_dir: Path) -> None:
     """Write deterministic requests for an external VLM batch runner."""
     prompt = (
         "You are evaluating whether a manipulation video matches its text description.\n"
@@ -432,28 +447,37 @@ def _write_vlm_requests(records: list[dict[str, Any]], output_dir: Path,
         "Flag MAJOR MISMATCHES: wrong action type, wrong object category, wrong target location, "
         "or failed execution. Be tolerant of fake/toy objects, minor appearance variations, "
         "small spatial deviations, and different grasping approaches.\n"
-        "Respond only as JSON: {\"is_consistent\": true/false, \"confidence\": 0.0-1.0, "
-        "\"reasoning\": \"...\"}."
+        'Respond only as JSON: {"is_consistent": true/false, "confidence": 0.0-1.0, '
+        '"reasoning": "..."}.'
     )
     requests = []
     for r in records:
-        requests.append({
-            "episode": r["episode"],
-            "video": str(retarget_dir / f"{r['episode']}_robot_on_bg.mp4"),
-            "task_description": r["task"],
-            "sample_fps": 4,
-            "prompt": f"{prompt}\nTask Description: {r['task']}",
-        })
+        requests.append(
+            {
+                "episode": r["episode"],
+                "video": str(retarget_dir / f"{r['episode']}_robot_on_bg.mp4"),
+                "task_description": r["task"],
+                "sample_fps": 4,
+                "prompt": f"{prompt}\nTask Description: {r['task']}",
+            }
+        )
     with (output_dir / "vlm_requests.jsonl").open("w", encoding="utf-8") as handle:
         for request in requests:
             handle.write(json.dumps(request, ensure_ascii=False) + "\n")
 
 
-def curate(retarget_dir: str, output_dir: str, state_dir: str | None = None,
-           episodes: list[str] | None = None, vlm_results: str | None = None,
-           require_vlm: bool = False, min_valid_run_frames: int = DEFAULT_MIN_VALID_RUN_FRAMES,
-           max_invalid_ratio: float = 0.60, q_fence_multiplier: float = 3.0,
-           sudden_quantile: float = 0.999) -> dict[str, Any]:
+def curate(
+    retarget_dir: str,
+    output_dir: str,
+    state_dir: str | None = None,
+    episodes: list[str] | None = None,
+    vlm_results: str | None = None,
+    require_vlm: bool = False,
+    min_valid_run_frames: int = DEFAULT_MIN_VALID_RUN_FRAMES,
+    max_invalid_ratio: float = 0.60,
+    q_fence_multiplier: float = 3.0,
+    sudden_quantile: float = 0.999,
+) -> dict[str, Any]:
     """Run L1/L2/L3 curation and return the summary dictionary."""
     retarget = Path(retarget_dir)
     output = Path(output_dir)
@@ -461,18 +485,20 @@ def curate(retarget_dir: str, output_dir: str, state_dir: str | None = None,
     state_path = Path(state_dir) if state_dir else None
     vlm = _load_vlm_results(Path(vlm_results) if vlm_results else None)
     records = _prepare_records(
-        retarget, state_path, episodes, min_valid_run_frames,
-        max_invalid_ratio, q_fence_multiplier, sudden_quantile)
+        retarget, state_path, episodes, min_valid_run_frames, max_invalid_ratio, q_fence_multiplier, sudden_quantile
+    )
     _apply_l3(records, vlm, require_vlm)
     _write_manifest(records, output)
     _write_vlm_requests(records, output, retarget)
     summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
-    summary.update({
-        "l1_min_valid_run_frames": int(min_valid_run_frames),
-        "l2_q_fence_multiplier": float(q_fence_multiplier),
-        "l2_sudden_quantile": float(sudden_quantile),
-        "l3_require_vlm": bool(require_vlm),
-    })
+    summary.update(
+        {
+            "l1_min_valid_run_frames": int(min_valid_run_frames),
+            "l2_q_fence_multiplier": float(q_fence_multiplier),
+            "l2_sudden_quantile": float(sudden_quantile),
+            "l3_require_vlm": bool(require_vlm),
+        }
+    )
     (output / "summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
     return summary
 
@@ -501,9 +527,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         return summary
 
     if args.vlm_results:
-        summary = curate(
-            **kwargs, vlm_results=args.vlm_results,
-            require_vlm=args.require_vlm)
+        summary = curate(**kwargs, vlm_results=args.vlm_results, require_vlm=args.require_vlm)
         print(json.dumps(summary, indent=2, ensure_ascii=False))
         return summary
 
@@ -512,80 +536,93 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     output = Path(args.output_dir)
     output.mkdir(parents=True, exist_ok=True)
     records = _prepare_records(
-        retarget, Path(args.state_dir) if args.state_dir else None,
-        args.episodes, args.min_valid_run_frames, args.max_invalid_ratio,
-        args.q_fence_multiplier, args.sudden_quantile)
+        retarget,
+        Path(args.state_dir) if args.state_dir else None,
+        args.episodes,
+        args.min_valid_run_frames,
+        args.max_invalid_ratio,
+        args.q_fence_multiplier,
+        args.sudden_quantile,
+    )
     requests_path = output / "vlm_requests.jsonl"
     results_path = output / "vlm_results.json"
     _write_vlm_requests(records, output, retarget)
 
     from . import vlm_runner
+
     vlm_runner.run(
-        requests_path=str(requests_path), output_path=str(results_path),
-        server_url=args.server_url, model=args.vlm_model,
-        timeout=args.vlm_timeout, max_tokens=args.vlm_max_tokens,
-        concurrency=args.vlm_concurrency, retries=args.vlm_retries,
-        max_frames=args.vlm_max_frames, max_edge=args.vlm_max_edge,
+        requests_path=str(requests_path),
+        output_path=str(results_path),
+        server_url=args.server_url,
+        model=args.vlm_model,
+        timeout=args.vlm_timeout,
+        max_tokens=args.vlm_max_tokens,
+        concurrency=args.vlm_concurrency,
+        retries=args.vlm_retries,
+        max_frames=args.vlm_max_frames,
+        max_edge=args.vlm_max_edge,
         jpeg_quality=args.vlm_jpeg_quality,
-        overwrite=args.overwrite_vlm)
+        overwrite=args.overwrite_vlm,
+    )
 
     vlm = _load_vlm_results(results_path)
     _apply_l3(records, vlm, require_vlm=True)
     _write_manifest(records, output)
     summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
-    summary.update({
-        "l1_min_valid_run_frames": int(args.min_valid_run_frames),
-        "l2_q_fence_multiplier": float(args.q_fence_multiplier),
-        "l2_sudden_quantile": float(args.sudden_quantile),
-        "l3_require_vlm": True,
-        "l3_results": str(results_path),
-    })
-    (output / "summary.json").write_text(
-        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    summary.update(
+        {
+            "l1_min_valid_run_frames": int(args.min_valid_run_frames),
+            "l2_q_fence_multiplier": float(args.q_fence_multiplier),
+            "l2_sudden_quantile": float(args.sudden_quantile),
+            "l3_require_vlm": True,
+            "l3_results": str(results_path),
+        }
+    )
+    (output / "summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
     print(json.dumps(summary, indent=2, ensure_ascii=False))
 
     missing = [r["episode"] for r in records if r["vlm"] is None]
     if missing:
         error_path = results_path.with_name(results_path.stem + ".errors.json")
         raise RuntimeError(
-            f"L3 has no result for {len(missing)} episode(s); rerun the same "
-            f"command to resume. Details: {error_path}")
+            f"L3 has no result for {len(missing)} episode(s); rerun the same command to resume. Details: {error_path}"
+        )
     return summary
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Ego2Robot L1/L2/L3 quality curation")
-    parser.add_argument("--retarget_dir", required=True,
-                        help="06_retarget directory containing *_ik.npz and *_quality.npz")
-    parser.add_argument("--state_dir", default=None,
-                        help="02_align directory used to recover task text")
-    parser.add_argument("--output_dir", required=True,
-                        help="quality_curation output directory")
+    parser.add_argument(
+        "--retarget_dir", required=True, help="06_retarget directory containing *_ik.npz and *_quality.npz"
+    )
+    parser.add_argument("--state_dir", default=None, help="02_align directory used to recover task text")
+    parser.add_argument("--output_dir", required=True, help="quality_curation output directory")
     parser.add_argument("--episodes", nargs="*", default=None)
-    parser.add_argument("--vlm_results", default=None,
-                        help="Use an existing L3 result JSON instead of calling SGLang")
-    parser.add_argument("--skip_vlm", action="store_true",
-                        help="Run only L1/L2 and leave L3 pending")
-    parser.add_argument("--require_vlm", action="store_true",
-                        help="With --skip_vlm/--vlm_results, fail closed on missing L3 results")
+    parser.add_argument("--vlm_results", default=None, help="Use an existing L3 result JSON instead of calling SGLang")
+    parser.add_argument("--skip_vlm", action="store_true", help="Run only L1/L2 and leave L3 pending")
+    parser.add_argument(
+        "--require_vlm", action="store_true", help="With --skip_vlm/--vlm_results, fail closed on missing L3 results"
+    )
     parser.add_argument("--server_url", default="http://127.0.0.1:8000/v1")
     env_model = os.environ.get(VLM_MODEL_ENV) or None
     parser.add_argument(
-        "--vlm_model", default=env_model,
-        help=("SGLang model id (required for automatic L3; "
-              f"or set {VLM_MODEL_ENV})"))
+        "--vlm_model", default=env_model, help=(f"SGLang model id (required for automatic L3; or set {VLM_MODEL_ENV})")
+    )
     parser.add_argument("--vlm_timeout", type=float, default=600.0)
     parser.add_argument("--vlm_max_tokens", type=int, default=512)
     parser.add_argument("--vlm_concurrency", type=int, default=4)
     parser.add_argument("--vlm_retries", type=int, default=2)
-    parser.add_argument("--vlm_max_frames", type=int,
-                        default=DEFAULT_VLM_MAX_FRAMES,
-                        help=("Maximum frames uniformly sampled across each video "
-                              f"(default: {DEFAULT_VLM_MAX_FRAMES})"))
+    parser.add_argument(
+        "--vlm_max_frames",
+        type=int,
+        default=DEFAULT_VLM_MAX_FRAMES,
+        help=(f"Maximum frames uniformly sampled across each video (default: {DEFAULT_VLM_MAX_FRAMES})"),
+    )
     parser.add_argument("--vlm_max_edge", type=int, default=448)
     parser.add_argument("--vlm_jpeg_quality", type=int, default=85)
-    parser.add_argument("--overwrite_vlm", action="store_true",
-                        help="Discard cached L3 decisions and review every episode")
+    parser.add_argument(
+        "--overwrite_vlm", action="store_true", help="Discard cached L3 decisions and review every episode"
+    )
     parser.add_argument("--min_valid_run_frames", type=int, default=DEFAULT_MIN_VALID_RUN_FRAMES)
     parser.add_argument("--max_invalid_ratio", type=float, default=0.60)
     parser.add_argument("--q_fence_multiplier", type=float, default=3.0)

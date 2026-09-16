@@ -28,6 +28,7 @@ DLS_MAX_ITER = 300
 MINK_CONTINUITY_MAX_STEP = 0.35
 MINK_CONTINUITY_COST = 0.2
 
+
 def _ee_pos(model, data, ee_ref):
     kind, idx = ee_ref
     return data.site_xpos[idx].copy() if kind == "site" else data.xpos[idx].copy()
@@ -39,8 +40,7 @@ def _project_qpos_to_limits(model, q):
     for jid in range(model.njnt):
         if not model.jnt_limited[jid]:
             continue
-        if model.jnt_type[jid] not in (mujoco.mjtJoint.mjJNT_HINGE,
-                                       mujoco.mjtJoint.mjJNT_SLIDE):
+        if model.jnt_type[jid] not in (mujoco.mjtJoint.mjJNT_HINGE, mujoco.mjtJoint.mjJNT_SLIDE):
             continue
         qa = int(model.jnt_qposadr[jid])
         lo, hi = model.jnt_range[jid]
@@ -52,8 +52,7 @@ class _JointContinuityLimit:
     """Bound a Mink integration step to a reference joint configuration."""
 
     def __init__(self, model, arm_ids, max_step):
-        self.indices = np.asarray(
-            [int(model.jnt_dofadr[jid]) for jid in arm_ids], dtype=int)
+        self.indices = np.asarray([int(model.jnt_dofadr[jid]) for jid in arm_ids], dtype=int)
         self.projection_matrix = np.eye(model.nv)[self.indices]
         self.reference = None
         self.max_step = float(max_step)
@@ -70,8 +69,8 @@ class _JointContinuityLimit:
         delta_ref = np.empty(configuration.nv)
         # mj_differentiatePos returns q_reference - q_current in tangent space.
         mujoco.mj_differentiatePos(
-            m=configuration.model, qvel=delta_ref, dt=1.0,
-            qpos1=configuration.q, qpos2=self.reference)
+            m=configuration.model, qvel=delta_ref, dt=1.0, qpos1=configuration.q, qpos2=self.reference
+        )
         upper = self.max_step + delta_ref[self.indices]
         lower = -self.max_step + delta_ref[self.indices]
         G = np.vstack([self.projection_matrix, -self.projection_matrix])
@@ -87,18 +86,23 @@ class MinkIKContext:
     so candidate and trajectory solves only reset the configuration state.
     """
 
-    def __init__(self, model, arm_ids, ee_ref, solver="daqp",
-                 position_cost=10.0, orientation_cost=1.0,
-                 continuity_max_step=MINK_CONTINUITY_MAX_STEP,
-                 continuity_cost=MINK_CONTINUITY_COST):
+    def __init__(
+        self,
+        model,
+        arm_ids,
+        ee_ref,
+        solver="daqp",
+        position_cost=10.0,
+        orientation_cost=1.0,
+        continuity_max_step=MINK_CONTINUITY_MAX_STEP,
+        continuity_cost=MINK_CONTINUITY_COST,
+    ):
         self.model = model
         self.solver = solver
         self.solvers = tuple(dict.fromkeys((solver, "quadprog")))
         self.configuration = mink.Configuration(model)
-        self.position_cost = np.broadcast_to(
-            np.asarray(position_cost, dtype=float), (3,)).copy()
-        self.orientation_cost = np.broadcast_to(
-            np.asarray(orientation_cost, dtype=float), (3,)).copy()
+        self.position_cost = np.broadcast_to(np.asarray(position_cost, dtype=float), (3,)).copy()
+        self.orientation_cost = np.broadcast_to(np.asarray(orientation_cost, dtype=float), (3,)).copy()
         self.ee_task = mink.FrameTask(
             frame_name=ee_ref[1],
             frame_type=ee_ref[0],
@@ -116,15 +120,12 @@ class MinkIKContext:
         self.continuity_costs = continuity_costs
         self.continuity_task.set_cost(continuity_costs)
         self.tasks = [self.ee_task, self.posture_task, self.continuity_task]
-        velocity_limits = {
-            model.joint(jid).name: np.array([1.0]) for jid in arm_ids
-        }
+        velocity_limits = {model.joint(jid).name: np.array([1.0]) for jid in arm_ids}
         self.limits = [
             mink.ConfigurationLimit(model=model),
             mink.VelocityLimit(model, velocity_limits),
         ]
-        self.continuity_limit = _JointContinuityLimit(
-            model, arm_ids, continuity_max_step)
+        self.continuity_limit = _JointContinuityLimit(model, arm_ids, continuity_max_step)
 
     def reset(self, q_init=None, posture_target=None):
         """Reset the IK configuration and posture target."""
@@ -135,12 +136,21 @@ class MinkIKContext:
         # ConfigurationLimit correctly rejects that seed, so project it first.
         q = _project_qpos_to_limits(self.model, q)
         self.configuration.update(q)
-        self.posture_task.set_target(
-            q if posture_target is None else np.asarray(posture_target, dtype=float))
+        self.posture_task.set_target(q if posture_target is None else np.asarray(posture_target, dtype=float))
 
-    def solve(self, target_pos, target_R, q_init=None, max_iterations=100,
-              dt=0.05, tol_pos=8e-3, tol_rot=0.15, continuity_q=None,
-              continuity_max_step=None, position_first=False):
+    def solve(
+        self,
+        target_pos,
+        target_R,
+        q_init=None,
+        max_iterations=100,
+        dt=0.05,
+        tol_pos=8e-3,
+        tol_rot=0.15,
+        continuity_q=None,
+        continuity_max_step=None,
+        position_first=False,
+    ):
         """Solve inverse kinematics for the requested end-effector pose."""
         target = mink.SE3.from_rotation_and_translation(
             mink.SO3.from_matrix(np.asarray(target_R, dtype=float)),
@@ -148,18 +158,14 @@ class MinkIKContext:
         )
         self.ee_task.set_target(target)
         self.reset(q_init, posture_target=continuity_q)
-        self.continuity_task.set_target(
-            self.configuration.q if continuity_q is None else continuity_q)
+        self.continuity_task.set_target(self.configuration.q if continuity_q is None else continuity_q)
         # A continuity posture is meaningful only relative to the previous
         # frame. Applying its cost against the freshly reset q_init also on
         # the first frame traps the solver in the position-only prewarm branch
         # and can leave a large wrist orientation residual.
-        self.continuity_task.set_cost(
-            self.continuity_costs if continuity_q is not None
-            else np.zeros(self.model.nv))
+        self.continuity_task.set_cost(self.continuity_costs if continuity_q is not None else np.zeros(self.model.nv))
         self.continuity_limit.set_reference(continuity_q, continuity_max_step)
-        limits = self.limits + ([self.continuity_limit]
-                                if continuity_q is not None else [])
+        limits = self.limits + ([self.continuity_limit] if continuity_q is not None else [])
 
         best = None
         for _ in range(max_iterations):
@@ -173,12 +179,12 @@ class MinkIKContext:
             # task weights as the QP. This matters for underactuated arms:
             # unweighted radians otherwise dominate centimetre-scale position
             # residuals and return a visibly off-target TCP.
-            orientation_objective = float(np.linalg.norm(
-                error[3:] * self.orientation_cost))
-            total = (err_pos + 1e-3 * orientation_objective
-                     if position_first else
-                     float(np.linalg.norm(error[:3] * self.position_cost)) +
-                     orientation_objective)
+            orientation_objective = float(np.linalg.norm(error[3:] * self.orientation_cost))
+            total = (
+                err_pos + 1e-3 * orientation_objective
+                if position_first
+                else float(np.linalg.norm(error[:3] * self.position_cost)) + orientation_objective
+            )
             if best is None or total < best[0]:
                 best = (total, err_pos, err_rot, self.configuration.q.copy())
             if err_pos < tol_pos and (position_first or err_rot < tol_rot):
@@ -223,11 +229,25 @@ class MinkIKContext:
         return err_pos, err_rot
 
 
-def solve_arm_ik(model, arm_qadr, arm_vadr, arm_ids, ee_ref,
-                 target_pos_base, target_R_base, q_init=None,
-                 w_rot=0.3, max_iter=100, tol_pos=8e-3, tol_rot=0.15,
-                 lmbda=1e-2, step=0.3, mink_context=None, continuity_q=None,
-                 continuity_max_step=None):
+def solve_arm_ik(
+    model,
+    arm_qadr,
+    arm_vadr,
+    arm_ids,
+    ee_ref,
+    target_pos_base,
+    target_R_base,
+    q_init=None,
+    w_rot=0.3,
+    max_iter=100,
+    tol_pos=8e-3,
+    tol_rot=0.15,
+    lmbda=1e-2,
+    step=0.3,
+    mink_context=None,
+    continuity_q=None,
+    continuity_max_step=None,
+):
     """Solve 6-DoF IK with the Ego2Robot Mink differential-QP method.
 
     The legacy DLS arguments remain accepted for call-site compatibility; the
@@ -250,11 +270,21 @@ def solve_arm_ik(model, arm_qadr, arm_vadr, arm_ids, ee_ref,
 
 
 def solve_arm_ik_position_first(
-        model, arm_qadr, arm_vadr, arm_ids, ee_ref,
-        target_pos_base, target_R_base, q_init=None,
-        max_iter=500, tol_pos=POSITION_FIRST_TOL, tol_rot=0.25,
-        mink_context=None, continuity_q=None,
-        continuity_max_step=MINK_CONTINUITY_MAX_STEP):
+    model,
+    arm_qadr,
+    arm_vadr,
+    arm_ids,
+    ee_ref,
+    target_pos_base,
+    target_R_base,
+    q_init=None,
+    max_iter=500,
+    tol_pos=POSITION_FIRST_TOL,
+    tol_rot=0.25,
+    mink_context=None,
+    continuity_q=None,
+    continuity_max_step=MINK_CONTINUITY_MAX_STEP,
+):
     """Track position continuously while retaining orientation as a soft task.
 
     This mirrors EgoDex's control loop: integrate from the previous frame and
@@ -265,20 +295,37 @@ def solve_arm_ik_position_first(
     del arm_qadr, arm_vadr
     context = mink_context or MinkIKContext(model, arm_ids, ee_ref)
     q, position_ok, err_pos, err_rot = context.solve(
-        target_pos_base, target_R_base, q_init=q_init,
-        max_iterations=max_iter, dt=0.01, tol_pos=tol_pos,
-        tol_rot=tol_rot, continuity_q=continuity_q,
-        continuity_max_step=continuity_max_step, position_first=True)
+        target_pos_base,
+        target_R_base,
+        q_init=q_init,
+        max_iterations=max_iter,
+        dt=0.01,
+        tol_pos=tol_pos,
+        tol_rot=tol_rot,
+        continuity_q=continuity_q,
+        continuity_max_step=continuity_max_step,
+        position_first=True,
+    )
     pose_ok = bool(position_ok and err_rot < tol_rot)
     return q, pose_ok, err_pos, err_rot
 
 
 def refine_arm_ik_pose(
-        model, arm_qadr, arm_vadr, arm_ids, ee_ref,
-        target_pos_base, target_R_base, position_result, previous_q=None,
-        max_iter=POSE_REFINEMENT_MAX_ITER, tol_pos=POSITION_FIRST_TOL,
-        tol_rot=0.25,
-        mink_context=None, continuity_max_step=MINK_CONTINUITY_MAX_STEP):
+    model,
+    arm_qadr,
+    arm_vadr,
+    arm_ids,
+    ee_ref,
+    target_pos_base,
+    target_R_base,
+    position_result,
+    previous_q=None,
+    max_iter=POSE_REFINEMENT_MAX_ITER,
+    tol_pos=POSITION_FIRST_TOL,
+    tol_rot=0.25,
+    mink_context=None,
+    continuity_max_step=MINK_CONTINUITY_MAX_STEP,
+):
     """Improve orientation without losing position or temporal continuity.
 
     The position-first pass is always the safe baseline. This second pass is
@@ -289,21 +336,25 @@ def refine_arm_ik_pose(
     q_position, _, err_pos, err_rot = position_result
     context = mink_context or MinkIKContext(model, arm_ids, ee_ref)
     q_refined, _, refined_pos, refined_rot = context.solve(
-        target_pos_base, target_R_base, q_init=q_position,
-        max_iterations=max_iter, dt=0.01, tol_pos=tol_pos,
-        tol_rot=tol_rot, continuity_q=previous_q,
-        continuity_max_step=continuity_max_step, position_first=False)
+        target_pos_base,
+        target_R_base,
+        q_init=q_position,
+        max_iterations=max_iter,
+        dt=0.01,
+        tol_pos=tol_pos,
+        tol_rot=tol_rot,
+        continuity_q=previous_q,
+        continuity_max_step=continuity_max_step,
+        position_first=False,
+    )
     continuous = (
-        previous_q is None or continuity_max_step <= 0.0 or
-        np.max(np.abs(
-            q_refined[arm_qadr] - previous_q[arm_qadr])) <=
-        continuity_max_step + 1e-6)
-    if (refined_pos < tol_pos and refined_rot + 1e-6 < err_rot and
-            continuous):
-        return (q_refined, bool(refined_rot < tol_rot),
-                refined_pos, refined_rot, True)
-    return q_position, bool(err_pos < tol_pos and err_rot < tol_rot), \
-        err_pos, err_rot, False
+        previous_q is None
+        or continuity_max_step <= 0.0
+        or np.max(np.abs(q_refined[arm_qadr] - previous_q[arm_qadr])) <= continuity_max_step + 1e-6
+    )
+    if refined_pos < tol_pos and refined_rot + 1e-6 < err_rot and continuous:
+        return (q_refined, bool(refined_rot < tol_rot), refined_pos, refined_rot, True)
+    return q_position, bool(err_pos < tol_pos and err_rot < tol_rot), err_pos, err_rot, False
 
 
 def _ee_pose_and_jacobian(model, data, ee_ref, jacp, jacr):
@@ -325,10 +376,23 @@ def _ee_pose_and_jacobian(model, data, ee_ref, jacp, jacr):
     return pos, quat
 
 
-def solve_arm_ik_dls(model, arm_qadr, arm_vadr, arm_ids, ee_ref,
-                     target_pos_base, target_R_base, q_init=None,
-                     w_rot=0.05, max_iter=300, tol_pos=8e-3, tol_rot=0.15,
-                     lmbda=1e-2, step=0.3, mink_context=None):
+def solve_arm_ik_dls(
+    model,
+    arm_qadr,
+    arm_vadr,
+    arm_ids,
+    ee_ref,
+    target_pos_base,
+    target_R_base,
+    q_init=None,
+    w_rot=0.05,
+    max_iter=300,
+    tol_pos=8e-3,
+    tol_rot=0.15,
+    lmbda=1e-2,
+    step=0.3,
+    mink_context=None,
+):
     """Solve IK with the legacy MuJoCo damped-least-squares method.
 
     This is intentionally separate from ``solve_arm_ik``: the latter is the
@@ -349,8 +413,7 @@ def solve_arm_ik_dls(model, arm_qadr, arm_vadr, arm_ids, ee_ref,
 
     for _ in range(max_iter):
         mujoco.mj_forward(model, data)
-        cur_pos, cur_quat = _ee_pose_and_jacobian(
-            model, data, ee_ref, jacp, jacr)
+        cur_pos, cur_quat = _ee_pose_and_jacobian(model, data, ee_ref, jacp, jacr)
         e_pos = np.asarray(target_pos_base, dtype=float) - cur_pos
 
         neg = np.zeros(4)
@@ -377,8 +440,7 @@ def solve_arm_ik_dls(model, arm_qadr, arm_vadr, arm_ids, ee_ref,
             J = jacp[:, arm_vadr]
             error = e_pos
             regularizer = lmbda * np.eye(3)
-        dq_sub = J.T @ np.linalg.solve(
-            J @ J.T + regularizer, error)
+        dq_sub = J.T @ np.linalg.solve(J @ J.T + regularizer, error)
         for i, qa in enumerate(arm_qadr):
             new_q = data.qpos[qa] + step * dq_sub[i]
             jid = arm_ids[i]
@@ -393,8 +455,7 @@ def solve_arm_ik_dls(model, arm_qadr, arm_vadr, arm_ids, ee_ref,
     return data.qpos.copy(), False, err_pos, err_rot
 
 
-def _prewarm_dls(model, arm_qadr, arm_vadr, arm_ids, ee_ref,
-                 target_pos_base):
+def _prewarm_dls(model, arm_qadr, arm_vadr, arm_ids, ee_ref, target_pos_base):
     """Position-only DLS prewarm used by the legacy robust DLS solver."""
     data = mujoco.MjData(model)
     jacp = np.zeros((3, model.nv))
@@ -406,8 +467,7 @@ def _prewarm_dls(model, arm_qadr, arm_vadr, arm_ids, ee_ref,
         if np.linalg.norm(error) < 3e-3:
             break
         J = jacp[:, arm_vadr]
-        dq_sub = J.T @ np.linalg.solve(
-            J @ J.T + 1e-2 * np.eye(3), error)
+        dq_sub = J.T @ np.linalg.solve(J @ J.T + 1e-2 * np.eye(3), error)
         for i, qa in enumerate(arm_qadr):
             new_q = data.qpos[qa] + 0.5 * dq_sub[i]
             jid = arm_ids[i]
@@ -418,39 +478,60 @@ def _prewarm_dls(model, arm_qadr, arm_vadr, arm_ids, ee_ref,
     return data.qpos.copy()
 
 
-def solve_arm_ik_dls_robust(model, arm_qadr, arm_vadr, arm_ids, ee_ref,
-                            target_pos_base, target_R_base, q_warm,
-                            tol_pos=8e-3, tol_rot=0.25, n_random=2,
-                            seed=0, jump_penalty=1.0,
-                            max_iter=DLS_MAX_ITER,
-                            continuity_max_step=0.0):
+def solve_arm_ik_dls_robust(
+    model,
+    arm_qadr,
+    arm_vadr,
+    arm_ids,
+    ee_ref,
+    target_pos_base,
+    target_R_base,
+    q_warm,
+    tol_pos=8e-3,
+    tol_rot=0.25,
+    n_random=2,
+    seed=0,
+    jump_penalty=1.0,
+    max_iter=DLS_MAX_ITER,
+    continuity_max_step=0.0,
+):
     """Legacy DLS warm/prewarm/random-restart solver used by dls search."""
+
     def score(q, err_pos):
         if q_warm is None:
             return err_pos
-        return err_pos + jump_penalty * float(
-            np.linalg.norm(q[arm_qadr] - q_warm[arm_qadr]))
+        return err_pos + jump_penalty * float(np.linalg.norm(q[arm_qadr] - q_warm[arm_qadr]))
 
     def within_continuity_step(q):
         if q_warm is None or continuity_max_step <= 0.0:
             return True
-        return bool(np.max(np.abs(
-            q[arm_qadr] - q_warm[arm_qadr])) <= continuity_max_step + 1e-6)
+        return bool(np.max(np.abs(q[arm_qadr] - q_warm[arm_qadr])) <= continuity_max_step + 1e-6)
 
     candidates = [q_warm, None]
     best = None
     best_ok = None
     warm_record = None
     for init in candidates:
-        q0 = init if init is not None else _prewarm_dls(
-            model, arm_qadr, arm_vadr, arm_ids, ee_ref, target_pos_base)
+        q0 = init if init is not None else _prewarm_dls(model, arm_qadr, arm_vadr, arm_ids, ee_ref, target_pos_base)
         q, _, err_pos, err_rot = solve_arm_ik_dls(
-            model, arm_qadr, arm_vadr, arm_ids, ee_ref,
-            target_pos_base, target_R_base, q_init=q0,
-            max_iter=max_iter, tol_pos=tol_pos)
-        record = (q, err_pos < tol_pos and err_rot < tol_rot and
-                  within_continuity_step(q),
-                  err_pos, err_rot, score(q, err_pos))
+            model,
+            arm_qadr,
+            arm_vadr,
+            arm_ids,
+            ee_ref,
+            target_pos_base,
+            target_R_base,
+            q_init=q0,
+            max_iter=max_iter,
+            tol_pos=tol_pos,
+        )
+        record = (
+            q,
+            err_pos < tol_pos and err_rot < tol_rot and within_continuity_step(q),
+            err_pos,
+            err_rot,
+            score(q, err_pos),
+        )
         if init is q_warm and q_warm is not None:
             warm_record = record
         if init is q_warm and record[1]:
@@ -469,12 +550,24 @@ def solve_arm_ik_dls_robust(model, arm_qadr, arm_vadr, arm_ids, ee_ref,
             lo, hi = model.jnt_range[arm_ids[i]]
             q0[qa] = rng.uniform(lo, hi)
         q, _, err_pos, err_rot = solve_arm_ik_dls(
-            model, arm_qadr, arm_vadr, arm_ids, ee_ref,
-            target_pos_base, target_R_base, q_init=q0,
-            max_iter=max_iter, tol_pos=tol_pos)
-        record = (q, err_pos < tol_pos and err_rot < tol_rot and
-                  within_continuity_step(q),
-                  err_pos, err_rot, score(q, err_pos))
+            model,
+            arm_qadr,
+            arm_vadr,
+            arm_ids,
+            ee_ref,
+            target_pos_base,
+            target_R_base,
+            q_init=q0,
+            max_iter=max_iter,
+            tol_pos=tol_pos,
+        )
+        record = (
+            q,
+            err_pos < tol_pos and err_rot < tol_rot and within_continuity_step(q),
+            err_pos,
+            err_rot,
+            score(q, err_pos),
+        )
         if record[4] < best[4]:
             best = record
         if record[1] and (best_ok is None or record[4] < best_ok[4]):
@@ -483,15 +576,24 @@ def solve_arm_ik_dls_robust(model, arm_qadr, arm_vadr, arm_ids, ee_ref,
     # If no compliant candidate exists, keep the previous configuration and
     # let the episode-level failed-frame interpolation repair the target. A
     # distant random branch is much more damaging than one held frame.
-    chosen = (best_ok if best_ok is not None else
-              warm_record if warm_record is not None else best)
+    chosen = best_ok if best_ok is not None else warm_record if warm_record is not None else best
     return chosen[0], chosen[1], chosen[2], chosen[3]
 
 
-def solve_arm_ik_position_only_dls(model, arm_qadr, arm_vadr, arm_ids,
-                                   ee_ref, target_pos_base, q_init=None,
-                                   max_iter=100, tol_pos=5e-3,
-                                   lmbda=1e-2, step=0.5, mink_context=None):
+def solve_arm_ik_position_only_dls(
+    model,
+    arm_qadr,
+    arm_vadr,
+    arm_ids,
+    ee_ref,
+    target_pos_base,
+    q_init=None,
+    max_iter=100,
+    tol_pos=5e-3,
+    lmbda=1e-2,
+    step=0.5,
+    mink_context=None,
+):
     """Position-only DLS feasibility check used by the DLS base search."""
     del mink_context
     data = mujoco.MjData(model)
@@ -515,8 +617,7 @@ def solve_arm_ik_position_only_dls(model, arm_qadr, arm_vadr, arm_ids,
         if err_pos < tol_pos:
             return True, err_pos
         J = jacp[:, arm_vadr]
-        dq_sub = J.T @ np.linalg.solve(
-            J @ J.T + lmbda * np.eye(3), error)
+        dq_sub = J.T @ np.linalg.solve(J @ J.T + lmbda * np.eye(3), error)
         for i, qa in enumerate(arm_qadr):
             new_q = data.qpos[qa] + step * dq_sub[i]
             jid = arm_ids[i]
@@ -529,13 +630,25 @@ def solve_arm_ik_position_only_dls(model, arm_qadr, arm_vadr, arm_ids,
     return False, float(np.linalg.norm(target_pos_base - current_pos))
 
 
-def solve_arm_ik_robust(model, arm_qadr, arm_vadr, arm_ids, ee_ref,
-                        target_pos_base, target_R_base, q_warm,
-                        tol_pos=8e-3, tol_rot=0.25, n_random=2, seed=0,
-                        jump_penalty=1.0, mink_context=None,
-                        mink_position_context=None,
-                        continuity_max_step=MINK_CONTINUITY_MAX_STEP,
-                        max_iter=100):
+def solve_arm_ik_robust(
+    model,
+    arm_qadr,
+    arm_vadr,
+    arm_ids,
+    ee_ref,
+    target_pos_base,
+    target_R_base,
+    q_warm,
+    tol_pos=8e-3,
+    tol_rot=0.25,
+    n_random=2,
+    seed=0,
+    jump_penalty=1.0,
+    mink_context=None,
+    mink_position_context=None,
+    continuity_max_step=MINK_CONTINUITY_MAX_STEP,
+    max_iter=100,
+):
     """Mink 6-DOF IK with optional retries and continuity scoring.
 
     Motivation (measured over 374 right-hand frames): a plain warm-start chain meets
@@ -555,6 +668,7 @@ def solve_arm_ik_robust(model, arm_qadr, arm_vadr, arm_ids, ee_ref,
     when the previous branch cannot satisfy the target.
 
     Returns (q_full, ok, err_pos, err_rot)."""
+
     def score(q, ep_, er_):
         if q_warm is None:
             # Once position is within tolerance, prefer the orientation
@@ -571,28 +685,40 @@ def solve_arm_ik_robust(model, arm_qadr, arm_vadr, arm_ids, ee_ref,
         return bool(np.max(delta) <= continuity_max_step + 1e-6)
 
     cands = [q_warm, None]
-    best = None       # (q, ok, ep_, er_, s): lowest score among all candidates.
-    best_ok = None    # Lowest-scoring compliant candidate (preferred when available).
+    best = None  # (q, ok, ep_, er_, s): lowest score among all candidates.
+    best_ok = None  # Lowest-scoring compliant candidate (preferred when available).
     warm_record = None
     for init in cands:
-        q0 = init if init is not None else _prewarm(
-            model, arm_qadr, arm_vadr, arm_ids, ee_ref, target_pos_base,
-            mink_context=mink_position_context)
+        q0 = (
+            init
+            if init is not None
+            else _prewarm(
+                model, arm_qadr, arm_vadr, arm_ids, ee_ref, target_pos_base, mink_context=mink_position_context
+            )
+        )
         # Only the warm-start candidate is hard-constrained to the previous
         # frame. Random restarts remain available for genuinely unreachable or
         # numerically difficult targets, then continuity scoring decides whether
         # their compliant solution should be used.
         continuity_q = q_warm if init is q_warm and q_warm is not None else None
-        q, _, ep_, er_ = solve_arm_ik(model, arm_qadr, arm_vadr, arm_ids,
-                                      ee_ref, target_pos_base, target_R_base,
-                                      q_init=q0, tol_pos=tol_pos,
-                                      tol_rot=tol_rot, mink_context=mink_context,
-                                      max_iter=max_iter,
-                                      continuity_q=continuity_q,
-                                      continuity_max_step=continuity_max_step)
+        q, _, ep_, er_ = solve_arm_ik(
+            model,
+            arm_qadr,
+            arm_vadr,
+            arm_ids,
+            ee_ref,
+            target_pos_base,
+            target_R_base,
+            q_init=q0,
+            tol_pos=tol_pos,
+            tol_rot=tol_rot,
+            mink_context=mink_context,
+            max_iter=max_iter,
+            continuity_q=continuity_q,
+            continuity_max_step=continuity_max_step,
+        )
         s = score(q, ep_, er_)
-        ok = (ep_ < tol_pos and er_ < tol_rot and
-              within_continuity_step(q))
+        ok = ep_ < tol_pos and er_ < tol_rot and within_continuity_step(q)
         if init is q_warm and q_warm is not None:
             warm_record = (q, ok, ep_, er_, s)
         # Match the reference's frame-by-frame control loop: once the previous
@@ -610,30 +736,47 @@ def solve_arm_ik_robust(model, arm_qadr, arm_vadr, arm_ids, ee_ref,
         for i, qa in enumerate(arm_qadr):
             lo, hi = model.jnt_range[arm_ids[i]]
             q0[qa] = rng.uniform(lo, hi)
-        q, _, ep_, er_ = solve_arm_ik(model, arm_qadr, arm_vadr, arm_ids,
-                                      ee_ref, target_pos_base, target_R_base,
-                                      q_init=q0, tol_pos=tol_pos,
-                                      tol_rot=tol_rot, mink_context=mink_context,
-                                      max_iter=max_iter)
+        q, _, ep_, er_ = solve_arm_ik(
+            model,
+            arm_qadr,
+            arm_vadr,
+            arm_ids,
+            ee_ref,
+            target_pos_base,
+            target_R_base,
+            q_init=q0,
+            tol_pos=tol_pos,
+            tol_rot=tol_rot,
+            mink_context=mink_context,
+            max_iter=max_iter,
+        )
         s = score(q, ep_, er_)
-        ok = (ep_ < tol_pos and er_ < tol_rot and
-              within_continuity_step(q))
+        ok = ep_ < tol_pos and er_ < tol_rot and within_continuity_step(q)
         if s < best[4]:
             best = (q, ok, ep_, er_, s)
         if ok and (best_ok is None or s < best_ok[4]):
             best_ok = (q, ok, ep_, er_, s)
-    chosen = (best_ok if best_ok is not None else
-              warm_record if warm_record is not None else best)
+    chosen = best_ok if best_ok is not None else warm_record if warm_record is not None else best
     return chosen[0], chosen[1], chosen[2], chosen[3]
 
 
 def solve_arm_ik_position_priority(
-        model, arm_qadr, arm_vadr, arm_ids, ee_ref,
-        target_pos_base, target_R_base, q_warm,
-        tol_pos=8e-3, tol_rot=0.25, branch_jump_threshold=0.6,
-        mink_context=None, mink_position_context=None,
-        mink_fallback_context=None,
-        continuity_max_step=MINK_CONTINUITY_MAX_STEP):
+    model,
+    arm_qadr,
+    arm_vadr,
+    arm_ids,
+    ee_ref,
+    target_pos_base,
+    target_R_base,
+    q_warm,
+    tol_pos=8e-3,
+    tol_rot=0.25,
+    branch_jump_threshold=0.6,
+    mink_context=None,
+    mink_position_context=None,
+    mink_fallback_context=None,
+    continuity_max_step=MINK_CONTINUITY_MAX_STEP,
+):
     """Solve underactuated IK with a continuous position-first fallback.
 
     The regular pose solve remains preferred when it satisfies the complete
@@ -646,22 +789,27 @@ def solve_arm_ik_position_priority(
     Returns the normal IK tuple followed by ``used_fallback`` and
     ``avoided_branch_jump`` flags.
     """
-    if (mink_context is None or mink_position_context is None or
-            mink_fallback_context is None):
+    if mink_context is None or mink_position_context is None or mink_fallback_context is None:
         raise ValueError("position-priority IK requires Mink task contexts")
 
     full = solve_arm_ik_robust(
-        model, arm_qadr, arm_vadr, arm_ids, ee_ref,
-        target_pos_base, target_R_base, q_warm,
-        tol_pos=tol_pos, tol_rot=tol_rot,
+        model,
+        arm_qadr,
+        arm_vadr,
+        arm_ids,
+        ee_ref,
+        target_pos_base,
+        target_R_base,
+        q_warm,
+        tol_pos=tol_pos,
+        tol_rot=tol_rot,
         mink_context=mink_context,
         mink_position_context=mink_position_context,
-        continuity_max_step=continuity_max_step)
+        continuity_max_step=continuity_max_step,
+    )
     q_full, full_ok, _, _ = full
-    full_jump = (0.0 if q_warm is None else float(np.max(np.abs(
-        q_full[arm_qadr] - q_warm[arm_qadr]))))
-    branch_jump = (branch_jump_threshold > 0.0 and
-                   full_jump > branch_jump_threshold)
+    full_jump = 0.0 if q_warm is None else float(np.max(np.abs(q_full[arm_qadr] - q_warm[arm_qadr])))
+    branch_jump = branch_jump_threshold > 0.0 and full_jump > branch_jump_threshold
     if full_ok and not branch_jump:
         return (*full, False, False)
 
@@ -676,26 +824,32 @@ def solve_arm_ik_position_priority(
         continuity_q=q_warm,
         continuity_max_step=continuity_max_step,
     )
-    pos_jump = (0.0 if q_warm is None else float(np.max(np.abs(
-        q_pos[arm_qadr] - q_warm[arm_qadr]))))
+    pos_jump = 0.0 if q_warm is None else float(np.max(np.abs(q_pos[arm_qadr] - q_warm[arm_qadr])))
     fallback_improves_branch = not branch_jump or pos_jump < full_jump
-    err_pos, err_rot = mink_context.measure_error(
-        q_pos, target_pos_base, target_R_base)
+    err_pos, err_rot = mink_context.measure_error(q_pos, target_pos_base, target_R_base)
     if err_pos < tol_pos and fallback_improves_branch:
         return q_pos, err_pos < tol_pos, err_pos, err_rot, True, branch_jump
 
     return (*full, False, False)
 
 
-def solve_arm_ik_position_only(model, arm_qadr, arm_vadr, arm_ids, ee_ref,
-                               target_pos_base, q_init=None,
-                               max_iter=100, tol_pos=5e-3,
-                               lmbda=1e-2, step=0.5,
-                               mink_context=None):
+def solve_arm_ik_position_only(
+    model,
+    arm_qadr,
+    arm_vadr,
+    arm_ids,
+    ee_ref,
+    target_pos_base,
+    q_init=None,
+    max_iter=100,
+    tol_pos=5e-3,
+    lmbda=1e-2,
+    step=0.5,
+    mink_context=None,
+):
     """Mink position-only QP used by Base Pose Search prefiltering."""
     del lmbda, step
-    context = mink_context or MinkIKContext(
-        model, arm_ids, ee_ref, orientation_cost=0.0)
+    context = mink_context or MinkIKContext(model, arm_ids, ee_ref, orientation_cost=0.0)
     _, ok, err_pos, _ = context.solve(
         target_pos_base,
         np.eye(3),
@@ -708,12 +862,10 @@ def solve_arm_ik_position_only(model, arm_qadr, arm_vadr, arm_ids, ee_ref,
     return ok, err_pos
 
 
-def _prewarm(model, arm_qadr, arm_vadr, arm_ids, ee_ref, target_pos,
-             mink_context=None):
+def _prewarm(model, arm_qadr, arm_vadr, arm_ids, ee_ref, target_pos, mink_context=None):
     """Mink position-only prewarm used before the full pose solve."""
     del arm_qadr, arm_vadr
-    context = mink_context or MinkIKContext(
-        model, arm_ids, ee_ref, orientation_cost=0.0)
+    context = mink_context or MinkIKContext(model, arm_ids, ee_ref, orientation_cost=0.0)
     q, _, _, _ = context.solve(
         target_pos,
         np.eye(3),

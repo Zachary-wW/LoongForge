@@ -34,24 +34,16 @@ def prepare_mano_assets(repo: Path, mano_dir: str | None = None):
     """Make the user-provided MANO files visible to WiLoR's fixed paths."""
     source_value = mano_dir or os.environ.get("EGO2ROBOT_MANO_DIR")
     if not source_value:
-        raise ValueError(
-            "MANO directory is not configured; pass --mano_dir or set "
-            "EGO2ROBOT_MANO_DIR"
-        )
+        raise ValueError("MANO directory is not configured; pass --mano_dir or set EGO2ROBOT_MANO_DIR")
     source = Path(source_value).expanduser().resolve()
     right = source / "MANO_RIGHT.pkl"
     mean = source / "mano_mean_params.npz"
     if not mean.is_file():
         mean = repo / "mano_data" / "mano_mean_params.npz"
     if not right.is_file():
-        raise FileNotFoundError(
-            f"MANO_RIGHT.pkl not found in {source}; pass --mano_dir or set "
-            "EGO2ROBOT_MANO_DIR"
-        )
+        raise FileNotFoundError(f"MANO_RIGHT.pkl not found in {source}; pass --mano_dir or set EGO2ROBOT_MANO_DIR")
     if not mean.is_file():
-        raise FileNotFoundError(
-            f"mano_mean_params.npz not found in {source} or {repo / 'mano_data'}"
-        )
+        raise FileNotFoundError(f"mano_mean_params.npz not found in {source} or {repo / 'mano_data'}")
     target = repo / "mano_data"
     target.mkdir(parents=True, exist_ok=True)
     for src in (right, mean):
@@ -93,10 +85,9 @@ def load_wilor_no_renderer(checkpoint_path: str, cfg_path: str):
         model_cfg.MANO.MODEL_PATH = "./mano_data/"
         model_cfg.MANO.MEAN_PARAMS = "./mano_data/mano_mean_params.npz"
         model_cfg.freeze()
-    model = WiLoR.load_from_checkpoint(
-        checkpoint_path, strict=False, cfg=model_cfg, init_renderer=False
-    )
+    model = WiLoR.load_from_checkpoint(checkpoint_path, strict=False, cfg=model_cfg, init_renderer=False)
     return model, model_cfg
+
 
 def run(args):
     repo = Path(args.wilor_repo).resolve()
@@ -114,8 +105,13 @@ def run(args):
         inspect.getargspec = inspect.getfullargspec
     # chumpy also imports NumPy 1.x scalar aliases removed in NumPy 2.
     for name, value in {
-        "bool": bool, "int": int, "float": float, "complex": complex,
-        "object": object, "unicode": str, "str": str,
+        "bool": bool,
+        "int": int,
+        "float": float,
+        "complex": complex,
+        "object": object,
+        "unicode": str,
+        "str": str,
     }.items():
         if not hasattr(np, name):
             setattr(np, name, value)
@@ -134,9 +130,11 @@ def run(args):
     # a trusted local file supplied by the user, so opt out only while loading
     # this checkpoint and restore torch.load immediately afterwards.
     torch_load = torch.load
+
     def _trusted_load(*load_args, **load_kwargs):
         load_kwargs.setdefault("weights_only", False)
         return torch_load(*load_args, **load_kwargs)
+
     torch.load = _trusted_load
     try:
         detector = YOLO(args.detector).to(device)
@@ -169,12 +167,15 @@ def run(args):
             rights.append(float(box.cls.detach().cpu().item()))
         if not boxes:
             continue
-        dataset = ViTDetDataset(model_cfg, image, np.asarray(boxes, np.float32),
-                                np.asarray(rights, np.float32),
-                                rescale_factor=args.rescale_factor,
-                                fp16=args.fp16)
-        loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size,
-                                             shuffle=False, num_workers=0)
+        dataset = ViTDetDataset(
+            model_cfg,
+            image,
+            np.asarray(boxes, np.float32),
+            np.asarray(rights, np.float32),
+            rescale_factor=args.rescale_factor,
+            fp16=args.fp16,
+        )
+        loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
         offset = 0
         for batch in loader:
             batch = recursive_to(batch, device)
@@ -196,18 +197,20 @@ def run(args):
             pred_cam = output["pred_cam"].detach().cpu().numpy().astype(np.float32)
             img_size = batch["img_size"].detach().cpu().numpy().astype(np.float32)
             scaled_focal = (
-                float(model_cfg.EXTRA.FOCAL_LENGTH) /
-                float(model_cfg.MODEL.IMAGE_SIZE) * np.max(img_size, axis=1)
+                float(model_cfg.EXTRA.FOCAL_LENGTH) / float(model_cfg.MODEL.IMAGE_SIZE) * np.max(img_size, axis=1)
             )
             cam_bbox = pred_cam.copy()
             cam_bbox[:, 1] *= 2.0 * right - 1.0
             centers_np = centers
             bs = sizes * cam_bbox[:, 0] + 1e-9
-            full_trans = np.stack([
-                2.0 * (centers_np[:, 0] - img_size[:, 0] / 2.0) / bs + cam_bbox[:, 1],
-                2.0 * (centers_np[:, 1] - img_size[:, 1] / 2.0) / bs + cam_bbox[:, 2],
-                2.0 * scaled_focal / bs,
-            ], axis=1).astype(np.float32)
+            full_trans = np.stack(
+                [
+                    2.0 * (centers_np[:, 0] - img_size[:, 0] / 2.0) / bs + cam_bbox[:, 1],
+                    2.0 * (centers_np[:, 1] - img_size[:, 1] / 2.0) / bs + cam_bbox[:, 2],
+                    2.0 * scaled_focal / bs,
+                ],
+                axis=1,
+            ).astype(np.float32)
             for j in range(len(kp)):
                 hand_sign = 2.0 * right[j] - 1.0
                 # WiLoR's canonical output is root-relative MANO coordinates;
@@ -220,12 +223,13 @@ def run(args):
                 # recover the desired full-image 2D projection using WiLoR's
                 # camera (this is also the signal Dyn-HaMR optimizes).
                 pts_wilor = kp_j + trans_j[None, :]
-                desired_2d = np.stack([
-                    scaled_focal[j] * pts_wilor[:, 0] /
-                    np.maximum(pts_wilor[:, 2], 1e-6) + img_size[j, 0] / 2.0,
-                    scaled_focal[j] * pts_wilor[:, 1] /
-                    np.maximum(pts_wilor[:, 2], 1e-6) + img_size[j, 1] / 2.0,
-                ], axis=1).astype(np.float32)
+                desired_2d = np.stack(
+                    [
+                        scaled_focal[j] * pts_wilor[:, 0] / np.maximum(pts_wilor[:, 2], 1e-6) + img_size[j, 0] / 2.0,
+                        scaled_focal[j] * pts_wilor[:, 1] / np.maximum(pts_wilor[:, 2], 1e-6) + img_size[j, 1] / 2.0,
+                    ],
+                    axis=1,
+                ).astype(np.float32)
                 # Re-solve translation for the MuJoCo image focal length. A
                 # uniform metric scale cannot correct a focal-length mismatch;
                 # matching the 2D extent gives a stable, visible hand depth.
@@ -233,21 +237,20 @@ def run(args):
                 extent3d = np.ptp(kp_j, axis=0)
                 extent2d = np.ptp(desired_2d, axis=0)
                 z_candidates = [
-                    render_focal * float(extent3d[0]) /
-                    max(float(extent2d[0]), 1.0),
-                    render_focal * float(extent3d[1]) /
-                    max(float(extent2d[1]), 1.0),
+                    render_focal * float(extent3d[0]) / max(float(extent2d[0]), 1.0),
+                    render_focal * float(extent3d[1]) / max(float(extent2d[1]), 1.0),
                 ]
                 z_target = float(np.clip(np.median(z_candidates), 0.25, 2.0))
                 desired_center = desired_2d.mean(axis=0)
                 kp_center = kp_j.mean(axis=0)
-                trans_j = np.asarray([
-                    (desired_center[0] - img_size[j, 0] / 2.0) * z_target /
-                    render_focal - kp_center[0],
-                    (desired_center[1] - img_size[j, 1] / 2.0) * z_target /
-                    render_focal - kp_center[1],
-                    z_target,
-                ], dtype=np.float32)
+                trans_j = np.asarray(
+                    [
+                        (desired_center[0] - img_size[j, 0] / 2.0) * z_target / render_focal - kp_center[0],
+                        (desired_center[1] - img_size[j, 1] / 2.0) * z_target / render_focal - kp_center[1],
+                        z_target,
+                    ],
+                    dtype=np.float32,
+                )
                 kp_j += trans_j[None, :]
                 all_kp.append(kp_j)
                 all_right.append(right[j])
@@ -262,16 +265,18 @@ def run(args):
 
     if not all_kp:
         raise RuntimeError("WiLoR detector found no hands in the input video")
-    np.savez_compressed(out_dir / "wilor_predictions.npz",
-                        pred_keypoints_3d=np.asarray(all_kp, np.float32),
-                        right=np.asarray(all_right, np.float32),
-                        frame=np.asarray(all_frame, np.int64),
-                        score=np.asarray(all_score, np.float32),
-                        hand_pose=np.asarray(all_pose, np.float32),
-                        global_orient=np.asarray(all_orient, np.float32),
-                        betas=np.asarray(all_betas, np.float32),
-                        cam_trans=np.asarray(all_trans, np.float32),
-                        keypoints_2d=np.asarray(all_kp2d, np.float32))
+    np.savez_compressed(
+        out_dir / "wilor_predictions.npz",
+        pred_keypoints_3d=np.asarray(all_kp, np.float32),
+        right=np.asarray(all_right, np.float32),
+        frame=np.asarray(all_frame, np.int64),
+        score=np.asarray(all_score, np.float32),
+        hand_pose=np.asarray(all_pose, np.float32),
+        global_orient=np.asarray(all_orient, np.float32),
+        betas=np.asarray(all_betas, np.float32),
+        cam_trans=np.asarray(all_trans, np.float32),
+        keypoints_2d=np.asarray(all_kp2d, np.float32),
+    )
     print(f"WiLoR predictions: {len(all_kp)} hands -> {out_dir / 'wilor_predictions.npz'}")
 
 
@@ -282,8 +287,11 @@ def build_arg_parser():
     ap.add_argument("--output", required=True)
     ap.add_argument("--checkpoint", required=True)
     ap.add_argument("--detector", required=True)
-    ap.add_argument("--mano_dir", default=None,
-                    help="directory containing MANO_RIGHT.pkl; pass explicitly or set EGO2ROBOT_MANO_DIR")
+    ap.add_argument(
+        "--mano_dir",
+        default=None,
+        help="directory containing MANO_RIGHT.pkl; pass explicitly or set EGO2ROBOT_MANO_DIR",
+    )
     ap.add_argument("--config", default=None)
     ap.add_argument("--device", default=None)
     ap.add_argument("--batch_size", type=int, default=16)

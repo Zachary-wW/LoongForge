@@ -90,8 +90,7 @@ def chunk_kimi_delta_attention(
 ) -> torch.Tensor:
     input_dtype = query.dtype
     query, key, value, beta, decay = [
-        tensor.transpose(1, 2).contiguous().float()
-        for tensor in (query, key, value, beta, decay)
+        tensor.transpose(1, 2).contiguous().float() for tensor in (query, key, value, beta, decay)
     ]
     query = l2norm(query)
     key = l2norm(key)
@@ -110,15 +109,12 @@ def chunk_kimi_delta_attention(
 
     tensors = (query, key, value, decay, key_beta, value_beta)
     query, key, value, decay, key_beta, value_beta = [
-        tensor.reshape(tensor.shape[0], tensor.shape[1], -1, chunk_size, tensor.shape[-1])
-        for tensor in tensors
+        tensor.reshape(tensor.shape[0], tensor.shape[1], -1, chunk_size, tensor.shape[-1]) for tensor in tensors
     ]
     beta = beta.reshape(beta.shape[0], beta.shape[1], -1, chunk_size)
 
     decay = decay.cumsum(dim=-2)
-    diagonal_mask = torch.triu(
-        torch.ones(chunk_size, chunk_size, dtype=torch.bool, device=query.device), diagonal=0
-    )
+    diagonal_mask = torch.triu(torch.ones(chunk_size, chunk_size, dtype=torch.bool, device=query.device), diagonal=0)
     # Mask the strictly-upper-triangle differences BEFORE the exp: with real
     # weights the per-dim decay approaches lower_bound, so within-chunk cumsum
     # differences reach ~63 * |lower_bound| and exp() overflows to inf. The
@@ -144,13 +140,9 @@ def chunk_kimi_delta_attention(
     attention = attention + torch.eye(chunk_size, dtype=attention.dtype, device=attention.device)
     value = attention @ value_beta
     cumulative_key = attention @ (key_beta * decay.exp())
-    recurrent_state = torch.zeros(
-        batch_size, num_heads, key_dim, value_dim, dtype=value.dtype, device=value.device
-    )
+    recurrent_state = torch.zeros(batch_size, num_heads, key_dim, value_dim, dtype=value.dtype, device=value.device)
     output = torch.zeros_like(value)
-    causal_mask = torch.triu(
-        torch.ones(chunk_size, chunk_size, dtype=torch.bool, device=query.device), diagonal=1
-    )
+    causal_mask = torch.triu(torch.ones(chunk_size, chunk_size, dtype=torch.bool, device=query.device), diagonal=1)
     for index in range(total_length // chunk_size):
         query_chunk = query[:, :, index]
         key_chunk = key[:, :, index]
@@ -257,9 +249,7 @@ class KPoolDSAIndexer(DSAIndexer):
         self.index_kpool_compress_gate = nn.Parameter(torch.zeros(self.head_dim, self.hidden_size))
 
     def _pooled_states(self, packed_states: torch.Tensor):
-        keys, gate_scores, valid_keys = torch.split(
-            packed_states, [self.head_dim, self.head_dim, 1], dim=-1
-        )
+        keys, gate_scores, valid_keys = torch.split(packed_states, [self.head_dim, self.head_dim, 1], dim=-1)
         valid_keys = valid_keys.bool().squeeze(-1)
         batch_size, sequence_length = keys.shape[:2]
         pool_count = (sequence_length + self.index_kpool - 1) // self.index_kpool
@@ -297,9 +287,7 @@ class KPoolDSAIndexer(DSAIndexer):
         query, key, weights = self.forward_before_topk(x, qr, packed_seq_params)
         hidden_states = x
         if self.config.sequence_parallel and self.pg_collection.tp.size() > 1:
-            hidden_states = gather_from_sequence_parallel_region(
-                hidden_states, group=self.pg_collection.tp
-            )
+            hidden_states = gather_from_sequence_parallel_region(hidden_states, group=self.pg_collection.tp)
         query, _ = _cp_reconstruct(query, self.pg_collection.cp, 0)
         key, _ = _cp_reconstruct(key, self.pg_collection.cp, 0)
         weights, _ = _cp_reconstruct(weights, self.pg_collection.cp, 0)
@@ -394,11 +382,7 @@ class KPoolDSAttention(DSAttention):
         if self.skip_topk:
             self.indexer = None
             layer_index = self.layer_number - 1
-            source_index = max(
-                index
-                for index, kind in enumerate(config.indexer_types[:layer_index])
-                if kind == "full"
-            )
+            source_index = max(index for index, kind in enumerate(config.indexer_types[:layer_index]) if kind == "full")
             self.source_layer = source_index + 1
 
     @staticmethod
@@ -445,9 +429,7 @@ class KPoolDSAttention(DSAttention):
         )
         if self.skip_topk:
             if self.source_layer not in holder:
-                raise RuntimeError(
-                    f"layer {self.layer_number} requires K-pool indices from layer {self.source_layer}"
-                )
+                raise RuntimeError(f"layer {self.layer_number} requires K-pool indices from layer {self.source_layer}")
             topk = holder[self.source_layer]
         else:
             topk = self.indexer(x, qr, attention_mask, packed_seq_params)
@@ -456,6 +438,7 @@ class KPoolDSAttention(DSAttention):
         safe_topk = self._replace_invalid_indices(topk, sequence_length)
         output = unfused_dsa_fn(query, key, value, safe_topk, self.softmax_scale)
         return _cp_select_local(output, cp_context, 0)
+
 
 def initialize_kda(module: Glm5NextTextLinearAttention) -> None:
     nn.init.zeros_(module.A_log)

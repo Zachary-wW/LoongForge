@@ -31,22 +31,24 @@ def _check_estimate_horizontal_support_surface_from_metric_depth():
         np.array([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]),
         (len(depth), 1),
     )
-    K = np.array([
-        [80.0, 0.0, width / 2.0],
-        [0.0, 80.0, height / 2.0],
-        [0.0, 0.0, 1.0],
-    ])
-    targets = np.array([
-        [-0.08, -0.05, 0.80],
-        [0.08, 0.05, 0.85],
-    ])
+    K = np.array(
+        [
+            [80.0, 0.0, width / 2.0],
+            [0.0, 80.0, height / 2.0],
+            [0.0, 0.0, 1.0],
+        ]
+    )
+    targets = np.array(
+        [
+            [-0.08, -0.05, 0.80],
+            [0.08, 0.05, 0.85],
+        ]
+    )
 
-    surface = estimate_scene_support_surface(
-        depth, head, K, targets, reach=0.42)
+    surface = estimate_scene_support_surface(depth, head, K, targets, reach=0.42)
 
     assert surface is not None
-    np.testing.assert_allclose(surface["coefficients"], [0.0, 0.0, 1.0],
-                               atol=1e-6)
+    np.testing.assert_allclose(surface["coefficients"], [0.0, 0.0, 1.0], atol=1e-6)
     assert surface["rmse"] < 1e-6
     assert surface["inlier_count"] >= 200
 
@@ -62,16 +64,14 @@ def _check_so_arm101_visual_sole_snaps_to_support_plane():
         "base_up_z": -1.0,
     }
 
-    base_pos, gap = _snap_base_to_support(
-        np.array([0.1, -0.2, 2.0]), surface)
+    base_pos, gap = _snap_base_to_support(np.array([0.1, -0.2, 2.0]), surface)
 
     assert abs((base_pos[2] - base_min_z) - 0.75) < 1e-6
     assert gap == 0.0
 
 
 def _check_base_frame_accepts_dataset_gravity_direction():
-    _, rotation = base_frame(
-        np.array([1.0, 0.0, 0.0]), np.array([0.0, 0.0, -1.0]))
+    _, rotation = base_frame(np.array([1.0, 0.0, 0.0]), np.array([0.0, 0.0, -1.0]))
 
     np.testing.assert_allclose(rotation[:, 0], [1.0, 0.0, 0.0])
     np.testing.assert_allclose(rotation[:, 2], [0.0, 0.0, -1.0])
@@ -79,8 +79,7 @@ def _check_base_frame_accepts_dataset_gravity_direction():
 
 
 def _check_scene_support_is_enabled_only_for_so_arm101():
-    enabled = [name for name, spec in ROBOT_SPECS.items()
-               if spec.scene_support_surface]
+    enabled = [name for name, spec in ROBOT_SPECS.items() if spec.scene_support_surface]
     assert enabled == ["so_arm101"]
 
 
@@ -102,16 +101,29 @@ def _check_base_search_snaps_every_candidate_to_support_surface():
     def pose_solver(*args, **kwargs):
         return np.zeros(1), True, 0.0, 0.0
 
-    with patch.object(retarget_base_search, "solve_arm_ik_position_only_dls",
-                      position_solver), patch.object(
-                          retarget_base_search, "solve_arm_ik_dls", pose_solver):
+    with (
+        patch.object(retarget_base_search, "solve_arm_ik_position_only_dls", position_solver),
+        patch.object(retarget_base_search, "solve_arm_ik_dls", pose_solver),
+    ):
         candidates, _ = search_base_pose(
-            object(), None, None, None, None,
-            target_p, target_R, np.eye(3), np.array([1.0, 0.0, 0.0]),
-            sign=1.0, reach=0.42, camera_pos=np.array([0.0, 0.0, 2.0]),
-            search_mode="fast", ik_solver="dls",
-            base_orientation_mode="upright", max_target_distance=2.0,
-            support_surface=support)
+            object(),
+            None,
+            None,
+            None,
+            None,
+            target_p,
+            target_R,
+            np.eye(3),
+            np.array([1.0, 0.0, 0.0]),
+            sign=1.0,
+            reach=0.42,
+            camera_pos=np.array([0.0, 0.0, 2.0]),
+            search_mode="fast",
+            ik_solver="dls",
+            base_orientation_mode="upright",
+            max_target_distance=2.0,
+            support_surface=support,
+        )
 
     assert candidates
     for candidate in candidates:
@@ -130,37 +142,51 @@ def _check_balanced_base_orientation_search_is_opt_in():
         return np.zeros(1), True, 0.0, 0.0
 
     def run(enabled):
-        with patch.object(retarget_base_search, "solve_arm_ik_position_only_dls",
-                          position_solver), patch.object(
-                              retarget_base_search, "solve_arm_ik_dls", pose_solver):
+        with (
+            patch.object(retarget_base_search, "solve_arm_ik_position_only_dls", position_solver),
+            patch.object(retarget_base_search, "solve_arm_ik_dls", pose_solver),
+        ):
             return search_base_pose(
-                object(), None, None, None, None, target_p, target_R,
-                np.eye(3), np.array([1.0, 0.0, 0.0]), sign=1.0, reach=1.0,
+                object(),
+                None,
+                None,
+                None,
+                None,
+                target_p,
+                target_R,
+                np.eye(3),
+                np.array([1.0, 0.0, 0.0]),
+                sign=1.0,
+                reach=1.0,
                 camera_pos=np.array([0.0, 0.0, 2.0]),
-                search_mode="balanced", ik_solver="dls",
+                search_mode="balanced",
+                ik_solver="dls",
                 max_target_distance=3.0,
-                enable_base_orientation_search=enabled)[0]
+                enable_base_orientation_search=enabled,
+            )[0]
 
     fixed = run(False)
     searched = run(True)
     assert fixed
-    assert all(candidate["orientation"] == (0.0, 0.0, 0.0)
-               for candidate in fixed)
-    assert any(candidate["orientation"] != (0.0, 0.0, 0.0)
-               for candidate in searched)
+    assert all(candidate["orientation"] == (0.0, 0.0, 0.0) for candidate in fixed)
+    assert any(candidate["orientation"] != (0.0, 0.0, 0.0) for candidate in searched)
 
 
 def _check_interpolation_uses_position_success_not_pose_success():
-    qpos = np.array([
-        [0.0, 10.0],
-        [99.0, 99.0],
-        [2.0, 12.0],
-    ])
-    position_ok = np.array([
-        [True, True],
-        [True, False],
-        [True, True],
-    ])
+    qpos = np.array(
+        [
+            [0.0, 10.0],
+            [99.0, 99.0],
+            [2.0, 12.0],
+        ]
+    )
+    position_ok = np.array(
+        [
+            [True, True],
+            [True, False],
+            [True, True],
+        ]
+    )
 
     repaired = interp_failed_frames(qpos, position_ok, [0], [1])
 
@@ -186,11 +212,22 @@ def _check_branch_repair_accepts_position_only_solution():
     pose_ok = np.array([True, False])
     position_ok = np.array([True, True])
     fixed, repaired_pose_ok, repaired_position_ok = repair_branch_jumps(
-        FakeModel(), [0], [0], [0], None, joints,
-        np.zeros((2, 3)), np.repeat(np.eye(3)[None], 2, axis=0),
-        np.zeros(3), np.eye(3), pose_ok,
-        position_ok_flags=position_ok, jump_thresh=0.45, n_sweeps=1,
-        ik_solver=position_only_solver)
+        FakeModel(),
+        [0],
+        [0],
+        [0],
+        None,
+        joints,
+        np.zeros((2, 3)),
+        np.repeat(np.eye(3)[None], 2, axis=0),
+        np.zeros(3),
+        np.eye(3),
+        pose_ok,
+        position_ok_flags=position_ok,
+        jump_thresh=0.45,
+        n_sweeps=1,
+        ik_solver=position_only_solver,
+    )
 
     assert fixed == 1
     np.testing.assert_allclose(joints[:, 0], [0.0, 0.1])
@@ -207,8 +244,8 @@ def _check_position_first_reports_position_and_pose_separately():
             return np.array([0.2]), True, 0.004, 0.5
 
     q, pose_ok, err_pos, err_rot = solve_arm_ik_position_first(
-        object(), None, None, None, None, np.zeros(3), np.eye(3),
-        mink_context=FakeContext())
+        object(), None, None, None, None, np.zeros(3), np.eye(3), mink_context=FakeContext()
+    )
 
     np.testing.assert_allclose(q, [0.2])
     assert pose_ok is False
@@ -227,24 +264,48 @@ def _check_pose_refinement_only_accepts_safe_improvement():
 
     baseline = (np.array([0.1]), False, 0.004, 0.5)
     improved = refine_arm_ik_pose(
-        object(), [0], None, None, None, np.zeros(3), np.eye(3),
-        baseline, previous_q=np.array([0.0]),
-        mink_context=FakeContext((np.array([0.2]), True, 0.003, 0.2)))
+        object(),
+        [0],
+        None,
+        None,
+        None,
+        np.zeros(3),
+        np.eye(3),
+        baseline,
+        previous_q=np.array([0.0]),
+        mink_context=FakeContext((np.array([0.2]), True, 0.003, 0.2)),
+    )
     assert improved[-1] is True
     np.testing.assert_allclose(improved[0], [0.2])
 
     position_regression = refine_arm_ik_pose(
-        object(), [0], None, None, None, np.zeros(3), np.eye(3),
-        baseline, previous_q=np.array([0.0]),
-        mink_context=FakeContext((np.array([0.2]), False, 0.006, 0.1)))
+        object(),
+        [0],
+        None,
+        None,
+        None,
+        np.zeros(3),
+        np.eye(3),
+        baseline,
+        previous_q=np.array([0.0]),
+        mink_context=FakeContext((np.array([0.2]), False, 0.006, 0.1)),
+    )
     assert position_regression[-1] is False
     np.testing.assert_allclose(position_regression[0], baseline[0])
 
     branch_jump = refine_arm_ik_pose(
-        object(), [0], None, None, None, np.zeros(3), np.eye(3),
-        baseline, previous_q=np.array([0.0]),
+        object(),
+        [0],
+        None,
+        None,
+        None,
+        np.zeros(3),
+        np.eye(3),
+        baseline,
+        previous_q=np.array([0.0]),
         mink_context=FakeContext((np.array([0.5]), True, 0.003, 0.1)),
-        continuity_max_step=0.35)
+        continuity_max_step=0.35,
+    )
     assert branch_jump[-1] is False
     np.testing.assert_allclose(branch_jump[0], baseline[0])
 
@@ -260,8 +321,7 @@ class SceneSupportSurfaceTest(unittest.TestCase):
         assert np.isfinite(p).all()
         assert np.isfinite(w).all()
         np.testing.assert_allclose(np.linalg.det(r), np.ones(len(r)), atol=1e-6)
-        np.testing.assert_allclose(np.einsum("nij,nkj->nik", r, r),
-                                   np.broadcast_to(np.eye(3), r.shape), atol=1e-6)
+        np.testing.assert_allclose(np.einsum("nij,nkj->nik", r, r), np.broadcast_to(np.eye(3), r.shape), atol=1e-6)
 
     def test_invalid_keypoints_are_interpolated_without_sentinel_leak(self):
         values = np.array([[0.0, 1.0], [np.nan, 1e9], [2.0, 3.0]])
@@ -300,8 +360,7 @@ class SceneSupportSurfaceTest(unittest.TestCase):
 
     def test_aloha_duplicated_arms_use_identical_tcp_axes(self):
         spec = get_robot_spec("aloha_agilex")
-        np.testing.assert_allclose(
-            spec.tcp_rot_site_left, spec.tcp_rot_site_right)
+        np.testing.assert_allclose(spec.tcp_rot_site_left, spec.tcp_rot_site_right)
 
 
 if __name__ == "__main__":

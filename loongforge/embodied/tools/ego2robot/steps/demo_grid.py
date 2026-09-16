@@ -25,7 +25,9 @@ Usage:
     python cli.py demo --zarr_dir ... --mask_dir ... --inpaint_dir ... \\
         --ik_dir ... --output_dir ... [--episodes EP1 EP2 ...]
 """
+
 import os
+
 os.environ.setdefault("MUJOCO_GL", "egl")
 
 import argparse
@@ -39,12 +41,13 @@ import numpy as np
 # Layout constants, not paths; keep these fixed.
 CELL_W, CELL_H = 320, 184
 GRID_COLS, GRID_ROWS = 3, 3
-OUT_W = CELL_W * GRID_COLS   # 960
-OUT_H = CELL_H * GRID_ROWS   # 552
+OUT_W = CELL_W * GRID_COLS  # 960
+OUT_H = CELL_H * GRID_ROWS  # 552
 FPS = float(os.environ.get("EGO2ROBOT_FPS", "30"))
 
 
 # Common utilities
+
 
 def resize_cell(frame):
     """Ensure the frame is CELL_W x CELL_H in BGR format."""
@@ -61,9 +64,9 @@ def add_label(frame, text):
     scale, thick = 0.4, 1
     (tw, th), _ = cv2.getTextSize(text, font, scale, thick)
     # Translucent black label background.
-    overlay = out[:th + 8, :tw + 12].copy()
+    overlay = out[: th + 8, : tw + 12].copy()
     cv2.rectangle(out, (0, 0), (tw + 12, th + 8), (0, 0, 0), -1)
-    out[:th + 8, :tw + 12] = cv2.addWeighted(overlay, 0.3, out[:th + 8, :tw + 12], 0.7, 0)
+    out[: th + 8, : tw + 12] = cv2.addWeighted(overlay, 0.3, out[: th + 8, : tw + 12], 0.7, 0)
     cv2.putText(out, text, (4, th + 4), font, scale, (255, 255, 255), thick, cv2.LINE_AA)
     return out
 
@@ -91,7 +94,7 @@ def make_info_cell(ep, t, n_total, robot_type="panda"):
         "Episode:",
         f"  {ep[:10]}",
         f"  ...{ep[10:]}",
-        f"Frame: {t+1}/{n_total}",
+        f"Frame: {t + 1}/{n_total}",
         f"FPS: {FPS}",
         f"Pipeline: EgoVerse->{robot_type}",
     ]
@@ -113,10 +116,12 @@ def discover_episodes(zarr_dir: str) -> list:
 
 # Cell generators
 
+
 def load_original_frames(zarr_dir, ep, n_frames):
     """Read original JPEG frames from Zarr."""
     import zarr
     import simplejpeg
+
     store = zarr.open(f"{zarr_dir}/{ep}", mode="r")
     imgs = store["images.front_1"]
     frames = []
@@ -141,20 +146,35 @@ def load_keypoint_frames(zarr_dir, ep, n_frames):
     from scipy.spatial.transform import Rotation
 
     BONES = [
-        (0, 1), (1, 2), (2, 3), (3, 4),
-        (0, 5), (5, 6), (6, 7), (7, 8),
-        (0, 9), (9, 10), (10, 11), (11, 12),
-        (0, 13), (13, 14), (14, 15), (15, 16),
-        (0, 17), (17, 18), (18, 19), (19, 20),
+        (0, 1),
+        (1, 2),
+        (2, 3),
+        (3, 4),
+        (0, 5),
+        (5, 6),
+        (6, 7),
+        (7, 8),
+        (0, 9),
+        (9, 10),
+        (10, 11),
+        (11, 12),
+        (0, 13),
+        (13, 14),
+        (14, 15),
+        (15, 16),
+        (0, 17),
+        (17, 18),
+        (18, 19),
+        (19, 20),
     ]
-    COLORS = ([(0, 255, 255)] * 4 + [(0, 255, 0)] * 4 + [(255, 255, 0)] * 4
-              + [(255, 0, 255)] * 4 + [(255, 0, 0)] * 4)
+    COLORS = [(0, 255, 255)] * 4 + [(0, 255, 0)] * 4 + [(255, 255, 0)] * 4 + [(255, 0, 255)] * 4 + [(255, 0, 0)] * 4
 
     store = zarr.open(f"{zarr_dir}/{ep}", mode="r")
     total = int(store.attrs["total_frames"])
     imgs = store["images.front_1"]
     # Match hand_mask intrinsic parsing, supporting legacy 3x4 and new flat dictionary formats.
     from steps.config import dataset_intrinsics_k, fallback_episode_attrs
+
     _ep_attrs, _borrow = fallback_episode_attrs(f"{zarr_dir}/{ep}")
     v0 = imgs[0]
     while isinstance(v0, np.ndarray) and v0.ndim == 0:
@@ -162,8 +182,7 @@ def load_keypoint_frames(zarr_dir, ep, n_frames):
     if isinstance(v0, np.ndarray) and v0.dtype == object:
         v0 = v0.flat[0]
     ih0, iw0 = simplejpeg.decode_jpeg(bytes(v0), colorspace="RGB").shape[:2]
-    K = (dataset_intrinsics_k(_ep_attrs, camera="front_1", img_shape=(ih0, iw0))
-         if _ep_attrs is not None else None)
+    K = dataset_intrinsics_k(_ep_attrs, camera="front_1", img_shape=(ih0, iw0)) if _ep_attrs is not None else None
     if K is None:
         print("  ⚠️ No intrinsics for front_1, skipping keypoint frames")
         return []
@@ -227,6 +246,7 @@ def load_gripper_frames(zarr_dir, ep, n_frames):
     imgs = store["images.front_1"]
     # Match hand_mask intrinsic parsing, supporting legacy 3x4 and new flat dictionary formats.
     from steps.config import dataset_intrinsics_k, fallback_episode_attrs
+
     _ep_attrs, _borrow = fallback_episode_attrs(f"{zarr_dir}/{ep}")
     v0 = imgs[0]
     while isinstance(v0, np.ndarray) and v0.ndim == 0:
@@ -234,8 +254,7 @@ def load_gripper_frames(zarr_dir, ep, n_frames):
     if isinstance(v0, np.ndarray) and v0.dtype == object:
         v0 = v0.flat[0]
     ih0, iw0 = simplejpeg.decode_jpeg(bytes(v0), colorspace="RGB").shape[:2]
-    K = (dataset_intrinsics_k(_ep_attrs, camera="front_1", img_shape=(ih0, iw0))
-         if _ep_attrs is not None else None)
+    K = dataset_intrinsics_k(_ep_attrs, camera="front_1", img_shape=(ih0, iw0)) if _ep_attrs is not None else None
     if K is None:
         print("  ⚠️ No intrinsics for front_1, skipping keypoint frames")
         return []
@@ -263,8 +282,7 @@ def load_gripper_frames(zarr_dir, ep, n_frames):
         R_inv = Rotation.from_quat([q[1], q[2], q[3], q[0]]).as_matrix().T
         t_inv = -R_inv @ hp[:3]
 
-        for kp, label, color in [(left_kp[t], "L", (0, 255, 0)),
-                                 (right_kp[t], "R", (0, 200, 255))]:
+        for kp, label, color in [(left_kp[t], "L", (0, 255, 0)), (right_kp[t], "R", (0, 200, 255))]:
             if np.any(np.abs(kp) > 1e8):
                 continue
             k_thumb = kp[THUMB]
@@ -284,10 +302,12 @@ def load_gripper_frames(zarr_dir, ep, n_frames):
             mid = ((p0[0] + p1[0]) // 2, (p0[1] + p1[1]) // 2)
             txt = f"{label}:{width_cm:.1f}cm"
             (tw, th), _ = cv2.getTextSize(txt, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
-            cv2.rectangle(bgr, (mid[0] - tw // 2 - 2, mid[1] - th - 3),
-                          (mid[0] + tw // 2 + 2, mid[1] + 3), (255, 255, 255), -1)
-            cv2.putText(bgr, txt, (mid[0] - tw // 2, mid[1] - 1),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 1, cv2.LINE_AA)
+            cv2.rectangle(
+                bgr, (mid[0] - tw // 2 - 2, mid[1] - th - 3), (mid[0] + tw // 2 + 2, mid[1] + 3), (255, 255, 255), -1
+            )
+            cv2.putText(
+                bgr, txt, (mid[0] - tw // 2, mid[1] - 1), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 1, cv2.LINE_AA
+            )
         frames.append(resize_cell(bgr))
     return frames
 
@@ -301,14 +321,12 @@ def load_mask_frames(mask_dir, ep, orig_frames):
         base = orig_frames[t].copy()
         m = masks[t]
         if m.shape[:2] != (base.shape[0], base.shape[1]):
-            m = cv2.resize(m, (base.shape[1], base.shape[0]),
-                           interpolation=cv2.INTER_NEAREST)
-        mb = (m > 0)
+            m = cv2.resize(m, (base.shape[1], base.shape[0]), interpolation=cv2.INTER_NEAREST)
+        mb = m > 0
         red = base.copy()
         red[mb] = (0, 0, 255)
         out = cv2.addWeighted(red, 0.45, base, 0.55, 0)
-        cnts, _ = cv2.findContours(mb.astype(np.uint8), cv2.RETR_EXTERNAL,
-                                   cv2.CHAIN_APPROX_SIMPLE)
+        cnts, _ = cv2.findContours(mb.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         cv2.drawContours(out, cnts, -1, (0, 255, 255), 1)
         frames.append(out)
     return frames
@@ -318,8 +336,12 @@ def load_robot_only_frames(zarr_dir, ik_dir, ep, n_frames):
     """Render the robot only, on a black background."""
     import mujoco
     from steps.robot_retarget import (
-        build_dual_model, hide_non_arm_geoms, render_rgb_and_mask,
-        set_ego_camera, load_episode_world, make_renderer,
+        build_dual_model,
+        hide_non_arm_geoms,
+        render_rgb_and_mask,
+        set_ego_camera,
+        load_episode_world,
+        make_renderer,
     )
     from steps.robot_registry import get_robot_spec
 
@@ -340,6 +362,7 @@ def load_robot_only_frames(zarr_dir, ik_dir, ep, n_frames):
     # supporting both new flat dictionaries and legacy 3x4 matrices.
     try:
         from steps.config import dataset_fy_for_height, fallback_episode_attrs
+
         _ep_a, _ = fallback_episode_attrs(f"{zarr_dir}/{ep}")
         _fy = dataset_fy_for_height(_ep_a or {}, height)
         if _fy is not None:
@@ -347,8 +370,7 @@ def load_robot_only_frames(zarr_dir, ik_dir, ep, n_frames):
     except Exception:
         pass
     fovy = float(np.degrees(2.0 * np.arctan((height / 2.0) / fy)))
-    dual = build_dual_model(left_base_pos, left_base_quat, right_base_pos, right_base_quat,
-                            fovy, spec)
+    dual = build_dual_model(left_base_pos, left_base_quat, right_base_pos, right_base_quat, fovy, spec)
     cam_id = mujoco.mj_name2id(dual, mujoco.mjtObj.mjOBJ_CAMERA, "ego")
     hide_non_arm_geoms(dual, spec)
     renderer = make_renderer(dual, 1280, 736)  # Match retargeting with 2x supersampling for noise reduction.
@@ -371,8 +393,8 @@ def load_robot_only_frames(zarr_dir, ik_dir, ep, n_frames):
 
 # Main workflow
 
-def build_demo(ep, zarr_dir, mask_dir, inpaint_dir, ik_dir, out_dir,
-               depth_dir=None, fps=None):
+
+def build_demo(ep, zarr_dir, mask_dir, inpaint_dir, ik_dir, out_dir, depth_dir=None, fps=None):
     """Build a 3x3 split-screen demo video for one episode."""
     print(f"\n[{ep}] Building split-screen demo")
     bg_frames_full = read_video_cv2(f"{inpaint_dir}/{ep}/bg.mp4")
@@ -432,34 +454,45 @@ def build_demo(ep, zarr_dir, mask_dir, inpaint_dir, ik_dir, out_dir,
             y0, x0 = r * CELL_H, c * CELL_W
             cell = frames[t] if t < len(frames) else np.zeros((CELL_H, CELL_W, 3), dtype=np.uint8)
             cell = add_label(cell, label)
-            frame[y0:y0 + CELL_H, x0:x0 + CELL_W] = cell
+            frame[y0 : y0 + CELL_H, x0 : x0 + CELL_W] = cell
         # Cell 8 (index 7): depth visualization when --depth_dir is provided, otherwise info.
         r, c = 7 // GRID_COLS, 7 % GRID_COLS
         if depth_frames is not None:
             cell8 = depth_frames[t] if t < len(depth_frames) else np.zeros((CELL_H, CELL_W, 3), dtype=np.uint8)
             cell8 = add_label(cell8, "8. Depth (DA3)")
-            frame[r * CELL_H:(r + 1) * CELL_H, c * CELL_W:(c + 1) * CELL_W] = cell8
+            frame[r * CELL_H : (r + 1) * CELL_H, c * CELL_W : (c + 1) * CELL_W] = cell8
         else:
             info = make_info_cell(ep, t, n_out, robot_type)
             info = add_label(info, "8. Episode Info")
-            frame[r * CELL_H:(r + 1) * CELL_H, c * CELL_W:(c + 1) * CELL_W] = info
+            frame[r * CELL_H : (r + 1) * CELL_H, c * CELL_W : (c + 1) * CELL_W] = info
         # Cell 9 (index 8): info when depth is present, otherwise the pipeline title.
         r, c = 8 // GRID_COLS, 8 % GRID_COLS
         if depth_frames is not None:
             info9 = make_info_cell(ep, t, n_out, robot_type)
             info9 = add_label(info9, "9. Episode Info")
-            frame[r * CELL_H:(r + 1) * CELL_H, c * CELL_W:(c + 1) * CELL_W] = info9
+            frame[r * CELL_H : (r + 1) * CELL_H, c * CELL_W : (c + 1) * CELL_W] = info9
         else:
             title = np.zeros((CELL_H, CELL_W, 3), dtype=np.uint8)
-            cv2.putText(title, "EgoVerse -> LeRobot", (10, 60),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
-            cv2.putText(title, "H2R Synthesis", (10, 90),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
-            cv2.putText(title, f"{robot_type.upper()} Dual-Arm", (10, 120),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (180, 220, 255), 1, cv2.LINE_AA)
-            cv2.putText(title, "Qwen-RobotManip", (10, 145),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (150, 150, 150), 1, cv2.LINE_AA)
-            frame[r * CELL_H:(r + 1) * CELL_H, c * CELL_W:(c + 1) * CELL_W] = title
+            cv2.putText(
+                title, "EgoVerse -> LeRobot", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA
+            )
+            cv2.putText(
+                title, "H2R Synthesis", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA
+            )
+            cv2.putText(
+                title,
+                f"{robot_type.upper()} Dual-Arm",
+                (10, 120),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (180, 220, 255),
+                1,
+                cv2.LINE_AA,
+            )
+            cv2.putText(
+                title, "Qwen-RobotManip", (10, 145), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (150, 150, 150), 1, cv2.LINE_AA
+            )
+            frame[r * CELL_H : (r + 1) * CELL_H, c * CELL_W : (c + 1) * CELL_W] = title
         writer.write(frame)
     writer.release()
     try:
@@ -482,17 +515,25 @@ def build_arg_parser():
         required=True,
         help="Retargeting output directory containing {ep}_ik.npz and {ep}_robot_on_bg.mp4",
     )
-    ap.add_argument("--depth_dir", default=None,
-                    help="Step 5 depth output directory containing {ep}/depth_vis.mp4; enables the demo depth cell")
+    ap.add_argument(
+        "--depth_dir",
+        default=None,
+        help="Step 5 depth output directory containing {ep}/depth_vis.mp4; enables the demo depth cell",
+    )
     ap.add_argument("--output_dir", required=True)
-    ap.add_argument("--episodes", nargs="*", default=None,
-                     help="Episode list; by default discover all --zarr_dir subdirectories containing zarr.json")
+    ap.add_argument(
+        "--episodes",
+        nargs="*",
+        default=None,
+        help="Episode list; by default discover all --zarr_dir subdirectories containing zarr.json",
+    )
     return ap
 
 
 def load_depth_frames(depth_dir, ep, n_frames):
     """Read Step 5 depth_vis.mp4 into a sequence of cell-sized frames."""
     import cv2
+
     vid = Path(depth_dir) / ep / "depth_vis.mp4"
     if not vid.exists():
         print(f"  ⚠️ depth_vis.mp4 missing: {vid}")
@@ -516,10 +557,19 @@ def run(args):
     print(f"Found {len(eps)} episodes")
     for ep in eps:
         try:
-            build_demo(ep, args.zarr_dir, args.mask_dir, args.inpaint_dir, args.ik_dir, args.output_dir,
-                       getattr(args, "depth_dir", None), getattr(args, "fps", None))
+            build_demo(
+                ep,
+                args.zarr_dir,
+                args.mask_dir,
+                args.inpaint_dir,
+                args.ik_dir,
+                args.output_dir,
+                getattr(args, "depth_dir", None),
+                getattr(args, "fps", None),
+            )
         except Exception as e:
             import traceback
+
             traceback.print_exc()
             print(f"  ❌ {ep}: {e}")
     print(f"\nDone. → {args.output_dir}")

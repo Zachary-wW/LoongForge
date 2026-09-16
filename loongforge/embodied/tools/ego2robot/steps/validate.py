@@ -18,6 +18,7 @@ to any dataset produced by this pipeline:
 Usage:
     python cli.py validate --dataset_dir data_output/06_lerobot
 """
+
 import argparse
 import json
 import os
@@ -77,8 +78,7 @@ def run(args):
     # --- 3. data parquet ---
     print("\n═══ 3. data parquet ═══")
     td = pq.read_table(f"{root}/data/chunk-000/file-000.parquet")
-    check(td.num_rows == total_frames,
-          f"data rows={td.num_rows} matches info.total_frames={total_frames}")
+    check(td.num_rows == total_frames, f"data rows={td.num_rows} matches info.total_frames={total_frames}")
     cols = td.column_names
     check("action" in cols, "action column")
     check("observation.state" in cols, "observation.state column")
@@ -93,25 +93,23 @@ def run(args):
     check(indices == list(range(total_frames)), "global index monotonic 0..N-1")
     ep_arr = td.column("episode_index").to_pylist()
     eps = sorted(set(ep_arr))
-    check(eps == list(range(total_episodes)),
-          f"episode_index covers 0..{total_episodes - 1}")
+    check(eps == list(range(total_episodes)), f"episode_index covers 0..{total_episodes - 1}")
 
     # --- 4. episodes parquet ---
     print("\n═══ 4. episodes parquet ═══")
     te = pq.read_table(f"{root}/meta/episodes/chunk-000/file-000.parquet")
-    check(te.num_rows == total_episodes,
-          f"episode rows={te.num_rows} matches total_episodes={total_episodes}")
+    check(te.num_rows == total_episodes, f"episode rows={te.num_rows} matches total_episodes={total_episodes}")
     ep_rows = te.to_pylist()
     ep_rows.sort(key=lambda r: r["episode_index"])
-    check([r["episode_index"] for r in ep_rows] == list(range(total_episodes)),
-          "episode_index values are 0..N-1")
+    check([r["episode_index"] for r in ep_rows] == list(range(total_episodes)), "episode_index values are 0..N-1")
     cursor = 0
     for r in ep_rows:
         check(r["length"] > 0, f"ep{r['episode_index']} length={r['length']} > 0")
-        check(r["dataset_from_index"] == cursor,
-              f"ep{r['episode_index']} from_index={r['dataset_from_index']} matches cursor={cursor}")
-        check(r["dataset_to_index"] == cursor + r["length"],
-              f"ep{r['episode_index']} to_index consistent with length")
+        check(
+            r["dataset_from_index"] == cursor,
+            f"ep{r['episode_index']} from_index={r['dataset_from_index']} matches cursor={cursor}",
+        )
+        check(r["dataset_to_index"] == cursor + r["length"], f"ep{r['episode_index']} to_index consistent with length")
         cursor += r["length"]
     check(cursor == total_frames, f"episode lengths sum to total_frames={total_frames}")
     check("stats/action/mean" in ep_rows[0], "per-ep stats present")
@@ -119,8 +117,7 @@ def run(args):
     # --- 5. tasks parquet ---
     print("\n═══ 5. tasks parquet ═══")
     tt = pq.read_table(f"{root}/meta/tasks.parquet")
-    check(tt.num_rows == total_tasks,
-          f"task rows={tt.num_rows} matches total_tasks={total_tasks}")
+    check(tt.num_rows == total_tasks, f"task rows={tt.num_rows} matches total_tasks={total_tasks}")
     task_texts = tt.to_pandas().index.tolist()
     check(all(isinstance(t, str) and len(t) > 0 for t in task_texts), "all task texts non-empty")
 
@@ -136,6 +133,7 @@ def run(args):
     # --- 7. Video frame count ---
     print("\n═══ 7. Video validation ═══")
     import av
+
     c = av.open(video_path)
     s = c.streams.video[0]
     check(s.frames == total_frames, f"video frame_count={s.frames} matches total_frames={total_frames}")
@@ -145,17 +143,18 @@ def run(args):
 
     # --- 8. Optional exact checks for comparison with a specific historical run. ---
     if args.expect_episodes is not None:
-        check(total_episodes == args.expect_episodes,
-              f"total_episodes={total_episodes} == expect {args.expect_episodes}")
+        check(
+            total_episodes == args.expect_episodes, f"total_episodes={total_episodes} == expect {args.expect_episodes}"
+        )
     if args.expect_frames is not None:
-        check(total_frames == args.expect_frames,
-              f"total_frames={total_frames} == expect {args.expect_frames}")
+        check(total_frames == args.expect_frames, f"total_frames={total_frames} == expect {args.expect_frames}")
 
     # --- 9. Real-loader smoke test ---
     if not args.skip_loader_check:
         print("\n═══ 9. LeRobotDataset loader smoke test ═══")
         try:
             from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
+
             ds = LeRobotDataset(repo_id=None, root=root)
             check(len(ds) == total_frames, f"loader len(ds)={len(ds)} matches total_frames={total_frames}")
             _ = ds[0]
@@ -173,12 +172,23 @@ def build_arg_parser():
     """Build the command-line argument parser."""
     ap = argparse.ArgumentParser(description="Validate a LeRobot v3.0 dataset (structural checks)")
     ap.add_argument("--dataset_dir", required=True, help="LeRobot v3.0 dataset root directory")
-    ap.add_argument("--expect_episodes", type=int, default=None,
-                     help="Optionally check total_episodes exactly against a specific historical run")
-    ap.add_argument("--expect_frames", type=int, default=None,
-                     help="Optionally check total_frames exactly against a specific historical run")
-    ap.add_argument("--skip_loader_check", action="store_true",
-                     help="Skip the real LeRobotDataset loader smoke test (useful when lerobot is not installed)")
+    ap.add_argument(
+        "--expect_episodes",
+        type=int,
+        default=None,
+        help="Optionally check total_episodes exactly against a specific historical run",
+    )
+    ap.add_argument(
+        "--expect_frames",
+        type=int,
+        default=None,
+        help="Optionally check total_frames exactly against a specific historical run",
+    )
+    ap.add_argument(
+        "--skip_loader_check",
+        action="store_true",
+        help="Skip the real LeRobotDataset loader smoke test (useful when lerobot is not installed)",
+    )
     ap.add_argument(
         "--depth_dir",
         default=None,
@@ -189,8 +199,12 @@ def build_arg_parser():
         default=None,
         help="Retarget IK directory containing {ep}_ik.npz, used for robot and DA3 depth comparison",
     )
-    ap.add_argument("--depth_samples", type=int, default=12,
-                    help="Number of frames sampled for depth consistency checks (default: 12)")
+    ap.add_argument(
+        "--depth_samples",
+        type=int,
+        default=12,
+        help="Number of frames sampled for depth consistency checks (default: 12)",
+    )
     return ap
 
 
@@ -201,6 +215,7 @@ def check_depth_consistency(args):
     from steps.robot_retarget import build_dual_model
     from steps.robot_registry import get_robot_spec
     import cv2
+
     top = args.depth_dir
     eps = sorted(d for d in os.listdir(top) if os.path.isdir(os.path.join(top, d)))
     print(f"{'episode':<30}{'samples':>8}{'z_med':>9}{'d_med':>9}{'ratio':>9}{'CV':>8}")
@@ -217,8 +232,9 @@ def check_depth_consistency(args):
         spec = get_robot_spec(robot_type)
         left_quat = np.asarray(ik["left_base_quat"] if "left_base_quat" in ik else ik["base_quat"])
         right_quat = np.asarray(ik["right_base_quat"] if "right_base_quat" in ik else ik["base_quat"])
-        model = build_dual_model(np.asarray(ik["left_base_pos"]), left_quat,
-                                 np.asarray(ik["right_base_pos"]), right_quat, 60.0, spec)
+        model = build_dual_model(
+            np.asarray(ik["left_base_pos"]), left_quat, np.asarray(ik["right_base_pos"]), right_quat, 60.0, spec
+        )
         data = mujoco.MjData(model)
         rend = mujoco.Renderer(model, height=368, width=640)
         rend.enable_depth_rendering()
@@ -248,7 +264,6 @@ def check_depth_consistency(args):
         cv = float(a.std() / a.mean()) if a.mean() > 1e-9 else float("nan")
         print(f"{ep:<30}{len(ratios):>8}{np.median(zmeds):>9.3f}{np.median(dmeds):>9.3f}{a.mean():>9.3f}{cv:>8.2f}")
     print("  (z=robot view depth, d=DA3 metric depth; ratio near 1 means agreement, low CV means stability)")
-
 
 
 def main():

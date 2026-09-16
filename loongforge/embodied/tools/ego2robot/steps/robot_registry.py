@@ -146,8 +146,12 @@ ROBOT_SPECS: dict[str, RobotSpec] = {
         gripper_max=0.085,
         gripper_mode="xarm_driver",
         gripper_all_joints=(
-            "left_driver_joint", "left_finger_joint", "left_inner_knuckle_joint",
-            "right_driver_joint", "right_finger_joint", "right_inner_knuckle_joint",
+            "left_driver_joint",
+            "left_finger_joint",
+            "left_inner_knuckle_joint",
+            "right_driver_joint",
+            "right_finger_joint",
+            "right_inner_knuckle_joint",
         ),
         visual_hide_keywords=("link_base",),
     ),
@@ -211,14 +215,18 @@ ROBOT_SPECS: dict[str, RobotSpec] = {
     # with compatible end-effector assets.  FR3 uses the native Franka Hand
     # description; Sawyer uses its native Intera Electric Gripper model below.
     "fr3": RobotSpec(
-        name="fr3", model_dir="franka_fr3", xml_name="fr3.xml",
-        base_body="base", arm_joints=tuple(f"fr3_joint{i}" for i in range(1, 8)),
+        name="fr3",
+        model_dir="franka_fr3",
+        xml_name="fr3.xml",
+        base_body="base",
+        arm_joints=tuple(f"fr3_joint{i}" for i in range(1, 8)),
         finger_joints=("grip_finger_joint1", "grip_finger_joint2"),
-        ee_body="grip_hand", ee_site=None, reach=1.272, gripper_max=0.080,
+        ee_body="grip_hand",
+        ee_site=None,
+        reach=1.272,
+        gripper_max=0.080,
         tcp_pos_body=(0.0, 0.0, 0.1034),
-        gripper_model_path_override=str(
-            Path(config.MENAGERIE_DIR) / "franka_emika_panda/hand.xml"
-        ),
+        gripper_model_path_override=str(Path(config.MENAGERIE_DIR) / "franka_emika_panda/hand.xml"),
         gripper_attach_body="fr3_link7",
         gripper_mode="franka_hand",
         gripper_attach_pos=(0.0, 0.0, 0.107),
@@ -228,20 +236,36 @@ ROBOT_SPECS: dict[str, RobotSpec] = {
         visual_hide_keywords=("base",),
     ),
     "ur5e": RobotSpec(
-        name="ur5e", model_dir="universal_robots_ur5e", xml_name="ur5e.xml",
+        name="ur5e",
+        model_dir="universal_robots_ur5e",
+        xml_name="ur5e.xml",
         base_body="base",
-        arm_joints=("shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
-                    "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"),
+        arm_joints=(
+            "shoulder_pan_joint",
+            "shoulder_lift_joint",
+            "elbow_joint",
+            "wrist_1_joint",
+            "wrist_2_joint",
+            "wrist_3_joint",
+        ),
         finger_joints=("grip_left_driver_joint", "grip_right_driver_joint"),
-        ee_body=None, ee_site="grip_pinch", reach=1.236, gripper_max=0.085,
-        gripper_model_dir="robotiq_2f85", gripper_xml_name="2f85.xml",
+        ee_body=None,
+        ee_site="grip_pinch",
+        reach=1.236,
+        gripper_max=0.085,
+        gripper_model_dir="robotiq_2f85",
+        gripper_xml_name="2f85.xml",
         gripper_attach_body="wrist_3_link",
         gripper_mode="robotiq_driver",
         gripper_all_joints=(
-            "grip_right_driver_joint", "grip_right_coupler_joint",
-            "grip_right_spring_link_joint", "grip_right_follower_joint",
-            "grip_left_driver_joint", "grip_left_coupler_joint",
-            "grip_left_spring_link_joint", "grip_left_follower_joint",
+            "grip_right_driver_joint",
+            "grip_right_coupler_joint",
+            "grip_right_spring_link_joint",
+            "grip_right_follower_joint",
+            "grip_left_driver_joint",
+            "grip_left_coupler_joint",
+            "grip_left_spring_link_joint",
+            "grip_left_follower_joint",
         ),
         gripper_attach_pos=(0.0, 0.1, 0.0),
         gripper_attach_quat=(-1.0, 1.0, 0.0, 0.0),
@@ -253,20 +277,36 @@ ROBOT_SPECS: dict[str, RobotSpec] = {
         visual_hide_keywords=(),
     ),
     "ur10e": RobotSpec(
-        name="ur10e", model_dir="universal_robots_ur10e", xml_name="ur10e.xml",
+        name="ur10e",
+        model_dir="universal_robots_ur10e",
+        xml_name="ur10e.xml",
         base_body="base",
-        arm_joints=("shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint",
-                    "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"),
+        arm_joints=(
+            "shoulder_pan_joint",
+            "shoulder_lift_joint",
+            "elbow_joint",
+            "wrist_1_joint",
+            "wrist_2_joint",
+            "wrist_3_joint",
+        ),
         finger_joints=("grip_left_driver_joint", "grip_right_driver_joint"),
-        ee_body=None, ee_site="grip_pinch", reach=1.627, gripper_max=0.085,
-        gripper_model_dir="robotiq_2f85", gripper_xml_name="2f85.xml",
+        ee_body=None,
+        ee_site="grip_pinch",
+        reach=1.627,
+        gripper_max=0.085,
+        gripper_model_dir="robotiq_2f85",
+        gripper_xml_name="2f85.xml",
         gripper_attach_body="wrist_3_link",
         gripper_mode="robotiq_driver",
         gripper_all_joints=(
-            "grip_right_driver_joint", "grip_right_coupler_joint",
-            "grip_right_spring_link_joint", "grip_right_follower_joint",
-            "grip_left_driver_joint", "grip_left_coupler_joint",
-            "grip_left_spring_link_joint", "grip_left_follower_joint",
+            "grip_right_driver_joint",
+            "grip_right_coupler_joint",
+            "grip_right_spring_link_joint",
+            "grip_right_follower_joint",
+            "grip_left_driver_joint",
+            "grip_left_coupler_joint",
+            "grip_left_spring_link_joint",
+            "grip_left_follower_joint",
         ),
         gripper_attach_pos=(0.0, 0.1, 0.0),
         gripper_attach_quat=(-1.0, 1.0, 0.0, 0.0),
@@ -276,18 +316,29 @@ ROBOT_SPECS: dict[str, RobotSpec] = {
         visual_hide_keywords=(),
     ),
     "kinova_gen3": RobotSpec(
-        name="kinova_gen3", model_dir="kinova_gen3", xml_name="gen3.xml",
-        base_body="base_link", arm_joints=tuple(f"joint_{i}" for i in range(1, 8)),
+        name="kinova_gen3",
+        model_dir="kinova_gen3",
+        xml_name="gen3.xml",
+        base_body="base_link",
+        arm_joints=tuple(f"joint_{i}" for i in range(1, 8)),
         finger_joints=("grip_left_driver_joint", "grip_right_driver_joint"),
-        ee_body=None, ee_site="grip_pinch", reach=1.337, gripper_max=0.085,
-        gripper_model_dir="robotiq_2f85", gripper_xml_name="2f85.xml",
+        ee_body=None,
+        ee_site="grip_pinch",
+        reach=1.337,
+        gripper_max=0.085,
+        gripper_model_dir="robotiq_2f85",
+        gripper_xml_name="2f85.xml",
         gripper_attach_body="bracelet_link",
         gripper_mode="robotiq_driver",
         gripper_all_joints=(
-            "grip_right_driver_joint", "grip_right_coupler_joint",
-            "grip_right_spring_link_joint", "grip_right_follower_joint",
-            "grip_left_driver_joint", "grip_left_coupler_joint",
-            "grip_left_spring_link_joint", "grip_left_follower_joint",
+            "grip_right_driver_joint",
+            "grip_right_coupler_joint",
+            "grip_right_spring_link_joint",
+            "grip_right_follower_joint",
+            "grip_left_driver_joint",
+            "grip_left_coupler_joint",
+            "grip_left_spring_link_joint",
+            "grip_left_follower_joint",
         ),
         gripper_mount_body="base",
         gripper_attach_pos=(0.0, 0.0, -0.06149039),
@@ -300,14 +351,18 @@ ROBOT_SPECS: dict[str, RobotSpec] = {
         visual_hide_keywords=("base_link",),
     ),
     "sawyer": RobotSpec(
-        name="sawyer", model_dir="rethink_robotics_sawyer", xml_name="sawyer.xml",
+        name="sawyer",
+        model_dir="rethink_robotics_sawyer",
+        xml_name="sawyer.xml",
         base_body="base",
         arm_joints=tuple(f"right_j{i}" for i in range(7)),
         finger_joints=("grip_l_finger_joint", "grip_r_finger_joint"),
-        ee_body=None, ee_site="grip_pinch", reach=1.420, gripper_max=0.079,
+        ee_body=None,
+        ee_site="grip_pinch",
+        reach=1.420,
+        gripper_max=0.079,
         gripper_model_path_override=str(
-            Path(__file__).resolve().parents[1]
-            / "models/sawyer_gripper/sawyer_electric_gripper.xml"
+            Path(__file__).resolve().parents[1] / "models/sawyer_gripper/sawyer_electric_gripper.xml"
         ),
         gripper_attach_body="right_l6",
         gripper_mode="sawyer_electric",
@@ -323,18 +378,29 @@ ROBOT_SPECS: dict[str, RobotSpec] = {
         visual_hide_keywords=(),
     ),
     "iiwa": RobotSpec(
-        name="iiwa", model_dir="kuka_iiwa_14", xml_name="iiwa14.xml",
-        base_body="base", arm_joints=tuple(f"joint{i}" for i in range(1, 8)),
+        name="iiwa",
+        model_dir="kuka_iiwa_14",
+        xml_name="iiwa14.xml",
+        base_body="base",
+        arm_joints=tuple(f"joint{i}" for i in range(1, 8)),
         finger_joints=("grip_left_driver_joint", "grip_right_driver_joint"),
-        ee_body=None, ee_site="grip_pinch", reach=1.411, gripper_max=0.085,
-        gripper_model_dir="robotiq_2f85", gripper_xml_name="2f85.xml",
+        ee_body=None,
+        ee_site="grip_pinch",
+        reach=1.411,
+        gripper_max=0.085,
+        gripper_model_dir="robotiq_2f85",
+        gripper_xml_name="2f85.xml",
         gripper_attach_body="link7",
         gripper_mode="robotiq_driver",
         gripper_all_joints=(
-            "grip_right_driver_joint", "grip_right_coupler_joint",
-            "grip_right_spring_link_joint", "grip_right_follower_joint",
-            "grip_left_driver_joint", "grip_left_coupler_joint",
-            "grip_left_spring_link_joint", "grip_left_follower_joint",
+            "grip_right_driver_joint",
+            "grip_right_coupler_joint",
+            "grip_right_spring_link_joint",
+            "grip_right_follower_joint",
+            "grip_left_driver_joint",
+            "grip_left_coupler_joint",
+            "grip_left_spring_link_joint",
+            "grip_left_follower_joint",
         ),
         gripper_attach_pos=(0.0, 0.0, 0.045),
         # ``base`` is the iiwa arm base, but it is also part of the
@@ -346,16 +412,22 @@ ROBOT_SPECS: dict[str, RobotSpec] = {
         visual_hide_keywords=(),
     ),
     "jaco": RobotSpec(
-        name="jaco", model_dir="", xml_name="",
+        name="jaco",
+        model_dir="",
+        xml_name="",
         model_path_override=str(Path(__file__).resolve().parents[1] / "models/jaco/jaco_arm.xml"),
         gripper_model_path_override=str(Path(__file__).resolve().parents[1] / "models/jaco/jaco_hand.xml"),
         base_body="b_base",
         arm_joints=tuple(f"joint_{i}" for i in range(1, 7)),
         finger_joints=("grip_finger_1", "grip_finger_2", "grip_finger_3"),
-        ee_body=None, ee_site="grip_pinchsite", reach=1.200, gripper_max=0.125,
+        ee_body=None,
+        ee_site="grip_pinchsite",
+        reach=1.200,
+        gripper_max=0.125,
         gripper_mode="jaco",
         gripper_all_joints=("grip_finger_1", "grip_finger_2", "grip_finger_3"),
-        gripper_attach_body="b_6", gripper_mount_body="hand",
+        gripper_attach_body="b_6",
+        gripper_mount_body="hand",
         gripper_attach_quat=(0.0, 0.70710678, 0.70710678, 0.0),
         # Jaco arm bodies are named b_1...b_6, while the composed hand bodies
         # are prefixed with grip_.  Keep the arm chain and three-finger hand
@@ -364,23 +436,32 @@ ROBOT_SPECS: dict[str, RobotSpec] = {
         visual_hide_keywords=("b_base",),
     ),
     "viperx": RobotSpec(
-        name="viperx", model_dir="trossen_vx300s", xml_name="vx300s.xml",
+        name="viperx",
+        model_dir="trossen_vx300s",
+        xml_name="vx300s.xml",
         base_body="base_link",
-        arm_joints=("waist", "shoulder", "elbow", "forearm_roll",
-                    "wrist_angle", "wrist_rotate"),
+        arm_joints=("waist", "shoulder", "elbow", "forearm_roll", "wrist_angle", "wrist_rotate"),
         finger_joints=("left_finger", "right_finger"),
-        ee_body=None, ee_site="pinch", reach=0.948, gripper_max=0.114,
+        ee_body=None,
+        ee_site="pinch",
+        reach=0.948,
+        gripper_max=0.114,
         # The named pinch site is 25.8 mm behind the front pad centers.
         tcp_pos_site=(0.0258, 0.0, 0.0),
-        gripper_mode="viper_asymmetric", visual_hide_keywords=("base_link",),
+        gripper_mode="viper_asymmetric",
+        visual_hide_keywords=("base_link",),
     ),
     "widowx": RobotSpec(
-        name="widowx", model_dir="trossen_wx250s", xml_name="wx250s.xml",
+        name="widowx",
+        model_dir="trossen_wx250s",
+        xml_name="wx250s.xml",
         base_body="wx250s/base_link",
-        arm_joints=("waist", "shoulder", "elbow", "forearm_roll",
-                    "wrist_angle", "wrist_rotate"),
+        arm_joints=("waist", "shoulder", "elbow", "forearm_roll", "wrist_angle", "wrist_rotate"),
         finger_joints=("left_finger", "right_finger"),
-        ee_body="wx250s/gripper_link", ee_site=None, reach=0.700, gripper_max=0.074,
+        ee_body="wx250s/gripper_link",
+        ee_site=None,
+        reach=0.700,
+        gripper_max=0.074,
         # The finger-link origins are 66 mm in front of gripper_link, while
         # the actual fingertip/contact geometry is another 42 mm forward
         # (the XML fingertip collision markers are at x=0.108 m).  Use the
@@ -390,15 +471,27 @@ ROBOT_SPECS: dict[str, RobotSpec] = {
         # gripper_link local x is approach and local y is opening.  Map common
         # TCP z -> body x and common TCP y -> body y.
         tcp_rot_body=(0.70710678, 0.0, 0.70710678, 0.0),
-        gripper_mode="widowx_asymmetric", visual_hide_keywords=("wx250s/base_link",),
+        gripper_mode="widowx_asymmetric",
+        visual_hide_keywords=("wx250s/base_link",),
     ),
     "aloha_agilex": RobotSpec(
-        name="aloha_agilex", model_dir="aloha", xml_name="aloha.xml",
+        name="aloha_agilex",
+        model_dir="aloha",
+        xml_name="aloha.xml",
         base_body="left/base_link",
-        arm_joints=("left/waist", "left/shoulder", "left/elbow", "left/forearm_roll",
-                    "left/wrist_angle", "left/wrist_rotate"),
+        arm_joints=(
+            "left/waist",
+            "left/shoulder",
+            "left/elbow",
+            "left/forearm_roll",
+            "left/wrist_angle",
+            "left/wrist_rotate",
+        ),
         finger_joints=("left/left_finger", "left/right_finger"),
-        ee_body=None, ee_site="left/gripper", reach=0.853, gripper_max=0.082,
+        ee_body=None,
+        ee_site="left/gripper",
+        reach=0.853,
+        gripper_max=0.082,
         # The site is behind and slightly below the physical pad-center.
         tcp_pos_site=(0.01537, 0.0, 0.00425),
         # ALOHA site axes are x=approach, y=opening, z=gripper-normal.
@@ -410,23 +503,26 @@ ROBOT_SPECS: dict[str, RobotSpec] = {
         tcp_rot_site=(0.70710678, 0.0, -0.70710678, 0.0),
         tcp_rot_site_left=(0.0, 0.70710678, 0.0, 0.70710678),
         tcp_rot_site_right=(0.0, 0.70710678, 0.0, 0.70710678),
-        gripper_mode="aloha", visual_hide_keywords=("left/base_link",),
+        gripper_mode="aloha",
+        visual_hide_keywords=("left/base_link",),
     ),
     # Official SO-ARM101 MuJoCo model downloaded from
     # TheRobotStudio/SO-ARM100.  The ``new_calib`` model uses the calibrated
     # virtual joint zeros shipped by the upstream project.
     "so_arm101": RobotSpec(
-        name="so_arm101", model_dir="", xml_name="",
+        name="so_arm101",
+        model_dir="",
+        xml_name="",
         model_path_override=str(
-            Path(__file__).resolve().parents[1]
-            / "models/SO-ARM100/Simulation/SO101/so101_new_calib.xml"
+            Path(__file__).resolve().parents[1] / "models/SO-ARM100/Simulation/SO101/so101_new_calib.xml"
         ),
         base_body="base",
-        arm_joints=("shoulder_pan", "shoulder_lift", "elbow_flex",
-                    "wrist_flex", "wrist_roll"),
+        arm_joints=("shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll"),
         finger_joints=("gripper",),
-        ee_body=None, ee_site="gripperframe",
-        reach=0.420, gripper_max=0.080,
+        ee_body=None,
+        ee_site="gripperframe",
+        reach=0.420,
+        gripper_max=0.080,
         # Official gripperframe axes are x=approach and z=jaw opening.  The
         # common TCP convention is z=approach and y=opening.
         tcp_rot_site=(0.5, 0.5, 0.5, 0.5),
@@ -447,8 +543,7 @@ ROBOT_SPECS: dict[str, RobotSpec] = {
         # Keep the physical tabletop orientation, but let each short arm
         # choose its own height/depth and search on either side of the hand
         # trajectory instead of forcing both mounts behind it.
-        base_forward_offsets=(-0.9, -0.7, -0.5, -0.3, -0.1, 0.0,
-                              0.1, 0.3, 0.5, 0.7, 0.9),
+        base_forward_offsets=(-0.9, -0.7, -0.5, -0.3, -0.1, 0.0, 0.1, 0.3, 0.5, 0.7, 0.9),
         # The model reaches about 0.546 m from base to gripperframe. Keep a
         # small geometric margin without applying the generic
         # 0.9 * 0.42 = 0.378 m gate. Scene-supported candidates in the sample
@@ -456,8 +551,7 @@ ROBOT_SPECS: dict[str, RobotSpec] = {
         base_max_target_distance=0.53,
         scene_support_surface=True,
         gripper_mode="so101",
-        visual_keywords=("base", "shoulder", "upper_arm", "lower_arm",
-                         "wrist", "gripper", "moving_jaw"),
+        visual_keywords=("base", "shoulder", "upper_arm", "lower_arm", "wrist", "gripper", "moving_jaw"),
         visual_hide_keywords=(),
     ),
 }
@@ -467,10 +561,14 @@ def get_robot_spec(name: str) -> RobotSpec:
     """Resolve a robot name or alias to a validated robot specification."""
     key = name.strip().lower()
     aliases = {
-        "franka_panda": "panda", "franka": "panda", "xarm": "xarm7",
-        "so-arm101": "so_arm101", "so-arm-101": "so_arm101",
+        "franka_panda": "panda",
+        "franka": "panda",
+        "xarm": "xarm7",
+        "so-arm101": "so_arm101",
+        "so-arm-101": "so_arm101",
         "so_arm-101": "so_arm101",
-        "soarm101": "so_arm101", "so101": "so_arm101",
+        "soarm101": "so_arm101",
+        "so101": "so_arm101",
     }
     key = aliases.get(key, key)
     if key not in ROBOT_SPECS:
@@ -483,9 +581,7 @@ def get_robot_spec(name: str) -> RobotSpec:
             "Set EGO2ROBOT_MENAGERIE_DIR to a populated mujoco_menagerie cache."
         )
     if spec.gripper_model_path is not None and not spec.gripper_model_path.is_file():
-        raise FileNotFoundError(
-            f"gripper model for {key!r} was not found: {spec.gripper_model_path}."
-        )
+        raise FileNotFoundError(f"gripper model for {key!r} was not found: {spec.gripper_model_path}.")
     return spec
 
 
@@ -497,10 +593,7 @@ def _expand_mjcf_includes(root, source_dir):
             if not include_path.is_absolute():
                 include_path = source_dir / include_path
             if not include_path.is_file():
-                raise FileNotFoundError(
-                    f"MJCF include {include.get('file')!r} was not found "
-                    f"relative to {source_dir}"
-                )
+                raise FileNotFoundError(f"MJCF include {include.get('file')!r} was not found relative to {source_dir}")
             included_root = ET.parse(include_path).getroot()
             _expand_mjcf_includes(included_root, include_path.parent)
             insert_at = list(parent).index(include)
@@ -531,8 +624,7 @@ def _make_aloha_single_model(spec: RobotSpec) -> Path:
     if worldbody is None:
         raise ValueError(f"ALOHA model has no worldbody: {source}")
 
-    left_base = next((body for body in worldbody.findall("body")
-                      if body.get("name") == "left/base_link"), None)
+    left_base = next((body for body in worldbody.findall("body") if body.get("name") == "left/base_link"), None)
     if left_base is None:
         raise ValueError("ALOHA model has no left/base_link body")
     left_base.set("pos", "0 0 0")
@@ -561,15 +653,17 @@ def _make_composed_model(spec: RobotSpec) -> Path:
 
     # Include source mtimes and composition parameters in the cache key so a
     # changed mount/calibration cannot silently reuse an old temporary XML.
-    cache_key = repr((
-        "composition-v7",
-        spec.model_path.stat().st_mtime_ns,
-        spec.gripper_model_path.stat().st_mtime_ns,
-        spec.gripper_attach_body,
-        spec.gripper_mount_body,
-        spec.gripper_attach_pos,
-        spec.gripper_attach_quat,
-    )).encode()
+    cache_key = repr(
+        (
+            "composition-v7",
+            spec.model_path.stat().st_mtime_ns,
+            spec.gripper_model_path.stat().st_mtime_ns,
+            spec.gripper_attach_body,
+            spec.gripper_mount_body,
+            spec.gripper_attach_pos,
+            spec.gripper_attach_quat,
+        )
+    ).encode()
     digest = hashlib.sha1(cache_key).hexdigest()[:12]
     out = Path("/tmp") / f"ego2robot_composed_{spec.name}_{digest}.xml"
     if out.exists():
@@ -616,8 +710,17 @@ def _make_composed_model(spec: RobotSpec) -> Path:
     name_map = {n: f"grip_{n}" for n in names}
     class_map = {c: f"grip_{c}" for c in classes}
     reference_attrs = (
-        "mesh", "material", "texture", "joint", "joint1", "joint2",
-        "tendon", "body1", "body2", "site", "pair",
+        "mesh",
+        "material",
+        "texture",
+        "joint",
+        "joint1",
+        "joint2",
+        "tendon",
+        "body1",
+        "body2",
+        "site",
+        "pair",
     )
     for elem in grip_root.iter():
         if elem.get("name") in name_map:
@@ -632,13 +735,9 @@ def _make_composed_model(spec: RobotSpec) -> Path:
 
     if not spec.gripper_attach_body:
         raise ValueError(f"robot {spec.name!r} has a gripper but no attach body")
-    target = next((e for e in arm_root.iter("body")
-                   if e.get("name") == spec.gripper_attach_body), None)
+    target = next((e for e in arm_root.iter("body") if e.get("name") == spec.gripper_attach_body), None)
     if target is None:
-        raise ValueError(
-            f"cannot find gripper attach body {spec.gripper_attach_body!r} "
-            f"in {spec.model_path}"
-        )
+        raise ValueError(f"cannot find gripper attach body {spec.gripper_attach_body!r} in {spec.model_path}")
     mount_name = name_map.get(spec.gripper_mount_body, f"grip_{spec.gripper_mount_body}")
     mount = next((e for e in grip_root.iter("body") if e.get("name") == mount_name), None)
     if mount is None:
@@ -697,30 +796,36 @@ def _make_body_tcp_model(spec: RobotSpec, source: Path) -> Path:
     """
     if spec.ee_body is None or not np.any(np.asarray(spec.tcp_pos_body)):
         return source
-    cache_key = repr((
-        "body-tcp-site-v1", source.stat().st_mtime_ns, spec.ee_body,
-        spec.tcp_pos_body, spec.tcp_rot_body,
-    )).encode()
+    cache_key = repr(
+        (
+            "body-tcp-site-v1",
+            source.stat().st_mtime_ns,
+            spec.ee_body,
+            spec.tcp_pos_body,
+            spec.tcp_rot_body,
+        )
+    ).encode()
     digest = hashlib.sha1(cache_key).hexdigest()[:12]
     out = Path("/tmp") / f"ego2robot_tcp_{spec.name}_{digest}.xml"
     if out.exists():
         return out
 
     root = ET.parse(source).getroot()
-    target = next((e for e in root.iter("body")
-                   if e.get("name") == spec.ee_body), None)
+    target = next((e for e in root.iter("body") if e.get("name") == spec.ee_body), None)
     if target is None:
-        raise ValueError(
-            f"cannot add TCP site: body {spec.ee_body!r} not found in {source}")
-    old_site = next((e for e in root.iter("site")
-                     if e.get("name") == BODY_TCP_SITE), None)
+        raise ValueError(f"cannot add TCP site: body {spec.ee_body!r} not found in {source}")
+    old_site = next((e for e in root.iter("site") if e.get("name") == BODY_TCP_SITE), None)
     if old_site is not None:
         raise ValueError(f"reserved site name already exists: {BODY_TCP_SITE}")
     ET.SubElement(
-        target, "site", name=BODY_TCP_SITE,
+        target,
+        "site",
+        name=BODY_TCP_SITE,
         pos=" ".join(str(x) for x in spec.tcp_pos_body),
         quat=" ".join(str(x) for x in spec.tcp_rot_body),
-        size="0.003", rgba="0 0 0 0", group="3",
+        size="0.003",
+        rgba="0 0 0 0",
+        group="3",
     )
 
     # Direct menagerie XMLs resolve assets relative to their source directory,
@@ -740,8 +845,7 @@ def get_model_path(spec: RobotSpec) -> Path:
     if spec.name == "aloha_agilex":
         source = _make_aloha_single_model(spec)
     else:
-        source = (_make_composed_model(spec)
-                  if spec.gripper_model_path else spec.model_path)
+        source = _make_composed_model(spec) if spec.gripper_model_path else spec.model_path
     return _make_body_tcp_model(spec, source)
 
 
@@ -757,21 +861,21 @@ def resolve_robot_spec(model, spec: RobotSpec) -> RobotSpec:
     """Resolve a finger-midpoint TCP for models without a named TCP site."""
     import mujoco
 
-    tcp_site_id = mujoco.mj_name2id(
-        model, mujoco.mjtObj.mjOBJ_SITE, BODY_TCP_SITE)
+    tcp_site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, BODY_TCP_SITE)
     if tcp_site_id >= 0:
-        return RobotSpec(**{
-            **spec.__dict__,
-            "ee_site": BODY_TCP_SITE,
-            "tcp_pos_site": (0.0, 0.0, 0.0),
-            "tcp_rot_site": (1.0, 0.0, 0.0, 0.0),
-        })
+        return RobotSpec(
+            **{
+                **spec.__dict__,
+                "ee_site": BODY_TCP_SITE,
+                "tcp_pos_site": (0.0, 0.0, 0.0),
+                "tcp_rot_site": (1.0, 0.0, 0.0, 0.0),
+            }
+        )
     if not spec.finger_bodies or spec.ee_body is None:
         return spec
 
     ee_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, spec.ee_body)
-    finger_ids = [mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, n)
-                  for n in spec.finger_bodies]
+    finger_ids = [mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, n) for n in spec.finger_bodies]
     if ee_id < 0 or any(i < 0 for i in finger_ids):
         raise ValueError(f"invalid TCP calibration bodies for robot {spec.name}")
     data = mujoco.MjData(model)

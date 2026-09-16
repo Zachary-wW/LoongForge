@@ -48,10 +48,7 @@ WRIST, THUMB_TIP, INDEX_TIP, MIDDLE_TIP = 0, 4, 8, 12
 # RX180, so the two camera conventions cancel and these coordinates can be
 # used directly as world coordinates (in particular, z stays in front of the
 # MuJoCo camera).
-CAMERA_TO_WORLD = np.asarray(
-    [[1.0, 0.0, 0.0],
-     [0.0, 1.0, 0.0],
-     [0.0, 0.0, 1.0]], dtype=np.float32)
+CAMERA_TO_WORLD = np.asarray([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], dtype=np.float32)
 CAMERA_HEAD_QUAT = np.asarray([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
 
 
@@ -108,8 +105,7 @@ def _load_prediction_file(path: Path):
     else:
         return []
 
-    keypoints = _first(raw, ("pred_keypoints_3d", "keypoints_3d", "joints_3d",
-                             "pred_keypoints", "mano_joints"))
+    keypoints = _first(raw, ("pred_keypoints_3d", "keypoints_3d", "joints_3d", "pred_keypoints", "mano_joints"))
     kp = _as_keypoints(keypoints)
     if kp is None:
         return []
@@ -136,8 +132,7 @@ def _load_prediction_file(path: Path):
     score = np.ones(n, dtype=np.float32) if score is None else np.asarray(score).reshape(-1)
     if len(score) == 1 and n > 1:
         score = np.repeat(score, n)
-    return [{"keypoints": kp[i], "right": right[i], "frame": int(frame[i]),
-             "score": float(score[i])} for i in range(n)]
+    return [{"keypoints": kp[i], "right": right[i], "frame": int(frame[i]), "score": float(score[i])} for i in range(n)]
 
 
 def collect_predictions(root: Path):
@@ -154,8 +149,16 @@ def collect_predictions(root: Path):
     return detections
 
 
-def run_wilor(frames, checkpoint: str, wilor_repo: str | None, detector: str | None,
-              mano_dir: str | None, command: str | None, batch_size: int, work_dir: Path):
+def run_wilor(
+    frames,
+    checkpoint: str,
+    wilor_repo: str | None,
+    detector: str | None,
+    mano_dir: str | None,
+    command: str | None,
+    batch_size: int,
+    work_dir: Path,
+):
     """Run an official WiLoR checkout and collect its prediction files.
 
     ``--wilor_command`` can be used for checkout revisions whose CLI differs.
@@ -190,22 +193,39 @@ def run_wilor(frames, checkpoint: str, wilor_repo: str | None, detector: str | N
             raise RuntimeError(f"failed to write temporary frame {i}")
 
     if command:
-        formatted = command.format(images=str(image_dir), output=str(output_dir),
-                                   checkpoint=str(checkpoint), detector=str(detector or ""),
-                                   mano_dir=str(mano_dir or ""))
+        formatted = command.format(
+            images=str(image_dir),
+            output=str(output_dir),
+            checkpoint=str(checkpoint),
+            detector=str(detector or ""),
+            mano_dir=str(mano_dir or ""),
+        )
         cmd = shlex.split(formatted)
     else:
         adapter = Path(__file__).with_name("wilor_infer.py")
-        cmd = [sys.executable, str(adapter), "--wilor_repo", str(repo),
-               "--images", str(image_dir), "--output", str(output_dir),
-               "--checkpoint", str(checkpoint), "--detector", str(detector_path),
-               "--mano_dir", str(mano_dir or ""),
-               "--batch_size", str(batch_size)]
-    proc = subprocess.run(cmd, cwd=str(repo), text=True, capture_output=True,
-                          env={**__import__("os").environ, "PYTHONPATH": str(repo)})
+        cmd = [
+            sys.executable,
+            str(adapter),
+            "--wilor_repo",
+            str(repo),
+            "--images",
+            str(image_dir),
+            "--output",
+            str(output_dir),
+            "--checkpoint",
+            str(checkpoint),
+            "--detector",
+            str(detector_path),
+            "--mano_dir",
+            str(mano_dir or ""),
+            "--batch_size",
+            str(batch_size),
+        ]
+    proc = subprocess.run(
+        cmd, cwd=str(repo), text=True, capture_output=True, env={**__import__("os").environ, "PYTHONPATH": str(repo)}
+    )
     if proc.returncode:
-        raise RuntimeError("WiLoR failed (last output):\n" +
-                           (proc.stdout + "\n" + proc.stderr)[-6000:])
+        raise RuntimeError("WiLoR failed (last output):\n" + (proc.stdout + "\n" + proc.stderr)[-6000:])
     detections = collect_predictions(output_dir)
     rich_path = output_dir / "wilor_predictions.npz"
     if rich_path.is_file():
@@ -214,8 +234,8 @@ def run_wilor(frames, checkpoint: str, wilor_repo: str | None, detector: str | N
         for i, det in enumerate(detections):
             if i < len(rich_fields.get("hand_pose", ())):
                 det["_wilor_extra"] = {
-                    k: rich_fields[k][i] for k in
-                    ("keypoints_2d", "hand_pose", "global_orient", "betas", "cam_trans")
+                    k: rich_fields[k][i]
+                    for k in ("keypoints_2d", "hand_pose", "global_orient", "betas", "cam_trans")
                     if k in rich_fields
                 }
     return detections
@@ -226,24 +246,32 @@ def apply_dynhamr(predictions, command: str | None, work_dir: Path, video: str |
     if not command:
         return predictions
     source = work_dir / "wilor_predictions.npz"
-    np.savez_compressed(source,
-                        keypoints=np.stack([x["keypoints"] for x in predictions]),
-                        right=np.asarray([x["right"] for x in predictions]),
-                        frame=np.asarray([x["frame"] for x in predictions]),
-                        score=np.asarray([x["score"] for x in predictions]))
+    np.savez_compressed(
+        source,
+        keypoints=np.stack([x["keypoints"] for x in predictions]),
+        right=np.asarray([x["right"] for x in predictions]),
+        frame=np.asarray([x["frame"] for x in predictions]),
+        score=np.asarray([x["score"] for x in predictions]),
+    )
     output = work_dir / "dynhamr_output"
     output.mkdir(exist_ok=True)
     formatted = command.format(input=str(source), output=str(output), video=str(video or ""))
     proc = subprocess.run(shlex.split(formatted), text=True, capture_output=True)
     if proc.returncode:
-        raise RuntimeError("DynHaMR failed (last output):\n" +
-                           (proc.stdout + "\n" + proc.stderr)[-6000:])
+        raise RuntimeError("DynHaMR failed (last output):\n" + (proc.stdout + "\n" + proc.stderr)[-6000:])
     return collect_predictions(output)
 
 
-def apply_official_dynhamr(predictions, video: str, repo: str, mano_dir: str,
-                           work_dir: Path, gpu: str, is_static: bool,
-                           mean_params: str | None = None):
+def apply_official_dynhamr(
+    predictions,
+    video: str,
+    repo: str,
+    mano_dir: str,
+    work_dir: Path,
+    gpu: str,
+    is_static: bool,
+    mean_params: str | None = None,
+):
     """Run the official Dyn-HaMR bridge and keep the unrefined other hand."""
     extras = [x.get("_wilor_extra") for x in predictions]
     if not extras or any(x is None for x in extras):
@@ -252,24 +280,40 @@ def apply_official_dynhamr(predictions, video: str, repo: str, mano_dir: str,
             "from video with --dynhamr_repo instead of --predictions"
         )
     source = work_dir / "wilor_predictions.npz"
-    np.savez_compressed(source,
-                        pred_keypoints_3d=np.stack([x["keypoints"] for x in predictions]),
-                        right=np.asarray([x["right"] for x in predictions]),
-                        frame=np.asarray([x["frame"] for x in predictions]),
-                        score=np.asarray([x["score"] for x in predictions]),
-                        **{k: np.asarray([x[k] for x in extras], np.float32)
-                           for k in ("keypoints_2d", "hand_pose", "global_orient", "betas", "cam_trans")})
-    cmd = [sys.executable, str(Path(__file__).with_name("dynhamr_official.py")),
-           "--repo", repo, "--video", video, "--output", str(work_dir / "dynhamr_output"),
-           "--predictions", str(source), "--mano_dir", mano_dir, "--gpu", str(gpu)]
+    np.savez_compressed(
+        source,
+        pred_keypoints_3d=np.stack([x["keypoints"] for x in predictions]),
+        right=np.asarray([x["right"] for x in predictions]),
+        frame=np.asarray([x["frame"] for x in predictions]),
+        score=np.asarray([x["score"] for x in predictions]),
+        **{
+            k: np.asarray([x[k] for x in extras], np.float32)
+            for k in ("keypoints_2d", "hand_pose", "global_orient", "betas", "cam_trans")
+        },
+    )
+    cmd = [
+        sys.executable,
+        str(Path(__file__).with_name("dynhamr_official.py")),
+        "--repo",
+        repo,
+        "--video",
+        video,
+        "--output",
+        str(work_dir / "dynhamr_output"),
+        "--predictions",
+        str(source),
+        "--mano_dir",
+        mano_dir,
+        "--gpu",
+        str(gpu),
+    ]
     if mean_params:
         cmd.extend(["--mano_mean_params", mean_params])
     if not is_static:
         cmd.append("--no-is_static")
     proc = subprocess.run(cmd, text=True, capture_output=True)
     if proc.returncode:
-        raise RuntimeError("official Dyn-HaMR failed (last output):\n" +
-                           (proc.stdout + "\n" + proc.stderr)[-10000:])
+        raise RuntimeError("official Dyn-HaMR failed (last output):\n" + (proc.stdout + "\n" + proc.stderr)[-10000:])
     refined = collect_predictions(work_dir / "dynhamr_output")
     # Dyn-HaMR optimizes in a world frame whose origin/translation can differ
     # from WiLoR's camera-relative MANO coordinates (especially with a static
@@ -278,8 +322,7 @@ def apply_official_dynhamr(predictions, video: str, repo: str, mano_dir: str,
     # global offset while preserving Dyn-HaMR's pose and temporal smoothing.
     if refined:
         refined_side = bool(float(refined[0]["right"]) > 0.5)
-        source_track = [x for x in predictions
-                        if bool(float(x["right"]) > 0.5) == refined_side]
+        source_track = [x for x in predictions if bool(float(x["right"]) > 0.5) == refined_side]
         by_frame = {int(x["frame"]): x for x in source_track}
         source_frames = np.asarray(sorted(by_frame), dtype=np.int64)
         for item in refined:
@@ -308,8 +351,10 @@ def _side(value, kp, width):
 
 def detections_to_tracks(detections, n_frames, width):
     """Assign unordered hand detections to stable left/right tracks."""
-    tracks = {"left": np.full((n_frames, MANO_JOINTS, 3), np.nan, np.float32),
-              "right": np.full((n_frames, MANO_JOINTS, 3), np.nan, np.float32)}
+    tracks = {
+        "left": np.full((n_frames, MANO_JOINTS, 3), np.nan, np.float32),
+        "right": np.full((n_frames, MANO_JOINTS, 3), np.nan, np.float32),
+    }
     scores = {"left": np.zeros(n_frames, np.float32), "right": np.zeros(n_frames, np.float32)}
     for det in sorted(detections, key=lambda d: (d["frame"], -d["score"])):
         t = det["frame"]
@@ -389,8 +434,7 @@ def _tcp_pose(kp, hand_sign):
         tr = np.trace(R)
         if tr > 0:
             s = 2.0 * np.sqrt(tr + 1.0)
-            quat[i] = [(0.25 * s), (R[2, 1] - R[1, 2]) / s,
-                       (R[0, 2] - R[2, 0]) / s, (R[1, 0] - R[0, 1]) / s]
+            quat[i] = [(0.25 * s), (R[2, 1] - R[1, 2]) / s, (R[0, 2] - R[2, 0]) / s, (R[1, 0] - R[0, 1]) / s]
         else:
             quat[i, 0] = 1.0
     quat /= np.maximum(np.linalg.norm(quat, axis=1, keepdims=True), 1e-8)
@@ -402,8 +446,7 @@ def _vlen_array(group, name, values):
     if VariableLengthBytes is not None:
         # Zarr 3 requires an explicit variable-length byte dtype for object
         # arrays. Create the array first, then assign data separately.
-        array = group.create_array(name, shape=data.shape,
-                                   dtype=VariableLengthBytes())
+        array = group.create_array(name, shape=data.shape, dtype=VariableLengthBytes())
         array[:] = data
         return array
     if VLenBytesCodec is not None:  # pragma: no cover - zarr 2 compatibility
@@ -411,8 +454,7 @@ def _vlen_array(group, name, values):
     return group.create_array(name, data=data)
 
 
-def write_episode(output_dir: Path, episode: str, frames, fps, tracks, scores,
-                  metadata=None):
+def write_episode(output_dir: Path, episode: str, frames, fps, tracks, scores, metadata=None):
     """Write the canonical Zarr episode consumed by the existing pipeline."""
     ep_dir = output_dir / episode
     ep_dir.mkdir(parents=True, exist_ok=True)
@@ -421,8 +463,7 @@ def write_episode(output_dir: Path, episode: str, frames, fps, tracks, scores,
     # frame. Applying the transform before TCP construction also rotates the
     # hand orientation consistently with the rendered camera.
     world_tracks = {
-        side: np.einsum("ij,nkj->nki", CAMERA_TO_WORLD,
-                        np.asarray(tracks[side], dtype=np.float32))
+        side: np.einsum("ij,nkj->nki", CAMERA_TO_WORLD, np.asarray(tracks[side], dtype=np.float32))
         for side in ("left", "right")
     }
     left_kp = world_tracks["left"].reshape(n, -1).astype(np.float32)
@@ -431,23 +472,36 @@ def write_episode(output_dir: Path, episode: str, frames, fps, tracks, scores,
     right_ee, _ = _tcp_pose(world_tracks["right"], +1.0)
     head = np.zeros((n, 7), np.float32)
     head[:, 3:7] = CAMERA_HEAD_QUAT
-    attrs = {"total_frames": n, "fps": float(fps), "source": "Ego2Robot Path B",
-             "path": "B", "coordinate_frame": "mujoco_world",
-             "intrinsics": {"fl_x": float(max(w, h)),
-             "fl_y": float(max(w, h)), "cx": w / 2.0, "cy": h / 2.0,
-             "w": w, "h": h}}
+    attrs = {
+        "total_frames": n,
+        "fps": float(fps),
+        "source": "Ego2Robot Path B",
+        "path": "B",
+        "coordinate_frame": "mujoco_world",
+        "intrinsics": {
+            "fl_x": float(max(w, h)),
+            "fl_y": float(max(w, h)),
+            "cx": w / 2.0,
+            "cy": h / 2.0,
+            "w": w,
+            "h": h,
+        },
+    }
     if metadata:
         attrs.update(metadata)
     group = zarr.open_group(str(ep_dir), mode="w", zarr_format=3)
     group.attrs.update(attrs)
     arrays = {
-        "left.obs_keypoints": left_kp, "right.obs_keypoints": right_kp,
+        "left.obs_keypoints": left_kp,
+        "right.obs_keypoints": right_kp,
         "left.obs_wrist_pose": np.concatenate([world_tracks["left"][:, WRIST], _quat_identity(n)], 1),
         "right.obs_wrist_pose": np.concatenate([world_tracks["right"][:, WRIST], _quat_identity(n)], 1),
-        "left.obs_ee_pose": left_ee, "right.obs_ee_pose": right_ee,
+        "left.obs_ee_pose": left_ee,
+        "right.obs_ee_pose": right_ee,
         "obs_head_pose": head,
         "obs_rgb_timestamps_ns": (np.arange(n) * (1e9 / fps)).astype(np.int64),
-        "path_b_left_confidence": scores["left"], "path_b_right_confidence": scores["right"],
+        "path_b_left_confidence": scores["left"],
+        "path_b_right_confidence": scores["right"],
     }
     for name, value in arrays.items():
         group.create_array(name, data=value, chunks="auto")
@@ -458,8 +512,7 @@ def write_episode(output_dir: Path, episode: str, frames, fps, tracks, scores,
             raise RuntimeError("failed to encode a video frame as JPEG")
         encoded.append(bytes(buf))
     _vlen_array(group, "images.front_1", encoded)
-    annotations = [json.dumps({"task": "Path B video", "frame": i}).encode()
-                   for i in range(n)]
+    annotations = [json.dumps({"task": "Path B video", "frame": i}).encode() for i in range(n)]
     _vlen_array(group, "annotations", annotations)
     return ep_dir
 
@@ -471,31 +524,53 @@ def process_video(args):
         if args.predictions:
             predictions = collect_predictions(Path(args.predictions))
         else:
-            predictions = run_wilor(frames, args.checkpoint, args.wilor_repo,
-                                    args.detector, args.mano_dir, args.wilor_command,
-                                    args.batch_size, work)
+            predictions = run_wilor(
+                frames,
+                args.checkpoint,
+                args.wilor_repo,
+                args.detector,
+                args.mano_dir,
+                args.wilor_command,
+                args.batch_size,
+                work,
+            )
         if args.dynhamr_repo:
             predictions = apply_official_dynhamr(
-                predictions, args.video, args.dynhamr_repo,
-                args.dynhamr_mano_dir or args.mano_dir, work,
-                args.dynhamr_gpu, args.dynhamr_is_static,
-                args.dynhamr_mean_params)
+                predictions,
+                args.video,
+                args.dynhamr_repo,
+                args.dynhamr_mano_dir or args.mano_dir,
+                work,
+                args.dynhamr_gpu,
+                args.dynhamr_is_static,
+                args.dynhamr_mean_params,
+            )
         else:
             predictions = apply_dynhamr(predictions, args.dynhamr_command, work, args.video)
         tracks, scores = detections_to_tracks(predictions, len(frames), frames[0].shape[1])
         tracks = smooth_tracks(tracks, args.smooth_window, args.smooth_polyorder)
-    output = write_episode(Path(args.output_dir), args.episode, frames, fps, tracks, scores,
-                           {"wilor_checkpoint": str(args.checkpoint),
-                            "temporal_refiner": "DynHaMR" if args.dynhamr_command else "savgol"})
+    output = write_episode(
+        Path(args.output_dir),
+        args.episode,
+        frames,
+        fps,
+        tracks,
+        scores,
+        {"wilor_checkpoint": str(args.checkpoint), "temporal_refiner": "DynHaMR" if args.dynhamr_command else "savgol"},
+    )
     world_tracks = {
-        side: np.einsum("ij,nkj->nki", CAMERA_TO_WORLD,
-                        np.asarray(tracks[side], dtype=np.float32))
+        side: np.einsum("ij,nkj->nki", CAMERA_TO_WORLD, np.asarray(tracks[side], dtype=np.float32))
         for side in ("left", "right")
     }
     pred_out = Path(args.output_dir) / f"{args.episode}_predictions.npz"
-    np.savez_compressed(pred_out, left_keypoints=world_tracks["left"], right_keypoints=world_tracks["right"],
-                        left_confidence=scores["left"], right_confidence=scores["right"],
-                        fps=np.asarray(fps))
+    np.savez_compressed(
+        pred_out,
+        left_keypoints=world_tracks["left"],
+        right_keypoints=world_tracks["right"],
+        left_confidence=scores["left"],
+        right_confidence=scores["right"],
+        fps=np.asarray(fps),
+    )
     print(f"Path B complete: {output}")
     print(f"Predictions: {pred_out}")
 
@@ -505,26 +580,36 @@ def build_arg_parser():
     ap.add_argument("--video", required=True, help="input RGB video")
     ap.add_argument("--output_dir", required=True, help="directory containing the generated episode")
     ap.add_argument("--episode", default="video_000", help="episode directory name")
-    ap.add_argument("--checkpoint", default=os.environ.get("EGO2ROBOT_WILOR_CHECKPOINT"),
-                    help="WiLoR checkpoint; pass explicitly or set EGO2ROBOT_WILOR_CHECKPOINT")
+    ap.add_argument(
+        "--checkpoint",
+        default=os.environ.get("EGO2ROBOT_WILOR_CHECKPOINT"),
+        help="WiLoR checkpoint; pass explicitly or set EGO2ROBOT_WILOR_CHECKPOINT",
+    )
     ap.add_argument("--wilor_repo", default=None, help="WiLoR source checkout containing demo.py")
     ap.add_argument("--detector", default=None, help="WiLoR detector checkpoint")
-    ap.add_argument("--mano_dir", default=None,
-                    help="directory containing MANO_RIGHT.pkl; pass explicitly or set EGO2ROBOT_MANO_DIR")
-    ap.add_argument("--wilor_command", default=None,
-                    help="custom command template; placeholders: {images} {output} {checkpoint} {detector} {mano_dir}")
-    ap.add_argument("--dynhamr_command", default=None,
-                    help="optional DynHaMR command template; placeholders: {input} {output} {video}")
-    ap.add_argument("--dynhamr_repo", default=None,
-                    help="official Dyn-HaMR checkout; runs the bundled bridge")
-    ap.add_argument("--dynhamr_mano_dir", default=None,
-                    help="MANO model directory for official Dyn-HaMR (defaults to --mano_dir)")
-    ap.add_argument("--dynhamr_mean_params", default=None,
-                    help="MANO mean params NPZ for official Dyn-HaMR")
+    ap.add_argument(
+        "--mano_dir",
+        default=None,
+        help="directory containing MANO_RIGHT.pkl; pass explicitly or set EGO2ROBOT_MANO_DIR",
+    )
+    ap.add_argument(
+        "--wilor_command",
+        default=None,
+        help="custom command template; placeholders: {images} {output} {checkpoint} {detector} {mano_dir}",
+    )
+    ap.add_argument(
+        "--dynhamr_command",
+        default=None,
+        help="optional DynHaMR command template; placeholders: {input} {output} {video}",
+    )
+    ap.add_argument("--dynhamr_repo", default=None, help="official Dyn-HaMR checkout; runs the bundled bridge")
+    ap.add_argument(
+        "--dynhamr_mano_dir", default=None, help="MANO model directory for official Dyn-HaMR (defaults to --mano_dir)"
+    )
+    ap.add_argument("--dynhamr_mean_params", default=None, help="MANO mean params NPZ for official Dyn-HaMR")
     ap.add_argument("--dynhamr_gpu", default="0")
     ap.add_argument("--dynhamr_is_static", action=argparse.BooleanOptionalAction, default=True)
-    ap.add_argument("--predictions", default=None,
-                    help="existing WiLoR/DynHaMR output directory (offline mode)")
+    ap.add_argument("--predictions", default=None, help="existing WiLoR/DynHaMR output directory (offline mode)")
     ap.add_argument("--batch_size", type=int, default=16)
     ap.add_argument("--max_frames", type=int, default=0)
     ap.add_argument("--smooth_window", type=int, default=11)

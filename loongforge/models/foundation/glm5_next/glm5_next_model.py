@@ -123,8 +123,7 @@ class Glm5NextMTPBlock(nn.Module):
         layer_spec.submodules.self_attention_hyper_connection = IdentityOp
         layer_spec.submodules.mlp_hyper_connection = IdentityOp
         self.layers = nn.ModuleList(
-            Glm5NextMTPLayer(config, layer_spec, pg_collection, vp_stage=vp_stage)
-            for _ in range(config.mtp_num_layers)
+            Glm5NextMTPLayer(config, layer_spec, pg_collection, vp_stage=vp_stage) for _ in range(config.mtp_num_layers)
         )
 
     def forward(
@@ -200,9 +199,7 @@ class LanguageModel(nn.Module):
             )
             if self.embedding.word_embeddings.tp_group is None:
                 self.embedding.word_embeddings.tp_group = pg_collection.tp
-        block_spec = get_glm5_next_decoder_block_spec(
-            config, pg_collection=pg_collection, vp_stage=vp_stage
-        )
+        block_spec = get_glm5_next_decoder_block_spec(config, pg_collection=pg_collection, vp_stage=vp_stage)
         self.decoder = TransformerBlock(
             config=config,
             spec=block_spec,
@@ -212,9 +209,7 @@ class LanguageModel(nn.Module):
             vp_stage=vp_stage,
         )
         if post_process:
-            self.decoder.head_hyper_connection = MeanHyperHead(
-                config.hc_mult, config.hidden_size
-            )
+            self.decoder.head_hyper_connection = MeanHyperHead(config.hc_mult, config.hidden_size)
         self.mtp = (
             Glm5NextMTPBlock(config, pg_collection, vp_stage=vp_stage)
             if post_process and (getattr(config, "mtp_num_layers", 0) or 0) > 0
@@ -266,9 +261,7 @@ class MultimodalContainer(nn.Module):
     def __init__(self, config, pre_process, post_process, pg_collection, vp_stage=None) -> None:
         super().__init__()
         self.visual = Glm5NextVisionModel(config.vision_config) if pre_process else None
-        self.language_model = LanguageModel(
-            config, pre_process, post_process, pg_collection, vp_stage=vp_stage
-        )
+        self.language_model = LanguageModel(config, pre_process, post_process, pg_collection, vp_stage=vp_stage)
 
 
 class Glm5NextModel(nn.Module):
@@ -394,9 +387,7 @@ class Glm5NextModel(nn.Module):
                 batch_embeds = self._merge_vision_features(
                     global_input_ids, batch_embeds, video_features, is_video=True
                 )
-            inputs_embeds = _scatter_context_parallel(
-                batch_embeds.transpose(0, 1).contiguous(), cp_group
-            )
+            inputs_embeds = _scatter_context_parallel(batch_embeds.transpose(0, 1).contiguous(), cp_group)
             inputs_embeds = _scatter_sequence_parallel(inputs_embeds, tp_group)
             sequence_first = True
         elif inputs_embeds is None and self.pre_process and input_ids is None:
@@ -439,9 +430,7 @@ class Glm5NextModel(nn.Module):
             )
             mtp = self.model.language_model.mtp
             if mtp is not None:
-                loss = loss + self._mtp_loss(
-                    mtp, hidden_states, input_ids, inputs_embeds, attention_mask, labels
-                )
+                loss = loss + self._mtp_loss(mtp, hidden_states, input_ids, inputs_embeds, attention_mask, labels)
         return Glm5NextOutput(logits=logits, loss=loss)
 
     def _mtp_loss(
@@ -474,11 +463,9 @@ class Glm5NextModel(nn.Module):
                 ignore_index=-100,
             )
             mtp_loss = depth_loss if mtp_loss is None else mtp_loss + depth_loss
-        scale = (
-            self.config.mtp_loss_scaling_factor
-            if self.config.mtp_loss_scaling_factor is not None
-            else 0.1
-        ) / len(mtp_outputs)
+        scale = (self.config.mtp_loss_scaling_factor if self.config.mtp_loss_scaling_factor is not None else 0.1) / len(
+            mtp_outputs
+        )
         return scale * mtp_loss
 
     def get_image_features(
@@ -533,26 +520,23 @@ class Glm5NextModel(nn.Module):
     def _remap_hf_state_dict(state: dict[str, torch.Tensor], model: "Glm5NextModel"):
         remapped = {}
         if model.pre_process:
-            remapped.update(
-                (key, value) for key, value in state.items() if key.startswith("model.visual.")
-            )
+            remapped.update((key, value) for key, value in state.items() if key.startswith("model.visual."))
             remapped["model.language_model.embedding.word_embeddings.weight"] = state[
                 "model.language_model.embed_tokens.weight"
             ]
         if model.post_process:
             remapped["lm_head.weight"] = state["lm_head.weight"]
-            remapped["model.language_model.decoder.final_layernorm.weight"] = state[
-                "model.language_model.norm.weight"
-            ]
+            remapped["model.language_model.decoder.final_layernorm.weight"] = state["model.language_model.norm.weight"]
 
         def _remap_one_layer(
-            source: str, target: str, layer_type: str, mlp_type: str,
+            source: str,
+            target: str,
+            layer_type: str,
+            mlp_type: str,
             has_hyper_connections: bool = True,
         ) -> None:
             remapped[target + "input_layernorm.weight"] = state[source + "input_layernorm.weight"]
-            remapped[target + "pre_mlp_layernorm.weight"] = state[
-                source + "post_attention_layernorm.weight"
-            ]
+            remapped[target + "pre_mlp_layernorm.weight"] = state[source + "post_attention_layernorm.weight"]
 
             attention_prefix = source + "self_attn."
             if layer_type == "linear_attention":
@@ -575,15 +559,9 @@ class Glm5NextModel(nn.Module):
                     "indexer.wk.weight": "core_attention.indexer.linear_wk.weight",
                     "indexer.k_norm.weight": "core_attention.indexer.k_norm.weight",
                     "indexer.k_norm.bias": "core_attention.indexer.k_norm.bias",
-                    "indexer.weights_proj.weight": (
-                        "core_attention.indexer.linear_weights_proj.weight"
-                    ),
-                    "indexer.index_kpool_compress_ape": (
-                        "core_attention.indexer.index_kpool_compress_ape"
-                    ),
-                    "indexer.index_kpool_compress_gate": (
-                        "core_attention.indexer.index_kpool_compress_gate"
-                    ),
+                    "indexer.weights_proj.weight": ("core_attention.indexer.linear_weights_proj.weight"),
+                    "indexer.index_kpool_compress_ape": ("core_attention.indexer.index_kpool_compress_ape"),
+                    "indexer.index_kpool_compress_gate": ("core_attention.indexer.index_kpool_compress_gate"),
                 }
                 for source_name, target_name in sparse_attention_names.items():
                     source_key = attention_prefix + source_name
@@ -595,9 +573,7 @@ class Glm5NextModel(nn.Module):
                     ("hc_attn", "self_attention_hyper_connection"),
                     ("hc_ffn", "mlp_hyper_connection"),
                 ):
-                    remapped[target + target_name + ".mapping_proj.weight"] = state[
-                        source + source_name + "_fn"
-                    ]
+                    remapped[target + target_name + ".mapping_proj.weight"] = state[source + source_name + "_fn"]
                     remapped[target + target_name + ".bias"] = state[source + source_name + "_base"]
                     scale = state[source + source_name + "_scale"]
                     remapped[target + target_name + ".alpha_pre"] = scale[0:1]
@@ -611,14 +587,10 @@ class Glm5NextModel(nn.Module):
                     [state[mlp_source + "gate_proj.weight"], state[mlp_source + "up_proj.weight"]],
                     dim=0,
                 )
-                remapped[mlp_target + "linear_fc2.weight"] = state[
-                    mlp_source + "down_proj.weight"
-                ]
+                remapped[mlp_target + "linear_fc2.weight"] = state[mlp_source + "down_proj.weight"]
             else:
                 remapped[mlp_target + "router.weight"] = state[mlp_source + "gate.weight"]
-                remapped[mlp_target + "router.expert_bias"] = state[
-                    mlp_source + "gate.e_score_correction_bias"
-                ]
+                remapped[mlp_target + "router.expert_bias"] = state[mlp_source + "gate.e_score_correction_bias"]
                 for expert_index in range(model.config.n_routed_experts):
                     expert_source = mlp_source + f"experts.{expert_index}."
                     expert_target = mlp_target + f"experts.local_experts.{expert_index}."
@@ -629,9 +601,7 @@ class Glm5NextModel(nn.Module):
                         ],
                         dim=0,
                     )
-                    remapped[expert_target + "linear_fc2.weight"] = state[
-                        expert_source + "down_proj.weight"
-                    ]
+                    remapped[expert_target + "linear_fc2.weight"] = state[expert_source + "down_proj.weight"]
                 shared_source = mlp_source + "shared_experts."
                 shared_target = mlp_target + "shared_experts."
                 remapped[shared_target + "linear_fc1.weight"] = torch.cat(
@@ -641,9 +611,7 @@ class Glm5NextModel(nn.Module):
                     ],
                     dim=0,
                 )
-                remapped[shared_target + "linear_fc2.weight"] = state[
-                    shared_source + "down_proj.weight"
-                ]
+                remapped[shared_target + "linear_fc2.weight"] = state[shared_source + "down_proj.weight"]
 
         for local_layer_index, layer in enumerate(model.model.language_model.layers):
             layer_index = layer.layer_number - 1
@@ -665,9 +633,7 @@ class Glm5NextModel(nn.Module):
                 remapped[base + "eh_proj.weight"] = state[source + "eh_proj.weight"]
                 remapped[base + "enorm.weight"] = state[source + "enorm.weight"]
                 remapped[base + "hnorm.weight"] = state[source + "hnorm.weight"]
-                remapped[base + "final_layernorm.weight"] = state[
-                    source + "shared_head.norm.weight"
-                ]
+                remapped[base + "final_layernorm.weight"] = state[source + "shared_head.norm.weight"]
                 # The MTP layer mirrors the last decoder layer's schedule
                 # (KPool-DSA attention + routed MoE) but carries no mHC.
                 _remap_one_layer(
@@ -703,8 +669,10 @@ class Glm5NextModel(nn.Module):
                 if key.endswith("linear_fc1.weight") and model.config.gated_linear_unit:
                     gate, up = value.chunk(2, dim=partition_dim)
                     value = torch.cat(
-                        (gate.chunk(tp_size, dim=partition_dim)[tp_rank],
-                         up.chunk(tp_size, dim=partition_dim)[tp_rank]),
+                        (
+                            gate.chunk(tp_size, dim=partition_dim)[tp_rank],
+                            up.chunk(tp_size, dim=partition_dim)[tp_rank],
+                        ),
                         dim=partition_dim,
                     )
                 else:

@@ -116,11 +116,7 @@ def _layer_spec(config, layer_index: int, backend: LocalSpecProvider) -> ModuleS
     else:
         raise ValueError(f"unsupported GLM-5.3-Flash layer type: {block_type}")
 
-    mlp = (
-        _moe_spec(config, backend)
-        if config.mlp_layer_types[layer_index] == "sparse"
-        else _dense_mlp_spec(backend)
-    )
+    mlp = _moe_spec(config, backend) if config.mlp_layer_types[layer_index] == "sparse" else _dense_mlp_spec(backend)
     return ModuleSpec(
         module=TransformerLayer,
         submodules=TransformerLayerSubmodules(

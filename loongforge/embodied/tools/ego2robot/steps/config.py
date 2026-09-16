@@ -77,6 +77,7 @@ def dataset_intrinsics_k(attrs, camera: str = "front_1", img_shape=None):
     Return None when no usable intrinsics are available.
     """
     import numpy as np
+
     raw = attrs.get("intrinsics", {})
     if not isinstance(raw, dict) or not raw:
         return None
@@ -99,8 +100,7 @@ def dataset_intrinsics_k(attrs, camera: str = "front_1", img_shape=None):
         sy = (ih / nh) if nh > 0 else 1.0
         fl_x, cx = fl_x * sx, cx * sx
         fl_y, cy = fl_y * sy, cy * sy
-    return np.array([[fl_x, 0.0, cx], [0.0, fl_y, cy], [0.0, 0.0, 1.0]],
-                    dtype=np.float64)
+    return np.array([[fl_x, 0.0, cx], [0.0, fl_y, cy], [0.0, 0.0, 1.0]], dtype=np.float64)
 
 
 def dataset_fy_for_height(attrs, img_height: float) -> float | None:
@@ -113,6 +113,7 @@ def dataset_fy_for_height(attrs, img_height: float) -> float | None:
     to fall back or raise an error.
     """
     import numpy as np
+
     raw = attrs.get("intrinsics", {})
     if not isinstance(raw, dict) or not raw:
         return None
@@ -165,8 +166,7 @@ def fallback_episode_attrs(episode_dir: str):
         except Exception:
             continue
         if _has_usable_intrinsics(cand_attrs.get("intrinsics")):
-            print(f"  ⚠️ {base}: intrinsics missing, borrowing from "
-                  f"{os.path.basename(cand)}")
+            print(f"  ⚠️ {base}: intrinsics missing, borrowing from {os.path.basename(cand)}")
             return cand_attrs, os.path.basename(cand)
     return None, None
 
@@ -180,11 +180,27 @@ def reencode_h264(src: str, crf: int = 20):
     original file and print a warning without interrupting the pipeline.
     """
     import subprocess
+
     tmp = f"{src}.h264tmp.mp4"
     try:
-        cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", src,
-               "-c:v", "libx264", "-crf", str(crf), "-pix_fmt", "yuv420p",
-               "-movflags", "+faststart", "-an", tmp]
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-loglevel",
+            "error",
+            "-i",
+            src,
+            "-c:v",
+            "libx264",
+            "-crf",
+            str(crf),
+            "-pix_fmt",
+            "yuv420p",
+            "-movflags",
+            "+faststart",
+            "-an",
+            tmp,
+        ]
         subprocess.run(cmd, check=True, timeout=1800)
         os.replace(tmp, src)
         return True
@@ -197,6 +213,7 @@ def reencode_h264(src: str, crf: int = 20):
         print(f"  ⚠️ H264 re-encode failed for {src}: {e}")
         return False
 
+
 # ============================================================
 # Downstream robot morphology declarations (for state/action dimension slicing).
 # ============================================================
@@ -204,8 +221,8 @@ def reencode_h264(src: str, crf: int = 20):
 ROBOT_PRESETS = {
     "panda_dual_g2": (7, 2, 7, 2, "Panda dual arm + 2-DOF gripper (full menagerie, default)"),
     "panda_dual_g1": (7, 1, 7, 1, "Panda dual arm + 1-DOF gripper (left finger, standard Franka convention)"),
-    "panda_left_g2":  (7, 2, 0, 0, "Left arm only + 2-DOF gripper"),
-    "panda_left_g1":  (7, 1, 0, 0, "Left arm only + 1-DOF gripper"),
+    "panda_left_g2": (7, 2, 0, 0, "Left arm only + 2-DOF gripper"),
+    "panda_left_g1": (7, 1, 0, 0, "Left arm only + 1-DOF gripper"),
 }
 
 
@@ -221,6 +238,7 @@ def parse_robot_spec(spec: str | None):
       data layout.
     """
     import re
+
     if not spec:
         return (7, 2, 7, 2)
     if spec in ROBOT_PRESETS:
@@ -237,8 +255,7 @@ def parse_robot_spec(spec: str | None):
         ra, rg = 0, 0
     if la not in (7, 0) or ra not in (7, 0) or lg not in (0, 1, 2) or rg not in (0, 1, 2):
         raise ValueError(
-            "Supported values: arm DOF must be 7 or 0 (matching source IK); "
-            "gripper DOF must be 0, 1, or 2"
+            "Supported values: arm DOF must be 7 or 0 (matching source IK); gripper DOF must be 0, 1, or 2"
         )
     return (la, lg, ra, rg)
 

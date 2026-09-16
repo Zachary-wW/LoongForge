@@ -180,9 +180,7 @@ class HuggingfaceBase:
             return weight, weight_scale
         # --fp8_force_no_requant: keep FP8 weights and their scales unchanged
         # (the GLM-5.2-style fp8->hf_fp8 flow) instead of dequantizing.
-        if weight_scale is not None and getattr(
-            getattr(self, "args", None), "fp8_force_no_requant", False
-        ):
+        if weight_scale is not None and getattr(getattr(self, "args", None), "fp8_force_no_requant", False):
             return weight, weight_scale
         output_dtype = self._get_output_dtype()
 

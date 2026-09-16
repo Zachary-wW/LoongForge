@@ -10,14 +10,13 @@ from scipy.spatial.transform import Rotation
 
 
 # Fixed permutation from the Eq.2 EEF frame to the common parallel-gripper TCP frame.
-R_EQ2_TO_HAND = np.array([[0.0, 0.0, 1.0],
-                          [1.0, 0.0, 0.0],
-                          [0.0, 1.0, 0.0]])
+R_EQ2_TO_HAND = np.array([[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
 
 # MANO keypoint indices (matching step2_path_b.py).
 WRIST_IDX, THUMB_TIP_IDX, INDEX_TIP_IDX, MIDDLE_TIP_IDX = 0, 4, 8, 12
 
 # ============ Eq.1/2 retargeting (world frame) ============
+
 
 def eq12_pose_world(kp_seq, hand_sign):
     """MANO 21 keypoints -> common parallel-gripper TCP pose in world frame.
@@ -51,7 +50,7 @@ def eq12_pose_world(kp_seq, hand_sign):
         zxd_norm = np.linalg.norm(zxd, axis=1)
     y = zxd / np.maximum(zxd_norm, 1e-8)[:, None]
     x = np.cross(y, z)
-    R_eq2 = np.stack([x, y, z], axis=2)          # (N,3,3)
+    R_eq2 = np.stack([x, y, z], axis=2)  # (N,3,3)
     R_tcp = R_eq2 @ R_EQ2_TO_HAND
     return p, R_tcp, w, p
 
@@ -114,14 +113,13 @@ def _smooth_rotations(rotations, sigma=2.0):
     return Rotation.from_quat(smoothed).as_matrix()
 
 
-def smooth_retarget_targets(positions, orientations, widths,
-                            window=11, polyorder=3,
-                            orientation_sigma=2.0, width_max=None):
+def smooth_retarget_targets(
+    positions, orientations, widths, window=11, polyorder=3, orientation_sigma=2.0, width_max=None
+):
     """Temporally smooth Eq.1/Eq.2 targets before base search and IK."""
     positions = _fill_invalid_keypoints(np.asarray(positions, dtype=float))
     orientations = np.asarray(orientations, dtype=float)
-    widths = _fill_invalid_keypoints(
-        np.asarray(widths, dtype=float).reshape(-1, 1)).reshape(-1)
+    widths = _fill_invalid_keypoints(np.asarray(widths, dtype=float).reshape(-1, 1)).reshape(-1)
     win = _savgol_window(len(positions), window, polyorder)
     if win is not None:
         positions = savgol_filter(positions, win, polyorder, axis=0)
@@ -139,16 +137,14 @@ def _quat_to_mat(quat):
     return out.reshape(3, 3)
 
 
-def target_ref_pose(spec, p_tcp_world, R_tcp_world, tcp_rot_override=None,
-                    opening_width=None):
+def target_ref_pose(spec, p_tcp_world, R_tcp_world, tcp_rot_override=None, opening_width=None):
     """Convert common TCP targets to the model's IK reference frame."""
     if spec.ee_site:
         # Some source XMLs place the named site at the gripper rail rather
         # than at the physical finger contact center.  Track the site at the
         # inverse of this calibrated offset so the visible pads meet the
         # human TCP.
-        tcp_rot = _quat_to_mat(
-            spec.tcp_rot_site if tcp_rot_override is None else tcp_rot_override)
+        tcp_rot = _quat_to_mat(spec.tcp_rot_site if tcp_rot_override is None else tcp_rot_override)
         R_site = R_tcp_world @ tcp_rot.T
         offset = np.broadcast_to(
             np.asarray(spec.tcp_pos_site, dtype=float),
@@ -157,13 +153,13 @@ def target_ref_pose(spec, p_tcp_world, R_tcp_world, tcp_rot_override=None,
         width_gain = np.asarray(spec.tcp_pos_site_width_gain, dtype=float)
         if opening_width is not None and np.any(width_gain):
             width = np.clip(
-                np.asarray(opening_width, dtype=float), 0.0,
+                np.asarray(opening_width, dtype=float),
+                0.0,
                 float(spec.gripper_max),
             )
             offset += width[..., None] * width_gain
         if np.any(offset):
-            p_site = p_tcp_world - np.einsum(
-                "nij,nj->ni", R_site, offset)
+            p_site = p_tcp_world - np.einsum("nij,nj->ni", R_site, offset)
         else:
             p_site = p_tcp_world
         return p_site, R_site

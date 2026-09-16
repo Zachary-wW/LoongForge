@@ -79,11 +79,15 @@ def main() -> None:
         from glm5_next_model import Glm5NextModel
 
         device = torch.device("cuda")
-        reference = Glm5NextForConditionalGeneration.from_pretrained(
-            args.checkpoint,
-            torch_dtype=torch.bfloat16,
-            attn_implementation="eager",
-        ).to(device).eval()
+        reference = (
+            Glm5NextForConditionalGeneration.from_pretrained(
+                args.checkpoint,
+                torch_dtype=torch.bfloat16,
+                attn_implementation="eager",
+            )
+            .to(device)
+            .eval()
+        )
         target = Glm5NextModel.from_checkpoint(args.checkpoint, device=device).eval()
         batch = build_batch(target.config, device)
 
@@ -91,17 +95,13 @@ def main() -> None:
             reference_vision = reference.get_image_features(
                 batch["pixel_values"], batch["image_grid_thw"]
             ).pooler_output[0]
-            target_vision = target.get_image_features(
-                batch["pixel_values"], batch["image_grid_thw"]
-            ).pooler_output[0]
+            target_vision = target.get_image_features(batch["pixel_values"], batch["image_grid_thw"]).pooler_output[0]
             reference_output = reference(**batch, use_cache=False)
             target_output = target(**batch)
 
         metrics = {
             "vision_max_abs_diff": float((reference_vision.float() - target_vision.float()).abs().max()),
-            "logits_max_abs_diff": float(
-                (reference_output.logits.float() - target_output.logits.float()).abs().max()
-            ),
+            "logits_max_abs_diff": float((reference_output.logits.float() - target_output.logits.float()).abs().max()),
             "reference_loss": float(reference_output.loss),
             "target_loss": float(target_output.loss),
             "loss_abs_diff": abs(float(reference_output.loss) - float(target_output.loss)),

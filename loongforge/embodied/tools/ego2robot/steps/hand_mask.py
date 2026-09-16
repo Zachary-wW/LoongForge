@@ -35,12 +35,14 @@ from PIL import Image
 
 try:
     import cv2
+
     HAS_CV2 = True
 except ImportError:
     HAS_CV2 = False
 
 try:
     import simplejpeg
+
     HAS_SIMPLEJPEG = True
 except ImportError:
     HAS_SIMPLEJPEG = False
@@ -64,6 +66,7 @@ def project_points_to_image(points_3d_world, head_pose, intrinsic_matrix):
         pixels (M,2), valid (M,) bool
     """
     from scipy.spatial.transform import Rotation
+
     t_world = head_pose[:3]
     q_wxyz = head_pose[3:7]
     q_xyzw = np.array([q_wxyz[1], q_wxyz[2], q_wxyz[3], q_wxyz[0]])
@@ -109,11 +112,13 @@ def make_point_prompts(kp_world, head_pose, K, H, W):
         forearm_dir = np.array([0, 0, -1.0])
 
     # Sample three points along the forearm direction, 5, 12, and 20 cm from the wrist.
-    arm_pts_3d = np.array([
-        wrist_3d + forearm_dir * 0.05,
-        wrist_3d + forearm_dir * 0.12,
-        wrist_3d + forearm_dir * 0.20,
-    ])
+    arm_pts_3d = np.array(
+        [
+            wrist_3d + forearm_dir * 0.05,
+            wrist_3d + forearm_dir * 0.12,
+            wrist_3d + forearm_dir * 0.20,
+        ]
+    )
     arm_pixels, arm_valid = project_points_to_image(arm_pts_3d, head_pose, K)
 
     # Merge all prompt points.
@@ -144,6 +149,7 @@ def make_point_prompts(kp_world, head_pose, K, H, W):
 # SAM3 wrapper
 # ============================================================
 
+
 class SAM3Segmenter:
     """SAM3 image predictor wrapper."""
 
@@ -161,11 +167,7 @@ class SAM3Segmenter:
 
         self._use_amp = device.startswith("cuda") and torch.cuda.is_available()
         if self._use_amp:
-            self._amp_dtype = (
-                torch.bfloat16
-                if torch.cuda.is_bf16_supported()
-                else torch.float16
-            )
+            self._amp_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
         else:
             self._amp_dtype = torch.float32
 
@@ -216,9 +218,7 @@ class SAM3Segmenter:
             best = masks[int(np.argmax(scores))]
         best = np.squeeze(best)
         if best.shape != (height, width):
-            raise ValueError(
-                f"SAM3 returned mask shape {best.shape}, expected {(height, width)}"
-            )
+            raise ValueError(f"SAM3 returned mask shape {best.shape}, expected {(height, width)}")
         return best.astype(bool).astype(np.uint8)
 
     @staticmethod
@@ -235,9 +235,7 @@ class SAM3Segmenter:
         if masks.size == 0 or scores.size == 0:
             return np.zeros((height, width), dtype=np.uint8)
         if masks.shape[-2:] != (height, width):
-            raise ValueError(
-                f"SAM3 returned mask shape {masks.shape}, expected (*, {height}, {width})"
-            )
+            raise ValueError(f"SAM3 returned mask shape {masks.shape}, expected (*, {height}, {width})")
         return masks.reshape(-1, height, width).any(axis=0).astype(np.uint8)
 
     @staticmethod
@@ -270,9 +268,7 @@ class SAM3Segmenter:
             hand_state = self._copy_state(state)
             if prompt_groups and "language_features" not in hand_state["backbone_out"]:
                 hand_state["backbone_out"].update(
-                    self.processor.model.backbone.forward_text(
-                        ["visual"], device=self.device
-                    )
+                    self.processor.model.backbone.forward_text(["visual"], device=self.device)
                 )
 
             for point_coords, _point_labels in prompt_groups:
@@ -344,37 +340,41 @@ class SAM3VideoSegmenter:
         frame_end,
     ):
         """Run one prompt over a bounded chunk in both temporal directions."""
-        all_masks = np.zeros(
-            (num_frames, frame_height, frame_width), dtype=np.uint8
-        )
+        all_masks = np.zeros((num_frames, frame_height, frame_width), dtype=np.uint8)
         session_id = None
         try:
-            session = self.predictor.handle_request({
-                "type": "start_session",
-                "resource_path": str(frame_dir),
-                "offload_video_to_cpu": True,
-                "offload_state_to_cpu": True,
-            })
+            session = self.predictor.handle_request(
+                {
+                    "type": "start_session",
+                    "resource_path": str(frame_dir),
+                    "offload_video_to_cpu": True,
+                    "offload_state_to_cpu": True,
+                }
+            )
             session_id = session["session_id"]
-            self.predictor.handle_request({
-                "type": "add_prompt",
-                "session_id": session_id,
-                "frame_index": anchor_frame,
-                "output_prob_thresh": 0.5,
-                **prompt_request,
-            })
+            self.predictor.handle_request(
+                {
+                    "type": "add_prompt",
+                    "session_id": session_id,
+                    "frame_index": anchor_frame,
+                    "output_prob_thresh": 0.5,
+                    **prompt_request,
+                }
+            )
 
             def collect(direction, max_frames):
                 if max_frames < 0:
                     return
-                for result in self.predictor.handle_stream_request({
-                    "type": "propagate_in_video",
-                    "session_id": session_id,
-                    "propagation_direction": direction,
-                    "start_frame_index": anchor_frame,
-                    "max_frame_num_to_track": max_frames,
-                    "output_prob_thresh": 0.5,
-                }):
+                for result in self.predictor.handle_stream_request(
+                    {
+                        "type": "propagate_in_video",
+                        "session_id": session_id,
+                        "propagation_direction": direction,
+                        "start_frame_index": anchor_frame,
+                        "max_frame_num_to_track": max_frames,
+                        "output_prob_thresh": 0.5,
+                    }
+                ):
                     frame_idx = int(result["frame_index"])
                     if not frame_start <= frame_idx < frame_end:
                         continue
@@ -384,12 +384,9 @@ class SAM3VideoSegmenter:
                         continue
                     if masks.shape[-2:] != (frame_height, frame_width):
                         raise ValueError(
-                            f"SAM3 video returned mask shape {masks.shape}, "
-                            f"expected (*, {frame_height}, {frame_width})"
+                            f"SAM3 video returned mask shape {masks.shape}, expected (*, {frame_height}, {frame_width})"
                         )
-                    all_masks[frame_idx] = (
-                        masks.astype(bool).any(axis=0).astype(np.uint8)
-                    )
+                    all_masks[frame_idx] = masks.astype(bool).any(axis=0).astype(np.uint8)
 
             # Forward includes the anchor; backward starts at anchor - 1.
             collect("forward", frame_end - 1 - anchor_frame)
@@ -397,10 +394,12 @@ class SAM3VideoSegmenter:
             return all_masks
         finally:
             if session_id is not None:
-                self.predictor.handle_request({
-                    "type": "close_session",
-                    "session_id": session_id,
-                })
+                self.predictor.handle_request(
+                    {
+                        "type": "close_session",
+                        "session_id": session_id,
+                    }
+                )
 
     def segment_episode(
         self,
@@ -414,17 +413,12 @@ class SAM3VideoSegmenter:
         prompt_groups_by_frame=None,
     ):
         """Track person and hand/arm masks independently, then return both."""
-        empty = np.zeros(
-            (num_frames, frame_height, frame_width), dtype=np.uint8
-        )
+        empty = np.zeros((num_frames, frame_height, frame_width), dtype=np.uint8)
         person_masks = empty.copy()
         arm_masks = empty.copy()
 
         chunk_step = self.CHUNK_SIZE - self.CHUNK_OVERLAP
-        chunk_ranges = [
-            (start, min(start + self.CHUNK_SIZE, num_frames))
-            for start in range(0, num_frames, chunk_step)
-        ]
+        chunk_ranges = [(start, min(start + self.CHUNK_SIZE, num_frames)) for start in range(0, num_frames, chunk_step)]
 
         def groups_for(anchor):
             if prompt_groups_by_frame is None:
@@ -432,10 +426,7 @@ class SAM3VideoSegmenter:
             return prompt_groups_by_frame.get(anchor, prompt_groups)
 
         if mask_mode in ("both", "person"):
-            print(
-                f"  Temporal track: text prompt {body_prompt!r}, "
-                f"anchor=middle, chunks={len(chunk_ranges)}"
-            )
+            print(f"  Temporal track: text prompt {body_prompt!r}, anchor=middle, chunks={len(chunk_ranges)}")
             for frame_start, frame_end in chunk_ranges:
                 anchor = (frame_start + frame_end - 1) // 2
                 person_masks |= self._propagate_prompt(
@@ -450,19 +441,12 @@ class SAM3VideoSegmenter:
                 )
 
         if mask_mode in ("both", "arms"):
-            print(
-                f"  Temporal track: hand/arm geometric boxes, "
-                f"chunks={len(chunk_ranges)}"
-            )
+            print(f"  Temporal track: hand/arm geometric boxes, chunks={len(chunk_ranges)}")
             for frame_start, frame_end in chunk_ranges:
                 anchor = (frame_start + frame_end - 1) // 2
                 groups = groups_for(anchor)
                 boxes = [
-                    self._center_to_xywh(
-                        SAM3Segmenter._prompt_box(
-                            points, frame_width, frame_height
-                        )
-                    )
+                    self._center_to_xywh(SAM3Segmenter._prompt_box(points, frame_width, frame_height))
                     for points, _labels in groups
                 ]
                 # SAM3 requires exactly one visual box for an initial prompt.
@@ -494,6 +478,7 @@ class SAM3VideoSegmenter:
 # ============================================================
 # Main processing
 # ============================================================
+
 
 def _unwrap_img_bytes(val):
     while isinstance(val, np.ndarray) and val.ndim == 0:
@@ -550,9 +535,7 @@ def _paper_mask_postprocess(masks):
     close_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     closed = np.zeros_like(masks, dtype=np.uint8)
     for t in range(len(masks)):
-        closed[t] = (
-            cv2.morphologyEx(masks[t] * 255, cv2.MORPH_CLOSE, close_kernel) > 0
-        ).astype(np.uint8)
+        closed[t] = (cv2.morphologyEx(masks[t] * 255, cv2.MORPH_CLOSE, close_kernel) > 0).astype(np.uint8)
     return closed
 
 
@@ -589,9 +572,9 @@ def process_episode(
     # Resolve both legacy per-camera 3x4 intrinsics and the newer flattened
     # {fl_x, fl_y, cx, cy, w, h} form used by some Zarr exports.
     from steps.config import dataset_intrinsics_k, fallback_episode_attrs
+
     ep_attrs, _borrow_src = fallback_episode_attrs(zarr_path)
-    K = (dataset_intrinsics_k(ep_attrs, camera="front_1", img_shape=(H, W))
-         if ep_attrs is not None else None)
+    K = dataset_intrinsics_k(ep_attrs, camera="front_1", img_shape=(H, W)) if ep_attrs is not None else None
     if K is None:
         print("  ⚠️ No usable intrinsics for front_1, skipping")
         return
@@ -623,17 +606,13 @@ def process_episode(
         groups = []
         if not head_invalid[anchor]:
             if not left_invalid[anchor]:
-                pts, labels = make_point_prompts(
-                    left_kp[anchor], head_pose[anchor], K, H, W
-                )
+                pts, labels = make_point_prompts(left_kp[anchor], head_pose[anchor], K, H, W)
                 if pts is not None and len(pts) >= 3:
                     groups.append((pts, labels))
                     if anchor == (total_frames - 1) // 2:
                         stats["left_prompted"] = 1
             if not right_invalid[anchor]:
-                pts, labels = make_point_prompts(
-                    right_kp[anchor], head_pose[anchor], K, H, W
-                )
+                pts, labels = make_point_prompts(right_kp[anchor], head_pose[anchor], K, H, W)
                 if pts is not None and len(pts) >= 3:
                     groups.append((pts, labels))
                     if anchor == (total_frames - 1) // 2:
@@ -641,15 +620,11 @@ def process_episode(
         prompt_groups_by_frame[anchor] = groups
     middle_anchor = (total_frames - 1) // 2
     first_prompt_groups = prompt_groups_by_frame.get(middle_anchor, [])
-    stats["arm_prompted"] = int(
-        mask_mode in ("both", "arms") and bool(first_prompt_groups)
-    )
+    stats["arm_prompted"] = int(mask_mode in ("both", "arms") and bool(first_prompt_groups))
 
     # SAM3 video inference needs a numeric frame directory. Reuse the original
     # JPEG bytes so staging does not decode/re-encode the episode.
-    with tempfile.TemporaryDirectory(
-        prefix=f".sam3_video_{ep_name}_", dir=output_dir
-    ) as stage_root:
+    with tempfile.TemporaryDirectory(prefix=f".sam3_video_{ep_name}_", dir=output_dir) as stage_root:
         frame_dir = Path(stage_root) / "frames"
         frame_dir.mkdir()
         for t in range(total_frames):
@@ -672,8 +647,7 @@ def process_episode(
     expected_shape = (total_frames, H, W)
     if person_masks.shape != expected_shape or arm_masks.shape != expected_shape:
         raise ValueError(
-            f"SAM3 video returned person={person_masks.shape}, arm={arm_masks.shape}, "
-            f"expected {expected_shape}"
+            f"SAM3 video returned person={person_masks.shape}, arm={arm_masks.shape}, expected {expected_shape}"
         )
 
     all_masks = np.zeros(expected_shape, dtype=np.uint8)
@@ -686,9 +660,7 @@ def process_episode(
         )
         for mask_seq in (person_masks, arm_masks):
             for frame_idx in range(total_frames):
-                mask_seq[frame_idx] = (
-                    cv2.dilate(mask_seq[frame_idx] * 255, kernel) > 0
-                ).astype(np.uint8)
+                mask_seq[frame_idx] = (cv2.dilate(mask_seq[frame_idx] * 255, kernel) > 0).astype(np.uint8)
 
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     video_path = os.path.join(ep_out, "mask_overlay.mp4")
@@ -713,26 +685,21 @@ def process_episode(
         person_only = (person_masks[t] > 0) & (arm_masks[t] == 0)
         arm_only = (arm_masks[t] > 0) & (person_masks[t] == 0)
         both = (person_masks[t] > 0) & (arm_masks[t] > 0)
-        overlay[person_only] = (
-            overlay[person_only] * 0.4 + np.array([0, 0, 200]) * 0.6
-        ).astype(np.uint8)
-        overlay[arm_only] = (
-            overlay[arm_only] * 0.4 + np.array([0, 200, 0]) * 0.6
-        ).astype(np.uint8)
-        overlay[both] = (
-            overlay[both] * 0.4 + np.array([200, 0, 200]) * 0.6
-        ).astype(np.uint8)
+        overlay[person_only] = (overlay[person_only] * 0.4 + np.array([0, 0, 200]) * 0.6).astype(np.uint8)
+        overlay[arm_only] = (overlay[arm_only] * 0.4 + np.array([0, 200, 0]) * 0.6).astype(np.uint8)
+        overlay[both] = (overlay[both] * 0.4 + np.array([200, 0, 200]) * 0.6).astype(np.uint8)
         # Draw the mask boundaries.
         contours, _ = cv2.findContours(all_masks[t], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         cv2.drawContours(overlay, contours, -1, (0, 255, 0), 2)
 
         combined = np.hstack([bgr, overlay])
-        cv2.putText(combined, f"frame {t}/{total_frames}", (10, H - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        cv2.putText(
+            combined, f"frame {t}/{total_frames}", (10, H - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1
+        )
         writer.write(combined)
 
         if t % 20 == 0:
-            print(f"    frame {t}/{total_frames} mask_area={all_masks[t].sum()/(H*W)*100:.1f}%")
+            print(f"    frame {t}/{total_frames} mask_area={all_masks[t].sum() / (H * W) * 100:.1f}%")
 
     writer.release()
     try:
@@ -743,15 +710,11 @@ def process_episode(
 
     # Save mask arrays as NPZ files.
     mask_path = os.path.join(ep_out, "masks.npz")
-    np.savez_compressed(
-        os.path.join(ep_out, "person_masks.npz"), masks=person_masks
-    )
-    np.savez_compressed(
-        os.path.join(ep_out, "hand_arm_masks.npz"), masks=arm_masks
-    )
+    np.savez_compressed(os.path.join(ep_out, "person_masks.npz"), masks=person_masks)
+    np.savez_compressed(os.path.join(ep_out, "hand_arm_masks.npz"), masks=arm_masks)
     np.savez_compressed(mask_path, masks=all_masks)
 
-    print(f"  → {mask_path} ({all_masks.nbytes/1e6:.1f}MB raw)")
+    print(f"  → {mask_path} ({all_masks.nbytes / 1e6:.1f}MB raw)")
     print(f"  → {video_path}")
     print(f"  Stats: {stats}")
     return stats
@@ -833,8 +796,12 @@ def run(args):
         for ep_dir in all_eps:
             try:
                 stats = process_episode(
-                    str(ep_dir), args.output_dir, ep_dir.name,
-                    segmenter, fps=args.fps, dilation_px=args.dilation_px,
+                    str(ep_dir),
+                    args.output_dir,
+                    ep_dir.name,
+                    segmenter,
+                    fps=args.fps,
+                    dilation_px=args.dilation_px,
                     max_frames=args.max_frames,
                     body_prompt=getattr(args, "body_prompt", "person"),
                     mask_mode=mask_mode,
@@ -844,6 +811,7 @@ def run(args):
             except Exception as e:
                 print(f"  ❌ Error: {e}")
                 import traceback
+
                 traceback.print_exc()
     finally:
         segmenter.close()
@@ -853,10 +821,12 @@ def run(args):
     print("Step 3 Summary")
     print("=" * 60)
     for ep, st in all_stats.items():
-        print(f"  {ep[:30]:32s} masked={st['masked']}/{st['total']} "
-              f"({st['masked']/st['total']*100:.0f}%) "
-              f"person={st['person_masked']} arm={st['arm_masked']} "
-              f"mode={st['mask_mode']}")
+        print(
+            f"  {ep[:30]:32s} masked={st['masked']}/{st['total']} "
+            f"({st['masked'] / st['total'] * 100:.0f}%) "
+            f"person={st['person_masked']} arm={st['arm_masked']} "
+            f"mode={st['mask_mode']}"
+        )
     print("Done.")
 
 

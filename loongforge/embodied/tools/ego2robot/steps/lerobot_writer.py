@@ -41,16 +41,29 @@ IMAGE_H, IMAGE_W = 368, 640  # robot_on_bg.mp4 is 640x368 (MuJoCo renderer round
 # Legacy Panda layout; new retarget outputs carry their own morphology metadata.
 STATE_DIM = 18
 STATE_NAMES = [
-    "left_joint1", "left_joint2", "left_joint3", "left_joint4",
-    "left_joint5", "left_joint6", "left_joint7",
-    "left_finger_joint1", "left_finger_joint2",
-    "right_joint1", "right_joint2", "right_joint3", "right_joint4",
-    "right_joint5", "right_joint6", "right_joint7",
-    "right_finger_joint1", "right_finger_joint2",
+    "left_joint1",
+    "left_joint2",
+    "left_joint3",
+    "left_joint4",
+    "left_joint5",
+    "left_joint6",
+    "left_joint7",
+    "left_finger_joint1",
+    "left_finger_joint2",
+    "right_joint1",
+    "right_joint2",
+    "right_joint3",
+    "right_joint4",
+    "right_joint5",
+    "right_joint6",
+    "right_joint7",
+    "right_finger_joint1",
+    "right_finger_joint2",
 ]
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def compute_stats(arr: np.ndarray) -> dict:
     """Compute per-feature statistics matching LeRobot v3.0 schema."""
@@ -80,6 +93,7 @@ def compute_image_stats_from_video(video_path: str, sample_n: int = 100) -> dict
     OpenCV build lacks a software AV1 decoder and silently fails to read.
     """
     import av as pyav
+
     container = pyav.open(video_path)
     stream = container.streams.video[0]
     total = stream.frames or 0
@@ -103,15 +117,26 @@ def compute_image_stats_from_video(video_path: str, sample_n: int = 100) -> dict
         # Fallback zero stats
         zero = [[[0.0]], [[0.0]], [[0.0]]]
         return {
-            "min": zero, "max": zero, "mean": zero, "std": zero,
-            "count": [0], "q01": zero, "q10": zero, "q50": zero, "q90": zero, "q99": zero,
+            "min": zero,
+            "max": zero,
+            "mean": zero,
+            "std": zero,
+            "count": [0],
+            "q01": zero,
+            "q10": zero,
+            "q50": zero,
+            "q90": zero,
+            "q99": zero,
         }
     stack = np.stack(frames, axis=0)  # (N, H, W, 3)
+
     # Compute per-channel scalar stats -> nested (3,1,1)
     def per_ch(fn):
         return [[[float(fn(stack[..., c]))]] for c in range(3)]
+
     def per_ch_q(q):
         return [[[float(np.quantile(stack[..., c], q))]] for c in range(3)]
+
     return {
         "min": per_ch(np.min),
         "max": per_ch(np.max),
@@ -131,7 +156,9 @@ def _ffmpeg_has_svtav1() -> bool:
     try:
         out = subprocess.run(
             ["ffmpeg", "-hide_banner", "-encoders"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         return "svt_av1" in (out.stdout or "") or "libsvtav1" in (out.stdout or "")
     except Exception:
@@ -144,14 +171,24 @@ def ffmpeg_reencode_av1(src: str, dst: str):
     Raises CalledProcessError via subprocess.run(check=True) on ffmpeg failure.
     """
     cmd = [
-        "ffmpeg", "-y", "-loglevel", "error",
-        "-i", src,
-        "-c:v", "libx264",
-        "-pix_fmt", VIDEO_PIX_FMT,
-        "-crf", "23",
-        "-preset", "fast",
-        "-movflags", "+faststart",
-        "-r", str(FPS),
+        "ffmpeg",
+        "-y",
+        "-loglevel",
+        "error",
+        "-i",
+        src,
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        VIDEO_PIX_FMT,
+        "-crf",
+        "23",
+        "-preset",
+        "fast",
+        "-movflags",
+        "+faststart",
+        "-r",
+        str(FPS),
         "-an",
         dst,
     ]
@@ -167,9 +204,19 @@ def concat_videos_av1(inputs: list, dst: str):
             fh.write(f"file '{os.path.abspath(p)}'\n")
     try:
         cmd = [
-            "ffmpeg", "-y", "-loglevel", "error",
-            "-f", "concat", "-safe", "0", "-i", listfile,
-            "-c", "copy", dst,
+            "ffmpeg",
+            "-y",
+            "-loglevel",
+            "error",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            listfile,
+            "-c",
+            "copy",
+            dst,
         ]
         subprocess.run(cmd, check=True)
     finally:
@@ -185,9 +232,7 @@ def build_state_action(ik_path: str, n_frames: int) -> tuple:
     d = np.load(ik_path)
     qpos = d["state"] if "state" in d else d["qpos"]
     qpos = qpos.astype(np.float32)
-    assert qpos.shape[0] == n_frames, (
-        f"qpos {qpos.shape} vs n_frames {n_frames}"
-    )
+    assert qpos.shape[0] == n_frames, f"qpos {qpos.shape} vs n_frames {n_frames}"
     state = qpos.copy()
     action = np.zeros_like(state)
     if n_frames >= 2:
@@ -196,20 +241,23 @@ def build_state_action(ik_path: str, n_frames: int) -> tuple:
     return state, action
 
 
-def build_episode_rows(ep_index: int, task_index: int, n: int, state: np.ndarray,
-                        action: np.ndarray, dataset_offset: int):
+def build_episode_rows(
+    ep_index: int, task_index: int, n: int, state: np.ndarray, action: np.ndarray, dataset_offset: int
+):
     """Build a per-frame dict list for one episode's parquet rows."""
     rows = []
     for i in range(n):
-        rows.append({
-            "action": action[i].tolist(),
-            "observation.state": state[i].tolist(),
-            "timestamp": float(i) / FPS,
-            "frame_index": int(i),
-            "episode_index": int(ep_index),
-            "index": int(dataset_offset + i),
-            "task_index": int(task_index),
-        })
+        rows.append(
+            {
+                "action": action[i].tolist(),
+                "observation.state": state[i].tolist(),
+                "timestamp": float(i) / FPS,
+                "frame_index": int(i),
+                "episode_index": int(ep_index),
+                "index": int(dataset_offset + i),
+                "task_index": int(task_index),
+            }
+        )
     return rows
 
 
@@ -222,15 +270,17 @@ def write_data_parquet(all_rows: list, out_path: str, state_dim: int):
     """
     action_type = pa.list_(pa.float32(), state_dim)
     state_type = pa.list_(pa.float32(), state_dim)
-    schema = pa.schema([
-        pa.field("action", action_type),
-        pa.field("observation.state", state_type),
-        pa.field("timestamp", pa.float32()),
-        pa.field("frame_index", pa.int64()),
-        pa.field("episode_index", pa.int64()),
-        pa.field("index", pa.int64()),
-        pa.field("task_index", pa.int64()),
-    ])
+    schema = pa.schema(
+        [
+            pa.field("action", action_type),
+            pa.field("observation.state", state_type),
+            pa.field("timestamp", pa.float32()),
+            pa.field("frame_index", pa.int64()),
+            pa.field("episode_index", pa.int64()),
+            pa.field("index", pa.int64()),
+            pa.field("task_index", pa.int64()),
+        ]
+    )
     arrays = {
         "action": pa.array([r["action"] for r in all_rows], type=action_type),
         "observation.state": pa.array([r["observation.state"] for r in all_rows], type=state_type),
@@ -266,20 +316,29 @@ def write_tasks_parquet(task_list: list, out_path: str):
     makes meta.tasks.index numeric and `item["task"]` resolve to an int.
     """
     import pandas as pd
-    df = pd.DataFrame(
-        {"task": [t[1] for t in task_list], "task_index": [t[0] for t in task_list]}
-    ).set_index("task")
+
+    df = pd.DataFrame({"task": [t[1] for t in task_list], "task_index": [t[0] for t in task_list]}).set_index("task")
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     df.to_parquet(out_path)
 
 
-def write_info_json(total_episodes: int, total_frames: int, total_tasks: int,
-                    splits: dict, out_path: str, robot_type: str,
-                    state_names: list[str], state_dim: int,
-                    image_h: int = IMAGE_H, image_w: int = IMAGE_W,
-                    video_codec: str = VIDEO_CODEC, has_mask: bool = False,
-                    has_wrist: dict[str, bool] | None = None):
+def write_info_json(
+    total_episodes: int,
+    total_frames: int,
+    total_tasks: int,
+    splits: dict,
+    out_path: str,
+    robot_type: str,
+    state_names: list[str],
+    state_dim: int,
+    image_h: int = IMAGE_H,
+    image_w: int = IMAGE_W,
+    video_codec: str = VIDEO_CODEC,
+    has_mask: bool = False,
+    has_wrist: dict[str, bool] | None = None,
+):
     """Write meta/info.json describing dataset schema, sizes, and splits."""
+
     def video_feature():
         return {
             "dtype": "video",
@@ -364,7 +423,7 @@ def discover_episodes(ik_dir: str, state_dir: str) -> list:
 
     Sorting keeps episode_index assignments stable.
     """
-    ik_eps = {p.name[:-len("_ik.npz")] for p in Path(ik_dir).glob("*_ik.npz")}
+    ik_eps = {p.name[: -len("_ik.npz")] for p in Path(ik_dir).glob("*_ik.npz")}
     state_eps = {p.stem for p in Path(state_dir).glob("*.npz")}
     eps = sorted(ik_eps & state_eps)
     missing_ik = state_eps - ik_eps
@@ -418,13 +477,9 @@ def run(args):
     }
     auxiliary_enabled = {}
     for feature, (_, suffix) in auxiliary_streams.items():
-        existing = [
-            (Path(args.ik_dir) / f"{episode}{suffix}").is_file()
-            for episode in episodes
-        ]
+        existing = [(Path(args.ik_dir) / f"{episode}{suffix}").is_file() for episode in episodes]
         if any(existing) and not all(existing):
-            missing = [episode for episode, present in zip(episodes, existing)
-                       if not present]
+            missing = [episode for episode, present in zip(episodes, existing) if not present]
             raise FileNotFoundError(
                 f"incomplete auxiliary video stream {feature}: missing "
                 f"{len(missing)}/{len(episodes)} episode(s), e.g. {missing[:3]}"
@@ -468,9 +523,7 @@ def run(args):
     per_ep_state = []
     per_ep_action = []
     reencoded_paths = []
-    reencoded_auxiliary_paths = {
-        feature: [] for feature, enabled in auxiliary_enabled.items() if enabled
-    }
+    reencoded_auxiliary_paths = {feature: [] for feature, enabled in auxiliary_enabled.items() if enabled}
     ep_lengths = []
     ep_image_stats = []
 
@@ -491,19 +544,20 @@ def run(args):
             ik_ok = np.asarray(ik_data["ik_ok"])
             ik_err_pos = np.asarray(ik_data["ik_err_pos"])
             ik_err_rot = np.asarray(ik_data["ik_err_rot"])
-        for key, values in (("ik_ok", ik_ok),
-                            ("ik_err_pos", ik_err_pos),
-                            ("ik_err_rot", ik_err_rot)):
+        for key, values in (("ik_ok", ik_ok), ("ik_err_pos", ik_err_pos), ("ik_err_rot", ik_err_rot)):
             if values.ndim == 0 or values.shape[0] != n:
-                raise ValueError(
-                    f"{ik_path} {key} shape {values.shape} does not match {n} frames")
+                raise ValueError(f"{ik_path} {key} shape {values.shape} does not match {n} frames")
         per_ep_state.append(state)
         per_ep_action.append(action)
         ep_lengths.append(n)
 
         rows = build_episode_rows(
-            ep_index, task_text_to_index[ep_task_text[ep]], n,
-            state, action, dataset_offset,
+            ep_index,
+            task_text_to_index[ep_task_text[ep]],
+            n,
+            state,
+            action,
+            dataset_offset,
         )
         all_rows.extend(rows)
 
@@ -552,10 +606,12 @@ def run(args):
             ep_meta[f"{video_prefix}/file_index"] = 0
             ep_meta[f"{video_prefix}/from_timestamp"] = cumulative_time
             ep_meta[f"{video_prefix}/to_timestamp"] = cumulative_time + to_ts
+
         # Flatten per-episode stats into stats/<feat>/<stat> columns
         def add_stats(prefix, sd):
             for sk, sv in sd.items():
                 ep_meta[f"stats/{prefix}/{sk}"] = sv
+
         add_stats("action", ac_stats)
         add_stats("observation.state", st_stats)
         add_stats("observation.images.ego", img_stats)
@@ -588,8 +644,7 @@ def run(args):
     # ── Concat H.264 videos ──
     concat_videos_av1(reencoded_paths, str(out / "videos" / "observation.images.ego" / "chunk-000" / "file-000.mp4"))
     for feature, paths in reencoded_auxiliary_paths.items():
-        concat_videos_av1(
-            paths, str(out / "videos" / feature / "chunk-000" / "file-000.mp4"))
+        concat_videos_av1(paths, str(out / "videos" / feature / "chunk-000" / "file-000.mp4"))
     print("concatenated H.264 video written")
 
     # ── Write episodes parquet ──
@@ -599,10 +654,12 @@ def run(args):
     write_tasks_parquet(task_list, str(out / "meta" / "tasks.parquet"))
 
     # ── Global stats.json ──
-    global_stats = aggregate_global_stats({
-        "action": per_ep_action,
-        "observation.state": per_ep_state,
-    })
+    global_stats = aggregate_global_stats(
+        {
+            "action": per_ep_action,
+            "observation.state": per_ep_state,
+        }
+    )
     # scalar global stats
     ts_all, fi_all, idx_all, ei_all, ti_all = [], [], [], [], []
     off = 0
@@ -618,19 +675,23 @@ def run(args):
     global_stats["index"] = compute_stats(np.concatenate(idx_all))
     global_stats["episode_index"] = compute_stats(np.concatenate(ei_all))
     global_stats["task_index"] = compute_stats(np.concatenate(ti_all))
+
     # global image stats: average per-ep image stats weighted by count
     def agg_img_stats(stats_list):
         # mean/std/min/max/quantiles: aggregate via simple weighted mean for mean; min/max exact
         counts = np.array([s["count"][0] for s in stats_list], dtype=np.float64)
         tot = counts.sum()
+
         def wmean(key):
             acc = np.zeros((3, 1, 1))
             for s, c in zip(stats_list, counts):
                 acc += np.array(s[key]) * c
             return (acc / tot).tolist()
+
         def ext(key, fn):
             vals = np.stack([np.array(s[key]) for s in stats_list], axis=0)
             return fn(vals, axis=0).tolist()
+
         return {
             "min": ext("min", np.min),
             "max": ext("max", np.max),
@@ -643,6 +704,7 @@ def run(args):
             "q90": wmean("q90"),
             "q99": wmean("q99"),
         }
+
     global_stats["observation.images.ego"] = agg_img_stats(ep_image_stats)
 
     with open(out / "meta" / "stats.json", "w") as f:
@@ -651,6 +713,7 @@ def run(args):
     # Probe the produced stream instead of assuming MuJoCo's nominal size.
     try:
         import av as _av
+
         video_path = out / "videos" / "observation.images.ego" / "chunk-000" / "file-000.mp4"
         with _av.open(str(video_path)) as container:
             stream = container.streams.video[0]
@@ -688,17 +751,27 @@ def run(args):
 def build_arg_parser():
     """Build the argument parser for the lerobot subcommand."""
     ap = argparse.ArgumentParser(description="Step 7: LeRobot v3.0 Dataset Writer")
-    ap.add_argument("--ik_dir", required=True,
-                     help="Retarget output directory (contains {ep}_ik.npz and {ep}_robot_on_bg.mp4)")
-    ap.add_argument("--state_dir", required=True,
-                     help="Step 2 output directory (contains {ep}.npz for annotations and frame-count checks)")
-    ap.add_argument("--bg_video_dir", default=None,
-                     help="Directory containing {ep}_robot_on_bg.mp4; defaults to --ik_dir")
+    ap.add_argument(
+        "--ik_dir", required=True, help="Retarget output directory (contains {ep}_ik.npz and {ep}_robot_on_bg.mp4)"
+    )
+    ap.add_argument(
+        "--state_dir",
+        required=True,
+        help="Step 2 output directory (contains {ep}.npz for annotations and frame-count checks)",
+    )
+    ap.add_argument(
+        "--bg_video_dir", default=None, help="Directory containing {ep}_robot_on_bg.mp4; defaults to --ik_dir"
+    )
     ap.add_argument("--output_dir", required=True)
-    ap.add_argument("--tmp_dir", default=None,
-                     help="Temporary directory for AV1 re-encoding; defaults to <output_dir>/_tmp_av1")
-    ap.add_argument("--episodes", nargs="*", default=None,
-                     help="Explicit episode list; defaults to the sorted intersection of ik_dir and state_dir")
+    ap.add_argument(
+        "--tmp_dir", default=None, help="Temporary directory for AV1 re-encoding; defaults to <output_dir>/_tmp_av1"
+    )
+    ap.add_argument(
+        "--episodes",
+        nargs="*",
+        default=None,
+        help="Explicit episode list; defaults to the sorted intersection of ik_dir and state_dir",
+    )
     return ap
 
 

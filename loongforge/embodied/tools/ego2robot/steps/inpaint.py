@@ -30,6 +30,7 @@ Usage:
         --mask_dilation 4 --fp16 --ref_stride 10 --neighbor_length 10 \
         --subvideo_length 80 --raft_iter 20 --fps 30
 """
+
 import argparse
 import json
 import shutil
@@ -99,16 +100,26 @@ def run_propainter(
 ):
     """Run the ProPainter CLI with defaults matching the original Ego2Robot setup."""
     cmd = [
-        sys.executable, "inference_propainter.py",
-        "-i", str(frames_dir),
-        "-m", str(masks_dir),
-        "-o", str(out_root),
-        "--mask_dilation", str(mask_dilation),
-        "--ref_stride", str(ref_stride),
-        "--neighbor_length", str(neighbor_length),
-        "--subvideo_length", str(subvideo_length),
-        "--raft_iter", str(raft_iter),
-        "--save_fps", str(fps),
+        sys.executable,
+        "inference_propainter.py",
+        "-i",
+        str(frames_dir),
+        "-m",
+        str(masks_dir),
+        "-o",
+        str(out_root),
+        "--mask_dilation",
+        str(mask_dilation),
+        "--ref_stride",
+        str(ref_stride),
+        "--neighbor_length",
+        str(neighbor_length),
+        "--subvideo_length",
+        str(subvideo_length),
+        "--raft_iter",
+        str(raft_iter),
+        "--save_fps",
+        str(fps),
         "--save_frames",
     ]
     if fp16:
@@ -132,8 +143,11 @@ def build_debug_video(frames, masks, bg_frames, out_path: Path, fps: int):
         green[:, :, 1] = 255
         mask3 = (m > 0)[:, :, None]
         overlay = np.where(mask3, (0.4 * overlay + 0.6 * green).astype(np.uint8), overlay)
-        bg_bgr = cv2.cvtColor(bg, cv2.COLOR_RGB2BGR) if bg.shape[:2] == (H, W) else cv2.resize(
-            cv2.cvtColor(bg, cv2.COLOR_RGB2BGR), (W, H))
+        bg_bgr = (
+            cv2.cvtColor(bg, cv2.COLOR_RGB2BGR)
+            if bg.shape[:2] == (H, W)
+            else cv2.resize(cv2.cvtColor(bg, cv2.COLOR_RGB2BGR), (W, H))
+        )
         panel = np.hstack([orig_bgr, overlay, bg_bgr])
         writer.write(panel)
     writer.release()
@@ -144,11 +158,22 @@ def build_debug_video(frames, masks, bg_frames, out_path: Path, fps: int):
     reencode_h264(str(out_path))
 
 
-def episode_inpaint(ep_hash: str, zarr_dir: Path, mask_dir: Path, output_dir: Path,
-                     mask_dilation: int, fps: int, save_frames: bool, max_frames: int = 0,
-                     chunk_frames: int = 120, fp16: bool = True,
-                     ref_stride: int = 10, neighbor_length: int = 10,
-                     subvideo_length: int = 80, raft_iter: int = 20):
+def episode_inpaint(
+    ep_hash: str,
+    zarr_dir: Path,
+    mask_dir: Path,
+    output_dir: Path,
+    mask_dilation: int,
+    fps: int,
+    save_frames: bool,
+    max_frames: int = 0,
+    chunk_frames: int = 120,
+    fp16: bool = True,
+    ref_stride: int = 10,
+    neighbor_length: int = 10,
+    subvideo_length: int = 80,
+    raft_iter: int = 20,
+):
     """Run ProPainter on one episode and output bg.mp4, debug video, and meta.json.
 
     ProPainter loads the entire video into GPU memory at once, so long episodes with
@@ -267,14 +292,10 @@ def build_arg_parser():
         default=True,
         help="Use fp16 during ProPainter inference (Ego2Robot: enabled)",
     )
-    ap.add_argument("--ref_stride", type=int, default=10,
-                    help="Stride of global reference frames")
-    ap.add_argument("--neighbor_length", type=int, default=10,
-                    help="Length of local neighboring frames")
-    ap.add_argument("--subvideo_length", type=int, default=80,
-                    help="Length of sub-video for long-video inference")
-    ap.add_argument("--raft_iter", type=int, default=20,
-                    help="Iterations for RAFT inference")
+    ap.add_argument("--ref_stride", type=int, default=10, help="Stride of global reference frames")
+    ap.add_argument("--neighbor_length", type=int, default=10, help="Length of local neighboring frames")
+    ap.add_argument("--subvideo_length", type=int, default=80, help="Length of sub-video for long-video inference")
+    ap.add_argument("--raft_iter", type=int, default=20, help="Iterations for RAFT inference")
     ap.add_argument("--fps", type=int, default=30)
     ap.add_argument("--save_frames", action="store_true")
     ap.add_argument("--max_frames", type=int, default=0, help="Debugging: process only the first N frames; 0 means all")
@@ -288,24 +309,27 @@ def run(args):
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    eps = args.episodes or sorted(
-        d.name for d in mask_dir.iterdir() if d.is_dir() and (d / "masks.npz").exists()
-    )
+    eps = args.episodes or sorted(d.name for d in mask_dir.iterdir() if d.is_dir() and (d / "masks.npz").exists())
     print(f"{len(eps)} episodes -> {output_dir}")
     for i, ep in enumerate(eps):
-        print(f"[{i+1}/{len(eps)}] {ep}")
+        print(f"[{i + 1}/{len(eps)}] {ep}")
         try:
             meta = episode_inpaint(
-                ep, zarr_dir, mask_dir, output_dir,
-                args.mask_dilation, args.fps, args.save_frames, args.max_frames,
+                ep,
+                zarr_dir,
+                mask_dir,
+                output_dir,
+                args.mask_dilation,
+                args.fps,
+                args.save_frames,
+                args.max_frames,
                 fp16=args.fp16,
                 ref_stride=args.ref_stride,
                 neighbor_length=args.neighbor_length,
                 subvideo_length=args.subvideo_length,
                 raft_iter=args.raft_iter,
             )
-            print(f"  done: {meta['n_frames']}f, mask_area={meta['mean_mask_area']:.3f}, "
-                  f"{meta['elapsed_sec']}s")
+            print(f"  done: {meta['n_frames']}f, mask_area={meta['mean_mask_area']:.3f}, {meta['elapsed_sec']}s")
         except Exception as e:
             print(f"  FAILED: {e}")
 

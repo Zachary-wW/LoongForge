@@ -228,12 +228,9 @@ class McoreCheckpoint(AbstractCheckpoint):
                 # The tower is replicated (not TP-sharded), so every rank
                 # carries the full copy.
                 if is_glm5_next_config(self.c_config):
-                    visual = {
-                        key: value for key, value in c_ckpt.model_dict.items()
-                        if key.startswith("model.visual.")
-                    }
+                    visual = {key: value for key, value in c_ckpt.model_dict.items() if key.startswith("model.visual.")}
                     if visual:
-                        stripped = {key[len("model.visual."):]: value for key, value in visual.items()}
+                        stripped = {key[len("model.visual.") :]: value for key, value in visual.items()}
                         for rank in m_dict:
                             m_dict[rank]["model.visual"] = dict(stripped)
                         logging.info("passed through %d GLM-5.3 vision tensors to mcore", len(visual))

@@ -76,9 +76,7 @@ WRIST_CAM_ROT = np.diag([-1.0, 1.0, -1.0])
 # Preserve the calibrated Panda wrist-camera placement from the legacy
 # pipeline.  Other morphologies use the common TCP-frame calibration above.
 WRIST_LINK_OFFSET = np.array([0.000, 0.015, 0.050])
-WRIST_CAM_QUAT_TO_MAT = np.array([[-1.0, 0.0, 0.0],
-                                  [0.0, 1.0, 0.0],
-                                  [0.0, 0.0, -1.0]])
+WRIST_CAM_QUAT_TO_MAT = np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]])
 
 
 # ============ Rendering helpers (copied inline from the original step4_g1_pipeline.py) ============
@@ -159,8 +157,7 @@ def tone_map_robot(rgb):
     return (255.0 * (rgb.astype(np.float32) / 255.0) ** 0.55).astype(np.uint8)
 
 
-def build_dual_model(left_pos, left_quat, right_pos, right_quat, fovy_deg,
-                     spec=None):
+def build_dual_model(left_pos, left_quat, right_pos, right_quat, fovy_deg, spec=None):
     """Instantiate two copies of a registered morphology and an ego camera."""
     spec = spec or get_robot_spec("panda")
     xml = DUAL_WRAPPER_TMPL.format(
@@ -213,21 +210,18 @@ def set_ego_camera(data, head_pose7):
 def set_wrist_cameras(data, model, spec, opening_widths=None):
     """Place both wrist cameras from the morphology's calibrated TCP frame."""
     widths = (None, None) if opening_widths is None else opening_widths
-    for (prefix, mocap_body), opening_width in zip(
-            (("left_", "wrist_l_m"), ("right_", "wrist_r_m")), widths):
+    for (prefix, mocap_body), opening_width in zip((("left_", "wrist_l_m"), ("right_", "wrist_r_m")), widths):
         ref_kind, ref_id = resolve_prefixed_ee_ref(model, spec, prefix)
         if ref_kind == "site":
             ref_pos = data.site_xpos[ref_id]
             ref_rot = data.site_xmat[ref_id].reshape(3, 3)
             tcp_offset = np.asarray(spec.tcp_pos_site, dtype=float).copy()
             if opening_width is not None:
-                tcp_offset += (
-                    float(np.clip(opening_width, 0.0, spec.gripper_max)) *
-                    np.asarray(spec.tcp_pos_site_width_gain, dtype=float)
+                tcp_offset += float(np.clip(opening_width, 0.0, spec.gripper_max)) * np.asarray(
+                    spec.tcp_pos_site_width_gain, dtype=float
                 )
             tcp_pos = ref_pos + ref_rot @ tcp_offset
-            side_rot = (spec.tcp_rot_site_left if prefix == "left_"
-                        else spec.tcp_rot_site_right)
+            side_rot = spec.tcp_rot_site_left if prefix == "left_" else spec.tcp_rot_site_right
             if side_rot is None:
                 side_rot = spec.tcp_rot_site
             tcp_rot = ref_rot @ _quat_to_mat(side_rot)
@@ -246,8 +240,7 @@ def set_wrist_cameras(data, model, spec, opening_widths=None):
             cam_pos = tcp_pos + tcp_rot @ WRIST_TCP_OFFSET
             cam_rot = tcp_rot @ WRIST_CAM_ROT
 
-        mocap_body_id = mujoco.mj_name2id(
-            model, mujoco.mjtObj.mjOBJ_BODY, mocap_body)
+        mocap_body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, mocap_body)
         if mocap_body_id < 0:
             raise ValueError(f"wrist camera mocap body not found: {mocap_body}")
         mocap_id = int(model.body_mocapid[mocap_body_id])
@@ -274,7 +267,7 @@ def render_rgb_and_mask(model, data, renderer, cam_id, with_depth=True):
     renderer.update_scene(data, camera=cam_id)
     try:
         seg = renderer.render()
-        mask = (seg[:, :, 0] >= 0)
+        mask = seg[:, :, 0] >= 0
     except (IndexError, ValueError, RuntimeError):
         # MuJoCo 3.11 can return stale ID-color pixels for models whose
         # attached XML contains non-contiguous geom IDs.  The scene contains
@@ -328,46 +321,64 @@ def gripper_width_to_qpos(w, spec):
     if spec.gripper_mode == "sawyer_electric":
         # Native Sawyer Electric Gripper uses mirrored prismatic joints with
         # 20.833 mm travel per finger (Intera Xacro, standard_narrow fingers).
-        q = float(np.clip(
-            w / max(spec.gripper_max, 1e-8) * 0.020833,
-            0.0, 0.020833,
-        ))
+        q = float(
+            np.clip(
+                w / max(spec.gripper_max, 1e-8) * 0.020833,
+                0.0,
+                0.020833,
+            )
+        )
         return (q, -q)
     if spec.gripper_mode == "jaco":
         # The Jaco hand has three coupled hinge joints, with a 0.15..1.35 rad range.
-        q = float(np.clip(
-            1.35 - w / max(spec.gripper_max, 1e-8) * 1.2,
-            0.15, 1.35,
-        ))
+        q = float(
+            np.clip(
+                1.35 - w / max(spec.gripper_max, 1e-8) * 1.2,
+                0.15,
+                1.35,
+            )
+        )
         return (q, q, q)
     if spec.gripper_mode == "viper_asymmetric":
         # Front pad-center gap is 2*q - 25 mm.  Map to that physical gap,
         # instead of interpolating the rail joint range directly.
-        q = float(np.clip(
-            (float(np.clip(w, 0.0, spec.gripper_max)) + 0.025) * 0.5,
-            0.021, 0.057,
-        ))
+        q = float(
+            np.clip(
+                (float(np.clip(w, 0.0, spec.gripper_max)) + 0.025) * 0.5,
+                0.021,
+                0.057,
+            )
+        )
         return (q, -q)
     if spec.gripper_mode == "widowx_asymmetric":
         # Front contact-marker gap is 2*q - 18 mm.
-        q = float(np.clip(
-            (float(np.clip(w, 0.0, spec.gripper_max)) + 0.018) * 0.5,
-            0.015, 0.037,
-        ))
+        q = float(
+            np.clip(
+                (float(np.clip(w, 0.0, spec.gripper_max)) + 0.018) * 0.5,
+                0.015,
+                0.037,
+            )
+        )
         return (q, -q)
     if spec.name == "arx_l5":
         # ARX front pad-center gap is 3.8 mm + 2*q.
-        q = float(np.clip(
-            (float(np.clip(w, 0.0, spec.gripper_max)) - 0.0038) * 0.5,
-            0.0, 0.044,
-        ))
+        q = float(
+            np.clip(
+                (float(np.clip(w, 0.0, spec.gripper_max)) - 0.0038) * 0.5,
+                0.0,
+                0.044,
+            )
+        )
         return (q, -q)
     if spec.name == "piper":
         # Piper front pad-center gap is 5 mm + 2*q.
-        q = float(np.clip(
-            (float(np.clip(w, 0.0, spec.gripper_max)) - 0.005) * 0.5,
-            0.0, 0.035,
-        ))
+        q = float(
+            np.clip(
+                (float(np.clip(w, 0.0, spec.gripper_max)) - 0.005) * 0.5,
+                0.0,
+                0.035,
+            )
+        )
         return (q, -q)
     if spec.gripper_mode == "aloha":
         # The visual finger meshes overlap by 15.7 mm at q=0; their actual
@@ -376,10 +387,13 @@ def gripper_width_to_qpos(w, spec):
         # for IK only, but using their separation here makes the rendered
         # gripper visibly too narrow relative to the human fingertips.
         visual_inner_overlap = 0.0157
-        q = float(np.clip(
-            (float(np.clip(w, 0.0, spec.gripper_max)) + visual_inner_overlap) * 0.5,
-            0.0, 0.041,
-        ))
+        q = float(
+            np.clip(
+                (float(np.clip(w, 0.0, spec.gripper_max)) + visual_inner_overlap) * 0.5,
+                0.0,
+                0.041,
+            )
+        )
         return (q, q)
     if spec.gripper_mode == "so101":
         # The upstream README notes that LeRobot's linear opening is not yet
@@ -404,7 +418,7 @@ def set_gripper_qpos(qpos, qadr, spec, width):
         if i < len(values):
             qpos[qa] = values[i]
     if spec.gripper_all_joints:
-        for qa in qadr[len(values):]:
+        for qa in qadr[len(values) :]:
             qpos[qa] = values[0]
 
 

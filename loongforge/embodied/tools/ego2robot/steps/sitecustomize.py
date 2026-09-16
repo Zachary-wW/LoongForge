@@ -33,11 +33,13 @@ except Exception:
     model_loader = None
 
 if model_loader is not None and not hasattr(model_loader, "load_model"):
+
     def load_model(*args, **kwargs):
         raise RuntimeError(
             "The legacy human_body_prior load_model API is unavailable; "
             "install a compatible release for run_prior=True."
         )
+
     model_loader.load_model = load_model
 
 try:

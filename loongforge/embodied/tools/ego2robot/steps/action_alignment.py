@@ -59,8 +59,8 @@ def compute_gripper_width(keypoints_seq: np.ndarray) -> np.ndarray:
     N = keypoints_seq.shape[0]
     kp = keypoints_seq.reshape(N, 21, 3)
 
-    thumb_tip = kp[:, THUMB_TIP_IDX, :]    # (N, 3)
-    index_tip = kp[:, INDEX_TIP_IDX, :]    # (N, 3)
+    thumb_tip = kp[:, THUMB_TIP_IDX, :]  # (N, 3)
+    index_tip = kp[:, INDEX_TIP_IDX, :]  # (N, 3)
     middle_tip = kp[:, MIDDLE_TIP_IDX, :]  # (N, 3)
 
     # Virtual finger.
@@ -75,6 +75,7 @@ def compute_gripper_width(keypoints_seq: np.ndarray) -> np.ndarray:
 # ============================================================
 # 2. State Construction
 # ============================================================
+
 
 def construct_state(
     left_ee_pose: np.ndarray,
@@ -97,15 +98,18 @@ def construct_state(
     Returns:
         state: (N, 16)
     """
-    left_gripper = compute_gripper_width(left_keypoints)[:, None]   # (N, 1)
+    left_gripper = compute_gripper_width(left_keypoints)[:, None]  # (N, 1)
     right_gripper = compute_gripper_width(right_keypoints)[:, None]  # (N, 1)
 
-    state = np.concatenate([
-        left_ee_pose,     # (N, 7)
-        right_ee_pose,    # (N, 7)
-        left_gripper,     # (N, 1)
-        right_gripper,    # (N, 1)
-    ], axis=1)  # (N, 16)
+    state = np.concatenate(
+        [
+            left_ee_pose,  # (N, 7)
+            right_ee_pose,  # (N, 7)
+            left_gripper,  # (N, 1)
+            right_gripper,  # (N, 1)
+        ],
+        axis=1,
+    )  # (N, 16)
 
     return state
 
@@ -113,6 +117,7 @@ def construct_state(
 # ============================================================
 # 3. Action Construction
 # ============================================================
+
 
 def construct_action(state: np.ndarray, skip: int = 5) -> np.ndarray:
     """
@@ -145,6 +150,7 @@ def construct_action(state: np.ndarray, skip: int = 5) -> np.ndarray:
 # ============================================================
 # 4. Optional Smoothing (Savitzky-Golay)
 # ============================================================
+
 
 def smooth_state(state: np.ndarray, window: int = 11, polyorder: int = 3) -> np.ndarray:
     """
@@ -185,6 +191,7 @@ def smooth_state(state: np.ndarray, window: int = 11, polyorder: int = 3) -> np.
 # 5. Main Pipeline
 # ============================================================
 
+
 def process_episode(
     npz_path: str,
     skip: int = 5,
@@ -199,10 +206,10 @@ def process_episode(
     """
     data = np.load(npz_path, allow_pickle=True)
 
-    left_ee = data["left_obs_ee_pose"]       # (N, 7)
-    right_ee = data["right_obs_ee_pose"]     # (N, 7)
-    left_kp = data["left_obs_keypoints"]     # (N, 63)
-    right_kp = data["right_obs_keypoints"]   # (N, 63)
+    left_ee = data["left_obs_ee_pose"]  # (N, 7)
+    right_ee = data["right_obs_ee_pose"]  # (N, 7)
+    left_kp = data["left_obs_keypoints"]  # (N, 63)
+    right_kp = data["right_obs_keypoints"]  # (N, 63)
     total_frames = int(data["total_frames"])
     timestamps_ns = data["timestamps_ns"]
 
@@ -224,22 +231,25 @@ def process_episode(
     # Sanity checks
     left_gripper = state[:, 14]
     right_gripper = state[:, 15]
-    print(f"    Left gripper: min={left_gripper.min():.4f} max={left_gripper.max():.4f} "
-          f"mean={left_gripper.mean():.4f}")
-    print(f"    Right gripper: min={right_gripper.min():.4f} max={right_gripper.max():.4f} "
-          f"mean={right_gripper.mean():.4f}")
+    print(f"    Left gripper: min={left_gripper.min():.4f} max={left_gripper.max():.4f} mean={left_gripper.mean():.4f}")
+    print(
+        f"    Right gripper: min={right_gripper.min():.4f} max={right_gripper.max():.4f} "
+        f"mean={right_gripper.mean():.4f}"
+    )
 
     # Check ee_pose quaternion normalization (inherited from Step 1 and expected
     # to contain unit quaternions).
     left_quat_norms = np.linalg.norm(state[:, 3:7], axis=1)
     right_quat_norms = np.linalg.norm(state[:, 10:14], axis=1)
-    print(f"    Quat norms — left: [{left_quat_norms.min():.6f}, {left_quat_norms.max():.6f}], "
-          f"right: [{right_quat_norms.min():.6f}, {right_quat_norms.max():.6f}]")
+    print(
+        f"    Quat norms — left: [{left_quat_norms.min():.6f}, {left_quat_norms.max():.6f}], "
+        f"right: [{right_quat_norms.min():.6f}, {right_quat_norms.max():.6f}]"
+    )
 
     result = {
-        "state": state,                     # (N, 16)
-        "action": action,                   # (N, 16)
-        "timestamps_ns": timestamps_ns,     # (N,)
+        "state": state,  # (N, 16)
+        "action": action,  # (N, 16)
+        "timestamps_ns": timestamps_ns,  # (N,)
         "total_frames": total_frames,
         "skip": skip,
         "smoothed": smooth and total_frames >= smooth_window,
@@ -278,7 +288,7 @@ def run(args):
     results = []
     for i, npz_file in enumerate(npz_files):
         ep_name = npz_file.stem
-        print(f"\n[{i+1}/{len(npz_files)}] Episode: {ep_name}")
+        print(f"\n[{i + 1}/{len(npz_files)}] Episode: {ep_name}")
 
         result = process_episode(
             str(npz_file),
@@ -302,15 +312,17 @@ def run(args):
             episode_path=result["episode_path"],
             annotations=result["annotations"],
         )
-        results.append({
-            "name": ep_name,
-            "frames": result["total_frames"],
-            "file": output_file,
-        })
+        results.append(
+            {
+                "name": ep_name,
+                "frames": result["total_frames"],
+                "file": output_file,
+            }
+        )
         print(f"    Saved → {output_file}")
 
     # Summary.
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Step 2 Path A Complete: {len(results)}/{len(npz_files)} episodes processed")
     print("State/Action shape: (N, 16)")
     print(f"Action construction: state[t + {args.skip}]")
