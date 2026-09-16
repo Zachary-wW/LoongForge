@@ -77,13 +77,16 @@ class HashBucketProcessor:
 
     DTYPE_SAMPLE_INFO = np.dtype(
         [
-            # Used to store the weights of the ViT part (which can be the number of pixels of the ViT part or
+            # Used to store the weights of the ViT part (which can be the number of pixels of the ViT part or  # noqa: E501
             # the processing capacity of the ViT part)
             (
                 HASH_BUCKET_WEIGHT_KEY,
                 np.uint16,
             ),
-            (HASH_BUCKET_TOKEN_LEN_KEY, TOKEN_LEN_DTYPE),  # Stores token length. uint16 cannot represent 64k (=65536).
+            (
+                HASH_BUCKET_TOKEN_LEN_KEY,
+                TOKEN_LEN_DTYPE,
+            ),  # Stores token length. uint16 cannot represent 64k (=65536).
             (
                 HASH_BUCKET_SAMPLE_ID_KEY,
                 object,
@@ -91,7 +94,9 @@ class HashBucketProcessor:
         ]
     )
 
-    def __init__(self, file_path: Optional[Union[str, Path]] = None, logger: Optional[logging.Logger] = None):
+    def __init__(
+        self, file_path: Optional[Union[str, Path]] = None, logger: Optional[logging.Logger] = None
+    ):
         self.file_path = Path(file_path) if file_path is not None else None
         if self.file_path is not None and not self.file_path.exists():
             raise FileNotFoundError(f"The file does not exist: {file_path}")
@@ -157,7 +162,9 @@ class HashBucketProcessor:
             pass
         return None
 
-    def _parse_item(self, item: Union[PackItem, Mapping[str, object]]) -> Optional[Tuple[int, int, str]]:
+    def _parse_item(
+        self, item: Union[PackItem, Mapping[str, object]]
+    ) -> Optional[Tuple[int, int, str]]:
         """Parse one structured pack item and return (weight, token_len, sample_id)."""
         if isinstance(item, PackItem):
             sample_id = item.sample_id
@@ -171,7 +178,9 @@ class HashBucketProcessor:
         if not sample_id:
             return None
         if 0 <= token_len <= self.MAX_TOKEN_LEN_VALUE:
-            return pack_item_to_hashbucket_tuple(PackItem(sample_id=sample_id, token_len=token_len, weight=weight))
+            return pack_item_to_hashbucket_tuple(
+                PackItem(sample_id=sample_id, token_len=token_len, weight=weight)
+            )
         return None
 
     def _bucket_pack_items(self) -> List[PackItem]:
@@ -206,7 +215,9 @@ class HashBucketProcessor:
     def build_buckets(self, chunk_size: int = 100000) -> None:
         """Build a hash bucket"""
         if self.file_path is None:
-            raise ValueError("build_buckets requires file_path; use build_buckets_from_items for structured input")
+            raise ValueError(
+                "build_buckets requires file_path; use build_buckets_from_items for structured input"  # noqa: E501
+            )
         self.total_lines = self._count_file_lines()
         self._logger.info(f"Start processing the file. Total number of lines: {self.total_lines}")
 
@@ -392,8 +403,12 @@ class HashBucketProcessor:
         # 5. Log the operation
         if verbose or stats["changes"]["keys_removed"] > 0:
             self._logger.info("Hash bucket update completed:")
-            self._logger.info(f"  Number of keys: {stats['before']['total_keys']} → {stats['after']['total_keys']}")
-            self._logger.info(f"  Total items: {stats['before']['total_items']} → {stats['after']['total_items']}")
+            self._logger.info(
+                f"  Number of keys: {stats['before']['total_keys']} → {stats['after']['total_keys']}"  # noqa: E501
+            )
+            self._logger.info(
+                f"  Total items: {stats['before']['total_items']} → {stats['after']['total_items']}"
+            )
             self._logger.info(f"  Empty keys removed: {stats['changes']['keys_removed']}")
 
         return stats
@@ -466,7 +481,7 @@ class HashBucketProcessor:
 
         boxes = []
 
-        # Maintain a deque for each key for easy popping (only consider buckets with existing elements)
+        # Maintain a deque for each key for easy popping (only consider buckets with existing elements)  # noqa: E501
         key_queues = {
             k: deque(enumerate(self.hash_buckets[k]))
             for k in self.hb2_keys
@@ -522,15 +537,23 @@ class HashBucketProcessor:
                     if k in self.hash_buckets and len(self.hash_buckets[k]) > 0
                 ]
                 # Remaining keys for packing
-                left_keys = [k for k in self.hb2_keys if k in self.hash_buckets and len(self.hash_buckets[k]) > 0]
-                print(f"Remaining keys and their element counts: (keys, counts):({left_keys},{left_elems})")
+                left_keys = [
+                    k
+                    for k in self.hb2_keys
+                    if k in self.hash_buckets and len(self.hash_buckets[k]) > 0
+                ]
+                print(
+                    f"Remaining keys and their element counts: (keys, counts):({left_keys},{left_elems})"  # noqa: E501
+                )
                 if len(set(left_elems)) == 1:
                     self._logger.info("Change packing strategy to break the cycle")
                     b_succeed = False
                     # todo ...... Packing without considering diversity
                     current_box2 = []
                     current_sum2 = 0
-                    used_keys_num = defaultdict(int)  # Record how many elements are used from this bucket
+                    used_keys_num = defaultdict(
+                        int
+                    )  # Record how many elements are used from this bucket
                     for key2 in left_keys:  # Take one bucket
                         if b_succeed:  # Only pack one
                             print("Changed strategy packing succeeded:")
@@ -544,12 +567,16 @@ class HashBucketProcessor:
                                 used_keys_num[key2] += 1
 
                                 if current_sum2 == box_capacity:
-                                    boxes.append(np.array(current_box2, dtype=self.DTYPE_SAMPLE_INFO))
+                                    boxes.append(
+                                        np.array(current_box2, dtype=self.DTYPE_SAMPLE_INFO)
+                                    )
                                     current_box2 = []
                                     current_sum2 = 0
                                     for kkey, knum in used_keys_num.items():
                                         for _ in range(knum):
-                                            self.hash_buckets[kkey] = np.delete(self.hash_buckets[kkey], 0)
+                                            self.hash_buckets[kkey] = np.delete(
+                                                self.hash_buckets[kkey], 0
+                                            )
                                         key_queues[kkey] = deque(enumerate(self.hash_buckets[key]))
 
                                     print(f"Changed strategy packing succeeded:{boxes[-1]}")
@@ -574,7 +601,7 @@ class HashBucketProcessor:
         until only one non-full box remains.
         (Used for separately handling keys where (box_capacity/key)==2^n)
         Implemented recursively
-        """
+        """  # noqa: E501
         from collections import deque, defaultdict
 
         def recursive_diversity_pack(key_queues):
@@ -605,7 +632,9 @@ class HashBucketProcessor:
 
                 if current_sum == box_capacity:
                     # Full box, output and record indices to delete
-                    boxes.append(np.array([item for _, _, item in current_box], dtype=self.DTYPE_SAMPLE_INFO))
+                    boxes.append(
+                        np.array([item for _, _, item in current_box], dtype=self.DTYPE_SAMPLE_INFO)
+                    )
                     for key, indices in used_indices.items():
                         # Delete used elements
                         indices = sorted(indices, reverse=True)
@@ -620,7 +649,11 @@ class HashBucketProcessor:
             return boxes, not_full_items
 
         # Initialize key_queues
-        key_queues = {k: deque(enumerate(self.hash_buckets[k])) for k in self.hb2_keys if k in self.hash_buckets}
+        key_queues = {
+            k: deque(enumerate(self.hash_buckets[k]))
+            for k in self.hb2_keys
+            if k in self.hash_buckets
+        }
         boxes, not_full_items = recursive_diversity_pack(key_queues)
 
         # Mix all non-full box elements for recursive packing
@@ -629,7 +662,10 @@ class HashBucketProcessor:
             mixed = defaultdict(list)
             for _, _, item in not_full_items:
                 mixed[pack_item_from_hashbucket_record(item).token_len].append(item)
-            key_queues = {k: deque(enumerate(np.array(v, dtype=self.DTYPE_SAMPLE_INFO))) for k, v in mixed.items()}
+            key_queues = {
+                k: deque(enumerate(np.array(v, dtype=self.DTYPE_SAMPLE_INFO)))
+                for k, v in mixed.items()
+            }
             new_boxes, new_not_full_items = recursive_diversity_pack(key_queues)
             boxes.extend(new_boxes)
             if not new_boxes or not new_not_full_items:
@@ -672,7 +708,9 @@ class HashBucketProcessor:
             return box_index
 
         skipped = []
-        for item in tqdm(items, unit="item", desc="Best-fit decreasing packing", dynamic_ncols=True):
+        for item in tqdm(
+            items, unit="item", desc="Best-fit decreasing packing", dynamic_ncols=True
+        ):
             token_len = item.token_len
             if token_len < 0 or token_len > box_capacity:
                 skipped.append(item.sample_id)
@@ -725,7 +763,7 @@ class HashBucketProcessor:
 
         Returns:
             List[np.ndarray]: List of successfully packed boxes
-        """
+        """  # noqa: E501
         if max_workers is None:
             max_workers = min(os.cpu_count(), 8)  # Limit maximum number of threads
 
@@ -772,7 +810,10 @@ class HashBucketProcessor:
                         self.hash_buckets[target_key] = self.hash_buckets[target_key][1:]
 
                         # If this key's bucket is empty, remove from available_small_keys
-                        if len(self.hash_buckets[target_key]) == 0 and target_key in self.available_small_keys:
+                        if (
+                            len(self.hash_buckets[target_key]) == 0
+                            and target_key in self.available_small_keys
+                        ):
                             self.available_small_keys.remove(target_key)
 
                         return True, item
@@ -818,7 +859,9 @@ class HashBucketProcessor:
             return -1 if index == 0 else (index - 1)
 
         # 3. Single seed packing function
-        def pack_single_seed(seed_key: int, shared_manager: SharedResourceManager, thread_id: int) -> tuple:
+        def pack_single_seed(
+            seed_key: int, shared_manager: SharedResourceManager, thread_id: int
+        ) -> tuple:
             """Pack items for a single seed"""
             try:
                 # Get seed item
@@ -912,7 +955,9 @@ class HashBucketProcessor:
         failed_reasons = defaultdict(int)
         start_time = time.time()
 
-        with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="PackWorker") as executor:
+        with ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="PackWorker"
+        ) as executor:
             # Submit all tasks
             future_to_task = {}
             for i, seed_key in enumerate(seed_tasks):
@@ -920,7 +965,9 @@ class HashBucketProcessor:
                 future_to_task[future] = (seed_key, i)
 
             # Process results
-            with tqdm(total=len(seed_tasks), unit="seed", desc="Multithreaded Packing", dynamic_ncols=True) as pbar:
+            with tqdm(
+                total=len(seed_tasks), unit="seed", desc="Multithreaded Packing", dynamic_ncols=True
+            ) as pbar:
                 for future in as_completed(future_to_task):
                     seed_key, task_id = future_to_task[future]
 
@@ -980,7 +1027,11 @@ class HashBucketProcessor:
         return output_boxes
 
     def pack_with_min_items_constraint_multithread(
-        self, box_capacity: int = 16384, min_items: int = 10, min_ratio: float = 0.95, max_workers: int = None
+        self,
+        box_capacity: int = 16384,
+        min_items: int = 10,
+        min_ratio: float = 0.95,
+        max_workers: int = None,
     ) -> List[np.ndarray]:
         """
         Multi-threaded multi-constraint bin packing: capacity constraint + minimum item count constraint
@@ -993,7 +1044,7 @@ class HashBucketProcessor:
 
         Returns:
             List[np.ndarray]: list of bins satisfying all constraints
-        """
+        """  # noqa: E501
         if max_workers is None:
             max_workers = min(
                 os.cpu_count(), 6
@@ -1044,7 +1095,8 @@ class HashBucketProcessor:
                 count_score = min(total_items / self.min_items, 1.0) if self.min_items > 0 else 1.0
                 capacity_score = seed_key / self.box_capacity
                 diversity_score = (
-                    len([k for k in self.small_keys if k <= remaining_capacity]) / len(self.small_keys)
+                    len([k for k in self.small_keys if k <= remaining_capacity])
+                    / len(self.small_keys)
                     if self.small_keys
                     else 0
                 )
@@ -1139,7 +1191,10 @@ class HashBucketProcessor:
 
         # 3. Intelligent packing strategy
         def is_feasible_quick_check(
-            remaining_capacity: int, current_items: int, available_keys: Dict[int, int], min_items: int
+            remaining_capacity: int,
+            current_items: int,
+            available_keys: Dict[int, int],
+            min_items: int,
         ) -> bool:
             """Quick feasibility check"""
             if current_items >= min_items:
@@ -1167,10 +1222,18 @@ class HashBucketProcessor:
             return False
 
         def select_optimal_key(
-            strategy: str, available_keys: Dict[int, int], remaining_capacity: int, current_items: int, min_items: int
+            strategy: str,
+            available_keys: Dict[int, int],
+            remaining_capacity: int,
+            current_items: int,
+            min_items: int,
         ) -> Optional[int]:
             """Select optimal key based on strategy"""
-            suitable_keys = [k for k in available_keys.keys() if k <= remaining_capacity and available_keys[k] > 0]
+            suitable_keys = [
+                k
+                for k in available_keys.keys()
+                if k <= remaining_capacity and available_keys[k] > 0
+            ]
             if not suitable_keys:
                 return None
 
@@ -1184,7 +1247,9 @@ class HashBucketProcessor:
                 # Balanced strategy: select medium size, but consider available quantity
                 suitable_keys.sort()
                 # Prefer keys with more available elements
-                key_scores = [(k, available_keys[k] * (remaining_capacity / k)) for k in suitable_keys]
+                key_scores = [
+                    (k, available_keys[k] * (remaining_capacity / k)) for k in suitable_keys
+                ]
                 key_scores.sort(key=lambda x: x[1], reverse=True)
                 return key_scores[0][0]
             else:
@@ -1226,7 +1291,14 @@ class HashBucketProcessor:
                         # Cannot reach minimum item count, exit early
                         shared_manager.rollback_items(used_items)
                         shared_manager.update_stats("failed_by_count")
-                        return False, None, thread_id, 0, items_count, f"Cannot reach {min_items} items"
+                        return (
+                            False,
+                            None,
+                            thread_id,
+                            0,
+                            items_count,
+                            f"Cannot reach {min_items} items",
+                        )
 
                     # Dynamic strategy selection
                     if items_count < min_items * 0.8:
@@ -1314,10 +1386,12 @@ class HashBucketProcessor:
         # Sort by potential, only process high-potential seeds
         seed_candidates.sort(key=lambda x: x[1], reverse=True)
         potential_threshold = 0.2  # Only process seeds with potential > 0.2
-        # high_potential_seeds = [seed for seed, potential in seed_candidates if potential > potential_threshold]
+        # high_potential_seeds = [seed for seed, potential in seed_candidates if potential > potential_threshold]  # noqa: E501
         # Fix: Correctly handle screening logic
         high_potential_candidates = [
-            (seed, potential) for seed, potential in seed_candidates if potential > potential_threshold
+            (seed, potential)
+            for seed, potential in seed_candidates
+            if potential > potential_threshold
         ]
 
         # Final fallback: keep at least top 50% of seeds
@@ -1348,23 +1422,32 @@ class HashBucketProcessor:
         detailed_results = []
         start_time = time.time()
 
-        with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="ConstraintPack") as executor:
+        with ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="ConstraintPack"
+        ) as executor:
             # Submit all tasks
             future_to_seed = {}
             for i, seed_key in enumerate(selected_seeds):
-                future = executor.submit(pack_single_seed_with_constraints, seed_key, shared_manager, i)
+                future = executor.submit(
+                    pack_single_seed_with_constraints, seed_key, shared_manager, i
+                )
                 future_to_seed[future] = (seed_key, i)
 
             # Process results
             with tqdm(
-                total=len(selected_seeds), unit="seed", desc="Multi-constraint packing", dynamic_ncols=True
+                total=len(selected_seeds),
+                unit="seed",
+                desc="Multi-constraint packing",
+                dynamic_ncols=True,
             ) as pbar:
                 completed_tasks = 0
                 for future in as_completed(future_to_seed):
                     seed_key, task_id = future_to_seed[future]
 
                     try:
-                        success, box, thread_id, capacity, item_count, info = future.result(timeout=60)
+                        success, box, thread_id, capacity, item_count, info = future.result(
+                            timeout=60
+                        )
 
                         if success and box is not None:
                             output_boxes.append(np.array(box, dtype=self.DTYPE_SAMPLE_INFO))
@@ -1386,9 +1469,11 @@ class HashBucketProcessor:
                         # Update progress description every 100 tasks
                         if completed_tasks % 100 == 0:
                             current_stats = shared_manager.get_current_stats()
-                            success_rate = current_stats["successful_boxes"] / max(1, current_stats["total_attempts"])
+                            success_rate = current_stats["successful_boxes"] / max(
+                                1, current_stats["total_attempts"]
+                            )
                             pbar.set_description(
-                                f"Multi-constraint packing(Success:{current_stats['successful_boxes']}, "
+                                f"Multi-constraint packing(Success:{current_stats['successful_boxes']}, "  # noqa: E501
                                 f"Success rate:{success_rate:.1%}, "
                                 f"Remaining:{current_stats['remaining_small_items']})"
                             )
@@ -1451,7 +1536,9 @@ class HashBucketProcessor:
             self._logger.info(f"  Total time: {end_time - start_time:.2f}s")
             self._logger.info(f"  Processed seeds: {len(selected_seeds)}")
             self._logger.info(f"  Successful bins: {len(output_boxes)}")
-            self._logger.info(f"  Overall success rate: {len(output_boxes) / len(selected_seeds):.2%}")
+            self._logger.info(
+                f"  Overall success rate: {len(output_boxes) / len(selected_seeds):.2%}"
+            )
 
             self._logger.info("Packing quality:")
             self._logger.info(f"  Average load ratio: {avg_load_ratio:.1%}")
@@ -1514,7 +1601,7 @@ class HashBucketProcessor:
 
         elif seed_strategy == "custom_half":
             custom_half = seed_params.get("half", box_capacity // 3)
-            # max_elems = seed_params.get("n_max", None)         # Maximum number of seeds to extract per key
+            # max_elems = seed_params.get("n_max", None)         # Maximum number of seeds to extract per key  # noqa: E501
             large_keys = [k for k in self.hash_buckets.keys() if k >= custom_half]
 
         elif seed_strategy == "specified_keys":
@@ -1589,7 +1676,8 @@ class HashBucketProcessor:
                 count_score = min(total_items / self.min_items, 1.0) if self.min_items > 0 else 1.0
                 capacity_score = seed_key / self.box_capacity
                 diversity_score = (
-                    len([k for k in self.small_keys if k <= remaining_capacity]) / len(self.small_keys)
+                    len([k for k in self.small_keys if k <= remaining_capacity])
+                    / len(self.small_keys)
                     if self.small_keys
                     else 0
                 )
@@ -1684,7 +1772,10 @@ class HashBucketProcessor:
 
         # 3. Intelligent packing strategy
         def is_feasible_quick_check(
-            remaining_capacity: int, current_items: int, available_keys: Dict[int, int], min_items: int
+            remaining_capacity: int,
+            current_items: int,
+            available_keys: Dict[int, int],
+            min_items: int,
         ) -> bool:
             """Quick feasibility check"""
             if current_items >= min_items:
@@ -1712,10 +1803,18 @@ class HashBucketProcessor:
             return False
 
         def select_optimal_key(
-            strategy: str, available_keys: Dict[int, int], remaining_capacity: int, current_items: int, min_items: int
+            strategy: str,
+            available_keys: Dict[int, int],
+            remaining_capacity: int,
+            current_items: int,
+            min_items: int,
         ) -> Optional[int]:
             """Select optimal key based on strategy"""
-            suitable_keys = [k for k in available_keys.keys() if k <= remaining_capacity and available_keys[k] > 0]
+            suitable_keys = [
+                k
+                for k in available_keys.keys()
+                if k <= remaining_capacity and available_keys[k] > 0
+            ]
             if not suitable_keys:
                 return None
 
@@ -1729,7 +1828,9 @@ class HashBucketProcessor:
                 # Balanced strategy: select medium size, considering available quantity
                 suitable_keys.sort()
                 # Prefer keys with more available items
-                key_scores = [(k, available_keys[k] * (remaining_capacity / k)) for k in suitable_keys]
+                key_scores = [
+                    (k, available_keys[k] * (remaining_capacity / k)) for k in suitable_keys
+                ]
                 key_scores.sort(key=lambda x: x[1], reverse=True)
                 return key_scores[0][0]
             else:
@@ -1752,14 +1853,17 @@ class HashBucketProcessor:
                 remaining_capacity = box_capacity - seed_key
                 items_count = 1
 
-                max_iterations = min_items * 16  # Prevent infinite loop (changed from 5→15, 12 for 16384)
+                max_iterations = (
+                    min_items * 16
+                )  # Prevent infinite loop (changed from 5→15, 12 for 16384)
                 iteration = 0
 
                 # Main packing loop
                 while (
                     remaining_capacity > 0
                     and items_count
-                    < min_items * 8  # Allow exceeding minimum (may have very small values) (5 for 16384)
+                    < min_items
+                    * 8  # Allow exceeding minimum (may have very small values) (5 for 16384)
                     and iteration < max_iterations
                 ):
                     iteration += 1
@@ -1772,7 +1876,14 @@ class HashBucketProcessor:
                         # Cannot reach minimum item count, exit early
                         shared_manager.rollback_items(used_items)
                         shared_manager.update_stats("failed_by_count")
-                        return False, None, thread_id, 0, items_count, f"Cannot reach {min_items} items"
+                        return (
+                            False,
+                            None,
+                            thread_id,
+                            0,
+                            items_count,
+                            f"Cannot reach {min_items} items",
+                        )
 
                     # Dynamic strategy selection
                     if items_count < min_items * 0.8:
@@ -1860,10 +1971,12 @@ class HashBucketProcessor:
         # Sort by potential, only process high-potential seeds
         seed_candidates.sort(key=lambda x: x[1], reverse=True)
         potential_threshold = 0.2  # Only process seeds with potential > 0.2
-        # high_potential_seeds = [seed for seed, potential in seed_candidates if potential > potential_threshold]
+        # high_potential_seeds = [seed for seed, potential in seed_candidates if potential > potential_threshold]  # noqa: E501
         # Fix: Properly handle filtering logic
         high_potential_candidates = [
-            (seed, potential) for seed, potential in seed_candidates if potential > potential_threshold
+            (seed, potential)
+            for seed, potential in seed_candidates
+            if potential > potential_threshold
         ]
 
         # Final fallback: keep at least top 50% of seeds
@@ -1894,23 +2007,32 @@ class HashBucketProcessor:
         detailed_results = []
         start_time = time.time()
 
-        with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="ConstraintPack") as executor:
+        with ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="ConstraintPack"
+        ) as executor:
             # Submit all tasks
             future_to_seed = {}
             for i, seed_key in enumerate(selected_seeds):
-                future = executor.submit(pack_single_seed_with_constraints, seed_key, shared_manager, i)
+                future = executor.submit(
+                    pack_single_seed_with_constraints, seed_key, shared_manager, i
+                )
                 future_to_seed[future] = (seed_key, i)
 
             # Process results
             with tqdm(
-                total=len(selected_seeds), unit="seed", desc="Multi-constraint packing", dynamic_ncols=True
+                total=len(selected_seeds),
+                unit="seed",
+                desc="Multi-constraint packing",
+                dynamic_ncols=True,
             ) as pbar:
                 completed_tasks = 0
                 for future in as_completed(future_to_seed):
                     seed_key, task_id = future_to_seed[future]
 
                     try:
-                        success, box, thread_id, capacity, item_count, info = future.result(timeout=60)
+                        success, box, thread_id, capacity, item_count, info = future.result(
+                            timeout=60
+                        )
 
                         if success and box is not None:
                             output_boxes.append(np.array(box, dtype=self.DTYPE_SAMPLE_INFO))
@@ -1932,9 +2054,11 @@ class HashBucketProcessor:
                         # Update progress description every 100 tasks
                         if completed_tasks % 100 == 0:
                             current_stats = shared_manager.get_current_stats()
-                            success_rate = current_stats["successful_boxes"] / max(1, current_stats["total_attempts"])
+                            success_rate = current_stats["successful_boxes"] / max(
+                                1, current_stats["total_attempts"]
+                            )
                             pbar.set_description(
-                                f"Multi-constraint packing(Success:{current_stats['successful_boxes']}, "
+                                f"Multi-constraint packing(Success:{current_stats['successful_boxes']}, "  # noqa: E501
                                 f"Success rate:{success_rate:.1%}, "
                                 f"Remaining:{current_stats['remaining_small_items']})"
                             )
@@ -1997,7 +2121,9 @@ class HashBucketProcessor:
             self._logger.info(f"  Total time: {end_time - start_time:.2f}s")
             self._logger.info(f"  Seeds processed: {len(selected_seeds)}")
             self._logger.info(f"  Successful bins: {len(output_boxes)}")
-            self._logger.info(f"  Overall success rate: {len(output_boxes) / len(selected_seeds):.2%}")
+            self._logger.info(
+                f"  Overall success rate: {len(output_boxes) / len(selected_seeds):.2%}"
+            )
 
             self._logger.info("Packing quality:")
             self._logger.info(f"  Average load rate: {avg_load_ratio:.1%}")
@@ -2039,7 +2165,7 @@ class HashBucketProcessor:
         2. All remaining elements form the filling pool;
         3. Multi-threaded packing (delete on success, rollback on failure);
         4. Single-threaded bottom line for remaining elements, the last batch is forced to output and cleared.
-        """
+        """  # noqa: E501
         import random
         import threading
         from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -2071,7 +2197,9 @@ class HashBucketProcessor:
                 fill_buckets[k].extend(self.hash_buckets[k])
 
         if not seed_pool:
-            self._logger.warning("Seed pool is empty, directly output the remaining elements as one box")
+            self._logger.warning(
+                "Seed pool is empty, directly output the remaining elements as one box"
+            )
             # Force output one box
             leftover = []
             for k, items in fill_buckets.items():
@@ -2242,7 +2370,11 @@ class HashBucketProcessor:
         for size, count in key_distribution.items():
             print(f"    {size}: {count} items")
 
-        return {"total_items": total_items, "total_keys": total_keys, "key_distribution": dict(key_distribution)}
+        return {
+            "total_items": total_items,
+            "total_keys": total_keys,
+            "key_distribution": dict(key_distribution),
+        }
 
 
 class PackingTracker:
@@ -2255,7 +2387,7 @@ class PackingTracker:
     def track_packing(self, strategy_name: str, **kwargs):
         """Record a packing operation"""
         before_state = self.processor.check_hash_buckets_state()
-        # Supports returning detailed statistics (e.g., total_attempts), otherwise returns only the box list
+        # Supports returning detailed statistics (e.g., total_attempts), otherwise returns only the box list  # noqa: E501
         result = getattr(self.processor, strategy_name)(**kwargs)
         if isinstance(result, tuple) and len(result) >= 2 and isinstance(result[1], dict):
             boxes = result[0]

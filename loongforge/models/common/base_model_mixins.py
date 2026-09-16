@@ -26,7 +26,9 @@ from megatron.core.models.common.vision_module.vision_module import VisionModule
 class BaseMegatronLanguageModule(LanguageModule):
     """Unified Base Class for Language Models"""
 
-    def __init__(self, config: AutoConfig, pg_collection: Optional[ProcessGroupCollection] = None, **kwargs):
+    def __init__(
+        self, config: AutoConfig, pg_collection: Optional[ProcessGroupCollection] = None, **kwargs
+    ):
         super().__init__(config=config, pg_collection=pg_collection, **kwargs)
 
     def freeze(self):
@@ -80,7 +82,7 @@ class BaseMegatronModule(MegatronModule):
 
 
 class BaseMegatronVisionModule(MegatronModule):
-    # TODO: Since VisionModule does not have any special logic, we inherit from MegatronModule instead.
+    # TODO: Since VisionModule does not have any special logic, we inherit from MegatronModule instead.  # noqa: E501
     """Unified Abstract Base Class for Vision Models"""
 
     def __init__(self, config: AutoConfig, **kwargs):

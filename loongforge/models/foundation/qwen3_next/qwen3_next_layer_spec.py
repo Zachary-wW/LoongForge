@@ -66,7 +66,9 @@ def get_moe_module_spec_for_backend(
     linear_fc2 = backend.row_parallel_linear()
     activation_func = backend.activation_func()
 
-    mlp = MLPSubmodules(linear_fc1=linear_fc1, linear_fc2=linear_fc2, activation_func=activation_func)
+    mlp = MLPSubmodules(
+        linear_fc1=linear_fc1, linear_fc2=linear_fc2, activation_func=activation_func
+    )
 
     expert_module, expert_submodule = backend.grouped_mlp_modules(
         moe_grouped_gemm is not None and moe_grouped_gemm,
@@ -149,7 +151,9 @@ def get_qwen3_next_transformer_layer_spec(config, vp_stage=None):
         layer_specs.append(layer_spec)
 
     local_layer_specs = get_local_layer_specs(config, layer_specs, vp_stage=vp_stage)
-    block_spec = TransformerBlockSubmodules(layer_specs=local_layer_specs, layer_norm=layer_norm_impl)
+    block_spec = TransformerBlockSubmodules(
+        layer_specs=local_layer_specs, layer_norm=layer_norm_impl
+    )
     mtp_block_spec = None
     if config.mtp_num_layers is not None:
         if hasattr(block_spec, "layer_specs") and len(block_spec.layer_specs) == 0:

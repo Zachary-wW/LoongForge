@@ -220,7 +220,13 @@ def reencode_h264(src: str, crf: int = 20):
 # Presets: (left_arm, left_grip, right_arm, right_grip, description)
 ROBOT_PRESETS = {
     "panda_dual_g2": (7, 2, 7, 2, "Panda dual arm + 2-DOF gripper (full menagerie, default)"),
-    "panda_dual_g1": (7, 1, 7, 1, "Panda dual arm + 1-DOF gripper (left finger, standard Franka convention)"),
+    "panda_dual_g1": (
+        7,
+        1,
+        7,
+        1,
+        "Panda dual arm + 1-DOF gripper (left finger, standard Franka convention)",
+    ),
     "panda_left_g2": (7, 2, 0, 0, "Left arm only + 2-DOF gripper"),
     "panda_left_g1": (7, 1, 0, 0, "Left arm only + 1-DOF gripper"),
 }
@@ -255,7 +261,7 @@ def parse_robot_spec(spec: str | None):
         ra, rg = 0, 0
     if la not in (7, 0) or ra not in (7, 0) or lg not in (0, 1, 2) or rg not in (0, 1, 2):
         raise ValueError(
-            "Supported values: arm DOF must be 7 or 0 (matching source IK); gripper DOF must be 0, 1, or 2"
+            "Supported values: arm DOF must be 7 or 0 (matching source IK); gripper DOF must be 0, 1, or 2"  # noqa: E501
         )
     return (la, lg, ra, rg)
 

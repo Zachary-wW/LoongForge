@@ -49,7 +49,7 @@ def parse_csv_ints(value: str) -> list[int]:
 
 
 def parse_csv_strings(value: str | None) -> list[str] | None:
-    """Split a comma-separated string into a list of non-empty items, or return None for falsy input."""
+    """Split a comma-separated string into a list of non-empty items, or return None for falsy input."""  # noqa: E501
     if not value:
         return None
     return [item for item in value.split(",") if item]
@@ -67,14 +67,17 @@ def expand_exclude_modules(patterns: list[str], num_layers: int) -> list[str]:
     expanded: list[str] = []
     for pattern in patterns:
         if ".layers.*." in pattern:
-            expanded.extend(pattern.replace(".layers.*.", f".layers.{i}.") for i in range(num_layers))
+            expanded.extend(
+                pattern.replace(".layers.*.", f".layers.{i}.") for i in range(num_layers)
+            )
         else:
             expanded.append(pattern)
 
     deduped: list[str] = []
     for item in sorted(set(expanded)):
         covered_by_broader_pattern = any(
-            other != item and "*" in other and fnmatch.fnmatchcase(item, other) for other in expanded
+            other != item and "*" in other and fnmatch.fnmatchcase(item, other)
+            for other in expanded
         )
         if not covered_by_broader_pattern:
             deduped.append(item)
@@ -376,7 +379,7 @@ def preload_transformers_for_modelopt_examples() -> None:
         raise SystemExit(
             "Failed to import Transformers symbols required by ModelOpt llm_ptq "
             f"examples: {exc!r}. transformers_version={version}, transformers_path={path}. "
-            f"traceback={''.join(traceback.format_exception(exc, value=exc, tb=exc.__traceback__)).strip()} "
+            f"traceback={''.join(traceback.format_exception(exc, value=exc, tb=exc.__traceback__)).strip()} "  # noqa: E501
             "Run the matching install_nvfp4_modelopt_deps.sh in this same Python environment."
         ) from exc
 
@@ -430,7 +433,9 @@ def patch_modelopt_tokenizer_deepcopy(modelopt_repo: Path) -> None:
     print(f"ModelOpt dataset_utils already has no tokenizer deepcopy: {dataset_utils_path}")
 
 
-def apply_official_recipe_to_hf_ptq(hf_ptq, args: argparse.Namespace, recipe: dict[str, Any]) -> list[str]:
+def apply_official_recipe_to_hf_ptq(
+    hf_ptq, args: argparse.Namespace, recipe: dict[str, Any]
+) -> list[str]:
     """Apply the official Kimi NVFP4 recipe to the hf_ptq module's quant config."""
     quant = recipe_quantization(recipe)
     runtime = recipe.get("runtime_defaults") or {}
@@ -438,9 +443,13 @@ def apply_official_recipe_to_hf_ptq(hf_ptq, args: argparse.Namespace, recipe: di
     expected_kv = runtime.get("kv_cache_qformat", "fp8")
 
     if args.qformat != expected_qformat:
-        raise SystemExit(f"Official recipe expects --qformat {expected_qformat}, got {args.qformat}")
+        raise SystemExit(
+            f"Official recipe expects --qformat {expected_qformat}, got {args.qformat}"
+        )
     if args.kv_cache_qformat != expected_kv:
-        raise SystemExit(f"Official recipe expects --kv_cache_qformat {expected_kv}, got {args.kv_cache_qformat}")
+        raise SystemExit(
+            f"Official recipe expects --kv_cache_qformat {expected_kv}, got {args.kv_cache_qformat}"
+        )
     if quant.get("quant_algo") != "NVFP4" or quant.get("group_size") != 16:
         raise SystemExit(f"Unsupported Kimi NVFP4 recipe: {quant}")
     if quant.get("kv_cache_quant_algo") != "FP8":
@@ -546,7 +555,11 @@ def enable_kimi_moe_all_expert_warmup(model, max_tokens: int, every_forward: boo
                 return _original_forward(hidden_states, *args, **kwargs)
 
             warm_hidden_states = hidden_states
-            if max_tokens > 0 and isinstance(hidden_states, torch.Tensor) and hidden_states.ndim >= 2:
+            if (
+                max_tokens > 0
+                and isinstance(hidden_states, torch.Tensor)
+                and hidden_states.ndim >= 2
+            ):
                 flat_hidden_states = hidden_states.reshape(-1, hidden_states.shape[-1])
                 if flat_hidden_states.shape[0] > max_tokens:
                     flat_hidden_states = flat_hidden_states[:max_tokens]
@@ -556,7 +569,9 @@ def enable_kimi_moe_all_expert_warmup(model, max_tokens: int, every_forward: boo
 
             gate = self.gate
             original_topk = getattr(gate, _topk_attr)
-            original_topk_group = getattr(gate, _topk_group_attr) if _topk_group_attr is not None else None
+            original_topk_group = (
+                getattr(gate, _topk_group_attr) if _topk_group_attr is not None else None
+            )
 
             try:
                 setattr(gate, _topk_attr, _n_experts)
@@ -680,9 +695,13 @@ def ensure_nvfp4_weight_amax(module_name: str, module, weight_name: str = "weigh
     import torch
 
     def usable_amax(value) -> bool:
-        return value is not None and not (isinstance(value, torch.Tensor) and getattr(value, "is_meta", False))
+        return value is not None and not (
+            isinstance(value, torch.Tensor) and getattr(value, "is_meta", False)
+        )
 
-    quantizer_attr = "weight_quantizer" if weight_name == "weight" else f"{weight_name}_weight_quantizer"
+    quantizer_attr = (
+        "weight_quantizer" if weight_name == "weight" else f"{weight_name}_weight_quantizer"
+    )
     weight_quantizer = getattr(module, quantizer_attr, None)
     weight = getattr(module, weight_name, None)
     if weight_quantizer is None or weight is None:
@@ -692,8 +711,12 @@ def ensure_nvfp4_weight_amax(module_name: str, module, weight_name: str = "weigh
 
     existing_export_amax = getattr(weight_quantizer, "_amax", None)
     has_global_amax = hasattr(weight_quantizer, "global_amax")
-    existing_global_amax = getattr(weight_quantizer, "global_amax", None) if has_global_amax else None
-    if usable_amax(existing_export_amax) and (not has_global_amax or usable_amax(existing_global_amax)):
+    existing_global_amax = (
+        getattr(weight_quantizer, "global_amax", None) if has_global_amax else None
+    )
+    if usable_amax(existing_export_amax) and (
+        not has_global_amax or usable_amax(existing_global_amax)
+    ):
         return False
 
     existing_amax = existing_export_amax
@@ -709,7 +732,9 @@ def ensure_nvfp4_weight_amax(module_name: str, module, weight_name: str = "weigh
                 if isinstance(weight, torch.Tensor) and not getattr(weight, "is_meta", False)
                 else torch.device("cpu")
             )
-            weight_quantizer._amax = torch.tensor(float(existing_amax), dtype=torch.float32, device=target_device)
+            weight_quantizer._amax = torch.tensor(
+                float(existing_amax), dtype=torch.float32, device=target_device
+            )
         if has_global_amax and not usable_amax(existing_global_amax):
             weight_quantizer.global_amax = weight_quantizer._amax.detach().float().max()
         return True
@@ -772,7 +797,9 @@ def ensure_nvfp4_input_amax(
     import torch
 
     def usable_amax(value) -> bool:
-        return value is not None and not (isinstance(value, torch.Tensor) and getattr(value, "is_meta", False))
+        return value is not None and not (
+            isinstance(value, torch.Tensor) and getattr(value, "is_meta", False)
+        )
 
     input_quantizer = _input_quantizer_for_weight(module, weight_name)
     if input_quantizer is None or not getattr(input_quantizer, "is_enabled", False):
@@ -793,7 +820,9 @@ def ensure_nvfp4_input_amax(
     else:
         target_device = torch.device("cpu")
 
-    if fallback_amax is None or (isinstance(fallback_amax, torch.Tensor) and getattr(fallback_amax, "is_meta", False)):
+    if fallback_amax is None or (
+        isinstance(fallback_amax, torch.Tensor) and getattr(fallback_amax, "is_meta", False)
+    ):
         amax = torch.tensor(0.5, dtype=torch.float32, device=target_device)
         source = "fallback"
     elif isinstance(fallback_amax, torch.Tensor):
@@ -807,7 +836,7 @@ def ensure_nvfp4_input_amax(
         amax = torch.clamp(amax, min=torch.finfo(torch.float32).tiny)
     input_quantizer.amax = amax
     print(
-        f"Filled missing NVFP4 input amax for {module_name}.{weight_name} from {source}: {amax.max().item():.6f}",
+        f"Filled missing NVFP4 input amax for {module_name}.{weight_name} from {source}: {amax.max().item():.6f}",  # noqa: E501
         flush=True,
     )
     return True
@@ -839,7 +868,9 @@ def fill_missing_routed_expert_input_amax(model) -> int:
         existing_amax = getattr(input_quantizer, "amax", None)
         if isinstance(existing_amax, torch.Tensor):
             if not getattr(existing_amax, "is_meta", False):
-                grouped_existing_amax.setdefault(group_key, []).append(existing_amax.detach().float())
+                grouped_existing_amax.setdefault(group_key, []).append(
+                    existing_amax.detach().float()
+                )
         elif existing_amax is not None:
             grouped_existing_amax.setdefault(group_key, []).append(
                 torch.tensor(float(existing_amax), dtype=torch.float32)
@@ -884,7 +915,7 @@ def materialize_accelerate_offload_for_export(*models) -> None:
 
     if materialized:
         print(
-            f"Materialized Accelerate offload hooks before export for {materialized} model object(s).",
+            f"Materialized Accelerate offload hooks before export for {materialized} model object(s).",  # noqa: E501
             flush=True,
         )
 
@@ -893,7 +924,9 @@ def patch_export_missing_nvfp4_weight_amax(hf_ptq) -> None:
     """Patch ModelOpt export to auto-fill missing NVFP4 weight/input amax."""
     unified_export_hf = importlib.import_module("modelopt.torch.export.unified_export_hf")
     original_export_weight = unified_export_hf._export_quantized_weight
-    original_requantize_resmooth = getattr(unified_export_hf, "requantize_resmooth_fused_llm_layers", None)
+    original_requantize_resmooth = getattr(
+        unified_export_hf, "requantize_resmooth_fused_llm_layers", None
+    )
     active_export_models: tuple[Any, ...] = ()
 
     def export_quantized_weight_with_kimi_amax_fix(*args, **kwargs):
@@ -911,13 +944,15 @@ def patch_export_missing_nvfp4_weight_amax(hf_ptq) -> None:
     if original_requantize_resmooth is not None:
 
         def requantize_resmooth_then_materialize(*args, **kwargs):
-            """Keep Accelerate hooks for ModelOpt's dummy forward, then materialize export weights."""
+            """Keep Accelerate hooks for ModelOpt's dummy forward, then materialize export weights."""  # noqa: E501
             result = original_requantize_resmooth(*args, **kwargs)
             models = args[:1] + active_export_models
             materialize_accelerate_offload_for_export(*models)
             return result
 
-        unified_export_hf.requantize_resmooth_fused_llm_layers = requantize_resmooth_then_materialize
+        unified_export_hf.requantize_resmooth_fused_llm_layers = (
+            requantize_resmooth_then_materialize
+        )
 
     original = hf_ptq.export_quantized
 
@@ -1023,7 +1058,9 @@ def official_config_quantization(recipe: dict[str, Any], excludes: list[str]) ->
     }
 
 
-def normalize_output_metadata(export_path: Path, recipe: dict[str, Any], excludes: list[str]) -> None:
+def normalize_output_metadata(
+    export_path: Path, recipe: dict[str, Any], excludes: list[str]
+) -> None:
     """Rewrite export metadata to match the official Kimi-K2.5-NVFP4 config shape."""
     config_path = export_path / "config.json"
     hf_quant_path = export_path / "hf_quant_config.json"
@@ -1049,7 +1086,9 @@ def normalize_output_metadata(export_path: Path, recipe: dict[str, Any], exclude
         text_config.pop("torch_dtype", None)
     text_config.pop("transformers_version", None)
 
-    hf_quant_path.write_text(json.dumps(official_hf_quant_config(recipe, excludes), indent=4) + "\n")
+    hf_quant_path.write_text(
+        json.dumps(official_hf_quant_config(recipe, excludes), indent=4) + "\n"
+    )
     config_path.write_text(json.dumps(config, indent=4) + "\n")
     print("Normalized output metadata to NVIDIA Kimi-K2.5-NVFP4 official config shape.")
 
@@ -1077,13 +1116,20 @@ def verify_output_metadata(export_path: Path, recipe: dict[str, Any], excludes: 
     if sorted(config_quant.get("ignore") or []) != excludes:
         raise SystemExit("config.json quantization_config.ignore does not match official recipe.")
     if config_quant.get("kv_cache_scheme") != {"dynamic": False, "num_bits": 8, "type": "float"}:
-        raise SystemExit(f"Unexpected config.json kv_cache_scheme: {config_quant.get('kv_cache_scheme')}")
+        raise SystemExit(
+            f"Unexpected config.json kv_cache_scheme: {config_quant.get('kv_cache_scheme')}"
+        )
 
     output_config = recipe.get("output_config") or {}
     text_config = config.get("text_config") or {}
-    if output_config.get("text_model_type") and text_config.get("model_type") != output_config["text_model_type"]:
+    if (
+        output_config.get("text_model_type")
+        and text_config.get("model_type") != output_config["text_model_type"]
+    ):
         raise SystemExit(f"Unexpected text_config.model_type: {text_config.get('model_type')}")
-    if output_config.get("remove_torch_dtype", True) and ("torch_dtype" in config or "torch_dtype" in text_config):
+    if output_config.get("remove_torch_dtype", True) and (
+        "torch_dtype" in config or "torch_dtype" in text_config
+    ):
         raise SystemExit("Output config still has torch_dtype metadata.")
 
 
@@ -1116,7 +1162,7 @@ def _output_tensor_headers(export_path: Path) -> dict[str, tuple[str, tuple[int,
 
 
 def verify_output_tensor_metadata(export_path: Path, excludes: list[str]) -> None:
-    """Verify that all routed expert input_scale entries exist and excluded modules are unquantized."""
+    """Verify that all routed expert input_scale entries exist and excluded modules are unquantized."""  # noqa: E501
     headers = _output_tensor_headers(export_path)
     missing_input_scales: list[str] = []
     excluded_quantized: list[tuple[str, str, tuple[int, ...]]] = []
@@ -1151,7 +1197,7 @@ def verify_output_tensor_metadata(export_path: Path, excludes: list[str]) -> Non
         )
 
     print(
-        "Verified output tensor metadata: routed expert input_scale is complete and official excludes are unquantized.",
+        "Verified output tensor metadata: routed expert input_scale is complete and official excludes are unquantized.",  # noqa: E501
         flush=True,
     )
 

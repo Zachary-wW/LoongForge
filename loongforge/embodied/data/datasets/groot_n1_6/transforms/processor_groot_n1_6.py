@@ -33,10 +33,10 @@ import torch
 from transformers import AutoTokenizer, ProcessorMixin
 from transformers.feature_extraction_utils import BatchFeature
 
-from loongforge.embodied.data.datasets.groot_n1_6.transforms.eagle3_model.image_processing_eagle3_vl_fast import (
+from loongforge.embodied.data.datasets.groot_n1_6.transforms.eagle3_model.image_processing_eagle3_vl_fast import (  # noqa: E501
     Eagle3VLImageProcessorFast,
 )
-from loongforge.embodied.data.datasets.groot_n1_6.transforms.eagle3_model.processing_eagle3_vl import (
+from loongforge.embodied.data.datasets.groot_n1_6.transforms.eagle3_model.processing_eagle3_vl import (  # noqa: E501
     Eagle3VLProcessor,
 )
 from .utils import (
@@ -144,7 +144,9 @@ def _asset_loading_kwargs(transformers_loading_kwargs: dict[str, Any]) -> dict[s
         "use_auth_token",
     }
     return {
-        key: value for key, value in transformers_loading_kwargs.items() if key in allowed_keys and value is not None
+        key: value
+        for key, value in transformers_loading_kwargs.items()
+        if key in allowed_keys and value is not None
     }
 
 
@@ -272,10 +274,13 @@ class StateActionProcessor(object):
 
                 if action_configs is not None:
                     for key, action_config in zip(modality_keys, action_configs, strict=True):
-                        if action_config.rep == ActionRepresentation.RELATIVE and self.use_relative_action:
+                        if (
+                            action_config.rep == ActionRepresentation.RELATIVE
+                            and self.use_relative_action
+                        ):
                             if "relative_action" not in self.statistics[embodiment_tag]:
                                 raise ValueError(
-                                    f"Relative action statistics required for embodiment '{embodiment_tag}' "
+                                    f"Relative action statistics required for embodiment '{embodiment_tag}' "  # noqa: E501
                                     f"but 'relative_action' not found"
                                 )
                             if key not in self.statistics[embodiment_tag]["relative_action"]:
@@ -306,14 +311,17 @@ class StateActionProcessor(object):
 
         for joint_group in self.modality_configs[embodiment_tag]["state"].modality_keys:
             if joint_group not in state:
-                raise KeyError(f"Joint group '{joint_group}' not found in state dict for embodiment '{embodiment_tag}'")
+                raise KeyError(
+                    f"Joint group '{joint_group}' not found in state dict for embodiment '{embodiment_tag}'"  # noqa: E501
+                )
 
             if sin_cos_keys and joint_group in sin_cos_keys:
                 normalized_values[joint_group] = apply_sin_cos_encoding(state[joint_group])
             elif (
                 hasattr(self.modality_configs[embodiment_tag]["state"], "mean_std_embedding_keys")
                 and self.modality_configs[embodiment_tag]["state"].mean_std_embedding_keys
-                and joint_group in self.modality_configs[embodiment_tag]["state"].mean_std_embedding_keys
+                and joint_group
+                in self.modality_configs[embodiment_tag]["state"].mean_std_embedding_keys
             ):
                 params = self.norm_params[embodiment_tag]["state"][joint_group]
                 normalized = normalize_values_meanstd(state[joint_group], params)
@@ -345,7 +353,9 @@ class StateActionProcessor(object):
             for key, action_config in zip(modality_keys, action_configs, strict=True):
                 if action_config.rep == ActionRepresentation.RELATIVE:
                     if state is None:
-                        raise ValueError(f"State dict required for relative action processing of key '{key}'")
+                        raise ValueError(
+                            f"State dict required for relative action processing of key '{key}'"
+                        )
 
                     state_key = action_config.state_key if action_config.state_key else key
                     if state_key not in state:
@@ -366,13 +376,14 @@ class StateActionProcessor(object):
         for joint_group in modality_keys:
             if joint_group not in action:
                 raise KeyError(
-                    f"Joint group '{joint_group}' not found in action dict for embodiment '{embodiment_tag}'"
+                    f"Joint group '{joint_group}' not found in action dict for embodiment '{embodiment_tag}'"  # noqa: E501
                 )
 
             params = self.norm_params[embodiment_tag]["action"][joint_group]
             if (
                 self.modality_configs[embodiment_tag]["action"].mean_std_embedding_keys is not None
-                and joint_group in self.modality_configs[embodiment_tag]["action"].mean_std_embedding_keys
+                and joint_group
+                in self.modality_configs[embodiment_tag]["action"].mean_std_embedding_keys
             ):
                 normalized = normalize_values_meanstd(action[joint_group], params)
             else:
@@ -398,7 +409,7 @@ class StateActionProcessor(object):
         for joint_group in modality_keys:
             if joint_group not in action:
                 raise KeyError(
-                    f"Joint group '{joint_group}' not found in action dict for embodiment '{embodiment_tag}'"
+                    f"Joint group '{joint_group}' not found in action dict for embodiment '{embodiment_tag}'"  # noqa: E501
                 )
 
             params = self.norm_params[embodiment_tag]["action"][joint_group]
@@ -406,7 +417,8 @@ class StateActionProcessor(object):
 
             if (
                 self.modality_configs[embodiment_tag]["action"].mean_std_embedding_keys is not None
-                and joint_group in self.modality_configs[embodiment_tag]["action"].mean_std_embedding_keys
+                and joint_group
+                in self.modality_configs[embodiment_tag]["action"].mean_std_embedding_keys
             ):
                 unnormalized = unnormalize_values_meanstd(group_values, params)
             else:
@@ -421,7 +433,7 @@ class StateActionProcessor(object):
                 if action_config.rep == ActionRepresentation.RELATIVE:
                     if state is None:
                         warnings.warn(
-                            f"State dict required for relative->absolute conversion of key '{key}', "
+                            f"State dict required for relative->absolute conversion of key '{key}', "  # noqa: E501
                             "but state is None. Returning unnormalized relative actions.",
                             stacklevel=2,
                         )
@@ -459,12 +471,20 @@ class StateActionProcessor(object):
                             else reference_state[:, -1:]
                         )
                         if ref_state_slice.shape[-1] < action_dim:
-                            padding = np.zeros((ref_state_slice.shape[0], 1, action_dim - ref_state_slice.shape[-1]))
+                            padding = np.zeros(
+                                (
+                                    ref_state_slice.shape[0],
+                                    1,
+                                    action_dim - ref_state_slice.shape[-1],
+                                )
+                            )
                             ref_state_slice = np.concatenate([ref_state_slice, padding], axis=-1)
                         unnormalized_values[key] = relative_action + ref_state_slice
                     elif reference_state.ndim == 1:
                         ref_state_slice = (
-                            reference_state[:action_dim] if reference_state.shape[-1] >= action_dim else reference_state
+                            reference_state[:action_dim]
+                            if reference_state.shape[-1] >= action_dim
+                            else reference_state
                         )
                         if ref_state_slice.shape[-1] < action_dim:
                             padding = np.zeros(action_dim - ref_state_slice.shape[-1])
@@ -519,7 +539,9 @@ class Gr00tN1d6DataCollator:
         """
         if transformers_loading_kwargs is None:
             transformers_loading_kwargs = {}
-        self.processor = build_processor(model_name, vlm_tokenizer_path, transformers_loading_kwargs)
+        self.processor = build_processor(
+            model_name, vlm_tokenizer_path, transformers_loading_kwargs
+        )
         self.processor.tokenizer.padding_side = "left"
         self.model_type = model_type
         self.model_name = model_name
@@ -548,7 +570,9 @@ class Gr00tN1d6DataCollator:
                     image_inputs += v["images"]
 
                 if self.model_type == "eagle":
-                    image_inputs, _ = self.processor.process_vision_info([v["conversation"] for v in values])
+                    image_inputs, _ = self.processor.process_vision_info(
+                        [v["conversation"] for v in values]
+                    )
                 vlm_inputs = self.processor(
                     text=text_list,
                     images=image_inputs,
@@ -560,7 +584,11 @@ class Gr00tN1d6DataCollator:
                 )
                 # Detect truncation: if any sample has attention_mask all-1 with
                 # max_length set, it was truncated (no pad tokens added).
-                if self.max_length is not None and not self._truncation_warned and "attention_mask" in vlm_inputs:
+                if (
+                    self.max_length is not None
+                    and not self._truncation_warned
+                    and "attention_mask" in vlm_inputs
+                ):
                     attn_mask = vlm_inputs["attention_mask"]
                     num_truncated = int((attn_mask.sum(dim=-1) == attn_mask.shape[-1]).sum())
                     if num_truncated > 0:

@@ -19,7 +19,11 @@ from typing import Any, Dict, List, Optional, Set
 
 import yaml
 
-from loongforge.embodied.eval.metrics.results import append_jsonl, write_suite_summary_csv, write_summary_csv
+from loongforge.embodied.eval.metrics.results import (
+    append_jsonl,
+    write_suite_summary_csv,
+    write_summary_csv,
+)
 from loongforge.embodied.eval.orchestrator.config import load_config
 
 # Official eval_policy.py prints (ANSI-colored):
@@ -72,7 +76,9 @@ def _write_worker_eval_step_limit(args: argparse.Namespace) -> Optional[pathlib.
     worker_step_limit = config_dir / "_eval_step_limit.yml"
     data = yaml.safe_load(worker_step_limit.read_text(encoding="utf-8")) or {}
     data[args.task_name] = int(args.step_limit_override)
-    worker_step_limit.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    worker_step_limit.write_text(
+        yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8"
+    )
     return worker_step_limit
 
 
@@ -103,16 +109,20 @@ def _worker_eval_script(args: argparse.Namespace) -> Optional[pathlib.Path]:
             1,
         )
         text = text.replace(
-            'camera_config_path = os.path.join(parent_directory, "../task_config/_camera_config.yml")',
+            'camera_config_path = os.path.join(parent_directory, "../task_config/_camera_config.yml")',  # noqa: E501
             f'camera_config_path = os.path.join({worker_config_dir!r}, "_camera_config.yml")',
             1,
         )
     if args.start_seed_override is not None:
         text = text.replace(
-            "    st_seed = 100000 * (1 + seed)\n", f"    st_seed = {int(args.start_seed_override)}\n", 1
+            "    st_seed = 100000 * (1 + seed)\n",
+            f"    st_seed = {int(args.start_seed_override)}\n",
+            1,
         )
     if args.test_num_override is not None:
-        text = text.replace("    test_num = 100\n", f"    test_num = {int(args.test_num_override)}\n", 1)
+        text = text.replace(
+            "    test_num = 100\n", f"    test_num = {int(args.test_num_override)}\n", 1
+        )
     if args.disable_expert_check:
         text = text.replace("    expert_check = True\n", "    expert_check = False\n", 1)
         text = text.replace(
@@ -187,9 +197,13 @@ def _robotwin_result_dirs(args: argparse.Namespace) -> Set[pathlib.Path]:
     return {path.resolve() for path in result_root.iterdir() if path.is_dir()}
 
 
-def _new_robotwin_result_dir(args: argparse.Namespace, before_dirs: Set[pathlib.Path]) -> Optional[pathlib.Path]:
+def _new_robotwin_result_dir(
+    args: argparse.Namespace, before_dirs: Set[pathlib.Path]
+) -> Optional[pathlib.Path]:
     """Run _new_robotwin_result_dir."""
-    candidates = sorted(_robotwin_result_dirs(args) - before_dirs, key=lambda path: path.stat().st_mtime)
+    candidates = sorted(
+        _robotwin_result_dirs(args) - before_dirs, key=lambda path: path.stat().st_mtime
+    )
     if not candidates:
         return None
     return candidates[-1]
@@ -197,7 +211,9 @@ def _new_robotwin_result_dir(args: argparse.Namespace, before_dirs: Set[pathlib.
 
 def _robotwin_artifact_dir(args: argparse.Namespace) -> pathlib.Path:
     """Run _robotwin_artifact_dir."""
-    return pathlib.Path(args.output_dir) / "artifacts" / "robotwin" / args.task_name / args.task_config
+    return (
+        pathlib.Path(args.output_dir) / "artifacts" / "robotwin" / args.task_name / args.task_config
+    )
 
 
 def _copy_file_if_exists(source: pathlib.Path, target_dir: pathlib.Path) -> Optional[pathlib.Path]:
@@ -270,7 +286,9 @@ def _cleanup_robotwin_work_files(
         shutil.rmtree(worker_dir)
 
 
-def _override_step_limit(robotwin_path: pathlib.Path, task_name: str, step_limit: Optional[int]) -> Optional[str]:
+def _override_step_limit(
+    robotwin_path: pathlib.Path, task_name: str, step_limit: Optional[int]
+) -> Optional[str]:
     """Run _override_step_limit."""
     if step_limit is None:
         return None
@@ -278,7 +296,9 @@ def _override_step_limit(robotwin_path: pathlib.Path, task_name: str, step_limit
     original_text = step_limit_path.read_text(encoding="utf-8")
     data = yaml.safe_load(original_text) or {}
     data[task_name] = int(step_limit)
-    step_limit_path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    step_limit_path.write_text(
+        yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8"
+    )
     return original_text
 
 
@@ -299,9 +319,13 @@ def _override_eval_policy_for_smoke(
             "    st_seed = 100000 * (1 + seed)\n", f"    st_seed = {int(start_seed)}\n", 1
         )
     if test_num is not None:
-        patched_text = patched_text.replace("    test_num = 100\n", f"    test_num = {int(test_num)}\n", 1)
+        patched_text = patched_text.replace(
+            "    test_num = 100\n", f"    test_num = {int(test_num)}\n", 1
+        )
     if disable_expert_check:
-        patched_text = patched_text.replace("    expert_check = True\n", "    expert_check = False\n", 1)
+        patched_text = patched_text.replace(
+            "    expert_check = True\n", "    expert_check = False\n", 1
+        )
     eval_policy_path.write_text(patched_text, encoding="utf-8")
     return original_text
 
@@ -315,7 +339,11 @@ def _apply_config(args: argparse.Namespace, config: Dict[str, object]) -> argpar
     run = config.get("run") or {}
     timeouts = config.get("timeouts") or {}
 
-    if not isinstance(benchmark, dict) or not isinstance(model, dict) or not isinstance(server, dict):
+    if (
+        not isinstance(benchmark, dict)
+        or not isinstance(model, dict)
+        or not isinstance(server, dict)
+    ):
         raise ValueError("benchmark, model, and server sections must be mappings")
 
     mapping = [
@@ -507,7 +535,9 @@ def _write_standard_outputs(
         if lp.is_file():
             log_text = lp.read_text(encoding="utf-8", errors="replace")
 
-    records = _build_robotwin_records(args, returncode, artifacts, episode_time_sec, result_txt, log_text)
+    records = _build_robotwin_records(
+        args, returncode, artifacts, episode_time_sec, result_txt, log_text
+    )
     output_dir = pathlib.Path(args.output_dir)
     for record in records:
         append_jsonl(output_dir / "results.jsonl", record)
@@ -534,7 +564,9 @@ def run_evaluation(args: argparse.Namespace) -> int:
     start_time = time.time()
     try:
         if not args.worker_local_files:
-            original_step_limit_text = _override_step_limit(robotwin_path, args.task_name, args.step_limit_override)
+            original_step_limit_text = _override_step_limit(
+                robotwin_path, args.task_name, args.step_limit_override
+            )
             original_eval_policy_text = _override_eval_policy_for_smoke(
                 robotwin_path,
                 args.test_num_override,
@@ -549,7 +581,9 @@ def run_evaluation(args: argparse.Namespace) -> int:
         _write_deploy_policy(args, config_path)
 
         env = os.environ.copy()
-        eval_root = pathlib.Path(getattr(args, "eval_root", "") or pathlib.Path(__file__).resolve().parents[2])
+        eval_root = pathlib.Path(
+            getattr(args, "eval_root", "") or pathlib.Path(__file__).resolve().parents[2]
+        )
         loongforge_root = pathlib.Path(getattr(args, "loongforge_root", "") or eval_root.parent)
         py_paths = [str(robotwin_path), str(eval_root), str(loongforge_root)]
         existing_pythonpath = env.get("PYTHONPATH")
@@ -600,7 +634,9 @@ def run_evaluation(args: argparse.Namespace) -> int:
         return returncode
     finally:
         if original_eval_policy_text is not None:
-            (robotwin_path / "script" / "eval_policy.py").write_text(original_eval_policy_text, encoding="utf-8")
+            (robotwin_path / "script" / "eval_policy.py").write_text(
+                original_eval_policy_text, encoding="utf-8"
+            )
         if original_step_limit_text is not None:
             (robotwin_path / "task_config" / "_eval_step_limit.yml").write_text(
                 original_step_limit_text, encoding="utf-8"
@@ -613,16 +649,24 @@ def build_argparser() -> argparse.ArgumentParser:
     """Run build_argparser."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="")
-    parser.add_argument("--loongforge-root", default=os.environ.get("LOONGFORGE_ROOT", "/workspace/LoongForge-VLA"))
+    parser.add_argument(
+        "--loongforge-root", default=os.environ.get("LOONGFORGE_ROOT", "/workspace/LoongForge-VLA")
+    )
     parser.add_argument(
         "--eval-root",
         default=os.environ.get("EVAL_ROOT", "/workspace/LoongForge-VLA/loongforge/embodied/eval"),
     )
-    parser.add_argument("--robotwin-path", default=os.environ.get("ROBOTWIN_PATH", "/workspace/RoboTwin"))
-    parser.add_argument("--robotwin-python", default=os.environ.get("ROBOTWIN_PYTHON", sys.executable))
+    parser.add_argument(
+        "--robotwin-path", default=os.environ.get("ROBOTWIN_PATH", "/workspace/RoboTwin")
+    )
+    parser.add_argument(
+        "--robotwin-python", default=os.environ.get("ROBOTWIN_PYTHON", sys.executable)
+    )
     parser.add_argument("--policy-ckpt-path", default="")
     parser.add_argument("--task-name", default="")
-    parser.add_argument("--task-config", choices=["demo_clean", "demo_randomized"], default="demo_clean")
+    parser.add_argument(
+        "--task-config", choices=["demo_clean", "demo_randomized"], default="demo_clean"
+    )
     parser.add_argument("--ckpt-setting", default="loongforge_demo")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--host", default="127.0.0.1")

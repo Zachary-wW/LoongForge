@@ -70,17 +70,20 @@ class InternVLTaskEncoder(BaseTaskEncoder):
 
     def encode_multi_mix_qa(self, sample: MultiMixQASample) -> MixQATaskSample:
         """Encode multi_mix_qa sample."""
-        # Convert standardized messages (role/content) back to internvl's expected format (from/value)
+        # Convert standardized messages (role/content) back to internvl's expected format (from/value)  # noqa: E501
         _role_map: dict[str, str] = {"user": "human", "assistant": "gpt", "system": "system"}
         texts = []
         if sample.system is not None:
             texts.append({"from": "system", "value": sample.system})
-        texts += [{"from": _role_map.get(msg["role"], msg["role"]), "value": msg["content"]} for msg in sample.messages]
+        texts += [
+            {"from": _role_map.get(msg["role"], msg["role"]), "value": msg["content"]}
+            for msg in sample.messages
+        ]
         data_item = {"texts": texts}
         # text + images
         if sample.image is not None:
             assert sample.video is None, (
-                "Mixed video and image content is not currently supported: sample text:{sample.texts}"
+                "Mixed video and image content is not currently supported: sample text:{sample.texts}"  # noqa: E501
             )
             data_item["image"] = sample.image
             ret = self.preproc.multi_image_get_item(data_item)
@@ -138,7 +141,11 @@ class InternVLTaskEncoder(BaseTaskEncoder):
                 max_length = sample_len
 
             if current_length + sample_len > packing_seq_len:
-                raise ValueError(_format_packed_sample_overflow_error(samples, packing_seq_len, current_length, sample))
+                raise ValueError(
+                    _format_packed_sample_overflow_error(
+                        samples, packing_seq_len, current_length, sample
+                    )
+                )
 
             # Add the sample's tokens and labels
             packed_tokens.append(sample.tokens)
@@ -194,7 +201,9 @@ class InternVLTaskEncoder(BaseTaskEncoder):
         return MixQATaskPackedSample(**sample_kwargs)
 
     @override
-    def batch(self, samples: List[Union[MixQATaskSample, MixQATaskPackedSample]]) -> MixQATaskBatchPackedSample:
+    def batch(
+        self, samples: List[Union[MixQATaskSample, MixQATaskPackedSample]]
+    ) -> MixQATaskBatchPackedSample:
         """Batch samples together"""
         batch_lens = [feat.tokens.shape for feat in samples]
         max_item_length = self.max_item_length or max(batch_lens)[0]
@@ -251,11 +260,15 @@ class InternVLTaskEncoder(BaseTaskEncoder):
         # Special handling for labels.
         # Ensure that tensor is created with the correct type
         if "label" in first and first["label"] is not None:
-            label = first["label"].item() if isinstance(first["label"], torch.Tensor) else first["label"]
+            label = (
+                first["label"].item()
+                if isinstance(first["label"], torch.Tensor)
+                else first["label"]
+            )
             dtype = torch.long if isinstance(label, int) else torch.float
             batch.labels = torch.tensor([f["label"] for f in features], dtype=dtype)
 
-        # concat to build batch, ['input_ids', 'labels', 'attention_mask', 'position_ids', 'loss_weight']
+        # concat to build batch, ['input_ids', 'labels', 'attention_mask', 'position_ids', 'loss_weight']  # noqa: E501
         batch.tokens = torch.stack([f["tokens"] for f in features])
         batch.labels = torch.stack([f["labels"] for f in features])
         batch.attn_mask = torch.stack([f["attn_mask"] for f in features])

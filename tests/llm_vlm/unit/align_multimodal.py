@@ -21,7 +21,18 @@ def build_batch(config, device: torch.device) -> dict[str, torch.Tensor]:
     )
     pixel_values = torch.randn(4, patch_width, generator=generator, dtype=torch.float32)
     input_ids = torch.tensor(
-        [[9, config.image_token_id, config.image_token_id, config.image_token_id, config.image_token_id, 10, 11, 12]],
+        [
+            [
+                9,
+                config.image_token_id,
+                config.image_token_id,
+                config.image_token_id,
+                config.image_token_id,
+                10,
+                11,
+                12,
+            ]
+        ],
         dtype=torch.long,
     )
     return {
@@ -95,13 +106,19 @@ def main() -> None:
             reference_vision = reference.get_image_features(
                 batch["pixel_values"], batch["image_grid_thw"]
             ).pooler_output[0]
-            target_vision = target.get_image_features(batch["pixel_values"], batch["image_grid_thw"]).pooler_output[0]
+            target_vision = target.get_image_features(
+                batch["pixel_values"], batch["image_grid_thw"]
+            ).pooler_output[0]
             reference_output = reference(**batch, use_cache=False)
             target_output = target(**batch)
 
         metrics = {
-            "vision_max_abs_diff": float((reference_vision.float() - target_vision.float()).abs().max()),
-            "logits_max_abs_diff": float((reference_output.logits.float() - target_output.logits.float()).abs().max()),
+            "vision_max_abs_diff": float(
+                (reference_vision.float() - target_vision.float()).abs().max()
+            ),
+            "logits_max_abs_diff": float(
+                (reference_output.logits.float() - target_output.logits.float()).abs().max()
+            ),
             "reference_loss": float(reference_output.loss),
             "target_loss": float(target_output.loss),
             "loss_abs_diff": abs(float(reference_output.loss) - float(target_output.loss)),

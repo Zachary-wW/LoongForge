@@ -86,9 +86,13 @@ def shapes_match(shape_a, shape_b):
     if isinstance(shape_a, torch.Size) and isinstance(shape_b, torch.Size):
         return shape_a == shape_b
     elif isinstance(shape_a, dict) and isinstance(shape_b, dict):
-        return shape_a.keys() == shape_b.keys() and all(shapes_match(shape_a[k], shape_b[k]) for k in shape_a)
+        return shape_a.keys() == shape_b.keys() and all(
+            shapes_match(shape_a[k], shape_b[k]) for k in shape_a
+        )
     elif isinstance(shape_a, (tuple, list)) and isinstance(shape_b, (tuple, list)):
-        return len(shape_a) == len(shape_b) and all(shapes_match(a, b) for a, b in zip(shape_a, shape_b))
+        return len(shape_a) == len(shape_b) and all(
+            shapes_match(a, b) for a, b in zip(shape_a, shape_b)
+        )
     return shape_a == shape_b
 
 
@@ -133,7 +137,7 @@ class StaticBufferLoader:
                 )
                 self._buffers[slot_idx] = copy_tensors_in_struct(batch)
                 raise RuntimeError(
-                    f"Static buffer reallocated at slot {slot_idx} after CUDA graph capture; graph must be re-captured."
+                    f"Static buffer reallocated at slot {slot_idx} after CUDA graph capture; graph must be re-captured."  # noqa: E501
                 ) from e
 
         return self._buffers[slot_idx]

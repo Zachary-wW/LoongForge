@@ -237,7 +237,9 @@ def train_valid_test_datasets_provider(train_val_test_num_samples, vp_stage=None
     dp_rank = parallel_state.get_data_parallel_rank()
     dp_world_size = parallel_state.get_data_parallel_world_size()
 
-    sampler = torch.utils.data.DistributedSampler(dataset, shuffle=False, num_replicas=dp_world_size, rank=dp_rank)
+    sampler = torch.utils.data.DistributedSampler(
+        dataset, shuffle=False, num_replicas=dp_world_size, rank=dp_rank
+    )
     # TODO: Batched inference is not supported yet.
     dataloader = torch.utils.data.DataLoader(
         dataset,
@@ -252,7 +254,9 @@ def train_valid_test_datasets_provider(train_val_test_num_samples, vp_stage=None
 
 
 @register_model_trainer(
-    model_family=[VisionLanguageModelFamilies.ERNIE4_5_VL], training_phase=TrainingPhase.SFT, override=True
+    model_family=[VisionLanguageModelFamilies.ERNIE4_5_VL],
+    training_phase=TrainingPhase.SFT,
+    override=True,
 )
 def default_pretrain_trainer(train_args):
     """build trainer"""

@@ -13,8 +13,15 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
-from loongforge.embodied.eval.adapters.maniskill import MANISKILL_DEFAULT_MAX_STEPS, ManiSkillAdapter
-from loongforge.embodied.eval.metrics.results import append_jsonl, write_suite_summary_csv, write_summary_csv
+from loongforge.embodied.eval.adapters.maniskill import (
+    MANISKILL_DEFAULT_MAX_STEPS,
+    ManiSkillAdapter,
+)
+from loongforge.embodied.eval.metrics.results import (
+    append_jsonl,
+    write_suite_summary_csv,
+    write_summary_csv,
+)
 from loongforge.embodied.eval.orchestrator.config import (
     build_rpc_payload,
     load_config,
@@ -122,16 +129,22 @@ def _render_frame(env: Any, obs: Dict[str, Any], adapter: ManiSkillAdapter) -> n
     return _normalize_frame(_extract_image(obs, adapter.camera_name))
 
 
-def _save_replay(frames: List[np.ndarray], output_dir: str, task_name: str, episode_idx: int, success: bool) -> str:
+def _save_replay(
+    frames: List[np.ndarray], output_dir: str, task_name: str, episode_idx: int, success: bool
+) -> str:
     """Write replay frames to a GIF artifact and return its path."""
     if not frames:
         raise ValueError("Cannot save replay with no frames")
     status = "success" if success else "fail"
     artifact_dir = pathlib.Path(output_dir) / "artifacts" / "maniskill" / task_name
-    return _common.write_replay_gif(frames, artifact_dir / f"ep{episode_idx}_{status}.gif", duration=0.2)
+    return _common.write_replay_gif(
+        frames, artifact_dir / f"ep{episode_idx}_{status}.gif", duration=0.2
+    )
 
 
-def _save_trace(trace: List[Dict[str, Any]], output_dir: str, task_name: str, episode_idx: int, success: bool) -> str:
+def _save_trace(
+    trace: List[Dict[str, Any]], output_dir: str, task_name: str, episode_idx: int, success: bool
+) -> str:
     """Write the per-step action trace artifact and return its path."""
     status = "success" if success else "fail"
     artifact_dir = pathlib.Path(output_dir) / "artifacts" / "maniskill" / task_name
@@ -278,7 +291,9 @@ def run_evaluation(args: argparse.Namespace) -> Dict[str, Any]:
                         "done": done_flag,
                         "truncated": truncated_flag,
                         "success": _is_success(done, reward, info, args),
-                        "inference_latency_ms": response.get("data", {}).get("inference_latency_ms"),
+                        "inference_latency_ms": response.get("data", {}).get(
+                            "inference_latency_ms"
+                        ),
                     }
                 )
 
@@ -291,10 +306,14 @@ def run_evaluation(args: argparse.Namespace) -> Dict[str, Any]:
     success = _is_success(done, reward, info, args)
     replay_path = None
     if args.save_replay:
-        replay_path = _save_replay(replay_frames, args.output_dir, args.task_name, args.episode_idx, success)
+        replay_path = _save_replay(
+            replay_frames, args.output_dir, args.task_name, args.episode_idx, success
+        )
     trace_path = None
     if args.save_trace:
-        trace_path = _save_trace(action_trace, args.output_dir, args.task_name, args.episode_idx, success)
+        trace_path = _save_trace(
+            action_trace, args.output_dir, args.task_name, args.episode_idx, success
+        )
 
     record = {
         "benchmark": "maniskill",

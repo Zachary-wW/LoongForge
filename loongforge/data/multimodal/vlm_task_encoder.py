@@ -94,12 +94,12 @@ class VLMTaskSamplePacked(BaseTaskSamplePacked):
         if self.image_grid_thw is not None:
             grid_str += (
                 f", image_grid_thw“="
-                f"{tuple(self.image_grid_thw.shape) if hasattr(self.image_grid_thw, 'shape') else self.image_grid_thw}"
+                f"{tuple(self.image_grid_thw.shape) if hasattr(self.image_grid_thw, 'shape') else self.image_grid_thw}"  # noqa: E501
             )
         if self.video_grid_thw is not None:
             grid_str += (
                 f", video_grid_thw="
-                f"{tuple(self.video_grid_thw.shape) if hasattr(self.video_grid_thw, 'shape') else self.video_grid_thw}"
+                f"{tuple(self.video_grid_thw.shape) if hasattr(self.video_grid_thw, 'shape') else self.video_grid_thw}"  # noqa: E501
             )
         return base[:-1] + grid_str + ")"
 
@@ -138,11 +138,15 @@ class VLMTaskEncoder(BaseTaskEncoder):
             original_repr = ProcessorMixin.__repr__
             ProcessorMixin.__repr__ = object.__repr__
             try:
-                self.processor = AutoProcessor.from_pretrained(processor_path, trust_remote_code=True)
+                self.processor = AutoProcessor.from_pretrained(
+                    processor_path, trust_remote_code=True
+                )
             finally:
                 ProcessorMixin.__repr__ = original_repr
         else:
-            self.processor = AutoProcessor.from_pretrained(self.args.hf_tokenizer_path, trust_remote_code=True)
+            self.processor = AutoProcessor.from_pretrained(
+                self.args.hf_tokenizer_path, trust_remote_code=True
+            )
         if args.image_resolution:
             setattr(self.processor, "image_resolution", args.image_resolution)
         # video
@@ -253,7 +257,9 @@ class VLMTaskEncoder(BaseTaskEncoder):
         ).replace("<image>", IMAGE_TOKEN_WITH_TAGS)
         if text[-1] == "\n":
             text = text[:-1]
-        input_ids, _, imgs, image_grid_thw, attn_mask = self._process(image, text, add_special_tokens=False)
+        input_ids, _, imgs, image_grid_thw, attn_mask = self._process(
+            image, text, add_special_tokens=False
+        )
         target = torch.ones_like(input_ids) * IGNORE_INDEX
         answer_ids = self.tokenizer.tokenize(answer, add_special_tokens=False)
         target[-len(answer_ids) - 1 : -1] = torch.tensor(answer_ids)
@@ -261,7 +267,9 @@ class VLMTaskEncoder(BaseTaskEncoder):
 
         return input_ids, target, attn_mask, imgs, image_grid_thw
 
-    def process_sft_qa(self, messages: list, system: str, raw_video: list, raw_image: list, tools=None):
+    def process_sft_qa(
+        self, messages: list, system: str, raw_video: list, raw_image: list, tools=None
+    ):
         """process the data for sft qa"""
         video_grid_thw = None
         pixel_values_videos = []
@@ -317,7 +325,9 @@ class VLMTaskEncoder(BaseTaskEncoder):
         """
         if isinstance(self.chat_template, HFChatTemplate):
             hf_messages = list(messages)
-            has_system_message = hf_messages and hf_messages[0].get("role") == constants.DataRoles.SYSTEM
+            has_system_message = (
+                hf_messages and hf_messages[0].get("role") == constants.DataRoles.SYSTEM
+            )
             if system and not has_system_message:
                 hf_messages = [
                     {"role": constants.DataRoles.SYSTEM, "content": system},
@@ -372,7 +382,9 @@ class VLMTaskEncoder(BaseTaskEncoder):
         https://github.com/NVIDIA/Megatron-Energon/blob/develop/src/megatron/energon/flavors/captioning.py
         """
 
-        assert self.args.training_phase == constants.TrainingPhase.PRETRAIN, "Only support PRETRAIN phase"
+        assert self.args.training_phase == constants.TrainingPhase.PRETRAIN, (
+            "Only support PRETRAIN phase"
+        )
 
         text = IMAGE_TOKEN_WITH_TAGS + sample.caption + self.tokenizer.tokenizer.eos_token
 
@@ -380,9 +392,13 @@ class VLMTaskEncoder(BaseTaskEncoder):
         num_tiles = [len(image_grid_thw)]
 
         if self.args.enable_discard_sample:
-            assert len(input_ids) <= self.args.seq_length, f"{sample.__key__} input length {len(input_ids)}"
+            assert len(input_ids) <= self.args.seq_length, (
+                f"{sample.__key__} input length {len(input_ids)}"
+            )
         else:
-            assert image_grid_thw.prod() / 4 <= self.args.seq_length, f"{sample.__key__} thw {image_grid_thw}"
+            assert image_grid_thw.prod() / 4 <= self.args.seq_length, (
+                f"{sample.__key__} thw {image_grid_thw}"
+            )
 
         return self._make_sample_from(
             sample,
@@ -414,9 +430,13 @@ class VLMTaskEncoder(BaseTaskEncoder):
         num_tiles = [len(image_grid_thw)]
 
         if self.args.enable_discard_sample:
-            assert len(input_ids) <= self.args.seq_length, f"{sample.__key__} input length {len(input_ids)}"
+            assert len(input_ids) <= self.args.seq_length, (
+                f"{sample.__key__} input length {len(input_ids)}"
+            )
         else:
-            assert image_grid_thw.prod() / 4 <= self.args.seq_length, f"{sample.__key__} grid_thw: {image_grid_thw}"
+            assert image_grid_thw.prod() / 4 <= self.args.seq_length, (
+                f"{sample.__key__} grid_thw: {image_grid_thw}"
+            )
 
         return self._make_sample_from(
             sample,
@@ -451,7 +471,9 @@ class VLMTaskEncoder(BaseTaskEncoder):
             raise NotImplementedError(f"Unknown training phase {self.args.training_phase}")
 
         if self.args.enable_discard_sample:
-            assert len(input_ids) <= self.args.seq_length, f"{sample.__key__} input length {len(input_ids)}"
+            assert len(input_ids) <= self.args.seq_length, (
+                f"{sample.__key__} input length {len(input_ids)}"
+            )
         else:
             assert video_grid_thw.prod(dim=-1).sum() / 4 <= self.args.seq_length, (
                 f"{sample.__key__} grid_thw: {video_grid_thw}"
@@ -498,7 +520,9 @@ class VLMTaskEncoder(BaseTaskEncoder):
             raise NotImplementedError(f"Unknown training phase {self.args.training_phase}")
 
         if self.args.enable_discard_sample:
-            assert len(input_ids) <= self.args.seq_length, f"{sample.__key__} input length {len(input_ids)}"
+            assert len(input_ids) <= self.args.seq_length, (
+                f"{sample.__key__} input length {len(input_ids)}"
+            )
         elif sample.video is not None:
             assert video_grid_thw.prod(dim=-1).sum() / 4 <= self.args.seq_length, (
                 f"{sample.__key__} grid_thw: {video_grid_thw}"
@@ -524,7 +548,9 @@ class VLMTaskEncoder(BaseTaskEncoder):
     def encode_chat_mix(self, sample: ChatMixSample) -> Optional[BaseTaskSample]:
         """Encode chat-format multimodal sample (with optional tool calling)."""
         if self.args.training_phase != constants.TrainingPhase.SFT:
-            raise NotImplementedError(f"encode_chat_mix only supports SFT, got {self.args.training_phase}")
+            raise NotImplementedError(
+                f"encode_chat_mix only supports SFT, got {self.args.training_phase}"
+            )
 
         (
             input_ids,
@@ -549,7 +575,9 @@ class VLMTaskEncoder(BaseTaskEncoder):
             num_tiles = [len(image_grid_thw)]
 
         if self.args.enable_discard_sample:
-            assert len(input_ids) <= self.args.seq_length, f"{sample.__key__} input length {len(input_ids)}"
+            assert len(input_ids) <= self.args.seq_length, (
+                f"{sample.__key__} input length {len(input_ids)}"
+            )
         elif sample.video is not None:
             assert video_grid_thw.prod(dim=-1).sum() / 4 <= self.args.seq_length, (
                 f"{sample.__key__} grid_thw: {video_grid_thw}"
@@ -646,7 +674,7 @@ class VLMTaskEncoder(BaseTaskEncoder):
         has_videos = len(videos) > 0
         if has_images and has_videos:
             raise ValueError(
-                f"encode_packed_multi_mix_qa: cannot mix images and videos in same sample for key={sample.__key__}"
+                f"encode_packed_multi_mix_qa: cannot mix images and videos in same sample for key={sample.__key__}"  # noqa: E501
             )
         has_text_only = not has_images and not has_videos
         media_list = images if has_images else videos
@@ -758,7 +786,7 @@ class VLMTaskEncoder(BaseTaskEncoder):
         has_videos = len(videos) > 0
         if has_images and has_videos:
             raise ValueError(
-                f"encode_packed_chat_mix: cannot mix images and videos in same sample for key={sample.__key__}"
+                f"encode_packed_chat_mix: cannot mix images and videos in same sample for key={sample.__key__}"  # noqa: E501
             )
         has_text_only = not has_images and not has_videos
         media_list = images if has_images else videos
@@ -774,7 +802,7 @@ class VLMTaskEncoder(BaseTaskEncoder):
             raw_messages = raw_sample.get("messages") or raw_sample.get("texts")
             if raw_messages is None:
                 raise ValueError(
-                    f"packed_chat_mix sample {sample.__key__}.q{idx:03d} has neither `messages` nor `texts`."
+                    f"packed_chat_mix sample {sample.__key__}.q{idx:03d} has neither `messages` nor `texts`."  # noqa: E501
                 )
 
             messages, system = _parse_messages(raw_messages)
@@ -850,7 +878,9 @@ class VLMTaskEncoder(BaseTaskEncoder):
         )
 
     @override
-    def process_images(self, samples: List[Union[VLMTaskSample, VLMTaskSamplePacked]]) -> torch.Tensor:
+    def process_images(
+        self, samples: List[Union[VLMTaskSample, VLMTaskSamplePacked]]
+    ) -> torch.Tensor:
         """ " Process the data to get the model's input"""
         imgs = [img for s in samples if s.imgs is not None for img in s.imgs]
         if len(imgs) > 0:
@@ -859,7 +889,9 @@ class VLMTaskEncoder(BaseTaskEncoder):
             return torch.tensor([[0]], dtype=torch.float32)
 
     @override
-    def process_videos(self, samples: List[Union[VLMTaskSample, VLMTaskSamplePacked]]) -> torch.Tensor:
+    def process_videos(
+        self, samples: List[Union[VLMTaskSample, VLMTaskSamplePacked]]
+    ) -> torch.Tensor:
         """ " Process the data to get the model's input"""
         pixel_values_videos = [
             pixel_values_video

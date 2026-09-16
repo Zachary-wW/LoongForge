@@ -13,7 +13,9 @@ class TensorDataset(torch.utils.data.Dataset):
         self.data_paths = []
         self.load_data(data_path)
         self.steps_per_epoch = steps_per_epoch
-        print(f"self.steps_per_epoch: {self.steps_per_epoch}, total_samples: {len(self.data_paths)}")
+        print(
+            f"self.steps_per_epoch: {self.steps_per_epoch}, total_samples: {len(self.data_paths)}"
+        )
         assert len(self.data_paths) > 0
         self.manual_seed = seed
         self.data_parallel_size = data_parallel_size
@@ -39,7 +41,9 @@ class TensorDataset(torch.utils.data.Dataset):
     def __getitem__(self, index):
         seed = (self.manual_seed + index) % 2**32
         logical_rank = index % self.data_parallel_size
-        shuffle_epoch, shard_offset = divmod(index // self.data_parallel_size, self.samples_per_rank)
+        shuffle_epoch, shard_offset = divmod(
+            index // self.data_parallel_size, self.samples_per_rank
+        )
 
         if shuffle_epoch != self._shuffle_epoch:
             rng = np.random.RandomState((self.manual_seed + shuffle_epoch) % 2**32)

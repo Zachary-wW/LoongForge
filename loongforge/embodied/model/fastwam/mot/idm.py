@@ -45,7 +45,7 @@ class FastWAMIDM(FastWAMJoint):
         """Build a joint attention mask for teacher-forcing IDM training."""
         if noisy_video_tokens_per_frame != cond_video_tokens_per_frame:
             raise ValueError(
-                "Teacher-forcing requires identical `tokens_per_frame` for noisy and cond video branches, "
+                "Teacher-forcing requires identical `tokens_per_frame` for noisy and cond video branches, "  # noqa: E501
                 f"got {noisy_video_tokens_per_frame} and {cond_video_tokens_per_frame}."
             )
 
@@ -91,8 +91,12 @@ class FastWAMIDM(FastWAMJoint):
             device=self.device,
             dtype=input_latents.dtype,
         )
-        latents_noisy = self.train_video_scheduler.add_noise(input_latents, noise_video, timestep_video)
-        target_video = self.train_video_scheduler.training_target(input_latents, noise_video, timestep_video)
+        latents_noisy = self.train_video_scheduler.add_noise(
+            input_latents, noise_video, timestep_video
+        )
+        target_video = self.train_video_scheduler.training_target(
+            input_latents, noise_video, timestep_video
+        )
         if inputs["first_frame_latents"] is not None:
             latents_noisy[:, :, 0:1] = inputs["first_frame_latents"]
 
@@ -104,12 +108,18 @@ class FastWAMIDM(FastWAMJoint):
             dtype=action.dtype,
         )
         noisy_action = self.train_action_scheduler.add_noise(action, noise_action, timestep_action)
-        target_action = self.train_action_scheduler.training_target(action, noise_action, timestep_action)
+        target_action = self.train_action_scheduler.training_target(
+            action, noise_action, timestep_action
+        )
 
         # Branch C: teacher-forcing cond-video.
         # Each sample is independently noised with probability `video_cond_noise_prob`.
-        cond_noise_mask = torch.rand((batch_size,), device=self.device) < float(self.video_cond_noise_prob)
-        timestep_video_cond = torch.zeros_like(timestep_video, dtype=input_latents.dtype, device=self.device)
+        cond_noise_mask = torch.rand((batch_size,), device=self.device) < float(
+            self.video_cond_noise_prob
+        )
+        timestep_video_cond = torch.zeros_like(
+            timestep_video, dtype=input_latents.dtype, device=self.device
+        )
         latents_cond = input_latents
         if bool(cond_noise_mask.any()):
             timestep_video_cond_sampled = self.train_video_scheduler.sample_training_t(
@@ -117,7 +127,9 @@ class FastWAMIDM(FastWAMJoint):
                 device=self.device,
                 dtype=input_latents.dtype,
             )
-            timestep_video_cond = torch.where(cond_noise_mask, timestep_video_cond_sampled, timestep_video_cond)
+            timestep_video_cond = torch.where(
+                cond_noise_mask, timestep_video_cond_sampled, timestep_video_cond
+            )
             noise_video_cond = torch.randn_like(input_latents)
             latents_cond_noisy = self.train_video_scheduler.add_noise(
                 input_latents, noise_video_cond, timestep_video_cond_sampled
@@ -163,7 +175,9 @@ class FastWAMIDM(FastWAMJoint):
         cond_video_tokens_per_frame = int(video_pre_cond["meta"]["tokens_per_frame"])
 
         # Concatenate [noisy_video, cond_video] as the video expert sequence.
-        merged_video_tokens = torch.cat([video_pre_noisy["tokens"], video_pre_cond["tokens"]], dim=1)
+        merged_video_tokens = torch.cat(
+            [video_pre_noisy["tokens"], video_pre_cond["tokens"]], dim=1
+        )
         merged_video_freqs = tuple(
             torch.cat([noisy_freq, cond_freq], dim=0)
             for noisy_freq, cond_freq in zip(video_pre_noisy["freqs"], video_pre_cond["freqs"])
@@ -230,9 +244,13 @@ class FastWAMIDM(FastWAMJoint):
         )
         loss_video = (loss_video_per_sample * video_weight).mean()
 
-        action_loss_token = F.mse_loss(pred_action.float(), target_action.float(), reduction="none").mean(dim=2)
+        action_loss_token = F.mse_loss(
+            pred_action.float(), target_action.float(), reduction="none"
+        ).mean(dim=2)
         if action_is_pad is not None:
-            valid = (~action_is_pad).to(device=action_loss_token.device, dtype=action_loss_token.dtype)
+            valid = (~action_is_pad).to(
+                device=action_loss_token.device, dtype=action_loss_token.dtype
+            )
             valid_sum = valid.sum(dim=1).clamp(min=1.0)
             action_loss_per_sample = (action_loss_token * valid).sum(dim=1) / valid_sum
         else:
@@ -316,41 +334,55 @@ class FastWAMIDM(FastWAMJoint):
 
         if action is not None:
             logger.warning(
-                "`FastWAMIDM.infer_joint` ignores `action` input; video is denoised in a standalone first stage."
+                "`FastWAMIDM.infer_joint` ignores `action` input; video is denoised in a standalone first stage."  # noqa: E501
             )
 
         if input_image.ndim == 3:
             input_image = input_image.unsqueeze(0)
         if input_image.ndim != 4 or input_image.shape[0] != 1 or input_image.shape[1] != 3:
-            raise ValueError(f"`input_image` must have shape [1,3,H,W] or [3,H,W], got {tuple(input_image.shape)}")
+            raise ValueError(
+                f"`input_image` must have shape [1,3,H,W] or [3,H,W], got {tuple(input_image.shape)}"  # noqa: E501
+            )
         _, _, height, width = input_image.shape
-        checked_h, checked_w, checked_t = self._check_resize_height_width(height, width, num_video_frames)
+        checked_h, checked_w, checked_t = self._check_resize_height_width(
+            height, width, num_video_frames
+        )
         if (checked_h, checked_w) != (height, width):
             raise ValueError(
-                f"`input_image` must be resized before infer, expected multiples of 16 but got HxW=({height},{width})"
+                f"`input_image` must be resized before infer, expected multiples of 16 but got HxW=({height},{width})"  # noqa: E501
             )
         if checked_t != num_video_frames:
             raise ValueError(f"`num_video_frames` must satisfy T % 4 == 1, got {num_video_frames}")
 
         if proprio is not None:
             if self.proprio_dim is None:
-                raise ValueError("`proprio` was provided but `proprio_dim=None` so `proprio_encoder` is disabled.")
+                raise ValueError(
+                    "`proprio` was provided but `proprio_dim=None` so `proprio_encoder` is disabled."  # noqa: E501
+                )
             if proprio.ndim == 1:
                 proprio = proprio.unsqueeze(0)
             elif proprio.ndim == 2 and proprio.shape[0] == 1:
                 pass
             else:
-                raise ValueError(f"`proprio` must be [D] or [1,D], got shape {tuple(proprio.shape)}")
+                raise ValueError(
+                    f"`proprio` must be [D] or [1,D], got shape {tuple(proprio.shape)}"
+                )
             if proprio.shape[1] != self.proprio_dim:
-                raise ValueError(f"`proprio` last dim must be {self.proprio_dim}, got {proprio.shape[1]}")
+                raise ValueError(
+                    f"`proprio` last dim must be {self.proprio_dim}, got {proprio.shape[1]}"
+                )
             proprio = proprio.to(device=self.device, dtype=self.torch_dtype)
 
         latent_t = (num_video_frames - 1) // self.vae.temporal_downsample_factor + 1
         latent_h = height // self.vae.upsampling_factor
         latent_w = width // self.vae.upsampling_factor
 
-        video_generator = None if seed is None else torch.Generator(device=rand_device).manual_seed(seed)
-        action_generator = None if seed is None else torch.Generator(device=rand_device).manual_seed(seed)
+        video_generator = (
+            None if seed is None else torch.Generator(device=rand_device).manual_seed(seed)
+        )
+        action_generator = (
+            None if seed is None else torch.Generator(device=rand_device).manual_seed(seed)
+        )
         latents_video = torch.randn(
             (1, self.vae.model.z_dim, latent_t, latent_h, latent_w),
             generator=video_generator,
@@ -365,7 +397,9 @@ class FastWAMIDM(FastWAMJoint):
         ).to(device=self.device, dtype=self.torch_dtype)
 
         input_image = input_image.to(device=self.device, dtype=self.torch_dtype)
-        first_frame_latents = self._encode_input_image_latents_tensor(input_image=input_image, tiled=tiled)
+        first_frame_latents = self._encode_input_image_latents_tensor(
+            input_image=input_image, tiled=tiled
+        )
         latents_video[:, :, 0:1] = first_frame_latents.clone()
         fuse_flag = bool(getattr(self.video_expert, "fuse_vae_embedding_in_latents", False))
 
@@ -400,14 +434,18 @@ class FastWAMIDM(FastWAMJoint):
             )
 
         # Stage 1: denoise video only.
-        infer_timesteps_video, infer_deltas_video = self.infer_video_scheduler.build_inference_schedule(
-            num_inference_steps=num_inference_steps,
-            device=self.device,
-            dtype=latents_video.dtype,
-            shift_override=sigma_shift,
+        infer_timesteps_video, infer_deltas_video = (
+            self.infer_video_scheduler.build_inference_schedule(
+                num_inference_steps=num_inference_steps,
+                device=self.device,
+                dtype=latents_video.dtype,
+                shift_override=sigma_shift,
+            )
         )
         for step_t_video, step_delta_video in zip(infer_timesteps_video, infer_deltas_video):
-            timestep_video = step_t_video.unsqueeze(0).to(dtype=latents_video.dtype, device=self.device)
+            timestep_video = step_t_video.unsqueeze(0).to(
+                dtype=latents_video.dtype, device=self.device
+            )
             pred_video = self.video_expert(
                 x=latents_video,
                 timestep=timestep_video,
@@ -416,11 +454,15 @@ class FastWAMIDM(FastWAMJoint):
                 action=None,
                 fuse_vae_embedding_in_latents=fuse_flag,
             )
-            latents_video = self.infer_video_scheduler.step(pred_video, step_delta_video, latents_video)
+            latents_video = self.infer_video_scheduler.step(
+                pred_video, step_delta_video, latents_video
+            )
             latents_video[:, :, 0:1] = first_frame_latents.clone()
 
         # Stage 2: freeze denoised video as cond and denoise action via video K/V cache.
-        timestep_video_cond = torch.zeros((latents_video.shape[0],), dtype=latents_video.dtype, device=self.device)
+        timestep_video_cond = torch.zeros(
+            (latents_video.shape[0],), dtype=latents_video.dtype, device=self.device
+        )
         video_pre_cond = self.video_expert.pre_dit(
             x=latents_video,
             timestep=timestep_video_cond,
@@ -447,14 +489,18 @@ class FastWAMIDM(FastWAMJoint):
             video_attention_mask=attention_mask[:video_seq_len, :video_seq_len],
         )
 
-        infer_timesteps_action, infer_deltas_action = self.infer_action_scheduler.build_inference_schedule(
-            num_inference_steps=num_inference_steps,
-            device=self.device,
-            dtype=latents_action.dtype,
-            shift_override=sigma_shift,
+        infer_timesteps_action, infer_deltas_action = (
+            self.infer_action_scheduler.build_inference_schedule(
+                num_inference_steps=num_inference_steps,
+                device=self.device,
+                dtype=latents_action.dtype,
+                shift_override=sigma_shift,
+            )
         )
         for step_t_action, step_delta_action in zip(infer_timesteps_action, infer_deltas_action):
-            timestep_action = step_t_action.unsqueeze(0).to(dtype=latents_action.dtype, device=self.device)
+            timestep_action = step_t_action.unsqueeze(0).to(
+                dtype=latents_action.dtype, device=self.device
+            )
             pred_action = self._predict_action_noise_with_cache(
                 latents_action=latents_action,
                 timestep_action=timestep_action,
@@ -464,7 +510,9 @@ class FastWAMIDM(FastWAMJoint):
                 attention_mask=attention_mask,
                 video_seq_len=video_seq_len,
             )
-            latents_action = self.infer_action_scheduler.step(pred_action, step_delta_action, latents_action)
+            latents_action = self.infer_action_scheduler.step(
+                pred_action, step_delta_action, latents_action
+            )
 
         return {
             "video": self._decode_latents(latents_video, tiled=tiled),

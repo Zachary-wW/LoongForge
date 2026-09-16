@@ -59,7 +59,9 @@ from transformers import AutoTokenizer as Qwen2Tokenizer
 logger = logging.getLogger(__name__)
 
 
-def check_valid_tuple_or_element(value, num_dims=None, typename=None, raise_error=False, param_name=""):
+def check_valid_tuple_or_element(
+    value, num_dims=None, typename=None, raise_error=False, param_name=""
+):
     """Validate and normalize a value to a tuple of num_dims elements."""
     if isinstance(value, (list, tuple)):
         if num_dims is not None and len(value) != num_dims:
@@ -128,7 +130,9 @@ def create_sparse_mask(document_lens, split_lens, attn_modes, device):
 
     def full_and_noise_mask(b, h, q_idx, kv_idx):
         """Allow attention within same full/noise sequence."""
-        return (full_and_noise_seq_id[q_idx] == full_and_noise_seq_id[kv_idx]) & (full_and_noise_seq_id[q_idx] >= 0)
+        return (full_and_noise_seq_id[q_idx] == full_and_noise_seq_id[kv_idx]) & (
+            full_and_noise_seq_id[q_idx] >= 0
+        )
 
     def remove_noise_mask(b, h, q_idx, kv_idx):
         """Prevent attending to noise tokens from different sequences."""
@@ -154,7 +158,9 @@ def prepare_attention_mask_per_sample(split_lens, attn_modes, device="cpu"):
         Attention mask tensor of shape (sample_len, sample_len) with -inf for masked positions
     """
     sample_len = sum(split_lens)
-    attention_mask = torch.zeros((sample_len, sample_len), dtype=torch.bool, device=device)  # [sample_len,sample_len]
+    attention_mask = torch.zeros(
+        (sample_len, sample_len), dtype=torch.bool, device=device
+    )  # [sample_len,sample_len]
 
     # First pass: Set up basic attention patterns for each split
     current_pos = 0
@@ -272,13 +278,13 @@ class ModalityData:
             sequence packing to reduce GPU->CPU synchronization later. Only after finalize().
         domain_id: Domain ID for multi-domain training. Only after finalize(). NOTE: only used for action modality.
         raw_action_dim: Raw action dimension. Only after finalize(). NOTE: only used for action modality.
-    """
+    """  # noqa: E501
 
     # Core tracking (list during build, tensor after finalize)
     sequence_indexes: list[int] | torch.Tensor = field(default_factory=list)
     timesteps: list[float] | torch.Tensor = field(default_factory=list)
     mse_loss_indexes: list[int] | torch.Tensor = field(default_factory=list)
-    # list[tuple[int,int,int]] for vision, list[tuple[int]] for action, list[tuple[int,int,int]] for sound
+    # list[tuple[int,int,int]] for vision, list[tuple[int]] for action, list[tuple[int,int,int]] for sound  # noqa: E501
     token_shapes: list = field(default_factory=list)
 
     # Populated during finalization (from GenerationDataClean / noise path)
@@ -423,7 +429,9 @@ class PackedSequence:
         vision: ModalityData | None = None
         if self.vision is not None and len(self.vision.sequence_indexes) > 0:
             vision = ModalityData(
-                sequence_indexes=torch.tensor(self.vision.sequence_indexes, dtype=torch.long),  # [N_vision_tokens]
+                sequence_indexes=torch.tensor(
+                    self.vision.sequence_indexes, dtype=torch.long
+                ),  # [N_vision_tokens]
                 timesteps=torch.tensor(self.vision.timesteps),  # [N_vision_noisy_tokens]
                 mse_loss_indexes=torch.tensor(
                     self.vision.mse_loss_indexes, dtype=torch.long
@@ -438,14 +446,18 @@ class PackedSequence:
         action: ModalityData | None = None
         if self.action is not None and len(self.action.sequence_indexes) > 0:
             action = ModalityData(
-                sequence_indexes=torch.tensor(self.action.sequence_indexes, dtype=torch.long),  # [N_action_tokens]
+                sequence_indexes=torch.tensor(
+                    self.action.sequence_indexes, dtype=torch.long
+                ),  # [N_action_tokens]
                 timesteps=torch.tensor(self.action.timesteps),  # [N_action_noisy_tokens]
                 mse_loss_indexes=torch.tensor(
                     self.action.mse_loss_indexes, dtype=torch.long
                 ),  # [N_action_noisy_tokens]
                 token_shapes=list(self.action.token_shapes),
                 tokens=self.action.tokens,
-                condition_mask=list(self.action.condition_mask),  # Keep as list to support variable shapes
+                condition_mask=list(
+                    self.action.condition_mask
+                ),  # Keep as list to support variable shapes
                 noisy_frame_indexes=list(self.action.noisy_frame_indexes),
                 domain_id=(
                     gen_data_clean.action_domain_id
@@ -459,9 +471,13 @@ class PackedSequence:
         sound: ModalityData | None = None
         if self.sound is not None and len(self.sound.sequence_indexes) > 0:
             sound = ModalityData(
-                sequence_indexes=torch.tensor(self.sound.sequence_indexes, dtype=torch.long),  # [N_sound_tokens]
+                sequence_indexes=torch.tensor(
+                    self.sound.sequence_indexes, dtype=torch.long
+                ),  # [N_sound_tokens]
                 timesteps=torch.tensor(self.sound.timesteps),  # [N_sound_noisy_tokens]
-                mse_loss_indexes=torch.tensor(self.sound.mse_loss_indexes, dtype=torch.long),  # [N_sound_noisy_tokens]
+                mse_loss_indexes=torch.tensor(
+                    self.sound.mse_loss_indexes, dtype=torch.long
+                ),  # [N_sound_noisy_tokens]
                 token_shapes=list(self.sound.token_shapes),
                 tokens=self.sound.tokens,
                 condition_mask=list(self.sound.condition_mask),
@@ -469,10 +485,14 @@ class PackedSequence:
             )
 
         # Finalize position IDs: 3D mRoPE (3, seq_len) or 1D RoPE (seq_len,)
-        if self._use_mrope and len(self.position_ids) > 0 and isinstance(self.position_ids[0], torch.Tensor):
+        if (
+            self._use_mrope
+            and len(self.position_ids) > 0
+            and isinstance(self.position_ids[0], torch.Tensor)
+        ):
             mrope_tensors: list[torch.Tensor] = self.position_ids  # type: ignore[assignment]
             position_ids = torch.cat(mrope_tensors, dim=1)  # [3,actual_seq_len]
-        else:  # Original 1D RoPE from Bagel, where all the media tokens share the same 1D position ID
+        else:  # Original 1D RoPE from Bagel, where all the media tokens share the same 1D position ID  # noqa: E501
             position_ids = torch.tensor(self.position_ids)  # [seq_len]
 
         return PackedSequence(
@@ -922,13 +942,13 @@ def _pack_action_tokens(
             base_fps=base_fps,
             temporal_compression_factor=1,  # Action is at frame rate (no temporal compression)
             base_temporal_compression_factor=base_temporal_compression_factor,
-            start_frame_offset=action_start_frame_offset,  # Align action[0] with vision frame action_start_frame_offset
+            start_frame_offset=action_start_frame_offset,  # Align action[0] with vision frame action_start_frame_offset  # noqa: E501
         )  # action_mrope_ids: [3,N_action_tokens]
         packed_seq.position_ids.append(action_mrope_ids)
         # Note: we don't update _mrope_temporal_offset here because action tokens
         # share the temporal space with vision tokens (they run in parallel).
     else:
-        # All action tokens share the SAME RoPE position as vision tokens (see docs/sequence_packing.md).
+        # All action tokens share the SAME RoPE position as vision tokens (see docs/sequence_packing.md).  # noqa: E501
         packed_seq.position_ids.extend([curr_rope_id] * action_split_len)
 
     packed_seq.curr = curr + action_split_len
@@ -1024,7 +1044,7 @@ def _pack_sound_tokens(
     # Update RoPE position IDs for sound tokens.
     if packed_seq._use_mrope:
         # 3D mRoPE: sound tokens use a 1x1 spatial grid, aligned with vision temporal positions.
-        # sound[0] aligns with vision frame 0 (start_frame_offset=0, unlike action which offsets by 1).
+        # sound[0] aligns with vision frame 0 (start_frame_offset=0, unlike action which offsets by 1).  # noqa: E501
         effective_fps = sound_fps if enable_fps_modulation else None
 
         sound_mrope_ids, _ = get_3d_mrope_ids_vae_tokens(
@@ -1035,14 +1055,14 @@ def _pack_sound_tokens(
             reset_spatial_indices=packed_seq._mrope_reset_spatial,
             fps=effective_fps,
             base_fps=base_fps,
-            temporal_compression_factor=1,  # Sound latent is already at sound_latent_fps (no further compression)
+            temporal_compression_factor=1,  # Sound latent is already at sound_latent_fps (no further compression)  # noqa: E501
             start_frame_offset=0,  # Sound[0] aligns with vision frame 0
         )  # sound_mrope_ids: [3,N_sound_tokens]
         packed_seq.position_ids.append(sound_mrope_ids)
         # Note: we don't update _mrope_temporal_offset here because sound tokens
         # share the temporal space with vision tokens (they run in parallel).
     else:
-        # All sound tokens share the SAME RoPE position as vision/action tokens (unified generation split).
+        # All sound tokens share the SAME RoPE position as vision/action tokens (unified generation split).  # noqa: E501
         packed_seq.position_ids.extend([curr_rope_id] * sound_split_len)
 
     packed_seq.curr = curr + sound_split_len
@@ -1130,12 +1150,16 @@ def _pack_supertokens_temporal_causal(
         #   3. AR frame N>0 (latent_t == 1, action provided): real actions, no null prefix.
         #   4. AR frame 0 / image2video (action is None): all null tokens.
         if input_action_tokens is not None:
-            # input_action_tokens shape: (1, T*tcf, D) or (T*tcf, D) for training; (tcf, D) for AR frame N>0
+            # input_action_tokens shape: (1, T*tcf, D) or (T*tcf, D) for training; (tcf, D) for AR frame N>0  # noqa: E501
             if input_action_tokens.dim() == 3:
-                real_actions = input_action_tokens.squeeze(0)  # [T*tcf,action_dim] or [N,action_dim]
+                real_actions = input_action_tokens.squeeze(
+                    0
+                )  # [T*tcf,action_dim] or [N,action_dim]
             else:
                 real_actions = input_action_tokens  # [N,action_dim]
-            null_tokens = torch.zeros(tcf, action_dim, device=device, dtype=real_actions.dtype)  # [tcf,action_dim]
+            null_tokens = torch.zeros(
+                tcf, action_dim, device=device, dtype=real_actions.dtype
+            )  # [tcf,action_dim]
             if latent_t == 1:
                 # AR frame N>0: single supertoken with real actions, no null prefix
                 all_action_tokens = real_actions  # [tcf,action_dim]
@@ -1146,7 +1170,9 @@ def _pack_supertokens_temporal_causal(
                 null_action_flag = False
             else:
                 # Conditioning frame present: null for supertoken 0, real for 1..T-1
-                all_action_tokens = torch.cat([null_tokens, real_actions], dim=0)  # [T*tcf,action_dim]
+                all_action_tokens = torch.cat(
+                    [null_tokens, real_actions], dim=0
+                )  # [T*tcf,action_dim]
                 null_action_flag = True
         else:
             # AR frame 0 or image2video: all action tokens are null
@@ -1186,7 +1212,9 @@ def _pack_supertokens_temporal_causal(
 
         # Action conditioning mask: all action tokens are conditioning (not supervised)
         # Null tokens are always conditioning; real actions are conditioning too (they are inputs)
-        action_condition_mask = torch.ones((latent_t * tcf, 1), device=device, dtype=dtype)  # [T*tcf,1]
+        action_condition_mask = torch.ones(
+            (latent_t * tcf, 1), device=device, dtype=dtype
+        )  # [T*tcf,1]
         packed_seq.action.condition_mask.append(action_condition_mask)
 
     # Pack in interleaved supertoken order: [action_t, vision_t] for each frame t
@@ -1205,7 +1233,9 @@ def _pack_supertokens_temporal_causal(
         # All other cases (training latent_t>1, AR action_gen=False, AR frame 0 null)
         # keep start_frame_offset=0. The caller in pack_input_sequence_autoregressive
         # seeds temporal_offset accordingly (N-1 frames back when this shift applies).
-        ar_with_real_actions = latent_t == 1 and pack_action_tokens and input_action_tokens is not None
+        ar_with_real_actions = (
+            latent_t == 1 and pack_action_tokens and input_action_tokens is not None
+        )
         vision_sfo = 1 if ar_with_real_actions else 0
 
         vision_ids_flat, new_offset = get_3d_mrope_ids_vae_tokens(
@@ -1257,10 +1287,12 @@ def _pack_supertokens_temporal_causal(
                 else:
                     # Training with conditioning frame: supertoken 0 = null, 1..T-1 = real
                     null_ids_3d = null_ids.reshape(3, 1, tcf)  # [3,1,tcf]
-                    real_ids_3d = _real_action_ids(latent_t - 1, start_frame_offset=1)  # [3,T-1,tcf]
+                    real_ids_3d = _real_action_ids(
+                        latent_t - 1, start_frame_offset=1
+                    )  # [3,T-1,tcf]
                     action_ids_3d = torch.cat([null_ids_3d, real_ids_3d], dim=1)  # [3,T,tcf]
             elif latent_t > 1:
-                # No action tensor (all-null layout): same ID structure as training w/ conditioning frame.
+                # No action tensor (all-null layout): same ID structure as training w/ conditioning frame.  # noqa: E501
                 null_ids_3d = null_ids.reshape(3, 1, tcf)  # [3,1,tcf]
                 real_ids_3d = _real_action_ids(latent_t - 1, start_frame_offset=1)  # [3,T-1,tcf]
                 action_ids_3d = torch.cat([null_ids_3d, real_ids_3d], dim=1)  # [3,T,tcf]
@@ -1274,7 +1306,9 @@ def _pack_supertokens_temporal_causal(
                 action_ids_3d = _real_action_ids(1, start_frame_offset=1)  # [3,1,tcf]
 
             # (3, T*H*W) → (3, T, H*W)
-            vision_ids_3d = vision_ids_flat.reshape(3, latent_t, patches_per_frame)  # [3,T,patch_h*patch_w]
+            vision_ids_3d = vision_ids_flat.reshape(
+                3, latent_t, patches_per_frame
+            )  # [3,T,patch_h*patch_w]
 
             # Interleave per frame: (3, T, tcf+H*W) → (3, T*S)
             interleaved_ids = torch.cat([action_ids_3d, vision_ids_3d], dim=2).reshape(
@@ -1289,7 +1323,7 @@ def _pack_supertokens_temporal_causal(
 
     for frame_t in range(latent_t):
         if pack_action_tokens:
-            # Pack action tokens for this frame (indexes only; tokens already stored in packed_seq.action.tokens)
+            # Pack action tokens for this frame (indexes only; tokens already stored in packed_seq.action.tokens)  # noqa: E501
             action_indexes = list(range(curr, curr + tcf))
             packed_seq.action.sequence_indexes.extend(action_indexes)
             # Action tokens are never in MSE loss (always conditioning)
@@ -1311,7 +1345,11 @@ def _pack_supertokens_temporal_causal(
         # Vision MSE loss: supervise non-conditioning frames
         if frame_t not in condition_set_vision:
             packed_seq.vision.mse_loss_indexes.extend(frame_indexes)
-            frame_ts = input_timestep[frame_t].item() if isinstance(input_timestep, torch.Tensor) else input_timestep
+            frame_ts = (
+                input_timestep[frame_t].item()
+                if isinstance(input_timestep, torch.Tensor)
+                else input_timestep
+            )
             packed_seq.vision.timesteps.extend([frame_ts] * patches_per_frame)
 
     packed_seq.curr = curr
@@ -1380,7 +1418,7 @@ def pack_input_sequence(
             Obtained from the VAE tokenizer at runtime.
     Returns:
         PackedSequence containing all packed tensors and metadata. See PackedSequence for field details.
-    """
+    """  # noqa: E501
     del max_num_tokens
 
     assert special_tokens is not None, "Special tokens must be provided"
@@ -1408,7 +1446,9 @@ def pack_input_sequence(
     # CFG dropout only drops text *content*, not the structural text split.
     if not skip_text_tokens:
         for plan in sequence_plans:
-            assert plan.has_text, "All sequence plans must have has_text=True when skip_text_tokens=False"
+            assert plan.has_text, (
+                "All sequence plans must have has_text=True when skip_text_tokens=False"
+            )
 
     # Pack each sample based on its sequence plan
     for sample_idx, sequence_plan in enumerate(sequence_plans):
@@ -1420,14 +1460,18 @@ def pack_input_sequence(
         packed_seq._mrope_temporal_offset = initial_mrope_temporal_offset
 
         _ts = input_timesteps[sample_idx]
-        input_timestep = _ts.item() if _ts.numel() == 1 else _ts  # float (TF) or Tensor(T_max,) (DF)
+        input_timestep = (
+            _ts.item() if _ts.numel() == 1 else _ts
+        )  # float (TF) or Tensor(T_max,) (DF)
 
         # Pack text tokens if has_text=True and not skipped
         if sequence_plan.has_text and not skip_text_tokens:
             text_ids = input_text_indexes[idx_text]
             idx_text += 1
 
-            has_generation_for_sample = sequence_plan.has_vision or sequence_plan.has_action or sequence_plan.has_sound
+            has_generation_for_sample = (
+                sequence_plan.has_vision or sequence_plan.has_action or sequence_plan.has_sound
+            )
             curr_rope_id, _, text_sample_len = _pack_text_tokens(
                 packed_seq,
                 text_ids,
@@ -1441,7 +1485,7 @@ def pack_input_sequence(
             # End of text modality, add an offset as the boundary between text and vision.
             packed_seq._mrope_temporal_offset += unified_3d_mrope_temporal_modality_margin
 
-        # Save temporal offset before vision for action tokens (action uses same offset as vision start)
+        # Save temporal offset before vision for action tokens (action uses same offset as vision start)  # noqa: E501
         vision_start_temporal_offset = packed_seq._mrope_temporal_offset
 
         # Pack vision (and optionally action) tokens
@@ -1495,7 +1539,9 @@ def pack_input_sequence(
             # stamp the supertoken layout constant directly here. This is the
             # single source of truth read by downstream attention / KV-cache
             # code (no recomputation in the network).
-            packed_seq.num_action_tokens_per_supertoken = temporal_compression_factor if sequence_plan.has_action else 0
+            packed_seq.num_action_tokens_per_supertoken = (
+                temporal_compression_factor if sequence_plan.has_action else 0
+            )
             sample_len += supertoken_split_len
             vision_split_len = supertoken_split_len
             action_split_len = 0  # Already absorbed into supertoken_split_len
@@ -1565,11 +1611,13 @@ def pack_input_sequence(
                             shared_patch_w = item_latent_w
                         else:
                             assert item_latent_t == shared_latent_t, (
-                                f"share_vision_temporal_positions requires equal latent_t across items, "
-                                f"got item {item_idx} latent_t={item_latent_t} vs first={shared_latent_t}"
+                                f"share_vision_temporal_positions requires equal latent_t across items, "  # noqa: E501
+                                f"got item {item_idx} latent_t={item_latent_t} vs first={shared_latent_t}"  # noqa: E501
                             )
-                            assert item_latent_h == shared_patch_h and item_latent_w == shared_patch_w, (
-                                f"share_vision_temporal_positions requires equal spatial grid across items, "
+                            assert (
+                                item_latent_h == shared_patch_h and item_latent_w == shared_patch_w
+                            ), (
+                                f"share_vision_temporal_positions requires equal spatial grid across items, "  # noqa: E501
                                 f"got item {item_idx} (H,W)=({item_latent_h},{item_latent_w}) "
                                 f"vs first=({shared_patch_h},{shared_patch_w})"
                             )
@@ -1658,7 +1706,9 @@ def pack_input_sequence(
 
         # Add end-of-generation token if needed
         eov_len = 0
-        has_any_generation = sequence_plan.has_vision or sequence_plan.has_action or sequence_plan.has_sound
+        has_any_generation = (
+            sequence_plan.has_vision or sequence_plan.has_action or sequence_plan.has_sound
+        )
         if include_end_of_generation_token and has_any_generation:
             # Type narrowing: we're in build mode, fields are lists
             assert isinstance(packed_seq.text_ids, list)
@@ -1672,7 +1722,9 @@ def pack_input_sequence(
             if packed_seq._use_mrope:
                 # Use float dtype when FPS modulation is enabled for consistency
                 eov_dtype = torch.float32 if enable_fps_modulation else torch.long
-                eov_mrope_ids = torch.full((3, 1), packed_seq._mrope_temporal_offset, dtype=eov_dtype)  # [3,1]
+                eov_mrope_ids = torch.full(
+                    (3, 1), packed_seq._mrope_temporal_offset, dtype=eov_dtype
+                )  # [3,1]
                 packed_seq.position_ids.append(eov_mrope_ids)  # type: ignore[arg-type]
                 packed_seq._mrope_temporal_offset += 1
             else:
@@ -1691,7 +1743,7 @@ def pack_input_sequence(
     if null_action_flags:
         assert len(set(null_action_flags)) == 1, (
             f"Inconsistent null_action_supertokens across samples: {null_action_flags}. "
-            "All samples in a batch must have the same structure (all training or all AR inference)."
+            "All samples in a batch must have the same structure (all training or all AR inference)."  # noqa: E501
         )
         packed_seq.null_action_supertokens = null_action_flags[0]
 
@@ -1730,7 +1782,7 @@ is_sharded (bool):
     - Padding and reconstruction logic is skipped in `from_joint`.
     - Operations requiring global context (e.g., `get_all_seq`, position ID reconstruction)
       are not allowed when is_sharded is True.
-"""
+"""  # noqa: E501
 
 
 # "Fake" types for readability; everything is plain dict at runtime.
@@ -1759,7 +1811,7 @@ def _find_non_causal_text_token_idx(
     for attn_mode, split_len in zip(attn_modes, split_lens):
         if attn_mode == "full":
             split_indices = range(packed_idx, packed_idx + split_len)
-            # For this "full" split, find the und tokens within this split, mapped local to full_only_seq offset
+            # For this "full" split, find the und tokens within this split, mapped local to full_only_seq offset  # noqa: E501
             for local_idx, split_idx in enumerate(split_indices):
                 if split_idx in und_token_set:
                     out.append(full_offset + local_idx)
@@ -1788,7 +1840,9 @@ def _compute_mode_indices_and_offsets(
             next_offset += split_len
             offsets.append(next_offset)
         start += split_len
-    return torch.tensor(indices, dtype=torch.int32, device=device), torch.tensor(  # [N_mode_tokens], [N_mode_splits+1]
+    return torch.tensor(
+        indices, dtype=torch.int32, device=device
+    ), torch.tensor(  # [N_mode_tokens], [N_mode_splits+1]
         offsets, dtype=torch.int32, device=device
     )
 
@@ -1863,14 +1917,24 @@ def _init_sequence_pack(
 ) -> dict[str, Any]:
     """Initialize a sequence pack dictionary."""
     _max_sample_len = max(sample_lens)
-    _max_causal_len = max((split_lens[i] for i in range(len(split_lens)) if attn_modes[i] == "causal"), default=0)
-    _max_full_len = max((split_lens[i] for i in range(len(split_lens)) if attn_modes[i] == "full"), default=0)
+    _max_causal_len = max(
+        (split_lens[i] for i in range(len(split_lens)) if attn_modes[i] == "causal"), default=0
+    )
+    _max_full_len = max(
+        (split_lens[i] for i in range(len(split_lens)) if attn_modes[i] == "full"), default=0
+    )
 
-    sample_lens_cu = torch.tensor([0] + sample_lens, device=device, dtype=torch.int32)  # [N_samples+1]
+    sample_lens_cu = torch.tensor(
+        [0] + sample_lens, device=device, dtype=torch.int32
+    )  # [N_samples+1]
     _sample_offsets = torch.cumsum(sample_lens_cu, dim=0, dtype=torch.int32)  # [N_samples+1]
 
-    _causal_indices, _causal_seq_offsets = _compute_mode_indices_and_offsets(split_lens, attn_modes, "causal", device)
-    _full_indices, _full_only_seq_offsets = _compute_mode_indices_and_offsets(split_lens, attn_modes, "full", device)
+    _causal_indices, _causal_seq_offsets = _compute_mode_indices_and_offsets(
+        split_lens, attn_modes, "causal", device
+    )
+    _full_indices, _full_only_seq_offsets = _compute_mode_indices_and_offsets(
+        split_lens, attn_modes, "full", device
+    )
 
     return dict(
         sample_offsets=_sample_offsets,
@@ -1964,10 +2028,12 @@ def factored_from_joint_sequence(
         sample_lens (List[int]): Length of each sequence. len(sample_lens) == number of samples.
         packed_und_token_indexes (torch.Tensor): The indexes of the understanding tokens in the packed sequence.
         packed_gen_token_indexes (torch.Tensor): The indexes of the generating tokens in the packed sequence.
-    """
+    """  # noqa: E501
     del packed_gen_token_indexes
 
-    non_causal_text_idxs = _find_non_causal_text_token_idx(attn_modes, split_lens, packed_und_token_indexes.tolist())
+    non_causal_text_idxs = _find_non_causal_text_token_idx(
+        attn_modes, split_lens, packed_und_token_indexes.tolist()
+    )
     assert len(non_causal_text_idxs) == 0, "non_causal_text_idxs should be empty"
 
     assert sum(sample_lens) == packed_sequence.shape[0], (
@@ -2014,7 +2080,9 @@ def _validate_single_dim_params(params: Mapping, layer_idx: int, num_dims: int |
     """
     if not isinstance(params, Mapping):
         dim_str = f" ({num_dims}-D)" if num_dims else ""
-        raise ValueError(f"Parameters for layer {layer_idx}{dim_str} must be a dict or None, got {params=}.")
+        raise ValueError(
+            f"Parameters for layer {layer_idx}{dim_str} must be a dict or None, got {params=}."
+        )
 
     is_causal = False if "is_causal" not in params else params["is_causal"]
 
@@ -2026,7 +2094,7 @@ def _validate_single_dim_params(params: Mapping, layer_idx: int, num_dims: int |
             or any(not isinstance(x, float) for x in window_size_float)
         ):
             raise ValueError(
-                f"window_size_float must be a float tuple of size 1, 2, or 3, got window_size_float={window_size_float}"
+                f"window_size_float must be a float tuple of size 1, 2, or 3, got window_size_float={window_size_float}"  # noqa: E501
             )
         window_size_float = tuple(k for k in window_size_float)
 
@@ -2057,7 +2125,7 @@ def _validate_single_dim_params(params: Mapping, layer_idx: int, num_dims: int |
 
         if any(x in params for x in ["window_size", "stride", "dilation"]):
             raise ValueError(
-                f"Please either use _float parameters, or integer ones, and not mix the two. Got {params=}."
+                f"Please either use _float parameters, or integer ones, and not mix the two. Got {params=}."  # noqa: E501
             )
 
         return {
@@ -2076,7 +2144,7 @@ def _validate_single_dim_params(params: Mapping, layer_idx: int, num_dims: int |
 
         if any("_float" in x for x in params.keys()):
             raise ValueError(
-                f"Please either use _float parameters, or integer ones, and not mix the two. Got {params=}."
+                f"Please either use _float parameters, or integer ones, and not mix the two. Got {params=}."  # noqa: E501
             )
 
         window_size = check_valid_tuple_or_element(
@@ -2092,7 +2160,12 @@ def _validate_single_dim_params(params: Mapping, layer_idx: int, num_dims: int |
             is_causal, num_dims=num_dims, typename=bool, raise_error=True, param_name="is_causal"
         )
 
-        return {"window_size": window_size, "stride": stride, "dilation": dilation, "is_causal": is_causal}
+        return {
+            "window_size": window_size,
+            "stride": stride,
+            "dilation": dilation,
+            "is_causal": is_causal,
+        }
     else:
         raise ValueError(
             "Sparse parameters for a layer must have key 'window_size' or 'window_size_float', "
@@ -2175,7 +2248,9 @@ def generate_natten_metadata(
     if natten_parameter_list is not None:
         natten_metadata = []
         if not isinstance(natten_parameter_list, list):
-            raise ValueError(f"Argument 'natten_parameter_list' must be a list or None, got {natten_parameter_list=}.")
+            raise ValueError(
+                f"Argument 'natten_parameter_list' must be a list or None, got {natten_parameter_list=}."  # noqa: E501
+            )
 
         if len(natten_parameter_list) != num_layers:
             raise ValueError(
@@ -2200,7 +2275,7 @@ def generate_natten_metadata(
             # Fail fast if this dimensionality is not defined
             if num_dims not in layer_parameters:
                 raise ValueError(
-                    f"Layer {i}: batch has {num_dims}D data but parameters are not defined for {num_dims}D. "
+                    f"Layer {i}: batch has {num_dims}D data but parameters are not defined for {num_dims}D. "  # noqa: E501
                     f"Defined dimensionalities: {sorted(layer_parameters.keys())}"
                 )
 
@@ -2219,7 +2294,7 @@ def generate_natten_metadata(
             assert isinstance(shape, tuple)
             shape_filtered = filter_shape(shape)
             assert len(shape_filtered) == num_dims, (
-                f"All data in batch must have same dimensionality, got {num_dims}D and {len(shape_filtered)}D"
+                f"All data in batch must have same dimensionality, got {num_dims}D and {len(shape_filtered)}D"  # noqa: E501
             )
             token_layout_list.append(shape_filtered)
 
@@ -2250,17 +2325,29 @@ def generate_natten_metadata(
 
                 for token_layout in token_layout_list:
                     window_size_ = tuple(
-                        min(x, max(2, int(k * float(x)))) for k, x in zip(window_size_float, token_layout)
+                        min(x, max(2, int(k * float(x))))
+                        for k, x in zip(window_size_float, token_layout)
                     )
-                    stride_ = tuple(min(k, max(1, int(s * float(k)))) for s, k in zip(stride_float, window_size_))
+                    stride_ = tuple(
+                        min(k, max(1, int(s * float(k))))
+                        for s, k in zip(stride_float, window_size_)
+                    )
                     max_dilation = tuple(x // k for k, x in zip(window_size_, token_layout))
-                    dilation_ = tuple(min(m, max(1, int(d * float(m)))) for d, m in zip(dilation_float, max_dilation))
+                    dilation_ = tuple(
+                        min(m, max(1, int(d * float(m))))
+                        for d, m in zip(dilation_float, max_dilation)
+                    )
 
                     window_size_list.append(window_size_)
                     stride_list.append(stride_)
                     dilation_list.append(dilation_)
 
-                assert len(window_size_list) == len(stride_list) == len(dilation_list) == len(token_layout_list)
+                assert (
+                    len(window_size_list)
+                    == len(stride_list)
+                    == len(dilation_list)
+                    == len(token_layout_list)
+                )
 
                 logger.debug(f"Layer {i}: window_size_list={window_size_list}")
                 logger.debug(f"Layer {i}: stride_list={stride_list}")
@@ -2276,7 +2363,7 @@ def generate_natten_metadata(
                 dilation_list = [dilation for _ in range(len(token_layout_list))]
             else:
                 raise ValueError(
-                    "Sparse parameters for a layer must have key 'window_size' or 'window_size_float', "
+                    "Sparse parameters for a layer must have key 'window_size' or 'window_size_float', "  # noqa: E501
                     f"got {dim_params=} in layer index {i}."
                 )
 
@@ -2354,7 +2441,9 @@ def generate_temporal_causal_natten_metadata(
                 "Ensure all samples have T_latent >= 2 (set min_frames >= 5 in the dataloader)."
             )
         return [None] * num_layers
-    token_layout_list = [(t, num_action_tokens_per_supertoken + h * w) for t, h, w in vision_token_shapes]
+    token_layout_list = [
+        (t, num_action_tokens_per_supertoken + h * w) for t, h, w in vision_token_shapes
+    ]
     metadata = generate_multi_dim_varlen_parameters(
         token_layout_list=token_layout_list,
         head_dim=head_dim,
@@ -2391,7 +2480,7 @@ def joint_from_joint_sequence(
                                  as opposed to FactoredSequencePack where each sequence has exactly two splits..
         packed_und_token_indexes (torch.Tensor): The indexes of the understanding tokens in the packed sequence.
         packed_gen_token_indexes (torch.Tensor): The indexes of the generating tokens in the packed sequence.
-    """
+    """  # noqa: E501
     assert sum(sample_lens) == packed_sequence.shape[0], (
         "sum(sample_lens) must be equal to the length of the packed sequence"
     )
@@ -2407,14 +2496,17 @@ def joint_from_joint_sequence(
     return pack
 
 
-def zeros_like(orig: FactoredSequencePack | JointSequencePack, shape: Tuple[int, ...] | torch.Size | None = None):
+def zeros_like(
+    orig: FactoredSequencePack | JointSequencePack,
+    shape: Tuple[int, ...] | torch.Size | None = None,
+):
     """
     Create a new sequence pack with the same metadata as the original, but with all tokens set to zero.
     Args:
         orig (FactoredSequencePack | JointSequencePack): The original sequence pack to copy metadata from.
         shape (Tuple[int, ...] | torch.Size | None): The shape of the new sequence pack.
             If None, the shape will be the same as the original.
-    """
+    """  # noqa: E501
     _ensure_core_metadata(orig)
     if "packed_sequence" in orig:
         if shape is None:
@@ -2443,13 +2535,15 @@ def zeros_like(orig: FactoredSequencePack | JointSequencePack, shape: Tuple[int,
         return from_mode_splits(causal_seq, full_only_seq, orig)
 
 
-def from_joint(packed_sequence: torch.Tensor, metadata_source: FactoredSequencePack | JointSequencePack):
+def from_joint(
+    packed_sequence: torch.Tensor, metadata_source: FactoredSequencePack | JointSequencePack
+):
     """
     Create a new sequence pack from a packed sequence and another sequence pack with the same metadata.
     Args:
         packed_sequence (torch.Tensor): Tensor containing all tokens in the batch of sequences.
         metadata_source (FactoredSequencePack | JointSequencePack): The metadata source to copy from.
-    """
+    """  # noqa: E501
     _ensure_core_metadata(metadata_source)
     if "packed_sequence" in metadata_source:
         out = dict(metadata_source)
@@ -2458,8 +2552,12 @@ def from_joint(packed_sequence: torch.Tensor, metadata_source: FactoredSequenceP
     else:
         if metadata_source["is_sharded"]:
             # Use sharded sequences as is when is_sharded is True (used in Context Parallel)
-            causal_seq = packed_sequence[: len(metadata_source["causal_seq"])]  # [N_causal_tokens,D]
-            full_only_seq = packed_sequence[len(metadata_source["causal_seq"]) :]  # [N_full_tokens,D]
+            causal_seq = packed_sequence[
+                : len(metadata_source["causal_seq"])
+            ]  # [N_causal_tokens,D]
+            full_only_seq = packed_sequence[
+                len(metadata_source["causal_seq"]) :
+            ]  # [N_full_tokens,D]
         else:
             causal_seq = packed_sequence[metadata_source["_causal_indices"]]  # [N_causal_tokens,D]
             full_only_seq = packed_sequence[metadata_source["_full_indices"]]  # [N_full_tokens,D]
@@ -2506,7 +2604,9 @@ def from_mode_splits(
         return out
 
 
-def from_und_gen_splits(und_seq: torch.Tensor, gen_seq: torch.Tensor, orig: FactoredSequencePack | JointSequencePack):
+def from_und_gen_splits(
+    und_seq: torch.Tensor, gen_seq: torch.Tensor, orig: FactoredSequencePack | JointSequencePack
+):
     """
     Create a new sequence pack from two und/gen splits.
     Args:
@@ -2515,7 +2615,11 @@ def from_und_gen_splits(und_seq: torch.Tensor, gen_seq: torch.Tensor, orig: Fact
         orig (FactoredSequencePack | JointSequencePack): The metadata source to copy from.
     """
     # If we have a joint pack (single packed_sequence), place by und/gen indexes.
-    if "packed_sequence" in orig and "packed_und_token_indexes" in orig and "packed_gen_token_indexes" in orig:
+    if (
+        "packed_sequence" in orig
+        and "packed_und_token_indexes" in orig
+        and "packed_gen_token_indexes" in orig
+    ):
         all_len = int(und_seq.shape[0] + gen_seq.shape[0])
         packed_sequence = und_seq.new_zeros((all_len, *und_seq.shape[1:]))  # [seq_len,D]
         packed_sequence[orig["packed_und_token_indexes"]] = und_seq
@@ -2536,7 +2640,7 @@ def get_und_seq(pack: SequencePack) -> torch.Tensor:
         pack (FactoredSequencePack | JointSequencePack): The sequence pack to get the understanding sequence from.
     Returns:
         torch.Tensor: All understanding tokens concatenated over all sequences in the batch.
-    """
+    """  # noqa: E501
     if "causal_seq" in pack:
         return pack["causal_seq"]
     if "packed_sequence" in pack and "packed_und_token_indexes" in pack:
@@ -2552,7 +2656,7 @@ def set_und_seq(pack: SequencePack, value: torch.Tensor) -> None:
     Args:
         pack (FactoredSequencePack | JointSequencePack): The sequence pack to set the understanding sequence in.
         value (torch.Tensor): The understanding sequence to set.
-    """
+    """  # noqa: E501
     if "packed_sequence" in pack and "packed_und_token_indexes" in pack:
         pack["packed_sequence"][pack["packed_und_token_indexes"]] = value
     elif "causal_seq" in pack:
@@ -2568,7 +2672,7 @@ def get_gen_seq(pack: SequencePack) -> torch.Tensor:
         pack (FactoredSequencePack | JointSequencePack): The sequence pack to get the generating sequence from.
     Returns:
         torch.Tensor: All generating tokens concatenated over all sequences in the batch.
-    """
+    """  # noqa: E501
     if "full_only_seq" in pack:
         return pack["full_only_seq"]
     if "packed_sequence" in pack and "packed_gen_token_indexes" in pack:
@@ -2583,7 +2687,7 @@ def set_gen_seq(pack: SequencePack, value: torch.Tensor) -> None:
     Args:
         pack (FactoredSequencePack | JointSequencePack): The sequence pack to set the generating sequence in.
         value (torch.Tensor): The generating sequence to set.
-    """
+    """  # noqa: E501
     if "packed_sequence" in pack and "packed_gen_token_indexes" in pack:
         pack["packed_sequence"][pack["packed_gen_token_indexes"]] = value
     elif "full_only_seq" in pack:
@@ -2599,7 +2703,7 @@ def get_all_seq(pack: SequencePack) -> torch.Tensor:
         pack (FactoredSequencePack | JointSequencePack): The sequence pack to get the all sequence from.
     Returns:
         torch.Tensor: All tokens concatenated over all sequences in the batch.
-    """
+    """  # noqa: E501
     if "all_seq" in pack:
         return pack["all_seq"]
     if "packed_sequence" in pack:
@@ -2610,10 +2714,13 @@ def get_all_seq(pack: SequencePack) -> torch.Tensor:
             assert False, "get_all_seq is not supported in context parallel sharded mode"
         else:
             out = pack["causal_seq"].new_zeros(
-                int(pack["_causal_indices"].shape[0] + pack["_full_indices"].shape[0]), *pack["causal_seq"].shape[1:]
+                int(pack["_causal_indices"].shape[0] + pack["_full_indices"].shape[0]),
+                *pack["causal_seq"].shape[1:],
             )  # [seq_len,D]
             if pack["causal_seq"].shape[0] > 0:
-                out[pack["_causal_indices"]] = pack["causal_seq"][: pack["_causal_indices"].shape[0]]
+                out[pack["_causal_indices"]] = pack["causal_seq"][
+                    : pack["_causal_indices"].shape[0]
+                ]
             if pack["full_only_seq"].shape[0] > 0:
                 out[pack["_full_indices"]] = pack["full_only_seq"][: pack["_full_indices"].shape[0]]
         return out
@@ -2628,7 +2735,7 @@ def get_causal_seq(pack: SequencePack) -> Tuple[torch.Tensor, torch.Tensor]:
     Returns:
         Tuple[torch.Tensor, torch.Tensor]: The concatenated causal sub-sequences
             and the starting offset for each sub-sequence.
-    """
+    """  # noqa: E501
     _ensure_core_metadata(pack)
     if "causal_seq" in pack:
         return pack["causal_seq"], pack["_causal_seq_offsets"]
@@ -2644,7 +2751,7 @@ def get_full_only_seq(pack: SequencePack) -> Tuple[torch.Tensor, torch.Tensor]:
     Returns:
         Tuple[torch.Tensor, torch.Tensor]: The concatenated full-only sub-sequences
             and the starting offset for each sub-sequence.
-    """
+    """  # noqa: E501
     _ensure_core_metadata(pack)
     if "full_only_seq" in pack:
         return pack["full_only_seq"], pack["_full_only_seq_offsets"]
@@ -2659,7 +2766,7 @@ def get_device_and_dtype(pack: SequencePack) -> Tuple[torch.device, torch.dtype]
         pack (FactoredSequencePack | JointSequencePack): The sequence pack to get the device and dtype from.
     Returns:
         Tuple[torch.device, torch.dtype]: The device and dtype of the sequence pack.
-    """
+    """  # noqa: E501
     if "packed_sequence" in pack:
         return pack["packed_sequence"].device, pack["packed_sequence"].dtype
     if "causal_seq" in pack and "full_only_seq" in pack:
@@ -2692,7 +2799,9 @@ def main():
     input_text_tokens = [tokenizer.encode(text, add_special_tokens=False) for text in input_strings]
 
     # Create sample images (in practice, these would be VAE latents)
-    input_images = torch.stack([torch.randn(3, 1, 64, 64) for _ in range(3)])  # [B, C, T, H, W] format
+    input_images = torch.stack(
+        [torch.randn(3, 1, 64, 64) for _ in range(3)]
+    )  # [B, C, T, H, W] format
 
     # Diffusion timesteps for each image
     input_timesteps = torch.tensor([0.0, 0.5, 0.9])
@@ -2739,7 +2848,9 @@ def main():
 
     ##################
     ## Video data
-    input_videos = torch.stack([torch.randn(3, 5, 64, 64) for _ in range(2)])  # [B, C, T, H, W] format
+    input_videos = torch.stack(
+        [torch.randn(3, 5, 64, 64) for _ in range(2)]
+    )  # [B, C, T, H, W] format
 
     # Diffusion timesteps for each video
     input_timesteps_video = torch.tensor([0.5, 0.9])
@@ -2795,7 +2906,9 @@ def get_und_position_ids(position_ids: torch.Tensor, meta: dict[str, Any]) -> to
     Returns:
         torch.Tensor: The understanding position ids.
     """
-    assert not meta["is_sharded"], "get_und_position_ids is not supported in context parallel sharded mode"
+    assert not meta["is_sharded"], (
+        "get_und_position_ids is not supported in context parallel sharded mode"
+    )
     if position_ids.dim() == 2:
         # 3D mRoPE: position_ids is (3, seq_len)
         return position_ids[:, meta["_causal_indices"]]  # [3,N_causal_tokens]
@@ -2812,7 +2925,9 @@ def get_gen_position_ids(position_ids: torch.Tensor, meta: dict[str, Any]) -> to
     Returns:
         torch.Tensor: The generating position ids.
     """
-    assert not meta["is_sharded"], "get_gen_position_ids is not supported in context parallel sharded mode"
+    assert not meta["is_sharded"], (
+        "get_gen_position_ids is not supported in context parallel sharded mode"
+    )
     if position_ids.dim() == 2:
         # 3D mRoPE: position_ids is (3, seq_len)
         return position_ids[:, meta["_full_indices"]]  # [3,N_full_tokens]

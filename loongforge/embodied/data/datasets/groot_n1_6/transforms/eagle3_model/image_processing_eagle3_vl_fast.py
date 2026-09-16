@@ -26,9 +26,11 @@ from transformers.image_processing_utils_fast import (
 try:
     from transformers.image_processing_utils_fast import DefaultFastImageProcessorKwargs
 except ImportError:
-    from transformers.image_processing_utils_fast import ImagesKwargs as DefaultFastImageProcessorKwargs
+    from transformers.image_processing_utils_fast import (
+        ImagesKwargs as DefaultFastImageProcessorKwargs,
+    )
 
-# These docstrings were added in newer versions of transformers - provide fallbacks for compatibility
+# These docstrings were added in newer versions of transformers - provide fallbacks for compatibility  # noqa: E501
 try:
     from transformers.image_processing_utils_fast import (
         BASE_IMAGE_PROCESSOR_FAST_DOCSTRING,
@@ -123,7 +125,7 @@ class Eagle3VLFastImageProcessorKwargs(DefaultFastImageProcessorKwargs):
         do_pad (`bool`, *optional*):
             Whether to pad the image. If `True`, will pad the patch dimension of the images in the batch to the largest
             number of patches in the batch. Padding will be applied to the bottom and right with zeros.
-    """,
+    """,  # noqa: E501
 )
 # noqa: PY033 - Added docstring to comply with PY033
 class Eagle3VLImageProcessorFast(BaseImageProcessorFast):  # noqa: N801, PY039 - Fixed class name to camel case
@@ -273,11 +275,15 @@ class Eagle3VLImageProcessorFast(BaseImageProcessorFast):  # noqa: N801, PY039 -
         Returns:
             BatchFeature containing preprocessed images and their sizes
         """
-        image_sizes = [get_image_size(image, channel_dim=ChannelDimension.FIRST) for image in images]
+        image_sizes = [
+            get_image_size(image, channel_dim=ChannelDimension.FIRST) for image in images
+        ]
 
         # Group images by size for further processing
         # Needed in case do_resize is False, or resize returns images with different sizes
-        grouped_images, grouped_images_index = group_images_by_shape(images, disable_grouping=disable_grouping)
+        grouped_images, grouped_images_index = group_images_by_shape(
+            images, disable_grouping=disable_grouping
+        )
         processed_images_grouped = {}
         for shape, stacked_images in grouped_images.items():
             # Fused rescale and normalize
@@ -290,7 +296,8 @@ class Eagle3VLImageProcessorFast(BaseImageProcessorFast):  # noqa: N801, PY039 -
         processed_images = torch.stack(processed_images)
 
         return BatchFeature(
-            data={"pixel_values": processed_images, "image_sizes": image_sizes}, tensor_type=return_tensors
+            data={"pixel_values": processed_images, "image_sizes": image_sizes},
+            tensor_type=return_tensors,
         )
 
     def preprocess(
@@ -310,7 +317,10 @@ class Eagle3VLImageProcessorFast(BaseImageProcessorFast):  # noqa: N801, PY039 -
         Returns:
             BatchFeature containing preprocessed data
         """
-        validate_kwargs(captured_kwargs=kwargs.keys(), valid_processor_keys=self.valid_kwargs.__annotations__.keys())
+        validate_kwargs(
+            captured_kwargs=kwargs.keys(),
+            valid_processor_keys=self.valid_kwargs.__annotations__.keys(),
+        )
         # Set default kwargs from self. This ensures that if a kwarg is not provided
         # by the user, it gets its default value from the instance, or is set to None.
         for kwarg_name in self.valid_kwargs.__annotations__:
@@ -346,7 +356,9 @@ class Eagle3VLImageProcessorFast(BaseImageProcessorFast):  # noqa: N801, PY039 -
         # torch resize uses interpolation instead of resample
         resample = kwargs.pop("resample", self.resample)
         kwargs["interpolation"] = (
-            pil_torch_interpolation_mapping[resample] if isinstance(resample, (PILImageResampling, int)) else resample
+            pil_torch_interpolation_mapping[resample]
+            if isinstance(resample, (PILImageResampling, int))
+            else resample
         )
 
         # Pop kwargs that are not needed in _preprocess

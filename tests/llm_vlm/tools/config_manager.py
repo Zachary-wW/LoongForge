@@ -18,7 +18,9 @@ logger = create_color_logger(name=__name__)
 class ConfigManager(object):
     def __init__(self, args) -> None:
         self.args = args
-        self.all_model_configs: List[Dict[Any, Any]] = self.get_all_model_configs(self.args.configs_dir)
+        self.all_model_configs: List[Dict[Any, Any]] = self.get_all_model_configs(
+            self.args.configs_dir
+        )
 
     def get_model_description(self, model_config) -> Dict[Any, Any]:
         return model_config["description"]
@@ -50,7 +52,9 @@ class ConfigManager(object):
                 # Find config file directory and filename
                 actual_configs_dir, yaml_filename = self.find_config_file(model_name)
                 if actual_configs_dir is None:
-                    logger.warning(f"Config file for model '{model_name}' not found in any config directory.")
+                    logger.warning(
+                        f"Config file for model '{model_name}' not found in any config directory."
+                    )
                     continue
 
                 config = self.load_config(actual_configs_dir, yaml_filename)
@@ -66,7 +70,7 @@ class ConfigManager(object):
                     config["_config_source"] = {
                         "dir": actual_configs_dir,
                         "file": yaml_filename,
-                        "model_identifier": model_name,  # Original model identifier (possibly with path prefix)
+                        "model_identifier": model_name,  # Original model identifier (possibly with path prefix)  # noqa: E501
                     }
                     all_model_configs.append(config)
             except Exception as e:
@@ -129,7 +133,7 @@ class ConfigManager(object):
             chip: Chip type (e.g. a, H800)
         Returns:
             Full path to the baseline file
-        """
+        """  # noqa: E501
         # Prioritize getting BASELINE_PATH from model configuration
         baseline_path = model_config.get("BASELINE_PATH")
         if baseline_path and os.path.isdir(baseline_path):
@@ -189,7 +193,9 @@ class ConfigManager(object):
         return baseline_file
 
     @staticmethod
-    def get_baseline_data(self_unused, model_config, model_name, training_type=None, chip="default"):
+    def get_baseline_data(
+        self_unused, model_config, model_name, training_type=None, chip="default"
+    ):
         """Get baseline data (for BaseTask calls)
 
         Args:
@@ -201,7 +207,7 @@ class ConfigManager(object):
 
         Returns:
             List of baseline data, where each element contains lm_loss, grad_norm, elapsed_time_ms, throughput
-        """
+        """  # noqa: E501
         baseline_file = ConfigManager.get_baseline_file_path(model_config, model_name, chip)
 
         with open(baseline_file, "r") as f:
@@ -278,7 +284,10 @@ class ConfigManager(object):
             new_common_config_str = re.sub(variable_pattern, recursive_replace, common_config_str)
             new_model_config_str = re.sub(variable_pattern, recursive_replace, model_config_str)
 
-            if new_common_config_str == common_config_str and new_model_config_str == model_config_str:
+            if (
+                new_common_config_str == common_config_str
+                and new_model_config_str == model_config_str
+            ):
                 # If both strings have not changed, we can break the loop early
                 break
 
@@ -300,7 +309,9 @@ class ConfigManager(object):
                             baseline_json_path = step_data.get("baseline_json_path")
                             if baseline_json_path and os.path.exists(baseline_json_path):
                                 # Load baseline data from JSON file, passing training_type
-                                baseline_data = self.load_baseline_data_from_json(baseline_json_path, training_type)
+                                baseline_data = self.load_baseline_data_from_json(
+                                    baseline_json_path, training_type
+                                )
                                 # Format baseline data into YAML format
                                 formatted_data = self.format_baseline_data_for_yaml(baseline_data)
                                 # Update configuration data
@@ -323,7 +334,9 @@ class ConfigManager(object):
         return all_model_tasks
 
     @staticmethod
-    def get_models_from_dir(configs_dir: str, recursive: bool = False, base_dir: str = None) -> List[str]:
+    def get_models_from_dir(
+        configs_dir: str, recursive: bool = False, base_dir: str = None
+    ) -> List[str]:
         """Get all model names from configuration directory
 
         Args:
@@ -333,7 +346,7 @@ class ConfigManager(object):
 
         Returns:
             List of model names. If scanning recursively, the return format is "subdirectory/model_name"
-        """
+        """  # noqa: E501
         models = []
         if not os.path.exists(configs_dir):
             return models
@@ -361,7 +374,9 @@ class ConfigManager(object):
                         models.append(name)
             elif os.path.isdir(item_path) and recursive:
                 # Recursively scan subdirectories
-                sub_models = ConfigManager.get_models_from_dir(item_path, recursive=True, base_dir=base_dir)
+                sub_models = ConfigManager.get_models_from_dir(
+                    item_path, recursive=True, base_dir=base_dir
+                )
                 models.extend(sub_models)
 
         return models
@@ -412,13 +427,17 @@ class ConfigManager(object):
         if extra_configs_dirs:
             for extra_dir in extra_configs_dirs:
                 all_models.update(
-                    ConfigManager.get_models_from_dir(extra_dir, recursive=recursive_extra, base_dir=extra_dir)
+                    ConfigManager.get_models_from_dir(
+                        extra_dir, recursive=recursive_extra, base_dir=extra_dir
+                    )
                 )
 
         return sorted(list(all_models))
 
     @staticmethod
-    def list_all_available_models(configs_dir: str, extra_configs_dirs: List[str] = None) -> Dict[str, List[str]]:
+    def list_all_available_models(
+        configs_dir: str, extra_configs_dirs: List[str] = None
+    ) -> Dict[str, List[str]]:
         """List all available models and their source directories
 
         Args:
@@ -438,7 +457,9 @@ class ConfigManager(object):
         # Extra configuration directories (recursive scan)
         if extra_configs_dirs:
             for extra_dir in extra_configs_dirs:
-                models = ConfigManager.get_models_from_dir(extra_dir, recursive=True, base_dir=extra_dir)
+                models = ConfigManager.get_models_from_dir(
+                    extra_dir, recursive=True, base_dir=extra_dir
+                )
                 if models:
                     result[extra_dir] = sorted(models)
 

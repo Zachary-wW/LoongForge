@@ -154,7 +154,9 @@ def normalize_values_minmax(values: np.ndarray, params: dict) -> np.ndarray:
     max_vals = params["max"]
     normalized = np.zeros_like(values)
     mask = ~np.isclose(max_vals, min_vals)
-    normalized[..., mask] = (values[..., mask] - min_vals[..., mask]) / (max_vals[..., mask] - min_vals[..., mask])
+    normalized[..., mask] = (values[..., mask] - min_vals[..., mask]) / (
+        max_vals[..., mask] - min_vals[..., mask]
+    )
     normalized[..., mask] = 2 * normalized[..., mask] - 1
     return normalized
 
@@ -184,7 +186,9 @@ def unnormalize_values_meanstd(normalized_values: np.ndarray, params: dict) -> n
     std_vals = params["std"]
     mask = std_vals != 0
     unnormalized = np.zeros_like(normalized_values)
-    unnormalized[..., mask] = normalized_values[..., mask] * std_vals[..., mask] + mean_vals[..., mask]
+    unnormalized[..., mask] = (
+        normalized_values[..., mask] * std_vals[..., mask] + mean_vals[..., mask]
+    )
     unnormalized[..., ~mask] = normalized_values[..., ~mask]
     return unnormalized
 
@@ -221,7 +225,9 @@ def apply_with_replay(transform, images, replay=None):
             else:
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore", category=UserWarning)
-                    augmented_image = transform.replay(image=np.array(img), saved_augmentations=current_replay)
+                    augmented_image = transform.replay(
+                        image=np.array(img), saved_augmentations=current_replay
+                    )
             img_array = augmented_image["image"]
         else:
             augmented_image = transform(image=np.array(img))
@@ -241,7 +247,9 @@ def apply_with_replay(transform, images, replay=None):
 class FractionalRandomCrop(DualTransformBase):
     """Fractional random crop transformation."""
 
-    def __init__(self, crop_fraction: float = 0.9, p: float = 1.0, always_apply: bool | None = None):
+    def __init__(
+        self, crop_fraction: float = 0.9, p: float = 1.0, always_apply: bool | None = None
+    ):
         if not ALBUMENTATIONS_AVAILABLE:
             raise ImportError("albumentations is required for FractionalRandomCrop")
         super().__init__(p=p, always_apply=always_apply)
@@ -249,16 +257,22 @@ class FractionalRandomCrop(DualTransformBase):
             raise ValueError("crop_fraction must be between 0.0 and 1.0")
         self.crop_fraction = crop_fraction
 
-    def apply(self, img: np.ndarray, crop_coords: tuple[int, int, int, int], **params) -> np.ndarray:
+    def apply(
+        self, img: np.ndarray, crop_coords: tuple[int, int, int, int], **params
+    ) -> np.ndarray:
         """Apply crop to image"""
         x_min, y_min, x_max, y_max = crop_coords
         return img[y_min:y_max, x_min:x_max]
 
     def apply_to_bboxes(self, bboxes: np.ndarray, crop_coords: tuple[int, int, int, int], **params):
         """Apply crop to bounding boxes"""
-        return A.augmentations.crops.functional.crop_bboxes_by_coords(bboxes, crop_coords, params["shape"])
+        return A.augmentations.crops.functional.crop_bboxes_by_coords(
+            bboxes, crop_coords, params["shape"]
+        )
 
-    def apply_to_keypoints(self, keypoints: np.ndarray, crop_coords: tuple[int, int, int, int], **params):
+    def apply_to_keypoints(
+        self, keypoints: np.ndarray, crop_coords: tuple[int, int, int, int], **params
+    ):
         """Apply crop to keypoints"""
         return A.augmentations.crops.functional.crop_keypoints_by_coords(keypoints, crop_coords)
 
@@ -282,7 +296,9 @@ class FractionalRandomCrop(DualTransformBase):
 class FractionalCenterCrop(DualTransformBase):
     """Fractional center crop transform"""
 
-    def __init__(self, crop_fraction: float = 0.9, p: float = 1.0, always_apply: bool | None = None):
+    def __init__(
+        self, crop_fraction: float = 0.9, p: float = 1.0, always_apply: bool | None = None
+    ):
         if not ALBUMENTATIONS_AVAILABLE:
             raise ImportError("albumentations is required for FractionalCenterCrop")
         super().__init__(p=p, always_apply=always_apply)
@@ -290,16 +306,22 @@ class FractionalCenterCrop(DualTransformBase):
             raise ValueError("crop_fraction must be between 0.0 and 1.0")
         self.crop_fraction = crop_fraction
 
-    def apply(self, img: np.ndarray, crop_coords: tuple[int, int, int, int], **params) -> np.ndarray:
+    def apply(
+        self, img: np.ndarray, crop_coords: tuple[int, int, int, int], **params
+    ) -> np.ndarray:
         """Apply center crop to image"""
         x_min, y_min, x_max, y_max = crop_coords
         return img[y_min:y_max, x_min:x_max]
 
     def apply_to_bboxes(self, bboxes: np.ndarray, crop_coords: tuple[int, int, int, int], **params):
         """Apply center crop to bounding boxes"""
-        return A.augmentations.crops.functional.crop_bboxes_by_coords(bboxes, crop_coords, params["shape"])
+        return A.augmentations.crops.functional.crop_bboxes_by_coords(
+            bboxes, crop_coords, params["shape"]
+        )
 
-    def apply_to_keypoints(self, keypoints: np.ndarray, crop_coords: tuple[int, int, int, int], **params):
+    def apply_to_keypoints(
+        self, keypoints: np.ndarray, crop_coords: tuple[int, int, int, int], **params
+    ):
         """Apply center crop to keypoints"""
         return A.augmentations.crops.functional.crop_keypoints_by_coords(keypoints, crop_coords)
 
@@ -328,9 +350,13 @@ def build_image_transformations_albumentations(
 ):
     """Build image transformations using albumentations"""
     if not ALBUMENTATIONS_AVAILABLE:
-        raise ImportError("albumentations is required for build_image_transformations_albumentations")
+        raise ImportError(
+            "albumentations is required for build_image_transformations_albumentations"
+        )
 
-    fraction_to_use = image_crop_size[0] / image_target_size[0] if crop_fraction is None else crop_fraction
+    fraction_to_use = (
+        image_crop_size[0] / image_target_size[0] if crop_fraction is None else crop_fraction
+    )
     max_size = image_target_size[0] if shortest_image_edge is None else shortest_image_edge
 
     train_transform_list = [
@@ -389,7 +415,9 @@ class LetterBoxTransform:
             output_shape = leading_dims + [c, max_dim, max_dim]
             padded_img = padded_img.reshape(output_shape)
         else:
-            padded_img = transforms.functional.pad(img, padding=[pad_left, pad_top, pad_right, pad_bottom], fill=0)
+            padded_img = transforms.functional.pad(
+                img, padding=[pad_left, pad_top, pad_right, pad_bottom], fill=0
+            )
         return padded_img
 
 
@@ -405,7 +433,9 @@ def build_image_transformations(
     if isinstance(color_jitter_params, str):
         parts = color_jitter_params.strip().split()
         if len(parts) % 2 != 0:
-            raise ValueError(f"color_jitter_params string must contain key/value pairs, got: {color_jitter_params}")
+            raise ValueError(
+                f"color_jitter_params string must contain key/value pairs, got: {color_jitter_params}"  # noqa: E501
+            )
         color_jitter_params = {parts[i]: float(parts[i + 1]) for i in range(0, len(parts), 2)}
     if image_target_size is None:
         image_target_size = [shortest_image_edge, shortest_image_edge]
@@ -422,7 +452,9 @@ def build_image_transformations(
         transforms.Resize(size=image_target_size),
     ]
     if random_rotation_angle is not None and random_rotation_angle != 0:
-        transform_list.append(transforms.RandomRotation(degrees=[-random_rotation_angle, random_rotation_angle]))
+        transform_list.append(
+            transforms.RandomRotation(degrees=[-random_rotation_angle, random_rotation_angle])
+        )
     if color_jitter_params is not None:
         transform_list.append(transforms.ColorJitter(**color_jitter_params))
     train_image_transform = transforms.Compose(transform_list)
@@ -465,11 +497,21 @@ SO100_MODALITY_CONFIG = {
         delta_indices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
         modality_keys=["single_arm", "gripper"],
         action_configs=[
-            ActionConfig(rep=ActionRepresentation.RELATIVE, type=ActionType.NON_EEF, format=ActionFormat.DEFAULT),
-            ActionConfig(rep=ActionRepresentation.ABSOLUTE, type=ActionType.NON_EEF, format=ActionFormat.DEFAULT),
+            ActionConfig(
+                rep=ActionRepresentation.RELATIVE,
+                type=ActionType.NON_EEF,
+                format=ActionFormat.DEFAULT,
+            ),
+            ActionConfig(
+                rep=ActionRepresentation.ABSOLUTE,
+                type=ActionType.NON_EEF,
+                format=ActionFormat.DEFAULT,
+            ),
         ],
     ),
-    "language": ModalityConfig(delta_indices=[0], modality_keys=["annotation.human.task_description"]),
+    "language": ModalityConfig(
+        delta_indices=[0], modality_keys=["annotation.human.task_description"]
+    ),
 }
 
 """Libero Panda modality metadata configuration"""
@@ -497,12 +539,16 @@ LIBERO_PANDA_MODALITY_META = {
 """Libero Panda modality configuration"""
 LIBERO_PANDA_MODALITY_CONFIG = {
     "video": ModalityConfig(delta_indices=[0], modality_keys=["image", "image2"]),
-    "state": ModalityConfig(delta_indices=[0], modality_keys=["x", "y", "z", "roll", "pitch", "yaw", "gripper"]),
+    "state": ModalityConfig(
+        delta_indices=[0], modality_keys=["x", "y", "z", "roll", "pitch", "yaw", "gripper"]
+    ),
     "action": ModalityConfig(
         delta_indices=list(range(0, 16)),
         modality_keys=["x", "y", "z", "roll", "pitch", "yaw", "gripper"],
     ),
-    "language": ModalityConfig(delta_indices=[0], modality_keys=["annotation.human.action.task_description"]),
+    "language": ModalityConfig(
+        delta_indices=[0], modality_keys=["annotation.human.action.task_description"]
+    ),
 }
 
 """Behavior R1 Pro modality metadata configuration"""
@@ -576,7 +622,11 @@ BEHAVIOR_R1_PRO_MODALITY_CONFIG = {
         delta_indices=list(range(32)),
         modality_keys=["base", "torso", "left_arm", "left_gripper", "right_arm", "right_gripper"],
         action_configs=[
-            ActionConfig(rep=ActionRepresentation.ABSOLUTE, type=ActionType.NON_EEF, format=ActionFormat.DEFAULT),
+            ActionConfig(
+                rep=ActionRepresentation.ABSOLUTE,
+                type=ActionType.NON_EEF,
+                format=ActionFormat.DEFAULT,
+            ),
             ActionConfig(
                 rep=ActionRepresentation.RELATIVE,
                 type=ActionType.NON_EEF,
@@ -589,14 +639,22 @@ BEHAVIOR_R1_PRO_MODALITY_CONFIG = {
                 format=ActionFormat.DEFAULT,
                 state_key="arm_left_qpos",
             ),
-            ActionConfig(rep=ActionRepresentation.ABSOLUTE, type=ActionType.NON_EEF, format=ActionFormat.DEFAULT),
+            ActionConfig(
+                rep=ActionRepresentation.ABSOLUTE,
+                type=ActionType.NON_EEF,
+                format=ActionFormat.DEFAULT,
+            ),
             ActionConfig(
                 rep=ActionRepresentation.RELATIVE,
                 type=ActionType.NON_EEF,
                 format=ActionFormat.DEFAULT,
                 state_key="arm_right_qpos",
             ),
-            ActionConfig(rep=ActionRepresentation.ABSOLUTE, type=ActionType.NON_EEF, format=ActionFormat.DEFAULT),
+            ActionConfig(
+                rep=ActionRepresentation.ABSOLUTE,
+                type=ActionType.NON_EEF,
+                format=ActionFormat.DEFAULT,
+            ),
         ],
     ),
 }
@@ -640,7 +698,9 @@ OXE_WIDOWX_MODALITY_CONFIG = {
         # over the huge ±2pi range and blows up.
         mean_std_embedding_keys=["x", "y", "z", "roll", "pitch", "yaw"],
     ),
-    "language": ModalityConfig(delta_indices=[0], modality_keys=["annotation.human.action.task_description"]),
+    "language": ModalityConfig(
+        delta_indices=[0], modality_keys=["annotation.human.action.task_description"]
+    ),
 }
 
 """Modality configurations mapping"""
@@ -653,8 +713,14 @@ MODALITY_CONFIGS = {
 
 """Embodiment statistics configurations"""
 EMBODIMENT_STAT_CONFIGS = {
-    "new_embodiment": {"modality_meta": SO100_MODALITY_META, "modality_config": SO100_MODALITY_CONFIG},
-    "libero_panda": {"modality_meta": LIBERO_PANDA_MODALITY_META, "modality_config": LIBERO_PANDA_MODALITY_CONFIG},
+    "new_embodiment": {
+        "modality_meta": SO100_MODALITY_META,
+        "modality_config": SO100_MODALITY_CONFIG,
+    },
+    "libero_panda": {
+        "modality_meta": LIBERO_PANDA_MODALITY_META,
+        "modality_config": LIBERO_PANDA_MODALITY_CONFIG,
+    },
     "behavior_r1_pro": {
         "modality_meta": BEHAVIOR_R1_PRO_MODALITY_META,
         "modality_config": BEHAVIOR_R1_PRO_MODALITY_CONFIG,
@@ -682,7 +748,9 @@ def compute_relative_action_stats(dataset, embodiment_tag: str) -> dict[str, dic
 
     relative_joint_groups = [
         joint_group
-        for joint_group, action_config in zip(action_modality.modality_keys, action_configs or [], strict=False)
+        for joint_group, action_config in zip(
+            action_modality.modality_keys, action_configs or [], strict=False
+        )
         if action_config.rep == ActionRepresentation.RELATIVE
     ]
 
@@ -692,7 +760,9 @@ def compute_relative_action_stats(dataset, embodiment_tag: str) -> dict[str, dic
     all_relative_chunks = {jg: [] for jg in relative_joint_groups}
 
     episode_data_dict = (
-        dataset.hf_dataset.to_pandas() if hasattr(dataset.hf_dataset, "to_pandas") else dataset.hf_dataset
+        dataset.hf_dataset.to_pandas()
+        if hasattr(dataset.hf_dataset, "to_pandas")
+        else dataset.hf_dataset
     )
     unique_episodes = episode_data_dict["episode_index"].unique()
     for episode_idx in unique_episodes:
@@ -701,8 +771,12 @@ def compute_relative_action_stats(dataset, embodiment_tag: str) -> dict[str, dic
 
         states_list = episode_frames["observation.state"].tolist()
         actions_list = episode_frames["action"].tolist()
-        states = np.array([s.numpy() if isinstance(s, torch.Tensor) else np.array(s) for s in states_list])
-        actions = np.array([a.numpy() if isinstance(a, torch.Tensor) else np.array(a) for a in actions_list])
+        states = np.array(
+            [s.numpy() if isinstance(s, torch.Tensor) else np.array(s) for s in states_list]
+        )
+        actions = np.array(
+            [a.numpy() if isinstance(a, torch.Tensor) else np.array(a) for a in actions_list]
+        )
 
         usable_length = len(episode_frames) - action_delta_indices[-1]
 
@@ -738,7 +812,9 @@ def compute_relative_action_stats(dataset, embodiment_tag: str) -> dict[str, dic
     return relative_stats
 
 
-def _slice_stats_by_joint_group(stats_dict: dict[str, Any], start_idx: int, end_idx: int) -> dict[str, list]:
+def _slice_stats_by_joint_group(
+    stats_dict: dict[str, Any], start_idx: int, end_idx: int
+) -> dict[str, list]:
     """Slice statistics dictionary by joint group indices."""
     sliced_stats = {}
     for stat_type, values in stats_dict.items():
@@ -753,7 +829,11 @@ def _slice_stats_by_joint_group(stats_dict: dict[str, Any], start_idx: int, end_
 
 def _get_lerobot_stats_key(modality: str) -> str:
     """Get the corresponding key for LeRobot stats based on modality."""
-    mapping = {"state": "observation.state", "action": "action", "relative_action": "relative_action"}
+    mapping = {
+        "state": "observation.state",
+        "action": "action",
+        "relative_action": "relative_action",
+    }
     return mapping.get(modality, modality)
 
 
@@ -802,14 +882,18 @@ def convert_lerobot_stats_to_processor_format(
 
     action_modality = modality_config["action"]
     action_configs = action_modality.action_configs
-    needs_relative_stats = any(cfg.rep == ActionRepresentation.RELATIVE for cfg in (action_configs or []))
+    needs_relative_stats = any(
+        cfg.rep == ActionRepresentation.RELATIVE for cfg in (action_configs or [])
+    )
 
     if needs_relative_stats:
         if "relative_action" not in dataset_stats:
             raise ValueError(f"Embodiment '{embodiment_tag}' requires relative_action statistics.")
 
         statistics[embodiment_tag]["relative_action"] = {}
-        for joint_group, action_config in zip(action_modality.modality_keys, action_configs, strict=False):
+        for joint_group, action_config in zip(
+            action_modality.modality_keys, action_configs, strict=False
+        ):
             if action_config.rep != ActionRepresentation.RELATIVE:
                 continue
 

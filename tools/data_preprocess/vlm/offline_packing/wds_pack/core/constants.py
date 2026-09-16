@@ -5,7 +5,7 @@
 
 # TODO TEMPLATES needs to be expanded with more templates
 TEMPLATES = {
-    "packed_captioning": "<|vision_start|><|image_pad|><|vision_end|>{{ captions[0].content }}<|im_end|>",
+    "packed_captioning": "<|vision_start|><|image_pad|><|vision_end|>{{ captions[0].content }}<|im_end|>",  # noqa: E501
     "packed_vqa": {
         "qwenvl": """
                     {% set image_count = namespace(value=0) %}
@@ -23,7 +23,7 @@ TEMPLATES = {
                     {% if add_generation_prompt %}
                     <|im_start|>assistant
                     {% endif %}
-        """
+        """  # noqa: E501
     },
     "packed_multi_mix_qa": {
         "qwenvl": """
@@ -42,7 +42,7 @@ TEMPLATES = {
                     {% if add_generation_prompt %}
                     <|im_start|>assistant
                     {% endif %}
-        """
+        """  # noqa: E501
     },
 }
 

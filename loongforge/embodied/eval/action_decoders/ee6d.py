@@ -125,5 +125,9 @@ def ee6d_robotwin_ee_dual(actions: np.ndarray, ctx: Dict[str, Any]) -> np.ndarra
     """
     chunk = np.asarray(actions, dtype=np.float32).reshape(-1, actions.shape[-1])
     if chunk.shape[-1] < ROBOTWIN_EE6D_ACTION_DIM:
-        raise ValueError(f"ee6d_dual decoder requires {ROBOTWIN_EE6D_ACTION_DIM}D actions, got {chunk.shape[-1]}D")
-    return np.stack([_robotwin_ee6d_row_to_ee(row[:ROBOTWIN_EE6D_ACTION_DIM]) for row in chunk]).astype(np.float32)
+        raise ValueError(
+            f"ee6d_dual decoder requires {ROBOTWIN_EE6D_ACTION_DIM}D actions, got {chunk.shape[-1]}D"  # noqa: E501
+        )
+    return np.stack(
+        [_robotwin_ee6d_row_to_ee(row[:ROBOTWIN_EE6D_ACTION_DIM]) for row in chunk]
+    ).astype(np.float32)

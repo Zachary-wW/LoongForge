@@ -59,7 +59,10 @@ if _TEFusedAdam is not None:
                 device=device,
             )
             correction2 = torch.tensor(
-                [0.0] + [math.sqrt(1.0 - beta2**step) for step in range(1, self._alignment_max_steps + 1)],
+                [0.0]
+                + [
+                    math.sqrt(1.0 - beta2**step) for step in range(1, self._alignment_max_steps + 1)
+                ],
                 dtype=torch.float64,
                 device=device,
             )
@@ -70,7 +73,9 @@ if _TEFusedAdam is not None:
         def step(self, closure=None, grad_scaler=None):
             """Run one fused AdamW update over all parameter groups."""
             if closure is not None or grad_scaler is not None:
-                raise NotImplementedError("GR00T capturable AdamW does not support closures/scalers.")
+                raise NotImplementedError(
+                    "GR00T capturable AdamW does not support closures/scalers."
+                )
             result = None
             for group in self.param_groups:
                 params, grads, exp_avgs, exp_avg_sqs = [], [], [], []
@@ -79,7 +84,9 @@ if _TEFusedAdam is not None:
                     if gradient is None:
                         continue
                     if gradient.is_sparse:
-                        raise RuntimeError("GR00T capturable AdamW does not support sparse gradients.")
+                        raise RuntimeError(
+                            "GR00T capturable AdamW does not support sparse gradients."
+                        )
                     state = self.state[parameter]
                     if not state:
                         self.initialize_state(parameter, False)
@@ -91,12 +98,14 @@ if _TEFusedAdam is not None:
                     continue
                 beta1, beta2 = group["betas"]
                 if self.capturable:
-                    from loongforge.embodied.train.trainers.custom.groot_n1_7.groot_fused_adamw import (
+                    from loongforge.embodied.train.trainers.custom.groot_n1_7.groot_fused_adamw import (  # noqa: E501
                         capturable_grad_scaled_step,
                         capturable_step,
                     )
 
-                    group.setdefault("step", torch.zeros((), dtype=torch.int64, device=params[0].device))
+                    group.setdefault(
+                        "step", torch.zeros((), dtype=torch.int64, device=params[0].device)
+                    )
                     group["step"].add_(1)
                     correction1, correction2 = self._bias_tables(params[0].device)
                     if self._loongforge_grad_scale is None:
@@ -135,7 +144,7 @@ if _TEFusedAdam is not None:
                             weight_decay=group["weight_decay"],
                         )
                 else:
-                    from loongforge.embodied.train.trainers.custom.groot_n1_7.groot_fused_adamw import (
+                    from loongforge.embodied.train.trainers.custom.groot_n1_7.groot_fused_adamw import (  # noqa: E501
                         eager_step,
                     )
 
@@ -177,7 +186,9 @@ def build_groot_optimizer(model, training_args, *, capturable: bool = True):
         for group in groups:
             params = group.get("params", [])
             if params:
-                group["lr"] = torch.tensor(float(group["lr"]), dtype=torch.float64, device=params[0].device)
+                group["lr"] = torch.tensor(
+                    float(group["lr"]), dtype=torch.float64, device=params[0].device
+                )
     optimizer = GrootCapturableAdamW(
         groups,
         lr=training_args.lr_base,

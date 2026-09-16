@@ -69,7 +69,11 @@ class _JointContinuityLimit:
         delta_ref = np.empty(configuration.nv)
         # mj_differentiatePos returns q_reference - q_current in tangent space.
         mujoco.mj_differentiatePos(
-            m=configuration.model, qvel=delta_ref, dt=1.0, qpos1=configuration.q, qpos2=self.reference
+            m=configuration.model,
+            qvel=delta_ref,
+            dt=1.0,
+            qpos1=configuration.q,
+            qpos2=self.reference,
         )
         upper = self.max_step + delta_ref[self.indices]
         lower = -self.max_step + delta_ref[self.indices]
@@ -102,7 +106,9 @@ class MinkIKContext:
         self.solvers = tuple(dict.fromkeys((solver, "quadprog")))
         self.configuration = mink.Configuration(model)
         self.position_cost = np.broadcast_to(np.asarray(position_cost, dtype=float), (3,)).copy()
-        self.orientation_cost = np.broadcast_to(np.asarray(orientation_cost, dtype=float), (3,)).copy()
+        self.orientation_cost = np.broadcast_to(
+            np.asarray(orientation_cost, dtype=float), (3,)
+        ).copy()
         self.ee_task = mink.FrameTask(
             frame_name=ee_ref[1],
             frame_type=ee_ref[0],
@@ -136,7 +142,9 @@ class MinkIKContext:
         # ConfigurationLimit correctly rejects that seed, so project it first.
         q = _project_qpos_to_limits(self.model, q)
         self.configuration.update(q)
-        self.posture_task.set_target(q if posture_target is None else np.asarray(posture_target, dtype=float))
+        self.posture_task.set_target(
+            q if posture_target is None else np.asarray(posture_target, dtype=float)
+        )
 
     def solve(
         self,
@@ -158,12 +166,16 @@ class MinkIKContext:
         )
         self.ee_task.set_target(target)
         self.reset(q_init, posture_target=continuity_q)
-        self.continuity_task.set_target(self.configuration.q if continuity_q is None else continuity_q)
+        self.continuity_task.set_target(
+            self.configuration.q if continuity_q is None else continuity_q
+        )
         # A continuity posture is meaningful only relative to the previous
         # frame. Applying its cost against the freshly reset q_init also on
         # the first frame traps the solver in the position-only prewarm branch
         # and can leave a large wrist orientation residual.
-        self.continuity_task.set_cost(self.continuity_costs if continuity_q is not None else np.zeros(self.model.nv))
+        self.continuity_task.set_cost(
+            self.continuity_costs if continuity_q is not None else np.zeros(self.model.nv)
+        )
         self.continuity_limit.set_reference(continuity_q, continuity_max_step)
         limits = self.limits + ([self.continuity_limit] if continuity_q is not None else [])
 
@@ -512,7 +524,11 @@ def solve_arm_ik_dls_robust(
     best_ok = None
     warm_record = None
     for init in candidates:
-        q0 = init if init is not None else _prewarm_dls(model, arm_qadr, arm_vadr, arm_ids, ee_ref, target_pos_base)
+        q0 = (
+            init
+            if init is not None
+            else _prewarm_dls(model, arm_qadr, arm_vadr, arm_ids, ee_ref, target_pos_base)
+        )
         q, _, err_pos, err_rot = solve_arm_ik_dls(
             model,
             arm_qadr,
@@ -693,7 +709,13 @@ def solve_arm_ik_robust(
             init
             if init is not None
             else _prewarm(
-                model, arm_qadr, arm_vadr, arm_ids, ee_ref, target_pos_base, mink_context=mink_position_context
+                model,
+                arm_qadr,
+                arm_vadr,
+                arm_ids,
+                ee_ref,
+                target_pos_base,
+                mink_context=mink_position_context,
             )
         )
         # Only the warm-start candidate is hard-constrained to the previous
@@ -808,7 +830,9 @@ def solve_arm_ik_position_priority(
         continuity_max_step=continuity_max_step,
     )
     q_full, full_ok, _, _ = full
-    full_jump = 0.0 if q_warm is None else float(np.max(np.abs(q_full[arm_qadr] - q_warm[arm_qadr])))
+    full_jump = (
+        0.0 if q_warm is None else float(np.max(np.abs(q_full[arm_qadr] - q_warm[arm_qadr])))
+    )
     branch_jump = branch_jump_threshold > 0.0 and full_jump > branch_jump_threshold
     if full_ok and not branch_jump:
         return (*full, False, False)

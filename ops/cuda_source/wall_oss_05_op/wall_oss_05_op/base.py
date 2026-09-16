@@ -47,7 +47,7 @@ def log_backend_inventory(rank=0, world_size=1):
 
         if not dist.is_available() or not dist.is_initialized():
             logger.warning(
-                "[WallOpsBackendInventory] distributed context unavailable; rank consistency was not checked"
+                "[WallOpsBackendInventory] distributed context unavailable; rank consistency was not checked"  # noqa: E501
             )
             return inventory
         gathered = [None] * world_size
@@ -179,7 +179,7 @@ class OpsProxy:
         fn = self._get_backend_fn(backend)
         if fn is None:
             raise RuntimeError(
-                f"{self.__class__.__name__}: backend '{backend}' not available. Available: {self.available_backends()}"
+                f"{self.__class__.__name__}: backend '{backend}' not available. Available: {self.available_backends()}"  # noqa: E501
             )
         return fn(*args, **kwargs)
 

@@ -113,7 +113,9 @@ class _GroupState:
             reference_offset = 0
             for fsdp_param, param_shard_numel in zip(self.fsdp_params, self.param_shard_numels):
                 output_numel = param_shard_numel * world_size
-                fsdp_param.all_gather_outputs = [self.reference.narrow(0, reference_offset, output_numel)]
+                fsdp_param.all_gather_outputs = [
+                    self.reference.narrow(0, reference_offset, output_numel)
+                ]
                 fsdp_param._delta_fp8_persistent_reference = True
                 reference_offset += output_numel
             _ALIASED_RESULTS[id(self.reference)] = self
@@ -146,11 +148,15 @@ class _ScratchState:
         if self.quantized_local is None or self.quantized_local.numel() < shard_numel:
             self.quantized_local = torch.empty(shard_numel, dtype=torch.uint8, device=device)
         if self.quantized_all is None or self.quantized_all.numel() < shard_numel * world_size:
-            self.quantized_all = torch.empty(shard_numel * world_size, dtype=torch.uint8, device=device)
+            self.quantized_all = torch.empty(
+                shard_numel * world_size, dtype=torch.uint8, device=device
+            )
         if self.scales_local is None or self.scales_local.numel() < num_blocks:
             self.scales_local = torch.empty(num_blocks, dtype=torch.float32, device=device)
         if self.scales_all is None or self.scales_all.numel() < num_blocks * world_size:
-            self.scales_all = torch.empty(num_blocks * world_size, dtype=torch.float32, device=device)
+            self.scales_all = torch.empty(
+                num_blocks * world_size, dtype=torch.float32, device=device
+            )
 
     def views(self, shard_numel, world_size, num_blocks):
         """Return exact-size contiguous views for the current FSDP unit."""
@@ -171,7 +177,9 @@ def _build_param_major_block_metadata(
     """Map local parameter blocks to their offsets in parameter-major output."""
     reference_numel = sum(param_shard_numels) * world_size
     if reference_numel > torch.iinfo(torch.int32).max:
-        raise ValueError(f"delta-fp8 parameter-major reference exceeds int32 indexing: {reference_numel} elements")
+        raise ValueError(
+            f"delta-fp8 parameter-major reference exceeds int32 indexing: {reference_numel} elements"  # noqa: E501
+        )
     num_blocks = sum((numel + block - 1) // block for numel in param_shard_numels)
     metadata = torch.empty((num_blocks, 3), dtype=torch.int32)
     block_cursor = 0
@@ -340,7 +348,9 @@ def _launch_param_major_prime(
     """Gather parameter shards directly into persistent parameter-major storage."""
     last_work = None
     reference_offset = 0
-    for input_tensor, param_shard_numel in zip(shard_input.split(param_shard_numels), param_shard_numels):
+    for input_tensor, param_shard_numel in zip(
+        shard_input.split(param_shard_numels), param_shard_numels
+    ):
         output_tensor = parameter_major.narrow(0, reference_offset, param_shard_numel * world_size)
         last_work = all_gather_comm(
             output_tensor=output_tensor,
@@ -427,7 +437,9 @@ def _state_for(
                 "delta-fp8 unsharded-parameter reuse is unsupported for this "
                 "FSDP group; falling back to a separate reference"
             )
-        param_shard_numels = tuple(numels[0] for numels in param_all_gather_input_numels) if alias_supported else ()
+        param_shard_numels = (
+            tuple(numels[0] for numels in param_all_gather_input_numels) if alias_supported else ()
+        )
         state = _GroupState(
             shard_numel,
             world_size,
@@ -461,7 +473,11 @@ def _delta_foreach_all_gather(
     # Preserve native FSDP behavior for unregistered models and unsupported
     # communication paths. Registration is per group, so installing this
     # process-level hook does not enable Delta-FP8 for later FSDP models.
-    if world_size == 1 or type(all_gather_comm) is not DefaultAllGather or (_MODEL_SCOPED and config is None):
+    if (
+        world_size == 1
+        or type(all_gather_comm) is not DefaultAllGather
+        or (_MODEL_SCOPED and config is None)
+    ):
         return _ORIGINAL_FOREACH_ALL_GATHER(
             fsdp_params,
             group,
@@ -511,7 +527,9 @@ def _delta_foreach_all_gather(
             device,
             block,
         )
-        shard_input, reused_flat_input = _get_shard_input(state, all_gather_inputs, inp_split_sizes, device)
+        shard_input, reused_flat_input = _get_shard_input(
+            state, all_gather_inputs, inp_split_sizes, device
+        )
         if reused_flat_input and shard_input.device.type == "cuda":
             # _get_param_all_gather_inputs allocates this buffer on the copy-in
             # stream. Its consumers run on the AllGather stream after this
@@ -616,7 +634,9 @@ def _validate_config(block: int, prime_steps: int, reprime_interval: int) -> Non
     if block <= 0 or block & (block - 1):
         raise ValueError(f"fsdp_delta_fp8_block must be a positive power of two, got {block}")
     if block > 1 << 20:
-        raise ValueError(f"fsdp_delta_fp8_block must be <= 1048576 for Triton tl.arange, got {block}")
+        raise ValueError(
+            f"fsdp_delta_fp8_block must be <= 1048576 for Triton tl.arange, got {block}"
+        )
     if prime_steps < 0:
         raise ValueError(f"fsdp_delta_fp8_prime_steps must be >= 0, got {prime_steps}")
     if reprime_interval < 0:

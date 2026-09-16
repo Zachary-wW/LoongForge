@@ -84,7 +84,7 @@ class AutoTokenizerFromHF(MegatronLegacyTokenizer):
 
         Returns:
             `str`: The decoded text.
-        """
+        """  # noqa: E501
         return self.tokenizer.decode(
             token_ids=token_ids,
             skip_special_tokens=skip_special_tokens,
@@ -102,7 +102,7 @@ class AutoTokenizerFromHF(MegatronLegacyTokenizer):
 
         Returns:
             `int` or `List[int]`: The token id or list of token ids.
-        """
+        """  # noqa: E501
         return self.tokenizer.convert_tokens_to_ids(tokens)
 
     def add_special_tokens(
@@ -115,7 +115,9 @@ class AutoTokenizerFromHF(MegatronLegacyTokenizer):
         Returns:
             `int`: Number of tokens added to the vocabulary.
         """
-        return self.tokenizer.add_special_tokens(special_tokens_dict, replace_additional_special_tokens)
+        return self.tokenizer.add_special_tokens(
+            special_tokens_dict, replace_additional_special_tokens
+        )
 
     @property
     def vocab(self) -> Dict[str, int]:

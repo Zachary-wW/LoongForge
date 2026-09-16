@@ -189,7 +189,9 @@ def flash_attention(
 
     use_flash_attention_3 = (version is None or version == 3) and _gpu_supports_flash_attention_3()
     if version == 3 and not use_flash_attention_3:
-        warnings.warn("Flash attention 3 is unavailable or incompatible with this GPU, use flash attention 2 instead.")
+        warnings.warn(
+            "Flash attention 3 is unavailable or incompatible with this GPU, use flash attention 2 instead."  # noqa: E501
+        )
 
     if use_flash_attention_3:
         # Note: dropout_p, window_size are not supported in FA3 now.

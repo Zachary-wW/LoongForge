@@ -157,11 +157,13 @@ class BasicTransformerBlock(nn.Module):
 
         if positional_embeddings and (num_positional_embeddings is None):
             raise ValueError(
-                "If `positional_embedding` type is defined, `num_positional_embeddings` must also be defined."
+                "If `positional_embedding` type is defined, `num_positional_embeddings` must also be defined."  # noqa: E501
             )
 
         if positional_embeddings == "sinusoidal":
-            self.pos_embed = SinusoidalPositionalEmbedding(dim, max_seq_length=num_positional_embeddings)
+            self.pos_embed = SinusoidalPositionalEmbedding(
+                dim, max_seq_length=num_positional_embeddings
+            )
         else:
             self.pos_embed = None
 
@@ -217,7 +219,9 @@ class BasicTransformerBlock(nn.Module):
             norm_hidden_states = self.pos_embed(norm_hidden_states)
 
         with _sdpa_context():
-            selected_attention_mask = encoder_attention_mask if encoder_hidden_states is not None else attention_mask
+            selected_attention_mask = (
+                encoder_attention_mask if encoder_hidden_states is not None else attention_mask
+            )
             attn_output = self.attn1(
                 norm_hidden_states,
                 encoder_hidden_states=encoder_hidden_states,
@@ -285,7 +289,9 @@ class DiT(ModelMixin, ConfigMixin):
         self.gradient_checkpointing = False
 
         # Timestep encoder
-        self.timestep_encoder = TimestepEncoder(embedding_dim=self.inner_dim, compute_dtype=self.compute_dtype)
+        self.timestep_encoder = TimestepEncoder(
+            embedding_dim=self.inner_dim, compute_dtype=self.compute_dtype
+        )
 
         all_blocks = []
         for idx in range(self.config.num_layers):

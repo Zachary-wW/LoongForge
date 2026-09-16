@@ -53,7 +53,11 @@ def _ranges(n: int) -> List[int]:
 
 
 def _chunked_indices(chunk_size: int, horizon: int, per_chunk: int) -> List[int]:
-    return [chunk_idx * horizon + offset for chunk_idx in range(chunk_size) for offset in range(per_chunk)]
+    return [
+        chunk_idx * horizon + offset
+        for chunk_idx in range(chunk_size)
+        for offset in range(per_chunk)
+    ]
 
 
 def build_droid_modality_configs(

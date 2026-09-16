@@ -23,7 +23,9 @@ def _align_lists(baseline_list: List[float], current_list: List[float]):
     return baseline_list[:n], current_list[:n]
 
 
-def _resolve_output_dir(output_dir: Optional[str], category: str = "default", model_name: Optional[str] = None) -> str:
+def _resolve_output_dir(
+    output_dir: Optional[str], category: str = "default", model_name: Optional[str] = None
+) -> str:
     if output_dir:
         return output_dir
 

@@ -73,7 +73,9 @@ class QwenImageFlowMatchScheduler:
             weights = weights + weights[1]
         self.linear_timesteps_weights = weights
 
-    def set_timesteps(self, num_inference_steps=100, denoising_strength=1.0, training=False, **kwargs):
+    def set_timesteps(
+        self, num_inference_steps=100, denoising_strength=1.0, training=False, **kwargs
+    ):
         """Configure sigmas / timesteps and optionally the training weights."""
         self.sigmas, self.timesteps = self.set_timesteps_qwen_image(
             num_inference_steps=num_inference_steps,
@@ -91,7 +93,9 @@ class QwenImageFlowMatchScheduler:
 
     def add_noise(self, original_samples, noise, timestep):
         """Return the FlowMatch mixture ``(1 - sigma) * x + sigma * noise``."""
-        sigma = self.sigmas[self._index(timestep)].to(device=original_samples.device, dtype=original_samples.dtype)
+        sigma = self.sigmas[self._index(timestep)].to(
+            device=original_samples.device, dtype=original_samples.dtype
+        )
         return (1 - sigma) * original_samples + sigma * noise
 
     def training_target(self, sample, noise, timestep):

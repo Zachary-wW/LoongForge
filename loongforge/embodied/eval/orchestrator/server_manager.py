@@ -120,7 +120,9 @@ def apply_runtime_env(args: argparse.Namespace, env: dict[str, str]) -> None:
 def start_server(args: argparse.Namespace) -> subprocess.Popen:
     """Run start_server."""
     eval_root = Path(args.eval_root).resolve()
-    loongforge_root = Path(args.loongforge_root).resolve() if args.loongforge_root else eval_root.parent
+    loongforge_root = (
+        Path(args.loongforge_root).resolve() if args.loongforge_root else eval_root.parent
+    )
     env = os.environ.copy()
     env["PYTHONPATH"] = f"{loongforge_root}:{eval_root}:{env.get('PYTHONPATH', '')}"
     apply_runtime_env(args, env)

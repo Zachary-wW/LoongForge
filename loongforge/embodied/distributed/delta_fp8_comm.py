@@ -56,20 +56,30 @@ def validate_runtime(device: torch.device, backend: str) -> None:
     device_backend = _backend_for_device(backend_name, device.type)
     context = f"device={device}, backend={backend_name}"
     if device.type != "cuda":
-        raise RuntimeError(f"--fsdp-delta-fp8-allgather requires a CUDA device and NCCL; got {context}")
+        raise RuntimeError(
+            f"--fsdp-delta-fp8-allgather requires a CUDA device and NCCL; got {context}"
+        )
     if device_backend != "nccl":
         raise RuntimeError(
             "--fsdp-delta-fp8-allgather requires the NCCL backend; "
             f"got {context} (resolved {device.type}:{device_backend or 'unknown'})"
         )
     if triton is None:
-        raise RuntimeError(f"--fsdp-delta-fp8-allgather requires Triton to be installed; got {context}")
+        raise RuntimeError(
+            f"--fsdp-delta-fp8-allgather requires Triton to be installed; got {context}"
+        )
     if tl is None or not hasattr(tl, "float8e4nv"):
-        raise RuntimeError(f"--fsdp-delta-fp8-allgather requires Triton FP8 type tl.float8e4nv; got {context}")
+        raise RuntimeError(
+            f"--fsdp-delta-fp8-allgather requires Triton FP8 type tl.float8e4nv; got {context}"
+        )
     if not torch.cuda.is_available():
-        raise RuntimeError(f"--fsdp-delta-fp8-allgather requires CUDA to be available; got {context}")
+        raise RuntimeError(
+            f"--fsdp-delta-fp8-allgather requires CUDA to be available; got {context}"
+        )
     if not hasattr(torch, "float8_e4m3fn"):
-        raise RuntimeError(f"--fsdp-delta-fp8-allgather requires PyTorch FP8 E4M3 support; got {context}")
+        raise RuntimeError(
+            f"--fsdp-delta-fp8-allgather requires PyTorch FP8 E4M3 support; got {context}"
+        )
     try:
         capability = torch.cuda.get_device_capability(device)
     except Exception as exc:
@@ -222,7 +232,9 @@ def dequantize_add(y, quantized, scales, shard_numel, world_size, block=DEFAULT_
     """Add all ranks' dequantized deltas into the persistent reference."""
     require_triton()
     num_blocks = (shard_numel + block - 1) // block
-    _dequantize_add_kernel[(num_blocks, world_size)](y, quantized, scales, shard_numel, num_blocks, BLOCK=block)
+    _dequantize_add_kernel[(num_blocks, world_size)](
+        y, quantized, scales, shard_numel, num_blocks, BLOCK=block
+    )
 
 
 def quantize_delta_into(x, yref, quantized, scales, block=DEFAULT_BLOCK):

@@ -29,7 +29,9 @@ def get_llama_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
     # To simplify the code, temporarily remove the compatibility with MoE/MLA.
     # If there is a new LLaMA version in the future, add and test it separately.
     assert config.num_moe_experts is None, "Not support MoE for Llama model yet."
-    assert not config.multi_latent_attention, "Not support multi-latent attention for Llama model yet."
+    assert not config.multi_latent_attention, (
+        "Not support multi-latent attention for Llama model yet."
+    )
 
     # Dense MLP w/ TE modules.
     dense_mlp = ModuleSpec(

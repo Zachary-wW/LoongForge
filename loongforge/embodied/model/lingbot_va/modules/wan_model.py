@@ -139,7 +139,9 @@ class WanTimeTextImageEmbedding(nn.Module):
         cache_key = (str(timestep.device), half_dim)
         frequency = self._timestep_frequency_cache.get(cache_key)
         if frequency is None:
-            exponent = -math.log(10000) * torch.arange(half_dim, dtype=torch.float32, device=timestep.device)
+            exponent = -math.log(10000) * torch.arange(
+                half_dim, dtype=torch.float32, device=timestep.device
+            )
             frequency = torch.exp(exponent / (half_dim - self.timesteps_proj.downscale_freq_shift))
             self._timestep_frequency_cache[cache_key] = frequency
         angles = timestep[:, None].float() * frequency[None, :]
@@ -164,7 +166,14 @@ class WanTimeTextImageEmbedding(nn.Module):
 
 
 def _time_embed_from_projected(
-    projected, linear1_weight, linear1_bias, linear2_weight, linear2_bias, projection_weight, projection_bias, dtype
+    projected,
+    linear1_weight,
+    linear1_bias,
+    linear2_weight,
+    linear2_bias,
+    projection_weight,
+    projection_bias,
+    dtype,
 ):
     temb = F.linear(projected, linear1_weight, linear1_bias)
     temb = F.silu(temb)
@@ -285,7 +294,7 @@ def _self_flex_block64_install_patch():
         return True
     if _SELF_FLEX_BLOCK64_PATCH_ERROR is not None:
         raise RuntimeError(
-            f"Failed to install the required LingBot Self Flex block64 kernel config: {_SELF_FLEX_BLOCK64_PATCH_ERROR}"
+            f"Failed to install the required LingBot Self Flex block64 kernel config: {_SELF_FLEX_BLOCK64_PATCH_ERROR}"  # noqa: E501
         )
     try:
         import torch._inductor.lowering  # noqa: F401
@@ -302,8 +311,12 @@ def _self_flex_block64_install_patch():
                 continue
         if module is None:
             raise ModuleNotFoundError("no supported Inductor FlexAttention module")
-        has_legacy_defaults = hasattr(module, "_get_default_config_fwd") and hasattr(module, "_get_default_config_bwd")
-        if has_legacy_defaults and not getattr(module, "_lingbot_native_self_flex_block64_patched", False):
+        has_legacy_defaults = hasattr(module, "_get_default_config_fwd") and hasattr(
+            module, "_get_default_config_bwd"
+        )
+        if has_legacy_defaults and not getattr(
+            module, "_lingbot_native_self_flex_block64_patched", False
+        ):
             original_fwd = module._get_default_config_fwd
             original_bwd = module._get_default_config_bwd
             fwd_config = SELF_FLEX_OPTIMIZED_FWD_CONFIG
@@ -324,7 +337,9 @@ def _self_flex_block64_install_patch():
         return True
     except Exception as error:
         _SELF_FLEX_BLOCK64_PATCH_ERROR = repr(error)
-        raise RuntimeError("Failed to install the required LingBot Self Flex block64 kernel config") from error
+        raise RuntimeError(
+            "Failed to install the required LingBot Self Flex block64 kernel config"
+        ) from error
 
 
 @contextmanager
@@ -367,7 +382,9 @@ def _compiled_self_flex_divisible_attention(query, key, value, block_mask):
 
 
 _SELF_FLEX_DIVISIBLE_COMPILED_SELF_FLEX = (
-    torch.compile(_compiled_self_flex_divisible_attention, dynamic=True) if flex_attention is not None else None
+    torch.compile(_compiled_self_flex_divisible_attention, dynamic=True)
+    if flex_attention is not None
+    else None
 )
 
 
@@ -397,7 +414,9 @@ class FlexAttnFunc(nn.Module):
         v = value.transpose(1, 2)
         _self_flex_block64_install_patch()
         if q.shape[-2] % 128 or k.shape[-2] % 128 or v.shape[-2] % 128:
-            raise RuntimeError("self FlexAttention requires q/k/v sequence lengths divisible by 128")
+            raise RuntimeError(
+                "self FlexAttention requires q/k/v sequence lengths divisible by 128"
+            )
         with _self_flex_patch_scope():
             output = _SELF_FLEX_DIVISIBLE_COMPILED_SELF_FLEX(q, k, v, mask)
         return output.transpose(1, 2)
@@ -435,7 +454,9 @@ class FlexAttnFunc(nn.Module):
             cls.attention_mask = cached_self_mask
             return
         latent_tokens = (
-            (latent_frames // patch_size[0]) * (latent_height // patch_size[1]) * (latent_width // patch_size[2])
+            (latent_frames // patch_size[0])
+            * (latent_height // patch_size[1])
+            * (latent_width // patch_size[2])
         )
         action_tokens = action_frames * action_height * action_width
         metadata_device = None
@@ -481,15 +502,27 @@ class FlexAttnFunc(nn.Module):
 
         def clean_causal(b, h, q_idx, kv_idx):
             del b, h
-            return (noise_ids[q_idx] == 1) & (noise_ids[kv_idx] == 1) & (frame_ids[kv_idx] <= frame_ids[q_idx])
+            return (
+                (noise_ids[q_idx] == 1)
+                & (noise_ids[kv_idx] == 1)
+                & (frame_ids[kv_idx] <= frame_ids[q_idx])
+            )
 
         def noise_to_clean(b, h, q_idx, kv_idx):
             del b, h
-            return (noise_ids[q_idx] == 0) & (noise_ids[kv_idx] == 1) & (frame_ids[kv_idx] < frame_ids[q_idx])
+            return (
+                (noise_ids[q_idx] == 0)
+                & (noise_ids[kv_idx] == 1)
+                & (frame_ids[kv_idx] < frame_ids[q_idx])
+            )
 
         def noise_self(b, h, q_idx, kv_idx):
             del b, h
-            return (noise_ids[q_idx] == 0) & (noise_ids[kv_idx] == 0) & (frame_ids[kv_idx] == frame_ids[q_idx])
+            return (
+                (noise_ids[q_idx] == 0)
+                & (noise_ids[kv_idx] == 0)
+                & (frame_ids[kv_idx] == frame_ids[q_idx])
+            )
 
         def in_window(b, h, q_idx, kv_idx, size):
             del b, h
@@ -537,11 +570,15 @@ class WanAttention(nn.Module):
         self.inner_dim = heads * dim_head
         self.heads = heads
         self.is_cross = cross_attention_dim_head is not None
-        kv_inner_dim = self.inner_dim if cross_attention_dim_head is None else cross_attention_dim_head * heads
+        kv_inner_dim = (
+            self.inner_dim if cross_attention_dim_head is None else cross_attention_dim_head * heads
+        )
         self.to_q = nn.Linear(dim, self.inner_dim, bias=True)
         self.to_k = nn.Linear(dim, kv_inner_dim, bias=True)
         self.to_v = nn.Linear(dim, kv_inner_dim, bias=True)
-        self.to_out = nn.ModuleList((nn.Linear(self.inner_dim, dim, bias=True), nn.Dropout(dropout)))
+        self.to_out = nn.ModuleList(
+            (nn.Linear(self.inner_dim, dim, bias=True), nn.Dropout(dropout))
+        )
         self.norm_q = _build_qk_norm(self.inner_dim, eps)
         self.norm_k = _build_qk_norm(kv_inner_dim, eps)
         self.attn_op = FlexAttnFunc(self.is_cross) if attn_mode == "flex" else None
@@ -615,7 +652,9 @@ def _layerwise_compile(function):
 
 _LAYERWISE_RESIDUAL_GATE_TO_DTYPE = _layerwise_compile(_layerwise_residual_gate_to_dtype)
 _LAYERWISE_MODULATION_PROLOGUE_BF16 = _layerwise_compile(_layerwise_modulation_prologue_bf16)
-_LAYERWISE_SELF_RESIDUAL_CROSS_NORM_BF16 = _layerwise_compile(_layerwise_self_residual_cross_norm_bf16)
+_LAYERWISE_SELF_RESIDUAL_CROSS_NORM_BF16 = _layerwise_compile(
+    _layerwise_self_residual_cross_norm_bf16
+)
 _LAYERWISE_CROSS_RESIDUAL_FF_NORM_BF16 = _layerwise_compile(_layerwise_cross_residual_ff_norm_bf16)
 _LAYERWISE_RESIDUAL_GATE_BF16 = _layerwise_compile(_layerwise_residual_gate_bf16)
 _LAYERWISE_OUTPUT_MODULATION_NORM_BF16 = _layerwise_compile(_layerwise_output_modulation_norm_bf16)
@@ -656,7 +695,9 @@ class WanTransformerBlock(nn.Module):
             cross_attention_dim_head=head_dim,
             attn_mode=attn_mode,
         )
-        self.norm2 = FP32LayerNorm(dim, eps, elementwise_affine=True) if cross_attn_norm else nn.Identity()
+        self.norm2 = (
+            FP32LayerNorm(dim, eps, elementwise_affine=True) if cross_attn_norm else nn.Identity()
+        )
         self.ffn = _build_ffn(dim, ffn_dim)
         self.norm3 = FP32LayerNorm(dim, eps, elementwise_affine=False)
         self.scale_shift_table = nn.Parameter(torch.randn(1, 6, dim) / dim**0.5)
@@ -685,7 +726,9 @@ class WanTransformerBlock(nn.Module):
                 self.norm2.eps,
             )
         else:
-            hidden_states = _LAYERWISE_RESIDUAL_GATE_TO_DTYPE(hidden_states, self_update, gate.squeeze(1))
+            hidden_states = _LAYERWISE_RESIDUAL_GATE_TO_DTYPE(
+                hidden_states, self_update, gate.squeeze(1)
+            )
             cross_input = self.norm2(hidden_states.float()).to(hidden_states.dtype)
         cross_update = self.attn2(cross_input, encoder_hidden_states, encoder_hidden_states)
         hidden_states, normed = _LAYERWISE_CROSS_RESIDUAL_FF_NORM_BF16(
@@ -733,7 +776,9 @@ class WanTransformer3DModel(ModelMixin, ConfigMixin):
         self.rope = WanRotaryPosEmbed(attention_head_dim, patch_size, rope_max_seq_len)
         self.patch_embedding_mlp = nn.Linear(in_channels * math.prod(self.patch_size), inner_dim)
         self.action_embedder = nn.Linear(action_dim, inner_dim)
-        self.condition_embedder = WanTimeTextImageEmbedding(inner_dim, freq_dim, inner_dim * 6, text_dim)
+        self.condition_embedder = WanTimeTextImageEmbedding(
+            inner_dim, freq_dim, inner_dim * 6, text_dim
+        )
         self.condition_embedder_action = deepcopy(self.condition_embedder)
         self.blocks = nn.ModuleList(
             [
@@ -827,7 +872,9 @@ class WanTransformer3DModel(ModelMixin, ConfigMixin):
         action_hidden, action_condition = action_pair.chunk(2, dim=0)
         action_hidden = action_hidden.flatten(0, 1)[None]
         action_condition = action_condition.flatten(0, 1)[None]
-        text_hidden = self._input_embed(latent_dict["text_emb"].to(dtype), "text").flatten(0, 1)[None]
+        text_hidden = self._input_embed(latent_dict["text_emb"].to(dtype), "text").flatten(0, 1)[
+            None
+        ]
         hidden_parts = (
             latent_hidden,
             latent_condition,
@@ -861,7 +908,9 @@ class WanTransformer3DModel(ModelMixin, ConfigMixin):
         action_key = action_dict.get("grid_key")
         if latent_key is not None and action_key is not None:
             grid_keys = (latent_key, action_key)
-        rotary_emb = self.rope.forward_pair(latent_grid, action_grid, grid_keys=grid_keys)[:, :, None]
+        rotary_emb = self.rope.forward_pair(latent_grid, action_grid, grid_keys=grid_keys)[
+            :, :, None
+        ]
         if padded_length:
             # The padded tensor carries the frequency *content*, so it may only
             # be reused under a content-determining key, exactly as in the
@@ -912,7 +961,9 @@ class WanTransformer3DModel(ModelMixin, ConfigMixin):
                 action_dict["cond_timesteps"].flatten(0, 1),
             )
         )[None]
-        latent_temb, latent_modulation = self._time_embed(latent_steps, height, width, latent_hidden.dtype)
+        latent_temb, latent_modulation = self._time_embed(
+            latent_steps, height, width, latent_hidden.dtype
+        )
         action_temb, action_modulation = self._time_embed(
             action_steps,
             noisy_action.shape[-2],
@@ -1005,5 +1056,7 @@ class WanTransformer3DModel(ModelMixin, ConfigMixin):
             p2=self.patch_size[1],
             p3=self.patch_size[2],
         )
-        action_hidden = rearrange(self.action_proj_out(action_hidden), "1 (b l) c -> b l c", b=batch_size)
+        action_hidden = rearrange(
+            self.action_proj_out(action_hidden), "1 (b l) c -> b l c", b=batch_size
+        )
         return latent_hidden, action_hidden

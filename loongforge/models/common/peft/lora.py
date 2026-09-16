@@ -85,7 +85,7 @@ class LoRA(PEFT, ModuleMatcher):
         lora_A_init_method (str): Initialization method for the low-rank matrix A. Defaults to "xavier".
         lora_B_init_method (str): Initialization method for the low-rank matrix B. Defaults to "zero".
         lora_dtype (torch.dtype): Parameter data type for LoRA weights. Default None (will use model's dtype).
-    """
+    """  # noqa: E501
 
     target_modules: List[str] = field(
         default_factory=lambda: [
@@ -120,7 +120,7 @@ class LoRA(PEFT, ModuleMatcher):
 
         Returns:
             nn.Module: The modified module with LoRA applied, or the original module if not a target.
-        """
+        """  # noqa: E501
         # Skip already transformed modules
         adapter_types = (LinearAdapter, LoRALinear, LoRATopKRouter)
         adapter_types = adapter_types + (TELinearAdapter,)
@@ -204,7 +204,7 @@ class VLMLoRA(LoRA):
     For example, a common finetuning workload for multimodal models is to apply adapters to language model and fully
     finetune the vision model.
 
-    """
+    """  # noqa: E501
 
     apply_to_foundation: bool = False
     apply_to_image_projector: bool = False
@@ -218,7 +218,11 @@ class VLMLoRA(LoRA):
 
         model = unwrap_model(model)[0]
 
-        if self.apply_to_foundation and hasattr(model, "foundation_model") and model.foundation_model is not None:
+        if (
+            self.apply_to_foundation
+            and hasattr(model, "foundation_model")
+            and model.foundation_model is not None
+        ):
             modules_to_freeze.append(model.foundation_model)
 
         if (

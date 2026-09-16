@@ -68,7 +68,9 @@ class LeRobotStateActionMetadata(LeRobotModalityField):
         ...,
         description="The end index of the modality in the concatenated state/action vector",
     )
-    rotation_type: Optional[RotationType] = Field(default=None, description="The type of rotation for the modality")
+    rotation_type: Optional[RotationType] = Field(
+        default=None, description="The type of rotation for the modality"
+    )
     absolute: bool = Field(default=True, description="Whether the modality is absolute")
     dtype: str = Field(
         default="float64",
@@ -107,19 +109,19 @@ class LeRobotModalityMetadata(BaseModel):
 
     state: dict[str, LeRobotStateMetadata] = Field(
         ...,
-        description="The metadata for the state modality. The keys are the names of each split of the state vector.",
+        description="The metadata for the state modality. The keys are the names of each split of the state vector.",  # noqa: E501
     )
     action: dict[str, LeRobotActionMetadata] = Field(
         ...,
-        description="The metadata for the action modality. The keys are the names of each split of the action vector.",
+        description="The metadata for the action modality. The keys are the names of each split of the action vector.",  # noqa: E501
     )
     video: dict[str, LeRobotModalityField] = Field(
         ...,
-        description="The metadata for the video modality. The keys are the new names of each video modality.",
+        description="The metadata for the video modality. The keys are the new names of each video modality.",  # noqa: E501
     )
     annotation: Optional[dict[str, LeRobotModalityField]] = Field(
         default=None,
-        description="The metadata for the annotation modality. The keys are the new names of each annotation modality.",
+        description="The metadata for the annotation modality. The keys are the new names of each annotation modality.",  # noqa: E501
     )
 
     @model_validator(mode="after")
@@ -162,14 +164,14 @@ class LeRobotModalityMetadata(BaseModel):
             lerobot_modality_meta.get_key_meta("state.joint_shoulder_y")
             lerobot_modality_meta.get_key_meta("video.main_camera")
             lerobot_modality_meta.get_key_meta("annotation.human.action.task_description")
-        """
+        """  # noqa: E501
         split_key = key.split(".")
         modality = split_key[0]
         subkey = ".".join(split_key[1:])
         if modality == "state":
             if subkey not in self.state:
                 raise ValueError(
-                    f"Key: {key}, state key {subkey} not found in metadata, available state keys: {self.state.keys()}"
+                    f"Key: {key}, state key {subkey} not found in metadata, available state keys: {self.state.keys()}"  # noqa: E501
                 )
             return self.state[subkey]
         elif modality == "action":
@@ -182,11 +184,13 @@ class LeRobotModalityMetadata(BaseModel):
         elif modality == "video":
             if subkey not in self.video:
                 raise ValueError(
-                    f"Key: {key}, video key {subkey} not found in metadata, available video keys: {self.video.keys()}"
+                    f"Key: {key}, video key {subkey} not found in metadata, available video keys: {self.video.keys()}"  # noqa: E501
                 )
             return self.video[subkey]
         elif modality == "annotation":
-            assert self.annotation is not None, "Trying to get annotation metadata for a dataset with no annotations"
+            assert self.annotation is not None, (
+                "Trying to get annotation metadata for a dataset with no annotations"
+            )
             if subkey not in self.annotation:
                 raise ValueError(
                     f"Key: {key}, annotation key {subkey} not found in metadata, "
@@ -210,7 +214,7 @@ class LeRobotModalityMetadata(BaseModel):
             lerobot_modality_meta.get_original_key("state.joint_shoulder_y")
             lerobot_modality_meta.get_original_key("video.main_camera")
             lerobot_modality_meta.get_original_key("annotation.human.action.task_description")
-        """
+        """  # noqa: E501
         original_key = self.get_key_meta(key).original_key
         assert original_key is not None, f"Key: {key}, original key is not set"
         return original_key

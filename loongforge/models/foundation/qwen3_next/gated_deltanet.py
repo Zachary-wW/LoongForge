@@ -162,7 +162,9 @@ class GatedDeltaNet(HuggingFaceModule):
                 parallel.
         """
         super().__init__(config)
-        assert config.context_parallel_size == 1, "GatedDeltaNet currently does not support context parallelism."
+        assert config.context_parallel_size == 1, (
+            "GatedDeltaNet currently does not support context parallelism."
+        )
         assert HAVE_FLA, "GatedDeltaNet requires FLA support."
 
         # Attributes from arguments
@@ -183,7 +185,9 @@ class GatedDeltaNet(HuggingFaceModule):
         self.hidden_size = config.hidden_size
         self.act_fn = config.activation_func
         self.activation = self.act_fn.__name__
-        assert self.activation in ["silu", "swish"], f"Only silu and swish are supported, but got {self.activation}"
+        assert self.activation in ["silu", "swish"], (
+            f"Only silu and swish are supported, but got {self.activation}"
+        )
         self.conv_kernel_dim = config.linear_conv_kernel_dim
         self.key_head_dim = config.linear_key_head_dim
         self.value_head_dim = config.linear_value_head_dim
@@ -211,11 +215,11 @@ class GatedDeltaNet(HuggingFaceModule):
             fp8_align_size = get_fp8_align_size(self.config.fp8_recipe)
             assert self.in_proj_qkvz_dim % fp8_align_size == 0, (
                 "For FP8, the innermost dimension of the GDN layer "
-                f"in_proj_qkvz output tensor ({self.in_proj_qkvz_dim}) must be a multiple of {fp8_align_size}."
+                f"in_proj_qkvz output tensor ({self.in_proj_qkvz_dim}) must be a multiple of {fp8_align_size}."  # noqa: E501
             )
             assert self.in_proj_ba_dim % fp8_align_size == 0, (
                 "For FP8, the innermost dimension of the GDN layer "
-                f"in_proj_ba output tensor ({self.in_proj_ba_dim}) must be a multiple of {fp8_align_size}."
+                f"in_proj_ba output tensor ({self.in_proj_ba_dim}) must be a multiple of {fp8_align_size}."  # noqa: E501
             )
         self.in_proj_qkvz = TE_Linear(self.hidden_size, self.in_proj_qkvz_dim, bias=False)
         self.in_proj_ba = TE_Linear(self.hidden_size, self.in_proj_ba_dim, bias=False)
@@ -249,7 +253,8 @@ class GatedDeltaNet(HuggingFaceModule):
 
         new_tensor_shape_qkvz = mixed_qkvz.size()[:-1] + (
             self.num_key_heads,
-            2 * self.key_head_dim + 2 * self.value_head_dim * self.num_value_heads // self.num_key_heads,
+            2 * self.key_head_dim
+            + 2 * self.value_head_dim * self.num_value_heads // self.num_key_heads,
         )
         new_tensor_shape_ba = mixed_ba.size()[:-1] + (
             self.num_key_heads,
@@ -264,7 +269,10 @@ class GatedDeltaNet(HuggingFaceModule):
             (self.num_value_heads // self.num_key_heads * self.value_head_dim),
             (self.num_value_heads // self.num_key_heads * self.value_head_dim),
         ]
-        split_arg_list_ba = [self.num_value_heads // self.num_key_heads, self.num_value_heads // self.num_key_heads]
+        split_arg_list_ba = [
+            self.num_value_heads // self.num_key_heads,
+            self.num_value_heads // self.num_key_heads,
+        ]
         query, key, value, z = torch.split(mixed_qkvz, split_arg_list_qkvz, dim=3)
         b, a = torch.split(mixed_ba, split_arg_list_ba, dim=3)
         # [b, sq, ng, np/ng * hn] -> [b, sq, np, hn]
@@ -335,7 +343,9 @@ class GatedDeltaNet(HuggingFaceModule):
         hidden_states = self.apply_mask_to_padding_states(hidden_states, attention_mask)
 
         if inference_context is not None:
-            assert inference_context.is_static_batching(), "GDN does not currently support dynamic inference batching."
+            assert inference_context.is_static_batching(), (
+                "GDN does not currently support dynamic inference batching."
+            )
             assert not self.config.sequence_parallel
             # TODO: support inference
             raise NotImplementedError("GDN does not support inference for now.")

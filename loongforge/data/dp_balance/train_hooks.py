@@ -53,10 +53,18 @@ def train_log_decorator(training_log):
         )
         rank = torch.distributed.get_rank(dp_group)
         active_btime, active_etime = None, None
-        if rank == 0 and args_train.use_vlm_dp_balance and iteration in args_train.vlm_dp_balance_warmup_iters:
+        if (
+            rank == 0
+            and args_train.use_vlm_dp_balance
+            and iteration in args_train.vlm_dp_balance_warmup_iters
+        ):
             active_btime = timers("interval-time").active_time()
         ret = training_log(*args, **kwargs)
-        if rank == 0 and args_train.use_vlm_dp_balance and iteration in args_train.vlm_dp_balance_warmup_iters:
+        if (
+            rank == 0
+            and args_train.use_vlm_dp_balance
+            and iteration in args_train.vlm_dp_balance_warmup_iters
+        ):
             active_etime = timers("interval-time").active_time()
             c1 = (active_etime - active_btime) * 1000
             set_warmup_c1(c1)
@@ -145,7 +153,10 @@ def train_step_decorator(train_step):
         ret = train_step(*args, **kwargs)
         end_flag = solve_computation_coef()  # noqa: F841
         seq2_coef, seq_coef, seq_num_coef = get_seq_coefs()
-        if args_train.use_vlm_dp_balance and iteration == args_train.vlm_dp_balance_warmup_iters[-1] + 1:
+        if (
+            args_train.use_vlm_dp_balance
+            and iteration == args_train.vlm_dp_balance_warmup_iters[-1] + 1
+        ):
             if rank == 0:
                 comp_coefs = torch.tensor(
                     [float(seq2_coef), float(seq_coef), float(seq_num_coef)],
@@ -154,12 +165,20 @@ def train_step_decorator(train_step):
                 )
             else:
                 comp_coefs = torch.tensor(
-                    [float(1.0), float(1.0), float(1.0)], dtype=torch.float, device=torch.device("cpu")
+                    [float(1.0), float(1.0), float(1.0)],
+                    dtype=torch.float,
+                    device=torch.device("cpu"),
                 )
             torch.distributed.broadcast(
-                comp_coefs, src=torch.distributed.get_process_group_ranks(dp_group)[0], group=dp_group
+                comp_coefs,
+                src=torch.distributed.get_process_group_ranks(dp_group)[0],
+                group=dp_group,
             )
-            seq2_coef, seq_coef, seq_num_coef = (comp_coefs[0].item(), comp_coefs[1].item(), comp_coefs[2].item())
+            seq2_coef, seq_coef, seq_num_coef = (
+                comp_coefs[0].item(),
+                comp_coefs[1].item(),
+                comp_coefs[2].item(),
+            )
             set_seq_coefs(seq2_coef, seq_coef, seq_num_coef)
         return ret
 

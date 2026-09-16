@@ -25,7 +25,14 @@ from loongforge.embodied.eval.metrics.trace_archive import archive_traces
 def test_summary_includes_confidence_and_failures(tmp_path: Path) -> None:
     """Run test_summary_includes_confidence_and_failures."""
     records = [
-        {"benchmark": "libero", "task_suite": "libero_goal", "task_id": 0, "episode_idx": 0, "success": 1, "steps": 10},
+        {
+            "benchmark": "libero",
+            "task_suite": "libero_goal",
+            "task_id": 0,
+            "episode_idx": 0,
+            "success": 1,
+            "steps": 10,
+        },
         {
             "benchmark": "libero",
             "task_suite": "libero_goal",
@@ -105,7 +112,9 @@ def test_write_eval_report_archives_failure_artifacts(tmp_path: Path) -> None:
     assert len(trace_manifest) == 1
     assert Path(trace_manifest[0]["archive_path"]).exists()
 
-    resource_result = sample_resources(tmp_path / "resources.jsonl", interval_sec=0.1, duration_sec=0.0)
+    resource_result = sample_resources(
+        tmp_path / "resources.jsonl", interval_sec=0.1, duration_sec=0.0
+    )
     assert resource_result["samples"] == 1
     assert (tmp_path / "resources.jsonl").exists()
 

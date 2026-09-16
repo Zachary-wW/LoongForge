@@ -105,7 +105,9 @@ def _load_prediction_file(path: Path):
     else:
         return []
 
-    keypoints = _first(raw, ("pred_keypoints_3d", "keypoints_3d", "joints_3d", "pred_keypoints", "mano_joints"))
+    keypoints = _first(
+        raw, ("pred_keypoints_3d", "keypoints_3d", "joints_3d", "pred_keypoints", "mano_joints")
+    )
     kp = _as_keypoints(keypoints)
     if kp is None:
         return []
@@ -132,7 +134,10 @@ def _load_prediction_file(path: Path):
     score = np.ones(n, dtype=np.float32) if score is None else np.asarray(score).reshape(-1)
     if len(score) == 1 and n > 1:
         score = np.repeat(score, n)
-    return [{"keypoints": kp[i], "right": right[i], "frame": int(frame[i]), "score": float(score[i])} for i in range(n)]
+    return [
+        {"keypoints": kp[i], "right": right[i], "frame": int(frame[i]), "score": float(score[i])}
+        for i in range(n)
+    ]
 
 
 def collect_predictions(root: Path):
@@ -222,10 +227,16 @@ def run_wilor(
             str(batch_size),
         ]
     proc = subprocess.run(
-        cmd, cwd=str(repo), text=True, capture_output=True, env={**__import__("os").environ, "PYTHONPATH": str(repo)}
+        cmd,
+        cwd=str(repo),
+        text=True,
+        capture_output=True,
+        env={**__import__("os").environ, "PYTHONPATH": str(repo)},
     )
     if proc.returncode:
-        raise RuntimeError("WiLoR failed (last output):\n" + (proc.stdout + "\n" + proc.stderr)[-6000:])
+        raise RuntimeError(
+            "WiLoR failed (last output):\n" + (proc.stdout + "\n" + proc.stderr)[-6000:]
+        )
     detections = collect_predictions(output_dir)
     rich_path = output_dir / "wilor_predictions.npz"
     if rich_path.is_file():
@@ -258,7 +269,9 @@ def apply_dynhamr(predictions, command: str | None, work_dir: Path, video: str |
     formatted = command.format(input=str(source), output=str(output), video=str(video or ""))
     proc = subprocess.run(shlex.split(formatted), text=True, capture_output=True)
     if proc.returncode:
-        raise RuntimeError("DynHaMR failed (last output):\n" + (proc.stdout + "\n" + proc.stderr)[-6000:])
+        raise RuntimeError(
+            "DynHaMR failed (last output):\n" + (proc.stdout + "\n" + proc.stderr)[-6000:]
+        )
     return collect_predictions(output)
 
 
@@ -313,7 +326,10 @@ def apply_official_dynhamr(
         cmd.append("--no-is_static")
     proc = subprocess.run(cmd, text=True, capture_output=True)
     if proc.returncode:
-        raise RuntimeError("official Dyn-HaMR failed (last output):\n" + (proc.stdout + "\n" + proc.stderr)[-10000:])
+        raise RuntimeError(
+            "official Dyn-HaMR failed (last output):\n"
+            + (proc.stdout + "\n" + proc.stderr)[-10000:]
+        )
     refined = collect_predictions(work_dir / "dynhamr_output")
     # Dyn-HaMR optimizes in a world frame whose origin/translation can differ
     # from WiLoR's camera-relative MANO coordinates (especially with a static
@@ -434,7 +450,12 @@ def _tcp_pose(kp, hand_sign):
         tr = np.trace(R)
         if tr > 0:
             s = 2.0 * np.sqrt(tr + 1.0)
-            quat[i] = [(0.25 * s), (R[2, 1] - R[1, 2]) / s, (R[0, 2] - R[2, 0]) / s, (R[1, 0] - R[0, 1]) / s]
+            quat[i] = [
+                (0.25 * s),
+                (R[2, 1] - R[1, 2]) / s,
+                (R[0, 2] - R[2, 0]) / s,
+                (R[1, 0] - R[0, 1]) / s,
+            ]
         else:
             quat[i, 0] = 1.0
     quat /= np.maximum(np.linalg.norm(quat, axis=1, keepdims=True), 1e-8)
@@ -494,8 +515,12 @@ def write_episode(output_dir: Path, episode: str, frames, fps, tracks, scores, m
     arrays = {
         "left.obs_keypoints": left_kp,
         "right.obs_keypoints": right_kp,
-        "left.obs_wrist_pose": np.concatenate([world_tracks["left"][:, WRIST], _quat_identity(n)], 1),
-        "right.obs_wrist_pose": np.concatenate([world_tracks["right"][:, WRIST], _quat_identity(n)], 1),
+        "left.obs_wrist_pose": np.concatenate(
+            [world_tracks["left"][:, WRIST], _quat_identity(n)], 1
+        ),
+        "right.obs_wrist_pose": np.concatenate(
+            [world_tracks["right"][:, WRIST], _quat_identity(n)], 1
+        ),
         "left.obs_ee_pose": left_ee,
         "right.obs_ee_pose": right_ee,
         "obs_head_pose": head,
@@ -556,7 +581,10 @@ def process_video(args):
         fps,
         tracks,
         scores,
-        {"wilor_checkpoint": str(args.checkpoint), "temporal_refiner": "DynHaMR" if args.dynhamr_command else "savgol"},
+        {
+            "wilor_checkpoint": str(args.checkpoint),
+            "temporal_refiner": "DynHaMR" if args.dynhamr_command else "savgol",
+        },
     )
     world_tracks = {
         side: np.einsum("ij,nkj->nki", CAMERA_TO_WORLD, np.asarray(tracks[side], dtype=np.float32))
@@ -578,7 +606,9 @@ def process_video(args):
 def build_arg_parser():
     ap = argparse.ArgumentParser(description="Path B: video -> WiLoR/DynHaMR -> EgoVerse-like Zarr")
     ap.add_argument("--video", required=True, help="input RGB video")
-    ap.add_argument("--output_dir", required=True, help="directory containing the generated episode")
+    ap.add_argument(
+        "--output_dir", required=True, help="directory containing the generated episode"
+    )
     ap.add_argument("--episode", default="video_000", help="episode directory name")
     ap.add_argument(
         "--checkpoint",
@@ -595,21 +625,29 @@ def build_arg_parser():
     ap.add_argument(
         "--wilor_command",
         default=None,
-        help="custom command template; placeholders: {images} {output} {checkpoint} {detector} {mano_dir}",
+        help="custom command template; placeholders: {images} {output} {checkpoint} {detector} {mano_dir}",  # noqa: E501
     )
     ap.add_argument(
         "--dynhamr_command",
         default=None,
         help="optional DynHaMR command template; placeholders: {input} {output} {video}",
     )
-    ap.add_argument("--dynhamr_repo", default=None, help="official Dyn-HaMR checkout; runs the bundled bridge")
     ap.add_argument(
-        "--dynhamr_mano_dir", default=None, help="MANO model directory for official Dyn-HaMR (defaults to --mano_dir)"
+        "--dynhamr_repo", default=None, help="official Dyn-HaMR checkout; runs the bundled bridge"
     )
-    ap.add_argument("--dynhamr_mean_params", default=None, help="MANO mean params NPZ for official Dyn-HaMR")
+    ap.add_argument(
+        "--dynhamr_mano_dir",
+        default=None,
+        help="MANO model directory for official Dyn-HaMR (defaults to --mano_dir)",
+    )
+    ap.add_argument(
+        "--dynhamr_mean_params", default=None, help="MANO mean params NPZ for official Dyn-HaMR"
+    )
     ap.add_argument("--dynhamr_gpu", default="0")
     ap.add_argument("--dynhamr_is_static", action=argparse.BooleanOptionalAction, default=True)
-    ap.add_argument("--predictions", default=None, help="existing WiLoR/DynHaMR output directory (offline mode)")
+    ap.add_argument(
+        "--predictions", default=None, help="existing WiLoR/DynHaMR output directory (offline mode)"
+    )
     ap.add_argument("--batch_size", type=int, default=16)
     ap.add_argument("--max_frames", type=int, default=0)
     ap.add_argument("--smooth_window", type=int, default=11)

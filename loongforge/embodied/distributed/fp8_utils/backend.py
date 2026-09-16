@@ -47,7 +47,7 @@ def apply_fp8_linear_conversion(model: nn.Module, training_args, device) -> int:
             f"actual_after={remaining_linear_count}."
         )
     logger.info(
-        "FP8 Linear replacement summary: backend=%s original_linear=%d fp8_linear=%d remaining_linear=%d",
+        "FP8 Linear replacement summary: backend=%s original_linear=%d fp8_linear=%d remaining_linear=%d",  # noqa: E501
         training_args.fp8_backend,
         original_linear_count,
         fp8_linear_count,
@@ -85,7 +85,7 @@ def convert_linear_for_fp8(
             training_args,
         )
     raise ValueError(
-        f"Unknown FP8 backend {training_args.fp8_backend!r}; expected one of {', '.join(FP8_BACKEND_CHOICES)}."
+        f"Unknown FP8 backend {training_args.fp8_backend!r}; expected one of {', '.join(FP8_BACKEND_CHOICES)}."  # noqa: E501
     )
 
 

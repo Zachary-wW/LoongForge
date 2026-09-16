@@ -46,7 +46,9 @@ except ImportError:
         @staticmethod
         def open(*args, **kwargs):  # noqa: A003
             """Raise RuntimeError since lmdb is not installed."""
-            raise RuntimeError("lmdb is not installed. It is only required for LMDB-backed Eagle images.")
+            raise RuntimeError(
+                "lmdb is not installed. It is only required for LMDB-backed Eagle images."
+            )
 
     lmdb = _MissingLmdb()
 import numpy as np
@@ -90,7 +92,9 @@ VIDEO_TOTAL_PIXELS = int(float(os.environ.get("VIDEO_MAX_PIXELS", 128000 * 28 * 
 logger.info(f"set VIDEO_TOTAL_PIXELS: {VIDEO_TOTAL_PIXELS}")
 
 
-def adjust_by_factor(number: int, factor: int, method: Literal["round", "ceil", "floor"] = "round") -> int:
+def adjust_by_factor(
+    number: int, factor: int, method: Literal["round", "ceil", "floor"] = "round"
+) -> int:
     """Adjusts 'number' to the nearest, ceiling, or floor multiple of 'factor'."""
     op = {"round": round, "ceil": math.ceil, "floor": math.floor}[method]
     return op(number / factor) * factor
@@ -121,7 +125,7 @@ def smart_resize(
     """
     if max(height, width) / min(height, width) > MAX_RATIO:
         raise ValueError(
-            f"absolute aspect ratio must be smaller than {MAX_RATIO}, got {max(height, width) / min(height, width)}"
+            f"absolute aspect ratio must be smaller than {MAX_RATIO}, got {max(height, width) / min(height, width)}"  # noqa: E501
         )
 
     h_bar = min(max(factor, adjust_by_factor(height, factor, method="round")), IMAGE_MAX_SIZE)
@@ -143,7 +147,9 @@ def read_img_from_lmdb_v2(image_data):
     # special case for AgiBotWorld
     lmdb_file, lmdb_key = image_data["lmdb_file"], image_data["lmdb_key"]
     key = lmdb_key.encode("ascii")
-    env = lmdb.open(lmdb_file, max_readers=10240, readonly=True, lock=False, readahead=False, meminit=False)
+    env = lmdb.open(
+        lmdb_file, max_readers=10240, readonly=True, lock=False, readahead=False, meminit=False
+    )
     txn = env.begin()
     value = txn.get(key)
     if value is None:
@@ -227,11 +233,13 @@ def fetch_image(ele: dict[str, str | Image.Image], size_factor: int = IMAGE_FACT
     else:
         image_obj = Image.open(image)
     if image_obj is None:
-        raise ValueError(f"Unrecognized image input, support local path, http url, base64 and PIL.Image, got {image}")
+        raise ValueError(
+            f"Unrecognized image input, support local path, http url, base64 and PIL.Image, got {image}"  # noqa: E501
+        )
     image = to_rgb(image_obj)
     # if 'scale_factor' in ele:
     #     scale_factor = ele['scale_factor']
-    #     image = image.resize((image.width * scale_factor, image.height * scale_factor), Image.BILINEAR)
+    #     image = image.resize((image.width * scale_factor, image.height * scale_factor), Image.BILINEAR)  # noqa: E501
 
     if "resized_height" in ele and "resized_width" in ele:
         resized_height, resized_width = smart_resize(
@@ -274,13 +282,15 @@ def smart_nframes(
         ValueError: nframes should in interval [FRAME_FACTOR, total_frames].
     Returns:
         int: the number of frames for video used for model inputs.
-    """
+    """  # noqa: E501
     assert not ("fps" in ele and "nframes" in ele), "Only accept either `fps` or `nframes`"
     if "nframes" in ele:
         nframes = adjust_by_factor(ele["nframes"], FRAME_FACTOR, method="round")
     else:
         fps = ele.get("fps", FPS)
-        min_frames = adjust_by_factor(ele.get("min_frames", FPS_MIN_FRAMES), FRAME_FACTOR, method="ceil")
+        min_frames = adjust_by_factor(
+            ele.get("min_frames", FPS_MIN_FRAMES), FRAME_FACTOR, method="ceil"
+        )
         max_frames = adjust_by_factor(
             ele.get("max_frames", min(FPS_MAX_FRAMES, total_frames)), FRAME_FACTOR, method="floor"
         )
@@ -290,7 +300,7 @@ def smart_nframes(
         nframes = min(min(max(nframes, min_frames), max_frames), total_frames)
         nframes = adjust_by_factor(nframes, FRAME_FACTOR, method="floor")
     if not (nframes >= FRAME_FACTOR and nframes <= total_frames):
-        # raise ValueError(f"nframes should in interval [{FRAME_FACTOR}, {total_frames}], but got {nframes}.")
+        # raise ValueError(f"nframes should in interval [{FRAME_FACTOR}, {total_frames}], but got {nframes}.")  # noqa: E501
         nframes = total_frames
     return nframes
 
@@ -303,7 +313,7 @@ def _read_video_torchvision(
     if version.parse(torchvision.__version__) < version.parse("0.19.0"):
         if "http://" in video_path or "https://" in video_path:
             warnings.warn(
-                "torchvision < 0.19.0 does not support http/https video path, please upgrade to 0.19.0.",
+                "torchvision < 0.19.0 does not support http/https video path, please upgrade to 0.19.0.",  # noqa: E501
                 stacklevel=2,
             )
         if "file://" in video_path:
@@ -317,7 +327,9 @@ def _read_video_torchvision(
         output_format="TCHW",
     )
     total_frames, video_fps = video.size(0), info["video_fps"]
-    logger.info(f"torchvision:  {video_path=}, {total_frames=}, {video_fps=}, time={time.time() - st:.3f}s")
+    logger.info(
+        f"torchvision:  {video_path=}, {total_frames=}, {video_fps=}, time={time.time() - st:.3f}s"
+    )
     nframes = smart_nframes(ele, total_frames=total_frames, video_fps=video_fps)
     # Calculate frame indices and corresponding timestamps (based on video start time)
     idx = torch.linspace(0, total_frames - 1, nframes).round().long()
@@ -365,18 +377,24 @@ def _read_video_pyav(
 
     if start_time > 0 or end_time is not None:
         # Seek to start time
-        start_pts = int(start_time * video_stream.time_base.denominator / video_stream.time_base.numerator)
+        start_pts = int(
+            start_time * video_stream.time_base.denominator / video_stream.time_base.numerator
+        )
         container.seek(start_pts, stream=video_stream)
 
         # Calculate end pts if specified
         if end_time is not None:
-            end_pts = int(end_time * video_stream.time_base.denominator / video_stream.time_base.numerator)
+            end_pts = int(
+                end_time * video_stream.time_base.denominator / video_stream.time_base.numerator
+            )
         else:
             end_pts = None
     else:
         end_pts = None
 
-    logger.info(f"pyav:  {video_path=}, {total_frames=}, {video_fps=}, time={time.time() - st:.3f}s")
+    logger.info(
+        f"pyav:  {video_path=}, {total_frames=}, {video_fps=}, time={time.time() - st:.3f}s"
+    )
 
     # Calculate number of frames to extract
     nframes = smart_nframes(ele, total_frames=total_frames, video_fps=video_fps)
@@ -435,17 +453,23 @@ def fetch_video(
         try:
             video, sample_fps, timestamps = VIDEO_READER_BACKENDS[video_reader_backend](ele)
         except Exception as e:
-            logger.warning(f"video_reader_backend {video_reader_backend} error, use torchvision as default, msg: {e}")
+            logger.warning(
+                f"video_reader_backend {video_reader_backend} error, use torchvision as default, msg: {e}"  # noqa: E501
+            )
             video, sample_fps, timestamps = VIDEO_READER_BACKENDS["torchvision"](ele)
 
         nframes, _, height, width = video.shape
 
         min_pixels = ele.get("min_pixels", VIDEO_MIN_PIXELS)
         total_pixels = ele.get("total_pixels", VIDEO_TOTAL_PIXELS)
-        max_pixels = max(min(VIDEO_MAX_PIXELS, total_pixels / nframes * FRAME_FACTOR), int(min_pixels * 1.05))
+        max_pixels = max(
+            min(VIDEO_MAX_PIXELS, total_pixels / nframes * FRAME_FACTOR), int(min_pixels * 1.05)
+        )
         max_pixels_supposed = ele.get("max_pixels", max_pixels)
         if max_pixels_supposed > max_pixels:
-            logger.warning(f"The given max_pixels[{max_pixels_supposed}] exceeds limit[{max_pixels}].")
+            logger.warning(
+                f"The given max_pixels[{max_pixels_supposed}] exceeds limit[{max_pixels}]."
+            )
         max_pixels = min(max_pixels_supposed, max_pixels)
         if "resized_height" in ele and "resized_width" in ele:
             resized_height, resized_width = smart_resize(
@@ -522,7 +546,7 @@ class Eagle3VLProcessor(ProcessorMixin):
             Special token used to denote image location.
         video_token (`str`, *optional*, defaults to `"<video>"`):
             Special token used to denote video location.
-    """
+    """  # noqa: E501
 
     attributes = ["image_processor", "tokenizer"]
     valid_kwargs = [
@@ -554,8 +578,12 @@ class Eagle3VLProcessor(ProcessorMixin):
         **kwargs,
     ):
         self.vision_feature_select_strategy = vision_feature_select_strategy
-        self.image_token = tokenizer.image_token if hasattr(tokenizer, "image_token") else image_token
-        self.video_token = tokenizer.video_token if hasattr(tokenizer, "video_token") else video_token
+        self.image_token = (
+            tokenizer.image_token if hasattr(tokenizer, "image_token") else image_token
+        )
+        self.video_token = (
+            tokenizer.video_token if hasattr(tokenizer, "video_token") else video_token
+        )
         self.image_token_id = (
             tokenizer.image_token_id
             if getattr(tokenizer, "image_token_id", None)
@@ -575,7 +603,9 @@ class Eagle3VLProcessor(ProcessorMixin):
             self.auto_map = kwargs["auto_map"]
         super().__init__(image_processor, tokenizer, chat_template=chat_template)
 
-    def replace_media_placeholder(self, text, image_list, video_list, timestamps_list, fps_list, **output_kwargs):
+    def replace_media_placeholder(
+        self, text, image_list, video_list, timestamps_list, fps_list, **output_kwargs
+    ):
         """Replace media placeholders in text and collect processed vision tensors."""
         num_of_images_in_this_sample = 0
         num_of_videos_in_this_sample = 0
@@ -607,7 +637,9 @@ class Eagle3VLProcessor(ProcessorMixin):
                 }
                 if media_type == "image":
                     image_inputs = self.image_processor(
-                        images=[image_list[idx_in_list]], videos=None, **output_kwargs["images_kwargs"]
+                        images=[image_list[idx_in_list]],
+                        videos=None,
+                        **output_kwargs["images_kwargs"],
                     )
                     image_height, image_width = image_inputs["image_sizes"][0]
                     assert image_height <= IMAGE_MAX_SIZE and image_width <= IMAGE_MAX_SIZE, (
@@ -623,7 +655,9 @@ class Eagle3VLProcessor(ProcessorMixin):
 
                 elif media_type == "video":
                     video_inputs = self.image_processor(
-                        images=None, videos=video_list[idx_in_list], **output_kwargs["videos_kwargs"]
+                        images=None,
+                        videos=video_list[idx_in_list],
+                        **output_kwargs["videos_kwargs"],
                     )
                     N, C, image_height, image_width = video_inputs["pixel_values"].shape  # noqa: N806
                     image_tokens = image_height * image_width // self.pixels_per_token
@@ -648,7 +682,7 @@ class Eagle3VLProcessor(ProcessorMixin):
                         special_placeholder = [
                             (
                                 f"Frame {i + 1} sample at {frame_timestamps[i]:.2f}s: "
-                                f"{self.image_start_token}{self.image_token * num_of_tokens}{self.image_end_token}"
+                                f"{self.image_start_token}{self.image_token * num_of_tokens}{self.image_end_token}"  # noqa: E501
                             )
                             for i, num_of_tokens in enumerate(num_of_tokens_list)
                         ]
@@ -663,11 +697,13 @@ class Eagle3VLProcessor(ProcessorMixin):
 
                     if sampled_fps is not None:
                         special_placeholder = (
-                            f"The {idx_mapper[idx_in_list]} video sampled with {sampled_fps:.2f} fps: "
+                            f"The {idx_mapper[idx_in_list]} video sampled with {sampled_fps:.2f} fps: "  # noqa: E501
                             + "".join(special_placeholder)
                         )
                     else:
-                        special_placeholder = f"The {idx_mapper[idx_in_list]} video: " + "".join(special_placeholder)
+                        special_placeholder = f"The {idx_mapper[idx_in_list]} video: " + "".join(
+                            special_placeholder
+                        )
                     unified_frame_list.append(video_inputs)
                     num_of_videos_in_this_sample += 1
                 else:
@@ -683,7 +719,13 @@ class Eagle3VLProcessor(ProcessorMixin):
         else:
             pixel_values = []
             image_sizes = []
-        return text, pixel_values, image_sizes, num_of_images_in_this_sample, num_of_videos_in_this_sample
+        return (
+            text,
+            pixel_values,
+            image_sizes,
+            num_of_images_in_this_sample,
+            num_of_videos_in_this_sample,
+        )
 
     def __call__(
         self,
@@ -723,7 +765,7 @@ class Eagle3VLProcessor(ProcessorMixin):
                             Returned when `videos` is not `None`.
                         - **image_sizes** -- Size of each image that will be used to unpad an image.
                             Returned when `images` is not `None`.
-        """
+        """  # noqa: E501
 
         output_kwargs = self._merge_kwargs(
             Eagle3VLProcessorKwargs,
@@ -751,17 +793,23 @@ class Eagle3VLProcessor(ProcessorMixin):
         timestamps_batch = output_kwargs["videos_kwargs"].pop("timestamps", None)
         fps_batch = output_kwargs["videos_kwargs"].pop("fps", None)
         for sample in text_list:
-            timestamps_list = timestamps_batch[video_start_idx:] if timestamps_batch is not None else None
+            timestamps_list = (
+                timestamps_batch[video_start_idx:] if timestamps_batch is not None else None
+            )
             fps_list = fps_batch[video_start_idx:] if fps_batch is not None else None
-            sample, pixel_values, image_sizes, num_of_images_in_this_sample, num_of_videos_in_this_sample = (
-                self.replace_media_placeholder(
-                    sample,
-                    images[image_start_idx:],
-                    videos[video_start_idx:],
-                    timestamps_list,
-                    fps_list,
-                    **output_kwargs,
-                )
+            (
+                sample,
+                pixel_values,
+                image_sizes,
+                num_of_images_in_this_sample,
+                num_of_videos_in_this_sample,
+            ) = self.replace_media_placeholder(
+                sample,
+                images[image_start_idx:],
+                videos[video_start_idx:],
+                timestamps_list,
+                fps_list,
+                **output_kwargs,
             )
             new_sample_list.append(sample)
             pixel_values_list.extend(pixel_values)
@@ -781,12 +829,12 @@ class Eagle3VLProcessor(ProcessorMixin):
         text_inputs = self.tokenizer(new_sample_list, **output_kwargs["text_kwargs"])
         return BatchFeature(data={**text_inputs, **image_inputs, **video_inputs})
 
-    # Copied from transformers.models.clip.processing_clip.CLIPProcessor.batch_decode with CLIP->Llama
+    # Copied from transformers.models.clip.processing_clip.CLIPProcessor.batch_decode with CLIP->Llama  # noqa: E501
     def batch_decode(self, *args, **kwargs):
         """
         This method forwards all its arguments to LlamaTokenizerFast's [`~PreTrainedTokenizer.batch_decode`]. Please
         refer to the docstring of this method for more information.
-        """
+        """  # noqa: E501
         return self.tokenizer.batch_decode(*args, **kwargs)
 
     # Copied from transformers.models.clip.processing_clip.CLIPProcessor.decode with CLIP->Llama
@@ -794,7 +842,7 @@ class Eagle3VLProcessor(ProcessorMixin):
         """
         This method forwards all its arguments to LlamaTokenizerFast's [`~PreTrainedTokenizer.decode`]. Please refer to
         the docstring of this method for more information.
-        """
+        """  # noqa: E501
         return self.tokenizer.decode(*args, **kwargs)
 
     @property
@@ -836,7 +884,9 @@ class Eagle3VLProcessor(ProcessorMixin):
         self,
         conversations: list[dict] | list[list[dict]],
         return_video_kwargs: bool = False,
-    ) -> tuple[list[Image.Image] | None, list[torch.Tensor | list[Image.Image]] | None, dict | None]:
+    ) -> tuple[
+        list[Image.Image] | None, list[torch.Tensor | list[Image.Image]] | None, dict | None
+    ]:
         """
         Process vision information and return images, videos and video kwargs if needed.
         """
@@ -850,7 +900,9 @@ class Eagle3VLProcessor(ProcessorMixin):
             if "image" in vision_info or "image_url" in vision_info:
                 image_inputs.append(fetch_image(vision_info))
             elif "video" in vision_info:
-                video_input, video_sample_fps, video_timestamps = fetch_video(vision_info, return_video_sample_fps=True)
+                video_input, video_sample_fps, video_timestamps = fetch_video(
+                    vision_info, return_video_sample_fps=True
+                )
                 video_sample_fps_list.append(video_sample_fps)
                 video_inputs.append(video_input)
                 video_timestamps_list.append(video_timestamps)
@@ -904,7 +956,7 @@ class Eagle3VLProcessor(ProcessorMixin):
             tokenize (bool): If True, tokenize the rendered string.
         Returns:
             str: The final rendered chat string according to the specified template.
-        """
+        """  # noqa: E501
         assert not tokenize, "tokenize is not supported yet"
         result = ""
         image_count = 0
@@ -956,7 +1008,9 @@ class Eagle3VLProcessor(ProcessorMixin):
                         if candidate_token not in message_text:
                             result += candidate_token
                     # Check if the item is a video.
-                    elif isinstance(item, dict) and (item.get("type") == "video" or "video" in item):
+                    elif isinstance(item, dict) and (
+                        item.get("type") == "video" or "video" in item
+                    ):
                         video_count += 1
                         candidate_token = f"<video-{video_count}>"
                         # Only add the token if it is not already present.
@@ -990,11 +1044,11 @@ class Eagle3VLProcessor(ProcessorMixin):
         Returns:
             [`~processing_utils.ProcessingMixin`]: The processor object instantiated from those
             parameters.
-        """
+        """  # noqa: E501
         processor_dict = processor_dict.copy()
         return_unused_kwargs = kwargs.pop("return_unused_kwargs", False)
 
-        # We have to pop up some unused (but specific) kwargs and then validate that it doesn't contain unused kwargs
+        # We have to pop up some unused (but specific) kwargs and then validate that it doesn't contain unused kwargs  # noqa: E501
         # If we don't pop, some specific kwargs will raise a warning
         if "processor_class" in processor_dict:
             del processor_dict["processor_class"]
@@ -1002,7 +1056,9 @@ class Eagle3VLProcessor(ProcessorMixin):
         if "auto_map" in processor_dict:
             del processor_dict["auto_map"]
 
-        unused_kwargs = cls.validate_init_kwargs(processor_config=processor_dict, valid_kwargs=cls.valid_kwargs)
+        unused_kwargs = cls.validate_init_kwargs(
+            processor_config=processor_dict, valid_kwargs=cls.valid_kwargs
+        )
         processor = cls(*args, **processor_dict)
 
         # Update processor with kwargs if needed

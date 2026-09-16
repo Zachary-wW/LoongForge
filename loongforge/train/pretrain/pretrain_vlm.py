@@ -75,7 +75,9 @@ def get_batch_on_this_tp_rank(data_iterator):
         data = next(data_iterator)
         # Check if iterator is exhausted (data is None)
         if data is None:
-            raise StopIteration("Data iterator exhausted. Check if eval_iters exceeds validation dataset size.")
+            raise StopIteration(
+                "Data iterator exhausted. Check if eval_iters exceeds validation dataset size."
+            )
     else:
         data = None
 
@@ -83,7 +85,9 @@ def get_batch_on_this_tp_rank(data_iterator):
     labels = tensor_parallel.broadcast_data(["labels"], data, torch.int64)["labels"]
     cu_lengths = tensor_parallel.broadcast_data(["cu_lengths"], data, torch.int32)["cu_lengths"]
     max_lengths = tensor_parallel.broadcast_data(["max_lengths"], data, torch.int32)["max_lengths"]
-    position_ids = tensor_parallel.broadcast_data(["position_ids"], data, torch.int64)["position_ids"]
+    position_ids = tensor_parallel.broadcast_data(["position_ids"], data, torch.int64)[
+        "position_ids"
+    ]
     loss_mask = tensor_parallel.broadcast_data(["loss_mask"], data, torch.int64)["loss_mask"]
     attn_mask = tensor_parallel.broadcast_data(["attn_mask"], data, torch.bool)["attn_mask"]
 
@@ -112,12 +116,16 @@ def get_batch_on_this_tp_rank(data_iterator):
     video_grid_thw = None
     if has_image:
         images = tensor_parallel.broadcast_data(["imgs"], data, torch.float32)["imgs"]
-        image_grid_thw = tensor_parallel.broadcast_data(["image_grid_thw"], data, torch.int32)["image_grid_thw"]
-    if has_video:
-        pixel_values_videos = tensor_parallel.broadcast_data(["pixel_values_videos"], data, torch.float32)[
-            "pixel_values_videos"
+        image_grid_thw = tensor_parallel.broadcast_data(["image_grid_thw"], data, torch.int32)[
+            "image_grid_thw"
         ]
-        video_grid_thw = tensor_parallel.broadcast_data(["video_grid_thw"], data, torch.int32)["video_grid_thw"]
+    if has_video:
+        pixel_values_videos = tensor_parallel.broadcast_data(
+            ["pixel_values_videos"], data, torch.float32
+        )["pixel_values_videos"]
+        video_grid_thw = tensor_parallel.broadcast_data(["video_grid_thw"], data, torch.int32)[
+            "video_grid_thw"
+        ]
     cu_lengths_cpu = cu_lengths.clone()
     tokens = tokens.cuda(non_blocking=True)
     labels = labels.cuda(non_blocking=True)
@@ -141,11 +149,15 @@ def get_batch_on_this_tp_rank(data_iterator):
 
     batch = {
         "images": images.cuda(non_blocking=True) if images is not None else None,
-        "image_grid_thw": (image_grid_thw.cuda(non_blocking=True) if image_grid_thw is not None else None),
+        "image_grid_thw": (
+            image_grid_thw.cuda(non_blocking=True) if image_grid_thw is not None else None
+        ),
         "pixel_values_videos": (
             pixel_values_videos.cuda(non_blocking=True) if pixel_values_videos is not None else None
         ),
-        "video_grid_thw": (video_grid_thw.cuda(non_blocking=True) if video_grid_thw is not None else None),
+        "video_grid_thw": (
+            video_grid_thw.cuda(non_blocking=True) if video_grid_thw is not None else None
+        ),
         "tokens": tokens,
         "attn_mask": attn_mask,
         "labels": labels,
@@ -330,7 +342,9 @@ def forward_step(data_iterator, model, return_schedule_plan: bool = False):
     _ImageEncoderDataParallelSize = get_encoder_dp_size("image_encoder")
 
     model_add_encoder = get_attr_wrapped_model(model, "add_encoder")
-    is_higher_vpp_chunk = args.enable_full_hetero_dp and (not model_add_encoder) and mpu.is_pipeline_first_stage()
+    is_higher_vpp_chunk = (
+        args.enable_full_hetero_dp and (not model_add_encoder) and mpu.is_pipeline_first_stage()
+    )
 
     if is_higher_vpp_chunk:
         vpp_counter = _vpp_counters.get("higher", 0)
@@ -348,7 +362,11 @@ def forward_step(data_iterator, model, return_schedule_plan: bool = False):
             with stimer(bdata=True):
                 for i in range(_ImageEncoderDataParallelSize):
                     mb_index = forward_step_calling_count + i
-                    if args.enable_full_hetero_dp and is_mock_microbatch(mb_index) and mpu.is_pipeline_first_stage():
+                    if (
+                        args.enable_full_hetero_dp
+                        and is_mock_microbatch(mb_index)
+                        and mpu.is_pipeline_first_stage()
+                    ):
                         mock_ref = batch_list[-1] if batch_list else get_batch(data_iterator)
                         if not batch_list:
                             batch_list.append(copy.deepcopy(mock_ref))

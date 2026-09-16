@@ -80,7 +80,7 @@ def _as_uint8(tensor: torch.Tensor, name: str) -> torch.Tensor:
     if tensor.dtype in _UINT8_VIEW_COMPATIBLE or tensor.dtype in _FLOAT8_DTYPES:
         return tensor.view(torch.uint8)
     raise TypeError(
-        f"{name}: expected an 8-bit packed/scale dtype (uint8/int8/float8_e8m0fnu/e4m3fn/e5m2), got {tensor.dtype}."
+        f"{name}: expected an 8-bit packed/scale dtype (uint8/int8/float8_e8m0fnu/e4m3fn/e5m2), got {tensor.dtype}."  # noqa: E501
     )
 
 
@@ -216,7 +216,9 @@ def dequantize_mxfp4_state_dict(
         if missing:
             preview = ", ".join(missing[:5])
             suffix = "" if len(missing) <= 5 else f", ... ({len(missing)} total)"
-            raise KeyError(f"MXFP4 dequant targeted weight(s) not loaded in state_dict: {preview}{suffix}")
+            raise KeyError(
+                f"MXFP4 dequant targeted weight(s) not loaded in state_dict: {preview}{suffix}"
+            )
 
     if not weight_keys:
         return 0

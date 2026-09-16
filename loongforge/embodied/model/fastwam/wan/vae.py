@@ -57,7 +57,14 @@ class CausalConv3d(nn.Conv3d):
     def __init__(self, *args, **kwargs):
         """Initialize causal padding metadata for the 3D convolution."""
         super().__init__(*args, **kwargs)
-        self._padding = (self.padding[2], self.padding[2], self.padding[1], self.padding[1], 2 * self.padding[0], 0)
+        self._padding = (
+            self.padding[2],
+            self.padding[2],
+            self.padding[1],
+            self.padding[1],
+            2 * self.padding[0],
+            0,
+        )
         self.padding = (0, 0, 0)
 
     def forward(self, x, cache_x=None):
@@ -175,18 +182,24 @@ class Resample(nn.Module):
         # layers
         if mode == "upsample2d":
             self.resample = nn.Sequential(
-                Upsample(scale_factor=(2.0, 2.0), mode="nearest-exact"), nn.Conv2d(dim, dim // 2, 3, padding=1)
+                Upsample(scale_factor=(2.0, 2.0), mode="nearest-exact"),
+                nn.Conv2d(dim, dim // 2, 3, padding=1),
             )
         elif mode == "upsample3d":
             self.resample = nn.Sequential(
-                Upsample(scale_factor=(2.0, 2.0), mode="nearest-exact"), nn.Conv2d(dim, dim // 2, 3, padding=1)
+                Upsample(scale_factor=(2.0, 2.0), mode="nearest-exact"),
+                nn.Conv2d(dim, dim // 2, 3, padding=1),
             )
             self.time_conv = CausalConv3d(dim, dim * 2, (3, 1, 1), padding=(1, 0, 0))
 
         elif mode == "downsample2d":
-            self.resample = nn.Sequential(nn.ZeroPad2d((0, 1, 0, 1)), nn.Conv2d(dim, dim, 3, stride=(2, 2)))
+            self.resample = nn.Sequential(
+                nn.ZeroPad2d((0, 1, 0, 1)), nn.Conv2d(dim, dim, 3, stride=(2, 2))
+            )
         elif mode == "downsample3d":
-            self.resample = nn.Sequential(nn.ZeroPad2d((0, 1, 0, 1)), nn.Conv2d(dim, dim, 3, stride=(2, 2)))
+            self.resample = nn.Sequential(
+                nn.ZeroPad2d((0, 1, 0, 1)), nn.Conv2d(dim, dim, 3, stride=(2, 2))
+            )
             self.time_conv = CausalConv3d(dim, dim, (3, 1, 1), stride=(2, 1, 1), padding=(0, 0, 0))
 
         else:
@@ -205,13 +218,27 @@ class Resample(nn.Module):
                     feat_idx[0] += 1
                 else:
                     cache_x = x[:, :, -CACHE_T:, :, :].clone()
-                    if cache_x.shape[2] < 2 and feat_cache[idx] is not None and feat_cache[idx] != "Rep":
+                    if (
+                        cache_x.shape[2] < 2
+                        and feat_cache[idx] is not None
+                        and feat_cache[idx] != "Rep"
+                    ):
                         # cache last frame of last two chunk
                         cache_x = torch.cat(
-                            [feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device), cache_x], dim=2
+                            [
+                                feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device),
+                                cache_x,
+                            ],
+                            dim=2,
                         )
-                    if cache_x.shape[2] < 2 and feat_cache[idx] is not None and feat_cache[idx] == "Rep":
-                        cache_x = torch.cat([torch.zeros_like(cache_x).to(cache_x.device), cache_x], dim=2)
+                    if (
+                        cache_x.shape[2] < 2
+                        and feat_cache[idx] is not None
+                        and feat_cache[idx] == "Rep"
+                    ):
+                        cache_x = torch.cat(
+                            [torch.zeros_like(cache_x).to(cache_x.device), cache_x], dim=2
+                        )
                     if feat_cache[idx] == "Rep":
                         x = self.time_conv(x)
                     else:
@@ -317,9 +344,13 @@ class Resample38(Resample):
             )
             self.time_conv = CausalConv3d(dim, dim * 2, (3, 1, 1), padding=(1, 0, 0))
         elif mode == "downsample2d":
-            self.resample = nn.Sequential(nn.ZeroPad2d((0, 1, 0, 1)), nn.Conv2d(dim, dim, 3, stride=(2, 2)))
+            self.resample = nn.Sequential(
+                nn.ZeroPad2d((0, 1, 0, 1)), nn.Conv2d(dim, dim, 3, stride=(2, 2))
+            )
         elif mode == "downsample3d":
-            self.resample = nn.Sequential(nn.ZeroPad2d((0, 1, 0, 1)), nn.Conv2d(dim, dim, 3, stride=(2, 2)))
+            self.resample = nn.Sequential(
+                nn.ZeroPad2d((0, 1, 0, 1)), nn.Conv2d(dim, dim, 3, stride=(2, 2))
+            )
             self.time_conv = CausalConv3d(dim, dim, (3, 1, 1), stride=(2, 1, 1), padding=(0, 0, 0))
         else:
             self.resample = nn.Identity()
@@ -356,7 +387,8 @@ class ResidualBlock(nn.Module):
                 if cache_x.shape[2] < 2 and feat_cache[idx] is not None:
                     # cache last frame of last two chunk
                     cache_x = torch.cat(
-                        [feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device), cache_x], dim=2
+                        [feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device), cache_x],
+                        dim=2,
                     )
                 x = layer(x, feat_cache[idx])
                 feat_cache[idx] = cache_x
@@ -392,7 +424,13 @@ class AttentionBlock(nn.Module):
         x = x.to(memory_format=torch.channels_last)  # maintain NHWC for 4D ops
         x = self.norm(x)
         # compute query, key, value
-        q, k, v = self.to_qkv(x).reshape(b * t, 1, c * 3, -1).permute(0, 1, 3, 2).contiguous().chunk(3, dim=-1)
+        q, k, v = (
+            self.to_qkv(x)
+            .reshape(b * t, 1, c * 3, -1)
+            .permute(0, 1, 3, 2)
+            .contiguous()
+            .chunk(3, dim=-1)
+        )
 
         # apply attention
         x = F.scaled_dot_product_attention(
@@ -597,13 +635,22 @@ class Encoder3d(nn.Module):
     """Causal 3D convolution encoder for video latents."""
 
     def __init__(
-        self, dim=128, z_dim=4, dim_mult=None, num_res_blocks=2, attn_scales=None, temperal_downsample=None, dropout=0.0
+        self,
+        dim=128,
+        z_dim=4,
+        dim_mult=None,
+        num_res_blocks=2,
+        attn_scales=None,
+        temperal_downsample=None,
+        dropout=0.0,
     ):
         """Initialize module parameters and sublayers."""
         super().__init__()
         dim_mult = [1, 2, 4, 4] if dim_mult is None else dim_mult
         attn_scales = [] if attn_scales is None else attn_scales
-        temperal_downsample = [True, True, False] if temperal_downsample is None else temperal_downsample
+        temperal_downsample = (
+            [True, True, False] if temperal_downsample is None else temperal_downsample
+        )
         self.dim = dim
         self.z_dim = z_dim
         self.dim_mult = dim_mult
@@ -637,11 +684,15 @@ class Encoder3d(nn.Module):
 
         # middle blocks
         self.middle = nn.Sequential(
-            ResidualBlock(out_dim, out_dim, dropout), AttentionBlock(out_dim), ResidualBlock(out_dim, out_dim, dropout)
+            ResidualBlock(out_dim, out_dim, dropout),
+            AttentionBlock(out_dim),
+            ResidualBlock(out_dim, out_dim, dropout),
         )
 
         # output blocks
-        self.head = nn.Sequential(RMSNorm(out_dim, images=False), nn.SiLU(), CausalConv3d(out_dim, z_dim, 3, padding=1))
+        self.head = nn.Sequential(
+            RMSNorm(out_dim, images=False), nn.SiLU(), CausalConv3d(out_dim, z_dim, 3, padding=1)
+        )
 
     def forward(self, x, feat_cache=None, feat_idx=None):
         """Run the forward pass for this module."""
@@ -650,7 +701,10 @@ class Encoder3d(nn.Module):
             cache_x = x[:, :, -CACHE_T:, :, :].clone()
             if cache_x.shape[2] < 2 and feat_cache[idx] is not None:
                 # cache last frame of last two chunk
-                cache_x = torch.cat([feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device), cache_x], dim=2)
+                cache_x = torch.cat(
+                    [feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device), cache_x],
+                    dim=2,
+                )
             x = self.conv1(x, feat_cache[idx])
             feat_cache[idx] = cache_x
             feat_idx[0] += 1
@@ -679,7 +733,8 @@ class Encoder3d(nn.Module):
                 if cache_x.shape[2] < 2 and feat_cache[idx] is not None:
                     # cache last frame of last two chunk
                     cache_x = torch.cat(
-                        [feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device), cache_x], dim=2
+                        [feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device), cache_x],
+                        dim=2,
                     )
                 x = layer(x, feat_cache[idx])
                 feat_cache[idx] = cache_x
@@ -693,13 +748,22 @@ class Encoder3d38(nn.Module):
     """Causal 3D convolution encoder for 3.8 video latents."""
 
     def __init__(
-        self, dim=128, z_dim=4, dim_mult=None, num_res_blocks=2, attn_scales=None, temperal_downsample=None, dropout=0.0
+        self,
+        dim=128,
+        z_dim=4,
+        dim_mult=None,
+        num_res_blocks=2,
+        attn_scales=None,
+        temperal_downsample=None,
+        dropout=0.0,
     ):
         """Initialize module parameters and sublayers."""
         super().__init__()
         dim_mult = [1, 2, 4, 4] if dim_mult is None else dim_mult
         attn_scales = [] if attn_scales is None else attn_scales
-        temperal_downsample = [False, True, True] if temperal_downsample is None else temperal_downsample
+        temperal_downsample = (
+            [False, True, True] if temperal_downsample is None else temperal_downsample
+        )
         self.dim = dim
         self.z_dim = z_dim
         self.dim_mult = dim_mult
@@ -805,7 +869,14 @@ class Decoder3d(nn.Module):
     """Causal 3D convolution decoder for video latents."""
 
     def __init__(
-        self, dim=128, z_dim=4, dim_mult=None, num_res_blocks=2, attn_scales=None, temperal_upsample=None, dropout=0.0
+        self,
+        dim=128,
+        z_dim=4,
+        dim_mult=None,
+        num_res_blocks=2,
+        attn_scales=None,
+        temperal_upsample=None,
+        dropout=0.0,
     ):
         """Initialize module parameters and sublayers."""
         super().__init__()
@@ -828,7 +899,9 @@ class Decoder3d(nn.Module):
 
         # middle blocks
         self.middle = nn.Sequential(
-            ResidualBlock(dims[0], dims[0], dropout), AttentionBlock(dims[0]), ResidualBlock(dims[0], dims[0], dropout)
+            ResidualBlock(dims[0], dims[0], dropout),
+            AttentionBlock(dims[0]),
+            ResidualBlock(dims[0], dims[0], dropout),
         )
 
         # upsample blocks
@@ -851,7 +924,9 @@ class Decoder3d(nn.Module):
         self.upsamples = nn.Sequential(*upsamples)
 
         # output blocks
-        self.head = nn.Sequential(RMSNorm(out_dim, images=False), nn.SiLU(), CausalConv3d(out_dim, 3, 3, padding=1))
+        self.head = nn.Sequential(
+            RMSNorm(out_dim, images=False), nn.SiLU(), CausalConv3d(out_dim, 3, 3, padding=1)
+        )
 
     def forward(self, x, feat_cache=None, feat_idx=None):
         """Run the forward pass for this module."""
@@ -861,7 +936,10 @@ class Decoder3d(nn.Module):
             cache_x = x[:, :, -CACHE_T:, :, :].clone()
             if cache_x.shape[2] < 2 and feat_cache[idx] is not None:
                 # cache last frame of last two chunk
-                cache_x = torch.cat([feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device), cache_x], dim=2)
+                cache_x = torch.cat(
+                    [feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device), cache_x],
+                    dim=2,
+                )
             x = self.conv1(x, feat_cache[idx])
             feat_cache[idx] = cache_x
             feat_idx[0] += 1
@@ -890,7 +968,8 @@ class Decoder3d(nn.Module):
                 if cache_x.shape[2] < 2 and feat_cache[idx] is not None:
                     # cache last frame of last two chunk
                     cache_x = torch.cat(
-                        [feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device), cache_x], dim=2
+                        [feat_cache[idx][:, :, -1, :, :].unsqueeze(2).to(cache_x.device), cache_x],
+                        dim=2,
                     )
                 x = layer(x, feat_cache[idx])
                 feat_cache[idx] = cache_x
@@ -904,7 +983,14 @@ class Decoder3d38(nn.Module):
     """Causal 3D convolution decoder for 3.8 video latents."""
 
     def __init__(
-        self, dim=128, z_dim=4, dim_mult=None, num_res_blocks=2, attn_scales=None, temperal_upsample=None, dropout=0.0
+        self,
+        dim=128,
+        z_dim=4,
+        dim_mult=None,
+        num_res_blocks=2,
+        attn_scales=None,
+        temperal_upsample=None,
+        dropout=0.0,
     ):
         """Initialize module parameters and sublayers."""
         super().__init__()
@@ -926,7 +1012,9 @@ class Decoder3d38(nn.Module):
 
         # middle blocks
         self.middle = nn.Sequential(
-            ResidualBlock(dims[0], dims[0], dropout), AttentionBlock(dims[0]), ResidualBlock(dims[0], dims[0], dropout)
+            ResidualBlock(dims[0], dims[0], dropout),
+            AttentionBlock(dims[0]),
+            ResidualBlock(dims[0], dims[0], dropout),
         )
 
         # upsample blocks
@@ -946,7 +1034,9 @@ class Decoder3d38(nn.Module):
         self.upsamples = nn.Sequential(*upsamples)
 
         # output blocks
-        self.head = nn.Sequential(RMSNorm(out_dim, images=False), nn.SiLU(), CausalConv3d(out_dim, 12, 3, padding=1))
+        self.head = nn.Sequential(
+            RMSNorm(out_dim, images=False), nn.SiLU(), CausalConv3d(out_dim, 12, 3, padding=1)
+        )
 
     def forward(self, x, feat_cache=None, feat_idx=None, first_chunk=False):
         """Run the forward pass for this module."""
@@ -1014,13 +1104,22 @@ class VideoVAECore(nn.Module):
     """Core video VAE that encodes and decodes latent tensors."""
 
     def __init__(
-        self, dim=96, z_dim=16, dim_mult=None, num_res_blocks=2, attn_scales=None, temperal_downsample=None, dropout=0.0
+        self,
+        dim=96,
+        z_dim=16,
+        dim_mult=None,
+        num_res_blocks=2,
+        attn_scales=None,
+        temperal_downsample=None,
+        dropout=0.0,
     ):
         """Initialize module parameters and sublayers."""
         super().__init__()
         dim_mult = [1, 2, 4, 4] if dim_mult is None else dim_mult
         attn_scales = [] if attn_scales is None else attn_scales
-        temperal_downsample = [False, True, True] if temperal_downsample is None else temperal_downsample
+        temperal_downsample = (
+            [False, True, True] if temperal_downsample is None else temperal_downsample
+        )
         self.dim = dim
         self.z_dim = z_dim
         self.dim_mult = dim_mult
@@ -1035,7 +1134,9 @@ class VideoVAECore(nn.Module):
         )
         self.conv1 = CausalConv3d(z_dim * 2, z_dim * 2, 1)
         self.conv2 = CausalConv3d(z_dim, z_dim, 1)
-        self.decoder = Decoder3d(dim, z_dim, dim_mult, num_res_blocks, attn_scales, self.temperal_upsample, dropout)
+        self.decoder = Decoder3d(
+            dim, z_dim, dim_mult, num_res_blocks, attn_scales, self.temperal_upsample, dropout
+        )
 
     def encode(self, x, scale):
         """Encode videos or tensors into latent states."""
@@ -1060,7 +1161,9 @@ class VideoVAECore(nn.Module):
         mu, log_var = self.conv1(out).chunk(2, dim=1)
         if isinstance(scale[0], torch.Tensor):
             scale = [s.to(dtype=mu.dtype, device=mu.device) for s in scale]
-            mu = (mu - scale[0].view(1, self.z_dim, 1, 1, 1)) * scale[1].view(1, self.z_dim, 1, 1, 1)
+            mu = (mu - scale[0].view(1, self.z_dim, 1, 1, 1)) * scale[1].view(
+                1, self.z_dim, 1, 1, 1
+            )
         else:
             scale = scale.to(dtype=mu.dtype, device=mu.device)
             mu = (mu - scale[0]) * scale[1]
@@ -1161,7 +1264,9 @@ class WanVideoVAE(nn.Module):
         if not left_bound:
             x[:border_width] = (torch.arange(border_width) + 1) / border_width
         if not right_bound:
-            x[-border_width:] = torch.flip((torch.arange(border_width) + 1) / border_width, dims=(0,))
+            x[-border_width:] = torch.flip(
+                (torch.arange(border_width) + 1) / border_width, dims=(0,)
+            )
         return x
 
     def build_mask(self, data, is_bound, border_width):
@@ -1200,8 +1305,12 @@ class WanVideoVAE(nn.Module):
         out_T = T * 4 - 3
         out_h = H * self.upsampling_factor
         out_w = W * self.upsampling_factor
-        weight = torch.zeros((1, 1, out_T, out_h, out_w), dtype=hidden_states.dtype, device=data_device)
-        values = torch.zeros((1, 3, out_T, out_h, out_w), dtype=hidden_states.dtype, device=data_device)
+        weight = torch.zeros(
+            (1, 1, out_T, out_h, out_w), dtype=hidden_states.dtype, device=data_device
+        )
+        values = torch.zeros(
+            (1, 3, out_T, out_h, out_w), dtype=hidden_states.dtype, device=data_device
+        )
 
         for h, h_, w, w_ in tqdm(tasks, desc="VAE decoding"):
             hidden_states_batch = hidden_states[:, :, :, h:h_, w:w_].to(computation_device)
@@ -1260,7 +1369,9 @@ class WanVideoVAE(nn.Module):
         out_h = H // self.upsampling_factor
         out_w = W // self.upsampling_factor
         weight = torch.zeros((1, 1, out_T, out_h, out_w), dtype=video.dtype, device=data_device)
-        values = torch.zeros((1, self.z_dim, out_T, out_h, out_w), dtype=video.dtype, device=data_device)
+        values = torch.zeros(
+            (1, self.z_dim, out_T, out_h, out_w), dtype=video.dtype, device=data_device
+        )
 
         for h, h_, w, w_ in tqdm(tasks, desc="VAE encoding"):
             hidden_states_batch = video[:, :, :, h:h_, w:w_].to(computation_device)
@@ -1373,7 +1484,9 @@ class VideoVAE38Core(VideoVAECore):
         super().__init__()
         dim_mult = [1, 2, 4, 4] if dim_mult is None else dim_mult
         attn_scales = [] if attn_scales is None else attn_scales
-        temperal_downsample = [False, True, True] if temperal_downsample is None else temperal_downsample
+        temperal_downsample = (
+            [False, True, True] if temperal_downsample is None else temperal_downsample
+        )
         self.dim = dim
         self.z_dim = z_dim
         self.dim_mult = dim_mult
@@ -1416,7 +1529,9 @@ class VideoVAE38Core(VideoVAECore):
         if scale is not None:
             if isinstance(scale[0], torch.Tensor):
                 scale = [s.to(dtype=mu.dtype, device=mu.device) for s in scale]
-                mu = (mu - scale[0].view(1, self.z_dim, 1, 1, 1)) * scale[1].view(1, self.z_dim, 1, 1, 1)
+                mu = (mu - scale[0].view(1, self.z_dim, 1, 1, 1)) * scale[1].view(
+                    1, self.z_dim, 1, 1, 1
+                )
             else:
                 scale = scale.to(dtype=mu.dtype, device=mu.device)
                 mu = (mu - scale[0]) * scale[1]
@@ -1429,7 +1544,9 @@ class VideoVAE38Core(VideoVAECore):
         if scale is not None:
             if isinstance(scale[0], torch.Tensor):
                 scale = [s.to(dtype=z.dtype, device=z.device) for s in scale]
-                z = z / scale[1].view(1, self.z_dim, 1, 1, 1) + scale[0].view(1, self.z_dim, 1, 1, 1)
+                z = z / scale[1].view(1, self.z_dim, 1, 1, 1) + scale[0].view(
+                    1, self.z_dim, 1, 1, 1
+                )
             else:
                 scale = scale.to(dtype=z.dtype, device=z.device)
                 z = z / scale[1] + scale[0]
@@ -1439,7 +1556,10 @@ class VideoVAE38Core(VideoVAECore):
             self._conv_idx = [0]
             if i == 0:
                 out, self._feat_map, self._conv_idx = self.decoder(
-                    x[:, :, i : i + 1, :, :], feat_cache=self._feat_map, feat_idx=self._conv_idx, first_chunk=True
+                    x[:, :, i : i + 1, :, :],
+                    feat_cache=self._feat_map,
+                    feat_idx=self._conv_idx,
+                    first_chunk=True,
                 )
             else:
                 out_, self._feat_map, self._conv_idx = self.decoder(

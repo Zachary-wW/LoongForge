@@ -65,7 +65,7 @@ DUAL_WRAPPER_TMPL = """<mujoco model="panda_dual">
 </mujoco>
 """
 
-# OpenCV (x right, y down, z forward) -> MuJoCo camera (view -z, up +y): rotate 180 degrees around x.
+# OpenCV (x right, y down, z forward) -> MuJoCo camera (view -z, up +y): rotate 180 degrees around x.  # noqa: E501
 RX180 = np.diag([1.0, -1.0, -1.0])
 
 # Wrist cameras use the common parallel-gripper TCP frame shared by all
@@ -210,7 +210,9 @@ def set_ego_camera(data, head_pose7):
 def set_wrist_cameras(data, model, spec, opening_widths=None):
     """Place both wrist cameras from the morphology's calibrated TCP frame."""
     widths = (None, None) if opening_widths is None else opening_widths
-    for (prefix, mocap_body), opening_width in zip((("left_", "wrist_l_m"), ("right_", "wrist_r_m")), widths):
+    for (prefix, mocap_body), opening_width in zip(
+        (("left_", "wrist_l_m"), ("right_", "wrist_r_m")), widths
+    ):
         ref_kind, ref_id = resolve_prefixed_ee_ref(model, spec, prefix)
         if ref_kind == "site":
             ref_pos = data.site_xpos[ref_id]

@@ -85,8 +85,12 @@ class LingBotVAPreprocessor(BasePreprocessor):
         if not examples:
             raise ValueError("LingBotVAPreprocessor received an empty example list")
         return LingBotVAPreparedBatch(
-            latents=_pad_stack([item["latents"] for item in examples], self.pad_to_multiple).contiguous(),
-            actions=_pad_stack([item["actions"] for item in examples], self.pad_to_multiple).contiguous(),
+            latents=_pad_stack(
+                [item["latents"] for item in examples], self.pad_to_multiple
+            ).contiguous(),
+            actions=_pad_stack(
+                [item["actions"] for item in examples], self.pad_to_multiple
+            ).contiguous(),
             actions_mask=_pad_stack(
                 [item["actions_mask"].to(torch.bool) for item in examples],
                 self.pad_to_multiple,

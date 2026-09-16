@@ -127,7 +127,9 @@ class ExampleToFeature(ProcessorBase):
         self.data_info["augment_type"] = data_setting.get("augment_type", [])
         # interleave fill-image-in-front
         self.data_info["interleave_fiif"] = data_setting.get("interleave_fiif", 0)
-        self.one_sample_in_one_seq = data_setting.get("one_sample_in_one_seq", one_sample_in_one_seq)
+        self.one_sample_in_one_seq = data_setting.get(
+            "one_sample_in_one_seq", one_sample_in_one_seq
+        )
         self.data_info["remove_loc"] = data_setting.get("remove_loc", 0)
 
         self.data_info["random_resize"] = data_setting.get("random_resize", [1, 1])
@@ -135,11 +137,17 @@ class ExampleToFeature(ProcessorBase):
         dataset_min_pixels = data_setting.get("min_pixels", None)
         dataset_max_pixels = data_setting.get("max_pixels", None)
         if dataset_min_pixels is not None:
-            self.image_processor.set_pixels(min_pixels=dataset_min_pixels, msg="ExampleToFeature __init__()")
+            self.image_processor.set_pixels(
+                min_pixels=dataset_min_pixels, msg="ExampleToFeature __init__()"
+            )
         if dataset_max_pixels is not None:
-            self.image_processor.set_pixels(max_pixels=dataset_max_pixels, msg="ExampleToFeature __init__()")
+            self.image_processor.set_pixels(
+                max_pixels=dataset_max_pixels, msg="ExampleToFeature __init__()"
+            )
             # adaptive_max_imgtoken
-            logger.info("Due to min/max_pixels being specified by data_setting, adaptive_max_imgtoken is set to None.")
+            logger.info(
+                "Due to min/max_pixels being specified by data_setting, adaptive_max_imgtoken is set to None."  # noqa: E501
+            )
             self.adaptive_max_imgtoken_option = None
             self.adaptive_max_imgtoken_rate = None
         # min_pixels and max_pixels for video
@@ -154,7 +162,9 @@ class ExampleToFeature(ProcessorBase):
         # data_type
         self.data_type = DATASET_TYPE_TO_DATA_TYPE.get(self.data_info["dataset_type"], None)
         logger.info(f"DATASET_TYPE_TO_DATA_TYPE: {DATASET_TYPE_TO_DATA_TYPE}")
-        assert self.data_type is not None, f"dataset_type: {self.data_info['dataset_type']} not support"
+        assert self.data_type is not None, (
+            f"dataset_type: {self.data_info['dataset_type']} not support"
+        )
 
         # tokenizer
         self.tokenizer = tokenizer
@@ -246,7 +256,9 @@ class ExampleToFeature(ProcessorBase):
         assert data_type is not None, f"Unknow dataset type: {dataset_type}."
 
         for i, sample_info in enumerate(
-            self._example_to_feature(deepcopy(meta), data_type, dataset_type, dataset_name, **kwargs)
+            self._example_to_feature(
+                deepcopy(meta), data_type, dataset_type, dataset_name, **kwargs
+            )
         ):
             """
             sample_info
@@ -261,7 +273,9 @@ class ExampleToFeature(ProcessorBase):
                         "ids_type": sample_info["ids_type"],
                         "image_wise_type": sample_info["image_wise_type"],
                     },
-                    "meta": self._meta_format(sample_info["image_info"], sample_info["image_wise_type"]),
+                    "meta": self._meta_format(
+                        sample_info["image_info"], sample_info["image_wise_type"]
+                    ),
                 }
                 yield feature
 
@@ -399,7 +413,9 @@ class ExampleToFeature(ProcessorBase):
                             assert len(one["ids_type"]) == len(one["ids"]), (
                                 "the length of ids_type and ids should be equal."
                             )
-                            assert self.not_found_token_id not in one["ids"], "unknow special tokens in input_ids."
+                            assert self.not_found_token_id not in one["ids"], (
+                                "unknow special tokens in input_ids."
+                            )
                             if self.is_training:
                                 # Perform SFT Truncatation
                                 one = self.sft_sliding_window(one, adaptiver)
@@ -420,9 +436,13 @@ class ExampleToFeature(ProcessorBase):
             if self.variable_resolution:
                 cnt = 0
                 while img_tokens > 0:
-                    img_tokens -= adaptiver.get_num_of_tokens_for_img_one(image_info[start_img_idx + cnt])
+                    img_tokens -= adaptiver.get_num_of_tokens_for_img_one(
+                        image_info[start_img_idx + cnt]
+                    )
                     cnt += 1
-                assert img_tokens == 0, f"the resulted img_tokens must be 0, but now got {img_tokens}"
+                assert img_tokens == 0, (
+                    f"the resulted img_tokens must be 0, but now got {img_tokens}"
+                )
                 return cnt
             else:
                 return img_tokens // self.im_prefix_length
@@ -489,9 +509,9 @@ class ExampleToFeature(ProcessorBase):
             if text_type == "special_token":
                 cur_tokens = [self.tokenizer.convert_tokens_to_ids(item["text"])]
             else:
-                cur_tokens = self.tokenizer.encode(item["text"], add_special_tokens=False, return_attention_mask=False)[
-                    "input_ids"
-                ]
+                cur_tokens = self.tokenizer.encode(
+                    item["text"], add_special_tokens=False, return_attention_mask=False
+                )["input_ids"]
             input_ids.append(cur_tokens)
 
             mask_flag = item.get("tag", "no_mask")
@@ -557,14 +577,18 @@ class ExampleToFeature(ProcessorBase):
 
         return input_ids, labels, no_cut_tag
 
-    def _text_tokenization_add_placeholder(self, sample, dataset_name, data_type, adaptiver, add_eos_token=True):
+    def _text_tokenization_add_placeholder(
+        self, sample, dataset_name, data_type, adaptiver, add_eos_token=True
+    ):
         """text tokenizer & add placeholder"""
 
         input_ids = []
         labels = []
         input_ids, labels, no_cut_tag = self._text_tokenization(sample, dataset_name, data_type)
 
-        input_ids, labels, no_cut_tag = self._image_placeholder(sample, input_ids, labels, no_cut_tag, adaptiver)
+        input_ids, labels, no_cut_tag = self._image_placeholder(
+            sample, input_ids, labels, no_cut_tag, adaptiver
+        )
 
         input_ids = merge_list(input_ids)
         labels = merge_list(labels)
@@ -574,7 +598,9 @@ class ExampleToFeature(ProcessorBase):
             labels.append(self.tokenizer.eos_token_id)
         no_cut_tag.append(CUT_FLAG["cut"])
 
-        assert len(input_ids) == len(labels), f"[ERROR] {dataset_name} tokens:{len(input_ids)} != labels:{len(labels)}"
+        assert len(input_ids) == len(labels), (
+            f"[ERROR] {dataset_name} tokens:{len(input_ids)} != labels:{len(labels)}"
+        )
 
         sample["input_ids"] = np.array(input_ids, dtype=np.int64)
         sample["labels"] = np.array(labels, dtype=np.int64)
@@ -606,7 +632,11 @@ class ExampleToFeature(ProcessorBase):
                 return True
             if index == 0 and is_cut[index] == CUT_FLAG["no_cut"]:
                 return True
-            if index >= 1 and is_cut[index] == CUT_FLAG["no_cut"] and is_cut[index - 1] == CUT_FLAG["cut"]:
+            if (
+                index >= 1
+                and is_cut[index] == CUT_FLAG["no_cut"]
+                and is_cut[index - 1] == CUT_FLAG["cut"]
+            ):
                 return True
             return False
 
@@ -645,9 +675,13 @@ class ExampleToFeature(ProcessorBase):
             if self.variable_resolution:
                 cnt = 0
                 while img_tokens > 0:
-                    img_tokens -= adaptiver.get_num_of_tokens_for_img_one(image_info[start_img_idx + cnt])
+                    img_tokens -= adaptiver.get_num_of_tokens_for_img_one(
+                        image_info[start_img_idx + cnt]
+                    )
                     cnt += 1
-                assert img_tokens == 0, f"the resulted img_tokens must be 0, but now got {img_tokens}"
+                assert img_tokens == 0, (
+                    f"the resulted img_tokens must be 0, but now got {img_tokens}"
+                )
                 return cnt
             else:
                 return img_tokens // self.im_prefix_length
@@ -691,20 +725,26 @@ class ExampleToFeature(ProcessorBase):
             else:
                 # mm sample
                 image_info = sample["image_info"][start_img_idx : start_img_idx + img_num]
-                image_wise_type = sample["image_wise_type_id"][start_img_idx : start_img_idx + img_num]
+                image_wise_type = sample["image_wise_type_id"][
+                    start_img_idx : start_img_idx + img_num
+                ]
 
                 assert img_num == len(image_info)
                 assert img_num == image_wise_type.shape[0]
 
-                assert len([i for i in image_info if i["image_type"] == "video"]) % self.temporal_conv_size == 0, (
-                    f"[ERROR] {dataset_name} vedio data have wrong information, len(image_info): {len(image_info)},"
+                assert (
+                    len([i for i in image_info if i["image_type"] == "video"])
+                    % self.temporal_conv_size
+                    == 0
+                ), (
+                    f"[ERROR] {dataset_name} vedio data have wrong information, len(image_info): {len(image_info)},"  # noqa: E501
                     + f"self.temporal_conv_size: {self.temporal_conv_size}"
                 )
 
                 if self.variable_resolution:
-                    assert (sample_ids == self.image_token_id).sum() == adaptiver.get_images_token_num(
-                        image_info, sample_grouped_info
-                    ), (
+                    assert (
+                        sample_ids == self.image_token_id
+                    ).sum() == adaptiver.get_images_token_num(image_info, sample_grouped_info), (
                         "(sample_ids == self.image_token_id).sum(): "
                         + f"{(sample_ids == self.image_token_id).sum()}, "
                         + "adaptiver.get_images_token_num(image_info, sample_grouped_info): "
@@ -712,7 +752,7 @@ class ExampleToFeature(ProcessorBase):
                     )
 
                 assert len(image_info) == len(image_wise_type), (
-                    f"len(image_info) {len(image_info)} != len(image_wise_type) {len(image_wise_type)}"
+                    f"len(image_info) {len(image_info)} != len(image_wise_type) {len(image_wise_type)}"  # noqa: E501
                 )
 
                 sample_info = OrderedDict(
@@ -742,7 +782,10 @@ class ExampleToFeature(ProcessorBase):
                 conv_size = self.video_temporal_conv_size
 
             if restart_frame_local:
-                frame_local = [{"upscale_image_size": None, "position": [], "location": []} for _ in range(conv_size)]
+                frame_local = [
+                    {"upscale_image_size": None, "position": [], "location": []}
+                    for _ in range(conv_size)
+                ]
                 restart_frame_local = False
 
             frame_global = []
@@ -776,7 +819,7 @@ class ExampleToFeature(ProcessorBase):
                         positions_num = len(global_img["args_fn"]["positions"])
                         location_num = len(global_img["args_fn"]["location"])
                         assert positions_num == location_num, (
-                            f"[ERROR] meta format positions {positions_num} != location {location_num}"
+                            f"[ERROR] meta format positions {positions_num} != location {location_num}"  # noqa: E501
                         )
 
                         location_idx += 1

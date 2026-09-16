@@ -210,7 +210,9 @@ class KimiPlugin(MMPlugin):
 
         return mm_inputs
 
-    def _build_image_placeholder(self, num_tokens: int, image_size: Optional[Tuple[int, int]] = None) -> str:
+    def _build_image_placeholder(
+        self, num_tokens: int, image_size: Optional[Tuple[int, int]] = None
+    ) -> str:
         """Build image placeholder string with correct number of tokens.
 
         Format: <|media_begin|>image<|media_content|>...<|media_content|><|media_end|>
@@ -281,11 +283,15 @@ class KimiPlugin(MMPlugin):
                     )
 
                 # Compute number of tokens for this image
-                num_tokens = self._compute_num_tokens_from_grid_thw(image_grid_thw[num_image_tokens])
+                num_tokens = self._compute_num_tokens_from_grid_thw(
+                    image_grid_thw[num_image_tokens]
+                )
 
                 # Build placeholder string
                 image = images[num_image_tokens]
-                placeholder = self._build_image_placeholder(num_tokens, image.size if self.include_image_size else None)
+                placeholder = self._build_image_placeholder(
+                    num_tokens, image.size if self.include_image_size else None
+                )
 
                 content = content.replace(Placeholder.IMAGE, placeholder, 1)
                 num_image_tokens += 1
@@ -300,7 +306,9 @@ class KimiPlugin(MMPlugin):
 
                 # For video, Kimi splits into chunks with timestamps
                 # Here we handle as single chunk for simplicity
-                num_tokens = self._compute_num_tokens_from_grid_thw(video_grid_thw[num_video_tokens])
+                num_tokens = self._compute_num_tokens_from_grid_thw(
+                    video_grid_thw[num_video_tokens]
+                )
 
                 # Build video chunk placeholder (without timestamp for now)
                 placeholder = self._build_video_chunk_placeholder(num_tokens)

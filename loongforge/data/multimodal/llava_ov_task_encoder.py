@@ -76,7 +76,9 @@ class LLavaOv15TaskEncoder(VLMTaskEncoder):
         super().__init__(args=args)
         if args.training_phase in ["sft"]:
             self.chat_template = get_chat_template()
-        self.processor = AutoProcessor.from_pretrained(self.args.hf_tokenizer_path, trust_remote_code=True)
+        self.processor = AutoProcessor.from_pretrained(
+            self.args.hf_tokenizer_path, trust_remote_code=True
+        )
 
         if args.image_resolution:
             setattr(self.processor, "image_resolution", args.image_resolution)
@@ -135,7 +137,7 @@ class LLavaOv15TaskEncoder(VLMTaskEncoder):
                     # Truncate at the end of the last full sentence.
                     sample.answers = cleaned_cut[:last_end_index]
                 else:
-                    # Fallback to a hard cut of the original preliminary string if no sentence ender is found.
+                    # Fallback to a hard cut of the original preliminary string if no sentence ender is found.  # noqa: E501
                     sample.answers = preliminary_cut
 
                 print(
@@ -152,7 +154,9 @@ class LLavaOv15TaskEncoder(VLMTaskEncoder):
             ).replace("<image>", IMAGE_TOKEN_WITH_TAGS)
             if text[-1] == "\n":
                 text = text[:-1]
-            input_ids, _, imgs, image_grid_thw, attn_mask = self._process(sample.image, text, add_special_tokens=False)
+            input_ids, _, imgs, image_grid_thw, attn_mask = self._process(
+                sample.image, text, add_special_tokens=False
+            )
             target = torch.ones_like(input_ids) * IGNORE_INDEX
             answers = self.tokenizer.tokenize(sample.answers, add_special_tokens=False)
             target[-len(answers) - 1 : -1] = torch.tensor(answers)
@@ -164,9 +168,13 @@ class LLavaOv15TaskEncoder(VLMTaskEncoder):
         num_tiles = [len(image_grid_thw)]
 
         if self.args.enable_discard_sample:
-            assert len(input_ids) <= self.args.seq_length, f"{sample.__key__} input length {len(input_ids)}"
+            assert len(input_ids) <= self.args.seq_length, (
+                f"{sample.__key__} input length {len(input_ids)}"
+            )
         else:
-            assert image_grid_thw.prod() / 4 <= self.args.seq_length, f"{sample.__key__} grid_thw: {image_grid_thw}"
+            assert image_grid_thw.prod() / 4 <= self.args.seq_length, (
+                f"{sample.__key__} grid_thw: {image_grid_thw}"
+            )
 
         return VLMTaskSample(
             __key__=sample.__key__,
@@ -207,7 +215,9 @@ class LLavaOv15TaskEncoder(VLMTaskEncoder):
         rotation_lengths = [len(dataset) for dataset, _ in datasets]
         for i in range(1, len(rotation_lengths)):
             rotation_lengths[i] += rotation_lengths[i - 1]
-        worker_rotation_offsets = [rotation_length % global_workers for rotation_length in [0] + rotation_lengths[:-1]]
+        worker_rotation_offsets = [
+            rotation_length % global_workers for rotation_length in [0] + rotation_lengths[:-1]
+        ]
 
         if repeat:
             inner_datasets = [
@@ -218,7 +228,9 @@ class LLavaOv15TaskEncoder(VLMTaskEncoder):
                     ),
                     1.0 if weight is None else float(weight),
                 )
-                for (dataset, weight), worker_rotation_offset in zip(datasets, worker_rotation_offsets)
+                for (dataset, weight), worker_rotation_offset in zip(
+                    datasets, worker_rotation_offsets
+                )
             ]
         else:
             assert blend_mode in (
@@ -240,11 +252,13 @@ class LLavaOv15TaskEncoder(VLMTaskEncoder):
                     ),
                     len(dataset) * (1 if repetition is None else int(repetition)),
                 )
-                for (dataset, repetition), worker_rotation_offset in zip(datasets, worker_rotation_offsets)
+                for (dataset, repetition), worker_rotation_offset in zip(
+                    datasets, worker_rotation_offsets
+                )
             ]
 
         if len(inner_datasets) > 1:
-            # The worker offset for each dataset is the cumsum of the dataset lengths, but modulo the
+            # The worker offset for each dataset is the cumsum of the dataset lengths, but modulo the  # noqa: E501
             # global number of workers.
             dataset = BlendDataset(
                 *inner_datasets,

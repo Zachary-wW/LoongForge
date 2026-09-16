@@ -75,7 +75,9 @@ class DeepseekV4Config(BaseModelMLAConfig):
         assert all(ratio in [0, 4, 128] for ratio in self.csa_compress_ratios), (
             "csa_compress_ratios must contain only 0, 4, or 128."
         )
-        assert not getattr(self, "qk_clip", False), "QK clipping is not supported with DeepSeek-V4 hybrid attention."
+        assert not getattr(self, "qk_clip", False), (
+            "QK clipping is not supported with DeepSeek-V4 hybrid attention."
+        )
         assert not getattr(self, "mla_down_proj_fusion", False), (
             "MLA down projection fusion must be disabled for DeepSeek-V4 hybrid attention."
         )
@@ -103,7 +105,9 @@ class DeepseekV4Config(BaseModelMLAConfig):
         self.activation_func_clamp_value = self.swiglu_limit
 
         if self.moe_n_hash_layers > 0:
-            assert self.actual_vocab_size is not None, "actual_vocab_size must be set when moe_n_hash_layers > 0."
+            assert self.actual_vocab_size is not None, (
+                "actual_vocab_size must be set when moe_n_hash_layers > 0."
+            )
 
     # ── CSA / HCA (Compressed Sparse Attention) ──────────────────────────────
     csa_window_size: int = 128

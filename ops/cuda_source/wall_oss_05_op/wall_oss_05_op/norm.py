@@ -84,7 +84,7 @@ class RMSNormOp(OpsProxy):
             if not self._input_fallback_logged:
                 self._input_fallback_logged = True
                 logger.warning(
-                    "RMSNormOp: CUDA kernel does not support these inputs, using PyTorch per call (x=%s/%s, w=%s/%s)",
+                    "RMSNormOp: CUDA kernel does not support these inputs, using PyTorch per call (x=%s/%s, w=%s/%s)",  # noqa: E501
                     type(hidden_states).__name__,
                     hidden_states.dtype,
                     type(weight).__name__,

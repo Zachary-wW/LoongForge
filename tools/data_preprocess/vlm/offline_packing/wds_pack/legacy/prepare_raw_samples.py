@@ -89,12 +89,16 @@ def extract_assistant_response(json_path):
 
         if task_type == "sft" and isinstance(data, dict):
             try:
-                assistant_content = next(msg["content"] for msg in data["messages"] if msg["role"] == "assistant")
+                assistant_content = next(
+                    msg["content"] for msg in data["messages"] if msg["role"] == "assistant"
+                )
                 return assistant_content
             except Exception:
                 pass
             try:
-                assistant_content = next(msg["value"] for msg in data["texts"] if msg["from"] == "gpt")
+                assistant_content = next(
+                    msg["value"] for msg in data["texts"] if msg["from"] == "gpt"
+                )
                 return assistant_content
             except Exception:
                 pass
@@ -129,7 +133,9 @@ def extract_user_prompt(json_path):
 
         if isinstance(data, dict):
             try:
-                user_content = next(msg["content"] for msg in data["messages"] if msg["role"] == "user")
+                user_content = next(
+                    msg["content"] for msg in data["messages"] if msg["role"] == "user"
+                )
                 return user_content
             except Exception:
                 pass
@@ -164,7 +170,7 @@ def extract_media_files(json_path):
         if isinstance(media_files, (str, Path)):
             media_files = [str(media_files)]
         if not media_files and SAMPLE_TYPE in SINGLE_MEDIA_INFER_TYPES:
-            # For packed_vqa/packed_captioning, infer sibling media by stem (e.g., 0001.jpg for 0001.json)
+            # For packed_vqa/packed_captioning, infer sibling media by stem (e.g., 0001.jpg for 0001.json)  # noqa: E501
             inferred_media = defaultdict(list)
             for media_type, ext_list in VALID_MEDIA_EXT.items():
                 for ext in ext_list:
@@ -177,7 +183,9 @@ def extract_media_files(json_path):
         if not media_files:
             return defaultdict(list)
         if not isinstance(media_files, list):
-            raise ValueError(f"`media_files`/`name` must be a list in {json_path}, got {type(media_files).__name__}")
+            raise ValueError(
+                f"`media_files`/`name` must be a list in {json_path}, got {type(media_files).__name__}"  # noqa: E501
+            )
 
         media_sources = defaultdict(list)
 
@@ -195,7 +203,9 @@ def extract_media_files(json_path):
             else:
                 media_type = infer_media_type(media_file)
                 if not media_type and declared_media_type not in (None, "mix"):
-                    raise ValueError(f"Unsupported media type '{declared_media_type}' in {json_path}")
+                    raise ValueError(
+                        f"Unsupported media type '{declared_media_type}' in {json_path}"
+                    )
 
             if not media_type:
                 raise ValueError(f"Cannot infer media type for '{media_file}' in {json_path}")
@@ -237,7 +247,7 @@ def dataset_tokinfo_generator(f_name):
                         yield (base_name, token_len)
                     except ValueError:
                         print(
-                            f"Warning: '{token_len_str}' cannot be converted to an integer. This line has been skipped",
+                            f"Warning: '{token_len_str}' cannot be converted to an integer. This line has been skipped",  # noqa: E501
                             file=sys.stderr,
                         )
                         continue
@@ -279,7 +289,7 @@ class TokenInfoReader:
 
         Return:
             tuple: (base_names list, token_lens list, actual read quantity)
-        """
+        """  # noqa: E501
         base_names = []
         token_lens = []
         read_count = 0
@@ -311,13 +321,15 @@ def _normalize_media(packed_media, sample_count, box_index):
         raise ValueError(f"[box {box_index}] no media collected for packed samples")
     if len(media_types) > 1:
         raise ValueError(
-            f"[box {box_index}] multiple media types found {media_types}, but cooker expects a single media_type"
+            f"[box {box_index}] multiple media types found {media_types}, but cooker expects a single media_type"  # noqa: E501
         )
 
     media_key = media_types[0]
     media_files = packed_media[media_key]
     if len(media_files) != sample_count:
-        raise ValueError(f"[box {box_index}] media/sample count mismatch: {len(media_files)} vs {sample_count}")
+        raise ValueError(
+            f"[box {box_index}] media/sample count mismatch: {len(media_files)} vs {sample_count}"
+        )
 
     # cooker expects singular media_type: "image" or "video"
     media_type = media_key[:-1] if media_key.endswith("s") else media_key
@@ -333,7 +345,9 @@ def process_box(box_index, samples_in_box, dst_dir_json):
     for sample_name in packed_sample_names:
         json_path = os.path.join(SRC_DIR_JSONS, f"{sample_name}.json")
         if task_type == "pretrain":
-            packed_info.append((extract_media_files(json_path), extract_assistant_response(json_path)))
+            packed_info.append(
+                (extract_media_files(json_path), extract_assistant_response(json_path))
+            )
         elif task_type == "sft":
             packed_info.append(
                 (
@@ -375,17 +389,23 @@ def process_box(box_index, samples_in_box, dst_dir_json):
         with open(packed_json_path, "w", encoding="utf-8") as f:
             json.dump(json_data, f, indent=4, ensure_ascii=False)
     except Exception as e:
-        print(f" thread {threading.current_thread().name} failed to generate JSON file {packed_json_path} : {str(e)}")
+        print(
+            f" thread {threading.current_thread().name} failed to generate JSON file {packed_json_path} : {str(e)}"  # noqa: E501
+        )
     return box_index
 
 
 if __name__ == "__main__":
-    print("Step1-----------------Read the tokenlen information of the original ds-----------------Start")
+    print(
+        "Step1-----------------Read the tokenlen information of the original ds-----------------Start"  # noqa: E501
+    )
     info_reader = TokenInfoReader(input_token_file)
     base_names, token_lens, n_count = info_reader.read()
 
     print(f" read {n_count} datas ")
-    print("Step1-----------------Read the tokenlen information of the original ds-----------------Stop\n\n")
+    print(
+        "Step1-----------------Read the tokenlen information of the original ds-----------------Stop\n\n"  # noqa: E501
+    )
 
     print("Step2-----------------packing grouping-----------------Start")
 

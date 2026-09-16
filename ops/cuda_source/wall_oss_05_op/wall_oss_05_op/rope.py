@@ -59,7 +59,7 @@ class RoPEOp(OpsProxy):
         head_dim = q.size(-1)
         if rotary_dim > head_dim:
             raise ValueError(
-                f"rotary_dim ({rotary_dim}) > head_dim ({head_dim}): cos last dim ({cos.size(-1)}) is too large for q"
+                f"rotary_dim ({rotary_dim}) > head_dim ({head_dim}): cos last dim ({cos.size(-1)}) is too large for q"  # noqa: E501
             )
         partial = rotary_dim < head_dim
         if partial:
@@ -104,7 +104,7 @@ class MRoPEOp(OpsProxy):
     cos/sin shape: (3, B, S, D//2). mrope_section like [16, 24, 24] specifies
     how many head dims each of T/H/W occupies. After split by mrope_section * 2,
     uses i % 3 to select from corresponding temporal/height/width rows.
-    """
+    """  # noqa: E501
 
     def _get_cuda_kernel(self):
         """Return a CUDA M-RoPE wrapper when the extension is available."""
@@ -146,7 +146,9 @@ class MRoPEOp(OpsProxy):
             [m[i % 3] for i, m in enumerate(sin.split(mrope_section_doubled, dim=-1))],
             dim=-1,
         ).unsqueeze(2)
-        q_embed = (query_states.float() * cos_split) + (_rotate_half(query_states.float()) * sin_split)
+        q_embed = (query_states.float() * cos_split) + (
+            _rotate_half(query_states.float()) * sin_split
+        )
         k_embed = (key_states.float() * cos_split) + (_rotate_half(key_states.float()) * sin_split)
         return q_embed.to(query_states.dtype), k_embed.to(key_states.dtype)
 
@@ -229,7 +231,9 @@ class RotPosEmbOp(OpsProxy):
         for t, h, w in grid_thw:
             t, h, w = int(t), int(h), int(w)
             if h % spatial_merge_size != 0 or w % spatial_merge_size != 0:
-                raise ValueError(f"grid h={h}, w={w} must be divisible by spatial_merge_size={spatial_merge_size}")
+                raise ValueError(
+                    f"grid h={h}, w={w} must be divisible by spatial_merge_size={spatial_merge_size}"  # noqa: E501
+                )
             hpos_ids = torch.arange(h).unsqueeze(1).expand(-1, w)
             hpos_ids = (
                 hpos_ids.reshape(

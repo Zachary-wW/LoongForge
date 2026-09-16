@@ -74,9 +74,13 @@ class QwenImageTransformerBlock(TransformerBlock):
                     layer = self._get_layer(index)
                     if use_inner_quantization_context:
                         if self.config.fp8:
-                            inner_quantization_context = get_fp8_context(self.config, layer.layer_number - 1)
+                            inner_quantization_context = get_fp8_context(
+                                self.config, layer.layer_number - 1
+                            )
                         elif self.config.fp4:
-                            inner_quantization_context = get_fp4_context(self.config, layer.layer_number - 1)
+                            inner_quantization_context = get_fp4_context(
+                                self.config, layer.layer_number - 1
+                            )
                         else:
                             inner_quantization_context = nullcontext()
                     else:
@@ -132,7 +136,9 @@ class QwenImageTransformerBlock(TransformerBlock):
         if self.config.recompute_method == "uniform":
             layer_idx = 0
             while layer_idx < self.num_layers_per_pipeline_rank:
-                hidden_states, context = checkpoint_handler(custom(layer_idx, layer_idx + self._recompute_num_layers))
+                hidden_states, context = checkpoint_handler(
+                    custom(layer_idx, layer_idx + self._recompute_num_layers)
+                )
                 layer_idx += self._recompute_num_layers
         elif self.config.recompute_method == "block":
             recompute_skip_num_layers = 0

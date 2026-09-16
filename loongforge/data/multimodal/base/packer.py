@@ -90,8 +90,10 @@ class Packer:
             )
 
     # Based on https://github.com/hiyouga/LLaMA-Factory/
-    #          blob/641d0dab08d96a93c34657742213d8994d9ed476/src/llamafactory/data/processors/processor_utils.py#L19
-    def search_for_fit(self, numbers: List[int], img_nums: List[int], capacity: int, img_num: int) -> int:
+    #          blob/641d0dab08d96a93c34657742213d8994d9ed476/src/llamafactory/data/processors/processor_utils.py#L19  # noqa: E501
+    def search_for_fit(
+        self, numbers: List[int], img_nums: List[int], capacity: int, img_num: int
+    ) -> int:
         """
         Finds the largest sample index that fits both capacity and image number constraints.
 
@@ -221,15 +223,15 @@ class Packer:
 
         Raises:
             AssertionError: If sample token length exceeds buffer capacity or image count exceeds limit
-        """
+        """  # noqa: E501
         buffers = [Buffer(buffer_capacity, img_limit) for _ in range(buffers_num)]
         packed_buffers = []
         for sample in samples:
             assert sample.tokens.shape[0] <= buffer_capacity, (
                 f"sample token length: \
-                {sample.tokens.shape[0]} > max buffer capacity: {buffer_capacity}, will skip this sample"
+                {sample.tokens.shape[0]} > max buffer capacity: {buffer_capacity}, will skip this sample"  # noqa: E501
             )
-            # print(f"sample_len: {sample.total_len}, buffer_capacity: {buffer_capacity}, buffers_num: {buffers_num}")
+            # print(f"sample_len: {sample.total_len}, buffer_capacity: {buffer_capacity}, buffers_num: {buffers_num}")  # noqa: E501
             img_num = _img_count(sample.imgs)
             if img_num and img_limit:
                 assert img_num <= img_limit, (

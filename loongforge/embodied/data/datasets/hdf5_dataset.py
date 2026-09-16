@@ -67,7 +67,11 @@ def _quat_to_rotate6d(q: np.ndarray, scalar_first: bool = False) -> np.ndarray:
     """
     from scipy.spatial.transform import Rotation as R
 
-    return R.from_quat(q, scalar_first=scalar_first).as_matrix()[..., :, :2].reshape(q.shape[:-1] + (6,))
+    return (
+        R.from_quat(q, scalar_first=scalar_first)
+        .as_matrix()[..., :, :2]
+        .reshape(q.shape[:-1] + (6,))
+    )
 
 
 class HDF5VLADataset(Dataset):
@@ -129,7 +133,9 @@ class HDF5VLADataset(Dataset):
             "observation_key",
             ["observations/images/cam_high"],
         )
-        self.language_instruction_key: str = metadata.get("language_instruction_key", "language_instruction")
+        self.language_instruction_key: str = metadata.get(
+            "language_instruction_key", "language_instruction"
+        )
 
         # Episode files come from metadata["datalist"] (absolute paths) when
         # present, otherwise discovered on disk.
@@ -146,7 +152,9 @@ class HDF5VLADataset(Dataset):
         # the spawn/fork-then-pickle start method), each episode's parsed data is
         # loaded on first access via ``_get_episode_data`` and memoized here.
         # ``__getitem__`` reads only the frame it needs from the cached handle.
-        self._episode_cached_data: List[Optional[Dict[str, Any]]] = [None] * len(self._episode_files)
+        self._episode_cached_data: List[Optional[Dict[str, Any]]] = [None] * len(
+            self._episode_files
+        )
 
         # Stats kept for inference-time denormalization compatibility (identity:
         # the reference does not normalize actions, so q01/q99 span [-1, 1] etc.
@@ -158,7 +166,9 @@ class HDF5VLADataset(Dataset):
         # independent of the sample index and small in size, so they are
         # precomputed once here and reused by both index construction and
         # __getitem__. Only the per-frame images are read lazily per sample.
-        self._episode_meta = [self._build_episode_meta(ep_idx) for ep_idx in range(len(self._episode_files))]
+        self._episode_meta = [
+            self._build_episode_meta(ep_idx) for ep_idx in range(len(self._episode_files))
+        ]
 
         # Flat index over (episode_index, candidate_start) pairs in the original
         # iteration order. Static segments are filtered here so that the sample
@@ -373,7 +383,9 @@ class HDF5VLADataset(Dataset):
             pass
 
         m = _Meta()
-        m.stats = {k: {sk: torch.as_tensor(sv) for sk, sv in v.items()} for k, v in self._stats.items()}
+        m.stats = {
+            k: {sk: torch.as_tensor(sv) for sk, sv in v.items()} for k, v in self._stats.items()
+        }
         m.camera_keys = self.observation_keys
         return m
 
@@ -448,7 +460,9 @@ class HDF5VLADataset(Dataset):
         q = np.linspace(cur, min(cur + self.QDUR, ref_max), self.num_actions + 1, dtype=np.float32)
         lseq = torch.tensor(L(q))
         rseq = torch.tensor(R(q))
-        return (lseq[1] - lseq[0]).abs().max() < self.STATIC_EPS and (rseq[1] - rseq[0]).abs().max() < self.STATIC_EPS
+        return (lseq[1] - lseq[0]).abs().max() < self.STATIC_EPS and (
+            rseq[1] - rseq[0]
+        ).abs().max() < self.STATIC_EPS
 
     def _build_index(self) -> List[Tuple[int, int]]:
         """

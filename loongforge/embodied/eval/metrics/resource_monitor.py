@@ -14,7 +14,9 @@ from typing import Any, Dict
 from .report import collect_resource_snapshot
 
 
-def sample_resources(output_path: str | Path, interval_sec: float = 5.0, duration_sec: float = 60.0) -> Dict[str, Any]:
+def sample_resources(
+    output_path: str | Path, interval_sec: float = 5.0, duration_sec: float = 60.0
+) -> Dict[str, Any]:
     """Run sample_resources."""
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -30,7 +32,11 @@ def sample_resources(output_path: str | Path, interval_sec: float = 5.0, duratio
             if duration_sec <= 0 or time.time() - start >= duration_sec:
                 break
             time.sleep(max(interval_sec, 0.1))
-    return {"resource_timeseries_path": str(path), "samples": samples, "elapsed_sec": time.time() - start}
+    return {
+        "resource_timeseries_path": str(path),
+        "samples": samples,
+        "elapsed_sec": time.time() - start,
+    }
 
 
 def build_argparser() -> argparse.ArgumentParser:
@@ -45,7 +51,9 @@ def build_argparser() -> argparse.ArgumentParser:
 def main() -> None:
     """Run main."""
     args = build_argparser().parse_args()
-    result = sample_resources(args.output, interval_sec=args.interval_sec, duration_sec=args.duration_sec)
+    result = sample_resources(
+        args.output, interval_sec=args.interval_sec, duration_sec=args.duration_sec
+    )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

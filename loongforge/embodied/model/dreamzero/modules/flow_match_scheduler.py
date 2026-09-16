@@ -50,7 +50,9 @@ class FlowMatchScheduler:
         self.reverse_sigmas = reverse_sigmas
         self.set_timesteps(num_inference_steps)
 
-    def set_timesteps(self, num_inference_steps=100, denoising_strength=1.0, training=False, shift=None):
+    def set_timesteps(
+        self, num_inference_steps=100, denoising_strength=1.0, training=False, shift=None
+    ):
         if shift is not None:
             self.shift = shift
         sigma_start = self.sigma_min + (self.sigma_max - self.sigma_min) * denoising_strength
@@ -97,8 +99,12 @@ class FlowMatchScheduler:
     def add_noise(self, original_samples, noise, timestep):
         if isinstance(timestep, torch.Tensor):
             timestep = timestep.cpu()
-        timestep_id = torch.argmin((self.timesteps.unsqueeze(1) - timestep.unsqueeze(0)).abs(), dim=0)
-        sigma = self.sigmas[timestep_id].to(device=original_samples.device, dtype=original_samples.dtype)
+        timestep_id = torch.argmin(
+            (self.timesteps.unsqueeze(1) - timestep.unsqueeze(0)).abs(), dim=0
+        )
+        sigma = self.sigmas[timestep_id].to(
+            device=original_samples.device, dtype=original_samples.dtype
+        )
         while len(sigma.shape) < len(original_samples.shape):
             sigma = sigma.unsqueeze(-1)
         sample = (1 - sigma) * original_samples + sigma * noise

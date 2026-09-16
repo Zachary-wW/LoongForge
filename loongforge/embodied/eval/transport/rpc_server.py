@@ -23,7 +23,11 @@ class PolicyServer:
     """Provide PolicyServer behavior."""
 
     def __init__(
-        self, policy, host: str = "0.0.0.0", port: int = 10093, metadata: Dict[str, Any] | None = None
+        self,
+        policy,
+        host: str = "0.0.0.0",
+        port: int = 10093,
+        metadata: Dict[str, Any] | None = None,
     ) -> None:
         """Run __init__."""
         self._policy = policy
@@ -80,7 +84,9 @@ class PolicyServer:
                 "ok": False,
                 "type": "protocol_error",
                 "request_id": request_id,
-                "error": {"message": f"protocol_version mismatch: {msg.get('protocol_version')} != {PROTOCOL_VERSION}"},
+                "error": {
+                    "message": f"protocol_version mismatch: {msg.get('protocol_version')} != {PROTOCOL_VERSION}"  # noqa: E501
+                },
             }
 
         if message_type == "ping":
@@ -97,12 +103,24 @@ class PolicyServer:
                     "error": {"message": "episode_id required"},
                 }
             result = self._policy.reset(episode_id)
-            return {"status": "ok", "ok": True, "type": "reset", "request_id": request_id, "data": result}
+            return {
+                "status": "ok",
+                "ok": True,
+                "type": "reset",
+                "request_id": request_id,
+                "data": result,
+            }
 
         if message_type in ("infer", "predict_action"):
             try:
                 data = self._policy.predict_action(**payload)
-                return {"status": "ok", "ok": True, "type": "inference_result", "request_id": request_id, "data": data}
+                return {
+                    "status": "ok",
+                    "ok": True,
+                    "type": "inference_result",
+                    "request_id": request_id,
+                    "data": data,
+                }
             except Exception as exc:
                 logger.exception("Policy inference error")
                 return {

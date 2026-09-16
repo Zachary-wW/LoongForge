@@ -18,7 +18,11 @@ from typing import Any, Dict, List, Optional
 import torch
 from transformers import AutoTokenizer
 
-from loongforge.embodied.data.datasets.transforms.collator import BasePreprocessor, PreparedBatch, register_preprocessor
+from loongforge.embodied.data.datasets.transforms.collator import (
+    BasePreprocessor,
+    PreparedBatch,
+    register_preprocessor,
+)
 
 
 def tokenize_prompts(
@@ -94,9 +98,9 @@ class Pi05Preprocessor(BasePreprocessor):
         Tokenizer path: training_args.tokenizer_path (--tokenizer-path) > TOKENIZER_PATH env.
         Image/token processing fields come from DataConfig.
         """
-        tokenizer_path = (training_args.tokenizer_path if training_args is not None else None) or os.environ.get(
-            "TOKENIZER_PATH", ""
-        )
+        tokenizer_path = (
+            training_args.tokenizer_path if training_args is not None else None
+        ) or os.environ.get("TOKENIZER_PATH", "")
 
         return cls(
             image_size=data_cfg.image_size,
@@ -112,16 +116,21 @@ class Pi05Preprocessor(BasePreprocessor):
         if not hasattr(self, "_tokenizer") or self._tokenizer is None:
             path = self.tokenizer_path or os.environ.get("TOKENIZER_PATH", "")
             if not path:
-                raise ValueError("Tokenizer path not set. Pass tokenizer_path or set TOKENIZER_PATH env.")
+                raise ValueError(
+                    "Tokenizer path not set. Pass tokenizer_path or set TOKENIZER_PATH env."
+                )
             self._tokenizer = AutoTokenizer.from_pretrained(path)
         return self._tokenizer
 
     def __call__(self, examples: List[Dict[str, Any]]) -> Pi05PreparedBatch:
         """Collate pre-transformed samples into Pi05PreparedBatch."""
         # Stack per-sample images_list and img_masks into batch tensors
-        images_list = [torch.stack([ex["images_list"][v] for ex in examples]) for v in range(self.num_images)]
+        images_list = [
+            torch.stack([ex["images_list"][v] for ex in examples]) for v in range(self.num_images)
+        ]
         img_masks = [
-            torch.tensor([ex["img_masks"][v] for ex in examples], dtype=torch.bool) for v in range(self.num_images)
+            torch.tensor([ex["img_masks"][v] for ex in examples], dtype=torch.bool)
+            for v in range(self.num_images)
         ]
 
         input_ids = torch.stack([ex["input_ids"] for ex in examples])

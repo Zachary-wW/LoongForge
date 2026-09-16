@@ -73,7 +73,7 @@ DEFAULT_IMAGE_SIZE = 224
 
 @dataclass
 class _PI05InternalConfig:
-    """Internal parameters for PI05, backbone structure is fixed, populated by PI05Pytorch.__init__."""
+    """Internal parameters for PI05, backbone structure is fixed, populated by PI05Pytorch.__init__."""  # noqa: E501
 
     paligemma_variant: str = "gemma_2b"
     action_expert_variant: str = "gemma_300m"
@@ -120,7 +120,9 @@ def get_safe_dtype(target_dtype, device_type):
     return target_dtype
 
 
-def create_sinusoidal_pos_embedding(time, dimension, min_period, max_period, device=torch.device("cpu")):
+def create_sinusoidal_pos_embedding(
+    time, dimension, min_period, max_period, device=torch.device("cpu")
+):
     """Create sinusoidal positional embeddings for diffusion timesteps.
 
     Args:
@@ -178,7 +180,9 @@ def pad_vector(vector, new_dim):
     return F.pad(vector, (0, new_dim - vector.shape[-1]))
 
 
-def resize_with_pad_torch(images: torch.Tensor, height: int, width: int, mode: str = "bilinear") -> torch.Tensor:
+def resize_with_pad_torch(
+    images: torch.Tensor, height: int, width: int, mode: str = "bilinear"
+) -> torch.Tensor:
     """Resize images with padding to maintain aspect ratio."""
     if images.shape[-1] <= 4:
         channels_last = True
@@ -211,20 +215,28 @@ def resize_with_pad_torch(images: torch.Tensor, height: int, width: int, mode: s
     pad_w0, remainder_w = divmod(width - resized_width, 2)
     pad_w1 = pad_w0 + remainder_w
     constant_value = 0 if images.dtype == torch.uint8 else 0.0
-    padded_images = F.pad(resized_images, (pad_w0, pad_w1, pad_h0, pad_h1), mode="constant", value=constant_value)
+    padded_images = F.pad(
+        resized_images, (pad_w0, pad_w1, pad_h0, pad_h1), mode="constant", value=constant_value
+    )
     if channels_last:
         padded_images = padded_images.permute(0, 2, 3, 1)
     return padded_images
 
 
 def tokenize_prompts(
-    prompts: list, tokenizer, max_length: int = 200, padding: str = "max_length", padding_side: str = "right"
+    prompts: list,
+    tokenizer,
+    max_length: int = 200,
+    padding: str = "max_length",
+    padding_side: str = "right",
 ) -> dict:
     """Tokenize a list of prompts with specified padding."""
     original_padding_side = tokenizer.padding_side
     tokenizer.padding_side = padding_side
     try:
-        encoded = tokenizer(prompts, return_tensors="pt", max_length=max_length, padding=padding, truncation=True)
+        encoded = tokenizer(
+            prompts, return_tensors="pt", max_length=max_length, padding=padding, truncation=True
+        )
     finally:
         tokenizer.padding_side = original_padding_side
     return {"input_ids": encoded["input_ids"], "attention_mask": encoded["attention_mask"]}
@@ -236,7 +248,7 @@ def _q99_unnormalize_actions(actions: torch.Tensor, action_stats: Optional[dict]
         return actions
     if "q01" not in action_stats or "q99" not in action_stats:
         raise ValueError(
-            "PI05 is configured for quantile action unnormalization and requires dataset_stats['action'].q01 and q99"
+            "PI05 is configured for quantile action unnormalization and requires dataset_stats['action'].q01 and q99"  # noqa: E501
         )
     q01 = torch.as_tensor(action_stats["q01"], dtype=actions.dtype, device=actions.device)
     q99 = torch.as_tensor(action_stats["q99"], dtype=actions.dtype, device=actions.device)
@@ -274,9 +286,13 @@ class _GemmaConfig:
 def _get_gemma_config(variant: str) -> _GemmaConfig:
     """Get predefined Gemma config by variant name."""
     if variant == "gemma_300m":
-        return _GemmaConfig(width=1024, depth=18, mlp_dim=4096, num_heads=8, num_kv_heads=1, head_dim=256)
+        return _GemmaConfig(
+            width=1024, depth=18, mlp_dim=4096, num_heads=8, num_kv_heads=1, head_dim=256
+        )
     elif variant == "gemma_2b":
-        return _GemmaConfig(width=2048, depth=18, mlp_dim=16_384, num_heads=8, num_kv_heads=1, head_dim=256)
+        return _GemmaConfig(
+            width=2048, depth=18, mlp_dim=16_384, num_heads=8, num_kv_heads=1, head_dim=256
+        )
     else:
         raise ValueError(f"Unknown variant: {variant}")
 
@@ -324,13 +340,19 @@ def _compute_layer_complete(
     query_states, key_states, value_states, gates = [], [], [], []
     for i, hidden_states in enumerate(inputs_embeds):
         layer = models[i].layers[layer_idx]
-        hidden_states, gate = layernorm_forward(layer.input_layernorm, hidden_states, adarms_cond[i])
+        hidden_states, gate = layernorm_forward(
+            layer.input_layernorm, hidden_states, adarms_cond[i]
+        )
         gates.append(gate)
         input_shape = hidden_states.shape[:-1]
         hidden_shape = (*input_shape, -1, layer.self_attn.head_dim)
-        query_states.append(layer.self_attn.q_proj(hidden_states).view(hidden_shape).transpose(1, 2))
+        query_states.append(
+            layer.self_attn.q_proj(hidden_states).view(hidden_shape).transpose(1, 2)
+        )
         key_states.append(layer.self_attn.k_proj(hidden_states).view(hidden_shape).transpose(1, 2))
-        value_states.append(layer.self_attn.v_proj(hidden_states).view(hidden_shape).transpose(1, 2))
+        value_states.append(
+            layer.self_attn.v_proj(hidden_states).view(hidden_shape).transpose(1, 2)
+        )
 
     query_states = torch.cat(query_states, dim=2)
     key_states = torch.cat(key_states, dim=2)
@@ -343,7 +365,9 @@ def _compute_layer_complete(
         dtype=query_states.dtype,
     )
     cos, sin = paligemma.model.language_model.rotary_emb(dummy_tensor, position_ids)
-    query_states, key_states = modeling_gemma.apply_rotary_pos_emb(query_states, key_states, cos, sin, unsqueeze_dim=1)
+    query_states, key_states = modeling_gemma.apply_rotary_pos_emb(
+        query_states, key_states, cos, sin, unsqueeze_dim=1
+    )
     scaling = paligemma.model.language_model.layers[layer_idx].self_attn.scaling
     # attention_mask is a BlockMask here, not an additive tensor.
     att_output = _joint_attention_flex(
@@ -466,7 +490,9 @@ class PaliGemmaWithExpertModel(nn.Module):
         except StopIteration:
             return False
 
-    def to_bfloat16_for_selected_params(self, precision: Literal["bfloat16", "float32"] = "bfloat16"):
+    def to_bfloat16_for_selected_params(
+        self, precision: Literal["bfloat16", "float32"] = "bfloat16"
+    ):
         """Convert model to bfloat16 while keeping selected params in fp32."""
         if precision == "bfloat16":
             fp32_saved = {
@@ -517,7 +543,11 @@ class PaliGemmaWithExpertModel(nn.Module):
         if image.dtype != torch.float32:
             image = image.to(torch.float32)
         image_outputs = self.paligemma.model.get_image_features(image)
-        img_tensor = image_outputs if isinstance(image_outputs, torch.Tensor) else image_outputs.pooler_output
+        img_tensor = (
+            image_outputs
+            if isinstance(image_outputs, torch.Tensor)
+            else image_outputs.pooler_output
+        )
         features = img_tensor * self._text_hidden_size**0.5
         return features.to(out_dtype) if features.dtype != out_dtype else features
 
@@ -532,7 +562,10 @@ class PaliGemmaWithExpertModel(nn.Module):
         PI05Pytorch._apply_compile_scope for the "multi_group" scope).
         """
         models = [self.paligemma.model.language_model, self.gemma_expert.model]
-        return [layernorm_forward(models[i].norm, h, adarms_cond[i])[0] for i, h in enumerate(inputs_embeds)]
+        return [
+            layernorm_forward(models[i].norm, h, adarms_cond[i])[0]
+            for i, h in enumerate(inputs_embeds)
+        ]
 
     def forward(
         self,
@@ -571,7 +604,11 @@ class PaliGemmaWithExpertModel(nn.Module):
                 hasattr(self.gemma_expert.model, "gradient_checkpointing")
                 and self.gemma_expert.model.gradient_checkpointing
                 and self.training
-            ) or (hasattr(self, "gradient_checkpointing") and self.gradient_checkpointing and self.training)
+            ) or (
+                hasattr(self, "gradient_checkpointing")
+                and self.gradient_checkpointing
+                and self.training
+            )
             for layer_idx in range(self._num_hidden_layers):
                 if use_gc:
                     # compile-inside-checkpoint: self._layer_fn may be a
@@ -636,7 +673,9 @@ class PI05Pytorch(nn.Module):
         action_expert_config = _get_gemma_config(config.action_expert_variant)
 
         if config.image_resolution[0] != config.image_resolution[1]:
-            raise ValueError(f"PaliGemma expects square image resolution: {config.image_resolution}")
+            raise ValueError(
+                f"PaliGemma expects square image resolution: {config.image_resolution}"
+            )
 
         # ── BACKBONE ──────────────────────────────────────────────────────────
         self.paligemma_with_expert = PaliGemmaWithExpertModel(
@@ -873,11 +912,15 @@ class PI05Pytorch(nn.Module):
         x_t = time_expanded * noise + (1 - time_expanded) * actions
         u_t = noise - actions
 
-        prefix_embs, prefix_pad_masks, prefix_att_masks = self.embed_prefix(images, img_masks, tokens, masks)
+        prefix_embs, prefix_pad_masks, prefix_att_masks = self.embed_prefix(
+            images, img_masks, tokens, masks
+        )
         suffix_embs, suffix_pad_masks, suffix_att_masks, adarms_cond = self.embed_suffix(x_t, time)
 
         if (
-            self.paligemma_with_expert.paligemma.model.language_model.layers[0].self_attn.q_proj.weight.dtype
+            self.paligemma_with_expert.paligemma.model.language_model.layers[
+                0
+            ].self_attn.q_proj.weight.dtype
             == torch.bfloat16
         ):
             suffix_embs = suffix_embs.to(dtype=torch.bfloat16)
@@ -901,7 +944,9 @@ class PI05Pytorch(nn.Module):
             )
             return suffix_out
 
-        suffix_out = self._apply_checkpoint(_fwd, prefix_embs, suffix_embs, joint_mask, position_ids, adarms_cond)
+        suffix_out = self._apply_checkpoint(
+            _fwd, prefix_embs, suffix_embs, joint_mask, position_ids, adarms_cond
+        )
         suffix_out = suffix_out[:, -self.config.chunk_size :]
         if hasattr(self, "_action_out_bundle_fn"):
             v_t = self._action_out_bundle_fn(suffix_out)
@@ -911,7 +956,9 @@ class PI05Pytorch(nn.Module):
         return F.mse_loss(u_t, v_t, reduction="none")
 
     @torch.no_grad()
-    def sample_actions(self, images, img_masks, tokens, masks, noise=None, num_steps=None) -> Tensor:
+    def sample_actions(
+        self, images, img_masks, tokens, masks, noise=None, num_steps=None
+    ) -> Tensor:
         """Sample actions via Euler ODE integration."""
         if num_steps is None:
             num_steps = self.config.num_inference_steps
@@ -919,14 +966,20 @@ class PI05Pytorch(nn.Module):
         device = tokens.device
 
         if noise is None:
-            noise = self.sample_noise((bsize, self.config.chunk_size, self.config.max_action_dim), device)
+            noise = self.sample_noise(
+                (bsize, self.config.chunk_size, self.config.max_action_dim), device
+            )
 
-        prefix_embs, prefix_pad_masks, prefix_att_masks = self.embed_prefix(images, img_masks, tokens, masks)
+        prefix_embs, prefix_pad_masks, prefix_att_masks = self.embed_prefix(
+            images, img_masks, tokens, masks
+        )
         prefix_att_2d_masks = make_att_2d_masks(prefix_pad_masks, prefix_att_masks)
         prefix_position_ids = torch.cumsum(prefix_pad_masks, dim=1) - 1
         prefix_att_2d_masks_4d = self._prepare_attention_masks_4d(prefix_att_2d_masks)
 
-        self.paligemma_with_expert.paligemma.model.language_model.config._attn_implementation = "eager"
+        self.paligemma_with_expert.paligemma.model.language_model.config._attn_implementation = (
+            "eager"
+        )
         _, past_key_values = self.paligemma_with_expert.forward(
             attention_mask=prefix_att_2d_masks_4d,
             position_ids=prefix_position_ids,
@@ -944,12 +997,16 @@ class PI05Pytorch(nn.Module):
 
     def _denoise_step(self, prefix_pad_masks, past_key_values, x_t, timestep):
         """Single denoising step using cached prefix KV."""
-        suffix_embs, suffix_pad_masks, suffix_att_masks, adarms_cond = self.embed_suffix(x_t, timestep)
+        suffix_embs, suffix_pad_masks, suffix_att_masks, adarms_cond = self.embed_suffix(
+            x_t, timestep
+        )
         suffix_len = suffix_pad_masks.shape[1]
         batch_size = prefix_pad_masks.shape[0]
         prefix_len = prefix_pad_masks.shape[1]
 
-        prefix_pad_2d_masks = prefix_pad_masks[:, None, :].expand(batch_size, suffix_len, prefix_len)
+        prefix_pad_2d_masks = prefix_pad_masks[:, None, :].expand(
+            batch_size, suffix_len, prefix_len
+        )
         suffix_att_2d_masks = make_att_2d_masks(suffix_pad_masks, suffix_att_masks)
         full_att_2d_masks = torch.cat([prefix_pad_2d_masks, suffix_att_2d_masks], dim=2)
         prefix_offsets = torch.sum(prefix_pad_masks, dim=-1)[:, None]
@@ -995,7 +1052,9 @@ class PI05Pytorch(nn.Module):
                 "model.paligemma_with_expert.paligemma.lm_head.weight",
                 "paligemma_with_expert.paligemma.lm_head.weight",
             ):
-                fixed["paligemma_with_expert.paligemma.model.language_model.embed_tokens.weight"] = value.clone()
+                fixed[
+                    "paligemma_with_expert.paligemma.model.language_model.embed_tokens.weight"
+                ] = value.clone()
             fixed[new_key] = value
 
         missing, unexpected = self.load_state_dict(fixed, strict=strict)
@@ -1020,7 +1079,9 @@ class PI05Policy(nn.Module):
 
         _VALID_COMPILE_SCOPES = ("backbone", "multi_group", "per_layer")
         if config.compile_scope not in _VALID_COMPILE_SCOPES:
-            raise ValueError(f"Invalid compile_scope={config.compile_scope!r}; expected one of {_VALID_COMPILE_SCOPES}")
+            raise ValueError(
+                f"Invalid compile_scope={config.compile_scope!r}; expected one of {_VALID_COMPILE_SCOPES}"  # noqa: E501
+            )
 
         pi05_cfg = _PI05InternalConfig(
             chunk_size=config.action_horizon,
@@ -1110,9 +1171,13 @@ class PI05Policy(nn.Module):
     @torch.no_grad()
     def predict_action(self, images, instructions, state=None, dataset_stats=None) -> np.ndarray:
         """Inference: Euler ODE denoising, returns ndarray (B, action_horizon, max_action_dim)."""
-        from loongforge.embodied.data.datasets.pi05.transforms.pi05_transform import StateDiscretizationTransform
+        from loongforge.embodied.data.datasets.pi05.transforms.pi05_transform import (
+            StateDiscretizationTransform,
+        )
         from loongforge.embodied.data.datasets.transforms.utils.builders import convert_stats
-        from loongforge.embodied.data.datasets.transforms.utils.image_transform import ImageTransform
+        from loongforge.embodied.data.datasets.transforms.utils.image_transform import (
+            ImageTransform,
+        )
 
         device = next(self.parameters()).device
         if not isinstance(images[0], list):
@@ -1142,7 +1207,9 @@ class PI05Policy(nn.Module):
                 state = torch.as_tensor(state, dtype=torch.float32)
             if state.dim() == 1:
                 state = state.unsqueeze(0)
-            state_stats = convert_stats(dataset_stats.get("observation.state")) if dataset_stats else None
+            state_stats = (
+                convert_stats(dataset_stats.get("observation.state")) if dataset_stats else None
+            )
             state_transform = StateDiscretizationTransform(
                 apply_to=["prompt"],
                 state_key="observation.state",
@@ -1152,7 +1219,9 @@ class PI05Policy(nn.Module):
                 statistics=state_stats,
             )
             prompts = [
-                state_transform.apply({"observation.state": state[i], "task": instructions[i]})["prompt"]
+                state_transform.apply({"observation.state": state[i], "task": instructions[i]})[
+                    "prompt"
+                ]
                 for i in range(B)
             ]
         else:

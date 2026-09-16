@@ -61,10 +61,14 @@ class McoreMoe(McoreBase):
             return None
 
         layer_prefix = self.layer_prefix if layer_prefix is None else layer_prefix
-        common_key = CommonCheckpoint.get_key(f"{expert_name}.{name}", layer_id=layer_id, expert_id=expert_id)
-        (mcore_name, has_extra, is_layernorm), (is_fp8, fp8_ignore_tp), (is_direct_name, ignore_tp, dtype) = (
-            self.get_mcore_name_and_extra(self.name_map[name])
+        common_key = CommonCheckpoint.get_key(
+            f"{expert_name}.{name}", layer_id=layer_id, expert_id=expert_id
         )
+        (
+            (mcore_name, has_extra, is_layernorm),
+            (is_fp8, fp8_ignore_tp),
+            (is_direct_name, ignore_tp, dtype),
+        ) = self.get_mcore_name_and_extra(self.name_map[name])
         local_eid = self.expert_local_mapping[expert_id]
 
         if self.args.moe_grouped_gemm:
@@ -78,7 +82,9 @@ class McoreMoe(McoreBase):
             mcore_bias_path = f"{mcore_path}.{BIAS}{local_eid}"
         else:
             m_name_prefix = (
-                self.name_map[MOE_EXPERT] if name_prefix is None else f"{name_prefix}.{self.name_map[MOE_EXPERT]}"
+                self.name_map[MOE_EXPERT]
+                if name_prefix is None
+                else f"{name_prefix}.{self.name_map[MOE_EXPERT]}"
             )
             mcore_path = f"{layer_prefix}.{m_layer_id}.{m_name_prefix}.{local_eid}.{mcore_name}"
             mcore_weight_path = f"{mcore_path}.{WEIGHT}"
@@ -241,7 +247,14 @@ class McoreMoe(McoreBase):
         name_prefix=None,
     ):
         path_info = self.get_moe_path_info(
-            expert_name, name, layer_id, m_layer_id, expert_id, layer_prefix, name_prefix, include_lora_paths=True
+            expert_name,
+            name,
+            layer_id,
+            m_layer_id,
+            expert_id,
+            layer_prefix,
+            name_prefix,
+            include_lora_paths=True,
         )
         if path_info is None:
             return
@@ -256,22 +269,50 @@ class McoreMoe(McoreBase):
         weight_list, bias_list, weight_scale_list = self.get_mcore_e_weight_list(
             e_m_dict, t_name, mcore_weight_path, mcore_bias_path
         )
-        lora_in_weight_list, _, _ = self.get_mcore_e_weight_list(e_m_dict, t_name, mcore_lora_in_path, None)
-        lora_out_weight_list, _, _ = self.get_mcore_e_weight_list(e_m_dict, t_name, mcore_lora_out_path, None)
+        lora_in_weight_list, _, _ = self.get_mcore_e_weight_list(
+            e_m_dict, t_name, mcore_lora_in_path, None
+        )
+        lora_out_weight_list, _, _ = self.get_mcore_e_weight_list(
+            e_m_dict, t_name, mcore_lora_out_path, None
+        )
 
         m_tp = self.etp if self.etp is not None else self.tp
         weight, bias, weight_scale = self.get_cat_weight(
-            name, m_tp, weight_list, bias_list, weight_scale_list, is_fp8, fp8_ignore_tp, ignore_tp=ignore_tp
+            name,
+            m_tp,
+            weight_list,
+            bias_list,
+            weight_scale_list,
+            is_fp8,
+            fp8_ignore_tp,
+            ignore_tp=ignore_tp,
         )
         if lora_in_weight_list is not None and lora_out_weight_list is not None:
             # Merge lora weight
             lora_out_weight, _, _ = self.get_cat_weight(
-                name, self.tp, lora_out_weight_list, None, None, is_fp8, fp8_ignore_tp, ignore_tp=ignore_tp, chunk_dim=0
+                name,
+                self.tp,
+                lora_out_weight_list,
+                None,
+                None,
+                is_fp8,
+                fp8_ignore_tp,
+                ignore_tp=ignore_tp,
+                chunk_dim=0,
             )
             lora_in_weight, _, _ = self.get_cat_weight(
-                name, self.tp, lora_in_weight_list, None, None, is_fp8, fp8_ignore_tp, ignore_tp=ignore_tp
+                name,
+                self.tp,
+                lora_in_weight_list,
+                None,
+                None,
+                is_fp8,
+                fp8_ignore_tp,
+                ignore_tp=ignore_tp,
             )
-            weight = self.lora_merge(weight, lora_out_weight, lora_in_weight, self.lora_alpha, self.lora_dim)
+            weight = self.lora_merge(
+                weight, lora_out_weight, lora_in_weight, self.lora_alpha, self.lora_dim
+            )
 
         log_flag = expert_id is None or expert_id == 0
         c_ckpt.set(common_key, weight, bias=bias, weight_scale=weight_scale, log_flag=log_flag)

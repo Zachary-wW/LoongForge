@@ -66,7 +66,9 @@ class ModuleDict(nn.ModuleDict):
         """
         sharded_state_dict = {}
         for key, layer in self.items():
-            sharded_state_dict.update(layer.sharded_state_dict(f"{prefix}{key}.", sharded_offsets, metadata))
+            sharded_state_dict.update(
+                layer.sharded_state_dict(f"{prefix}{key}.", sharded_offsets, metadata)
+            )
         return sharded_state_dict
 
 
@@ -77,9 +79,11 @@ class LoRALinearSplitQKV(AdapterWrapper):
     This class is designed to be used with LoRA (Low-Rank Adaptation) and similar techniques
     where the adapter's output is added to the main module's output. It extends the AdapterWrapper
     class to provide a specific implementation of the forward method.
-    """
+    """  # noqa: E501
 
-    def _interleave_qkv(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor) -> torch.Tensor:
+    def _interleave_qkv(
+        self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
+    ) -> torch.Tensor:
         """Interleave QKV outputs to match Megatron's packed ordering."""
 
         config = self.to_wrap.config
@@ -97,11 +101,13 @@ class LoRALinearSplitQKV(AdapterWrapper):
                 head_size = key.size(-1) // num_query_groups
             elif head_num is not None:
                 if query.size(-1) % head_num != 0:
-                    raise ValueError("Query projection size must be divisible by num_attention_heads.")
+                    raise ValueError(
+                        "Query projection size must be divisible by num_attention_heads."
+                    )
                 head_size = query.size(-1) // head_num
             else:
                 raise ValueError(
-                    "Cannot infer head size without kv_channels or hidden_size/num_attention_heads or num_query_groups."
+                    "Cannot infer head size without kv_channels or hidden_size/num_attention_heads or num_query_groups."  # noqa: E501
                 )
 
         if head_num is None:
@@ -134,7 +140,9 @@ class LoRALinearSplitQKV(AdapterWrapper):
         qkv = torch.cat(qkv_chunks, dim=1)
         return qkv.reshape(*leading_shape, -1)
 
-    def forward(self, x: torch.Tensor, *args: Any, **kwargs: Any) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    def forward(
+        self, x: torch.Tensor, *args: Any, **kwargs: Any
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # pylint: disable=C0115,C0116
         linear_output, bias, layernorm_output = self.base_linear_forward(x, *args, **kwargs)
         if not self._adapter_enabled:
@@ -155,9 +163,11 @@ class LoRALinearSplitFC1UpGate(AdapterWrapper):
     This class is designed to be used with LoRA (Low-Rank Adaptation) and similar techniques
     where the adapter's output is added to the main module's output. It extends the AdapterWrapper
     class to provide a specific implementation of the forward method.
-    """
+    """  # noqa: E501
 
-    def forward(self, x: torch.Tensor, *args: Any, **kwargs: Any) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    def forward(
+        self, x: torch.Tensor, *args: Any, **kwargs: Any
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # pylint: disable=C0115,C0116
         linear_output, bias, layernorm_output = self.base_linear_forward(x, *args, **kwargs)
         if not self._adapter_enabled:
@@ -199,7 +209,7 @@ class CanonicalLoRA(PEFT, ModuleMatcher):
             Can be 'pre' (before the low-rank projection) or 'post' (after). Defaults to 'pre'.
         lora_A_init_method (str): Initialization method for LoRA A matrix. Defaults to "xavier".
         lora_B_init_method (str): Initialization method for LoRA B matrix. Defaults to "zero".
-    """
+    """  # noqa: E501
 
     target_modules: List[str] = field(
         default_factory=lambda: [
@@ -239,14 +249,14 @@ class CanonicalLoRA(PEFT, ModuleMatcher):
             "'*.layers.1.*.linear_qkv'": {'linear_q'},
         }
 
-        """
+        """  # noqa: E501
         for target in self.target_modules:
             assert not target.endswith("linear_qkv"), (
-                "Canonical LoRA does not support target 'linear_qkv'. Either use 'linear_qkv' with LoRA() or "
+                "Canonical LoRA does not support target 'linear_qkv'. Either use 'linear_qkv' with LoRA() or "  # noqa: E501
                 "use ['linear_q', 'linear_k', 'linear_v'] with Canonical LoRA"
             )
             assert not target.endswith("linear_fc1"), (
-                "Canonical LoRA does not support target 'linear_fc1'. Either use 'linear_fc1' with LoRA() or "
+                "Canonical LoRA does not support target 'linear_fc1'. Either use 'linear_fc1' with LoRA() or "  # noqa: E501
                 "use ['linear_fc1_up', 'linear_fc1_gate'] with Canonical LoRA"
             )
 
@@ -257,13 +267,19 @@ class CanonicalLoRA(PEFT, ModuleMatcher):
             elif target.endswith("linear_v"):
                 self.canonical_mapping[target.replace("linear_v", "linear_qkv")].add("linear_v")
             elif target.endswith("linear_fc1_up"):
-                self.canonical_mapping[target.replace("linear_fc1_up", "linear_fc1")].add("linear_fc1_up")
+                self.canonical_mapping[target.replace("linear_fc1_up", "linear_fc1")].add(
+                    "linear_fc1_up"
+                )
             elif target.endswith("linear_fc1_gate"):
-                self.canonical_mapping[target.replace("linear_fc1_gate", "linear_fc1")].add("linear_fc1_gate")
+                self.canonical_mapping[target.replace("linear_fc1_gate", "linear_fc1")].add(
+                    "linear_fc1_gate"
+                )
             else:
                 self.canonical_mapping[target].add(target)
 
-    def transform(self, m: nn.Module, name: Optional[str] = None, prefix: Optional[str] = None) -> nn.Module:
+    def transform(
+        self, m: nn.Module, name: Optional[str] = None, prefix: Optional[str] = None
+    ) -> nn.Module:
         """
         Applies LoRA to a specific module within the model architecture.
 
@@ -274,17 +290,30 @@ class CanonicalLoRA(PEFT, ModuleMatcher):
 
         Returns:
             nn.Module: The modified module with LoRA applied, or the original module if not a target.
-        """
+        """  # noqa: E501
 
         # Skip already transformed modules
-        if isinstance(m, (LinearAdapter, LoRALinear, LoRALinearSplitQKV, LoRALinearSplitFC1UpGate, LoRATopKRouter)):
+        if isinstance(
+            m,
+            (
+                LinearAdapter,
+                LoRALinear,
+                LoRALinearSplitQKV,
+                LoRALinearSplitFC1UpGate,
+                LoRATopKRouter,
+            ),
+        ):
             return m
 
         if (ans := self.match(m, name, prefix)) is not None:
             (match, full_name) = ans
             if isinstance(m, nn.Linear):
                 return LinearAdapter(
-                    m, dim=self.dim, alpha=self.alpha, dropout=self.dropout, lora_A_init_method=self.lora_A_init_method
+                    m,
+                    dim=self.dim,
+                    alpha=self.alpha,
+                    dropout=self.dropout,
+                    lora_A_init_method=self.lora_A_init_method,
                 )
 
             is_expert = is_expert_linear(full_name)
@@ -316,20 +345,32 @@ class CanonicalLoRA(PEFT, ModuleMatcher):
                 kv_out_features = m.config.kv_channels * m.config.num_query_groups
                 q_out_features = m.config.kv_channels * m.config.num_attention_heads
                 if "linear_q" in canonical_submodules:
-                    adapter_q = ParallelLinearAdapter(attrs.in_features, q_out_features, **adapter_kwargs)
+                    adapter_q = ParallelLinearAdapter(
+                        attrs.in_features, q_out_features, **adapter_kwargs
+                    )
                 if "linear_k" in canonical_submodules:
-                    adapter_k = ParallelLinearAdapter(attrs.in_features, kv_out_features, **adapter_kwargs)
+                    adapter_k = ParallelLinearAdapter(
+                        attrs.in_features, kv_out_features, **adapter_kwargs
+                    )
                 if "linear_v" in canonical_submodules:
-                    adapter_v = ParallelLinearAdapter(attrs.in_features, kv_out_features, **adapter_kwargs)
-                adapters = ModuleDict({"adapter_q": adapter_q, "adapter_k": adapter_k, "adapter_v": adapter_v})
+                    adapter_v = ParallelLinearAdapter(
+                        attrs.in_features, kv_out_features, **adapter_kwargs
+                    )
+                adapters = ModuleDict(
+                    {"adapter_q": adapter_q, "adapter_k": adapter_k, "adapter_v": adapter_v}
+                )
                 return LoRALinearSplitQKV(m, adapters)
 
             if name == "linear_fc1":
                 adapter_up, adapter_gate = None, None
                 if "linear_fc1_up" in canonical_submodules:
-                    adapter_up = ParallelLinearAdapter(attrs.in_features, attrs.out_features // 2, **adapter_kwargs)
+                    adapter_up = ParallelLinearAdapter(
+                        attrs.in_features, attrs.out_features // 2, **adapter_kwargs
+                    )
                 if "linear_fc1_gate" in canonical_submodules:
-                    adapter_gate = ParallelLinearAdapter(attrs.in_features, attrs.out_features // 2, **adapter_kwargs)
+                    adapter_gate = ParallelLinearAdapter(
+                        attrs.in_features, attrs.out_features // 2, **adapter_kwargs
+                    )
                 adapters = ModuleDict({"adapter_up": adapter_up, "adapter_gate": adapter_gate})
                 return LoRALinearSplitFC1UpGate(m, adapters)
 

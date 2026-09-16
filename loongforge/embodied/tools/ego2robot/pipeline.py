@@ -43,15 +43,24 @@ from steps.robot_registry import ROBOT_SPECS
 def build_arg_parser():
     """Build the argument parser for the run-all subcommand."""
     ap = argparse.ArgumentParser(
-        description="run-all: convert EgoVerse zarr to a LeRobot v3.0 dataset and 3x3 demo in one command"
+        description="run-all: convert EgoVerse zarr to a LeRobot v3.0 dataset and 3x3 demo in one command"  # noqa: E501
     )
-    ap.add_argument("--input_dir", required=True, help="Raw EgoVerse zarr directory (for example, bimanual_sample/)")
+    ap.add_argument(
+        "--input_dir",
+        required=True,
+        help="Raw EgoVerse zarr directory (for example, bimanual_sample/)",
+    )
     ap.add_argument(
         "--output_dir",
         required=True,
         help="Output root containing intermediate artifacts in fixed subdirectories",
     )
-    ap.add_argument("--episodes", nargs="*", default=None, help="Episode directory names to process (default: all)")
+    ap.add_argument(
+        "--episodes",
+        nargs="*",
+        default=None,
+        help="Episode directory names to process (default: all)",
+    )
     ap.add_argument(
         "--robot_type",
         choices=tuple(sorted(ROBOT_SPECS)),
@@ -80,13 +89,13 @@ def build_arg_parser():
         "--base_pullback",
         type=float,
         default=0.0,
-        help="Move both arm mounts backward from the head gaze direction, in meters (default: disabled)",
+        help="Move both arm mounts backward from the head gaze direction, in meters (default: disabled)",  # noqa: E501
     )
     ap.add_argument(
         "--max_jump_rad",
         type=float,
         default=0.0,
-        help="Maximum per-frame joint displacement during IK postprocessing, in radians (0 disables it)",
+        help="Maximum per-frame joint displacement during IK postprocessing, in radians (0 disables it)",  # noqa: E501
     )
     ap.add_argument(
         "--mink_continuity_max_step",
@@ -110,7 +119,10 @@ def build_arg_parser():
         help="Savitzky-Golay window for retarget targets (0 disables smoothing)",
     )
     ap.add_argument(
-        "--target_smooth_polyorder", type=int, default=3, help="Savitzky-Golay polynomial order for retarget targets"
+        "--target_smooth_polyorder",
+        type=int,
+        default=3,
+        help="Savitzky-Golay polynomial order for retarget targets",
     )
     ap.add_argument(
         "--target_orientation_sigma",
@@ -124,9 +136,15 @@ def build_arg_parser():
     # defaults, matching the individual commands.
     ap.add_argument("--target_fps", type=float, default=30.0, help="Step 1 target FPS")
     ap.add_argument("--action_skip", type=int, default=5, help="Step 2 action lookahead steps")
-    ap.add_argument("--sam3_checkpoint", default=None, help="Step 3 SAM3 checkpoint (or set EGO2ROBOT_SAM3_CKPT)")
+    ap.add_argument(
+        "--sam3_checkpoint",
+        default=None,
+        help="Step 3 SAM3 checkpoint (or set EGO2ROBOT_SAM3_CKPT)",
+    )
     ap.add_argument("--device", default="cuda:0", help="Step 3 inference device")
-    ap.add_argument("--body_prompt", default="person", help="SAM3 text prompt for visible human body")
+    ap.add_argument(
+        "--body_prompt", default="person", help="SAM3 text prompt for visible human body"
+    )
     ap.add_argument(
         "--mask_mode",
         choices=("both", "person", "arms"),
@@ -146,13 +164,13 @@ def build_arg_parser():
         "--depth_mode",
         choices=("depth-aware", "alpha"),
         default="depth-aware",
-        help="depth-aware uses scene/robot depth for occlusion; alpha uses the original mask composite",
+        help="depth-aware uses scene/robot depth for occlusion; alpha uses the original mask composite",  # noqa: E501
     )
     ap.add_argument(
         "--depth_epsilon",
         type=float,
         default=0.02,
-        help="Depth occlusion margin in meters; the robot must be closer than the background by this amount",
+        help="Depth occlusion margin in meters; the robot must be closer than the background by this amount",  # noqa: E501
     )
     ap.add_argument(
         "--skip_depth",

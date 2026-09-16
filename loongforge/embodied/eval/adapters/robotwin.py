@@ -46,7 +46,9 @@ class RoboTwinAdapter(BaseBenchmarkAdapter):
     ) -> None:
         """Run __init__."""
         if action_mode not in SUPPORTED_ACTION_MODES:
-            raise ValueError(f"action_mode must be one of {sorted(SUPPORTED_ACTION_MODES)}, got {action_mode!r}")
+            raise ValueError(
+                f"action_mode must be one of {sorted(SUPPORTED_ACTION_MODES)}, got {action_mode!r}"
+            )
         self.task_name = task_name
         self.robot_setup = robot_setup
         self.control_hz = control_hz
@@ -107,23 +109,31 @@ class RoboTwinAdapter(BaseBenchmarkAdapter):
             },
         }
 
-    def action_from_canonical(self, canonical_action: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> Any:
+    def action_from_canonical(
+        self, canonical_action: Dict[str, Any], context: Optional[Dict[str, Any]] = None
+    ) -> Any:
         """Run action_from_canonical."""
         if "actions" in canonical_action:
             action = _as_flat_float_array(canonical_action["actions"], "action")
         elif "left" in canonical_action and "right" in canonical_action:
             action = self._action_from_bimanual_fields(canonical_action)
         else:
-            raise ValueError("Canonical RoboTwin action must contain `actions` or bimanual `left`/`right` fields")
+            raise ValueError(
+                "Canonical RoboTwin action must contain `actions` or bimanual `left`/`right` fields"
+            )
 
         action_context = context or {}
         mode = str(action_context.get("action_mode", self.action_mode))
         if mode not in SUPPORTED_ACTION_MODES:
-            raise ValueError(f"action_mode must be one of {sorted(SUPPORTED_ACTION_MODES)}, got {mode!r}")
+            raise ValueError(
+                f"action_mode must be one of {sorted(SUPPORTED_ACTION_MODES)}, got {mode!r}"
+            )
 
         if mode in {"delta", "rel"}:
             if "current_joint" not in action_context:
-                raise ValueError("RoboTwin delta/rel action conversion requires context['current_joint']")
+                raise ValueError(
+                    "RoboTwin delta/rel action conversion requires context['current_joint']"
+                )
             action = _as_flat_float_array(action_context["current_joint"], "current_joint") + action
 
         if bool(action_context.get("reorder_action", self.reorder_action)):
@@ -141,7 +151,7 @@ class RoboTwinAdapter(BaseBenchmarkAdapter):
             gripper = np.asarray([arm["gripper"]], dtype=np.float32)
             if world_vector.size != 3 or rotation_delta.size != 3:
                 raise ValueError(
-                    f"Invalid RoboTwin {name} arm action shape: world={world_vector.shape}, rot={rotation_delta.shape}"
+                    f"Invalid RoboTwin {name} arm action shape: world={world_vector.shape}, rot={rotation_delta.shape}"  # noqa: E501
                 )
             return np.concatenate([world_vector, rotation_delta, gripper], axis=0)
 

@@ -55,14 +55,16 @@ class McoreConfig(AbstractConfig):
                     break
             print(f"Loading Mcore config from: {rank0_checkpoint_path}")
 
-            rank0_state_dict = torch.load(rank0_checkpoint_path, map_location="cpu", weights_only=False)
+            rank0_state_dict = torch.load(
+                rank0_checkpoint_path, map_location="cpu", weights_only=False
+            )
         if "args" not in rank0_state_dict:
             raise ValueError(
-                "Megatron-LM checkpoint does not contain arguments. This utility only supports Megatron-LM checkpoints"
-                " containing all the megatron arguments. This is because it loads all config related to model"
-                " architecture, the tensor and pipeline model parallel size from the checkpoint insead of "
+                "Megatron-LM checkpoint does not contain arguments. This utility only supports Megatron-LM checkpoints"  # noqa: E501
+                " containing all the megatron arguments. This is because it loads all config related to model"  # noqa: E501
+                " architecture, the tensor and pipeline model parallel size from the checkpoint insead of "  # noqa: E501
                 "user having to"
-                " manually specify all the details. Please save Megatron-LM checkpoint along with all the megatron"
+                " manually specify all the details. Please save Megatron-LM checkpoint along with all the megatron"  # noqa: E501
                 " arguments to use this utility."
             )
         self.data = vars(rank0_state_dict["args"])

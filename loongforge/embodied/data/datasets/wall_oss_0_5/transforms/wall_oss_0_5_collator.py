@@ -151,7 +151,9 @@ class WallOss05Preprocessor(BasePreprocessor):
 
     def sample_time(self, batch_size, device, dtype):
         """Sample time."""
-        sample_np = self.np_rng.beta(self.beta_alpha, self.beta_beta, size=(batch_size,)).astype(np.float32)
+        sample_np = self.np_rng.beta(self.beta_alpha, self.beta_beta, size=(batch_size,)).astype(
+            np.float32
+        )
         sample = torch.from_numpy(sample_np).to(device=device, dtype=dtype, non_blocking=True)
         time = 1 - sample
         if self.time_shift != 1.0:
@@ -169,8 +171,12 @@ class WallOss05Preprocessor(BasePreprocessor):
             agent_pos = agent_pos.unsqueeze(1)
         agent_pos_mask = (~torch.isnan(agent_pos)).float()
         agent_pos.nan_to_num_(nan=0.0)
-        state_min_stat = self._align_norm_stat(self.state_min_stat, agent_pos, pad_value=0.0, name="state.min")
-        state_delta = self._align_norm_stat(self.state_delta, agent_pos, pad_value=1.0, name="state.delta")
+        state_min_stat = self._align_norm_stat(
+            self.state_min_stat, agent_pos, pad_value=0.0, name="state.min"
+        )
+        state_delta = self._align_norm_stat(
+            self.state_delta, agent_pos, pad_value=1.0, name="state.delta"
+        )
         agent_pos = self._normalize(agent_pos, state_min_stat, state_delta)
         if agent_pos.shape[-1] < agent_pos_total:
             pad_w = agent_pos_total - agent_pos.shape[-1]
@@ -184,8 +190,12 @@ class WallOss05Preprocessor(BasePreprocessor):
             action = action.unsqueeze(1)
         dof_mask = (~torch.isnan(action)).float()
         action.nan_to_num_(nan=0.0)
-        action_min_stat = self._align_norm_stat(self.action_min_stat, action, pad_value=0.0, name="action.min")
-        action_delta = self._align_norm_stat(self.action_delta, action, pad_value=1.0, name="action.delta")
+        action_min_stat = self._align_norm_stat(
+            self.action_min_stat, action, pad_value=0.0, name="action.min"
+        )
+        action_delta = self._align_norm_stat(
+            self.action_delta, action, pad_value=1.0, name="action.delta"
+        )
         action = self._normalize(action, action_min_stat, action_delta)
         if action.shape[-1] < dof_total:
             pad_w = dof_total - action.shape[-1]
@@ -193,7 +203,9 @@ class WallOss05Preprocessor(BasePreprocessor):
             dof_mask = torch.nn.functional.pad(dof_mask, (0, pad_w))
         additional_inputs["action_chunk"] = action
         additional_inputs["dof_mask"] = dof_mask
-        additional_inputs["sample_time"] = self.sample_time(action.shape[0], device=action.device, dtype=torch.float32)
+        additional_inputs["sample_time"] = self.sample_time(
+            action.shape[0], device=action.device, dtype=torch.float32
+        )
 
         texts = replace_action_token(
             [ex["text"] for ex in examples],
@@ -212,7 +224,9 @@ class WallOss05Preprocessor(BasePreprocessor):
             return_tensors="pt",
             max_length=self.data_cfg.max_length,
             norm_state=(
-                additional_inputs["proprioception"] if self.model_cfg.use_state_string_representation else None
+                additional_inputs["proprioception"]
+                if self.model_cfg.use_state_string_representation
+                else None
             ),
             agent_pos_mask=additional_inputs.get("agent_pos_mask"),
             state_bins=self.data_cfg.state_bins,
@@ -220,11 +234,15 @@ class WallOss05Preprocessor(BasePreprocessor):
 
         action_token_id = self.processor.tokenizer.convert_tokens_to_ids("<|action|>")
         additional_inputs["moe_token_types"] = inputs.input_ids == action_token_id
-        additional_inputs["moe_group_counts"] = compute_moe_group_counts(additional_inputs["moe_token_types"])
+        additional_inputs["moe_group_counts"] = compute_moe_group_counts(
+            additional_inputs["moe_token_types"]
+        )
         for name in ("image_grid_thw", "video_grid_thw"):
             grid_thw = inputs.get(name)
             additional_inputs[f"{name}_cpu"] = (
-                tuple(tuple(int(v) for v in row) for row in grid_thw.tolist()) if grid_thw is not None else None
+                tuple(tuple(int(v) for v in row) for row in grid_thw.tolist())
+                if grid_thw is not None
+                else None
             )
         batch = WallOss05Batch(inputs)
         batch.update(additional_inputs)

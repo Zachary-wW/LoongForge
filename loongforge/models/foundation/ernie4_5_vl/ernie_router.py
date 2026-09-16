@@ -63,7 +63,9 @@ def topk_routing_with_score_function(
     num_tokens, num_experts = logits.shape
     if fused:
         if not HAVE_TE or fused_topk_with_score_function is None:
-            raise ValueError("fused_topk_with_score_function is not available. Please install TE >= 2.6.0.")
+            raise ValueError(
+                "fused_topk_with_score_function is not available. Please install TE >= 2.6.0."
+            )
         return fused_topk_with_score_function(
             logits=logits,
             topk=topk,
@@ -126,7 +128,9 @@ def topk_routing_with_score_function(
         routing_probs.index_put_((rows, top_indices), probs, accumulate=False)
 
         routing_map = torch.zeros_like(logits, dtype=logits.dtype)
-        routing_map.index_put_((rows, top_indices), torch.ones_like(probs, dtype=routing_map.dtype), accumulate=False)
+        routing_map.index_put_(
+            (rows, top_indices), torch.ones_like(probs, dtype=routing_map.dtype), accumulate=False
+        )
         routing_map = routing_map.bool()
     else:
         # TODO Try using element-wise operations instead of scatter?
@@ -224,8 +228,12 @@ class TopKRouter(MegatronTopKRouter):
                 logits, self.topk, self.score_function, fused=self.config.moe_router_fusion
             )
             probs = self._apply_aux_loss(probs, scores_for_aux_loss, routing_map_for_aux_loss)
-            probs = self._apply_seq_aux_loss(probs, scores_for_aux_loss, routing_map_for_aux_loss, seq_length, bsz)
-            probs = self._apply_global_aux_loss(probs, scores_for_aux_loss, routing_map_for_aux_loss)
+            probs = self._apply_seq_aux_loss(
+                probs, scores_for_aux_loss, routing_map_for_aux_loss, seq_length, bsz
+            )
+            probs = self._apply_global_aux_loss(
+                probs, scores_for_aux_loss, routing_map_for_aux_loss
+            )
 
         # Update expert bias and tokens_per_expert
         # Prevent extra local tokens accumulation on evaluation or activation recomputation

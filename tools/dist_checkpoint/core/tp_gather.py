@@ -23,7 +23,9 @@ import torch
 import torch.distributed as dist
 
 # Add project root to path
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+project_root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 if project_root not in os.sys.path:
     import sys
 
@@ -71,11 +73,13 @@ class TPGather:
             - parallel_state must be initialized via TopoSharder first
         """
         if not MEGATRON_AVAILABLE:
-            raise ImportError("megatron.core is not available. Please install Megatron-LM to use TPGather.")
+            raise ImportError(
+                "megatron.core is not available. Please install Megatron-LM to use TPGather."
+            )
 
         if not parallel_state.model_parallel_is_initialized():
             raise RuntimeError(
-                "parallel_state is not initialized. Please initialize TopoSharder before creating TPGather."
+                "parallel_state is not initialized. Please initialize TopoSharder before creating TPGather."  # noqa: E501
             )
 
         self.topo_sharder = topo_sharder
@@ -109,7 +113,9 @@ class TPGather:
             return 0
         return tensor.element_size() * tensor.numel()
 
-    def gather_state_dicts_balanced(self, state_dict: Dict[str, torch.Tensor], layer_prefix_list, ranks, rank_groups):
+    def gather_state_dicts_balanced(
+        self, state_dict: Dict[str, torch.Tensor], layer_prefix_list, ranks, rank_groups
+    ):
         """Split state_dict by key prefix and assign to ranks round-robin
         Args:
             state_dict: Dictionary with key->tensor
@@ -193,7 +199,9 @@ class TPGather:
 
         return moe_state_dict, dense_state_dict
 
-    def gather_state_dicts(self, state_dict: Dict[str, torch.Tensor]) -> Optional[List[Dict[str, torch.Tensor]]]:
+    def gather_state_dicts(
+        self, state_dict: Dict[str, torch.Tensor]
+    ) -> Optional[List[Dict[str, torch.Tensor]]]:
         """
         Gather state_dicts from all TP ranks to TP rank 0 using NCCL backend.
         Uses per-tensor gather with immediate CPU offload to minimize GPU memory usage.
@@ -212,13 +220,19 @@ class TPGather:
         cur_rank_id = dist.get_rank()
 
         # Get sorted keys for consistent ordering
-        dense_local_keys = sorted([k for k, v in dense_state_dict.items() if isinstance(v, torch.Tensor)])
+        dense_local_keys = sorted(
+            [k for k, v in dense_state_dict.items() if isinstance(v, torch.Tensor)]
+        )
         if len(moe_state_dict) > 0:
-            moe_local_keys = sorted([k for k, v in moe_state_dict.items() if isinstance(v, torch.Tensor)])
+            moe_local_keys = sorted(
+                [k for k, v in moe_state_dict.items() if isinstance(v, torch.Tensor)]
+            )
         else:
             moe_local_keys = []
 
-        dense_ranks_for_tp, dense_rank_groups_for_tp, moe_ranks_for_etp, moe_rank_groups_for_etp = self.get_rank_group()
+        dense_ranks_for_tp, dense_rank_groups_for_tp, moe_ranks_for_etp, moe_rank_groups_for_etp = (
+            self.get_rank_group()
+        )
 
         # Prepare result structure for tp_rank 0
         result = [{} for _ in range(self.tp_size)]
@@ -286,7 +300,11 @@ class TPGather:
         layer_prefix = name_map[LAYER_PREFIX]
         cargs = c_config.get_args("common")
         num_layers = cargs["num_layers"]
-        mtp_num_layers = args.mtp_num_layers if args.mtp_num_layers is not None else cargs.get("mtp_num_layers", 0)
+        mtp_num_layers = (
+            args.mtp_num_layers
+            if args.mtp_num_layers is not None
+            else cargs.get("mtp_num_layers", 0)
+        )
 
         dense_prefix = []
         moe_prefix = []
@@ -295,7 +313,9 @@ class TPGather:
             dense_prefix.append(base_prefix)
             moe_prefix.extend(TPGather.get_expert_prefix(c_config, base_prefix))
         if mtp_num_layers > 0:
-            mtp_layer_prefix = name_map[MTP_LAYER_PREFIX] if MTP_LAYER_PREFIX in name_map else layer_prefix
+            mtp_layer_prefix = (
+                name_map[MTP_LAYER_PREFIX] if MTP_LAYER_PREFIX in name_map else layer_prefix
+            )
             for mtp_layer_id in range(mtp_num_layers):
                 base_prefix = f"{mtp_layer_prefix}.{mtp_layer_id}."
                 dense_prefix.append(base_prefix)
@@ -307,7 +327,11 @@ class TPGather:
     def get_expert_prefix(c_config, base_prefix, is_mtp=False):
         name_map = c_config.get("name_map")["mcore"]
         if is_mtp:
-            name_prefix = name_map[MTP_NAME_PREFIX_FOR_LAYER] if MTP_NAME_PREFIX_FOR_LAYER in name_map else None
+            name_prefix = (
+                name_map[MTP_NAME_PREFIX_FOR_LAYER]
+                if MTP_NAME_PREFIX_FOR_LAYER in name_map
+                else None
+            )
         else:
             name_prefix = None
 
@@ -320,7 +344,11 @@ class TPGather:
             )
             result.append(f"{base_prefix}{expert_tag}.")
         if MOE_EXPERT in name_map:
-            expert_tag = name_map[MOE_EXPERT] if name_prefix is None else f"{name_prefix}.{name_map[MOE_EXPERT]}"
+            expert_tag = (
+                name_map[MOE_EXPERT]
+                if name_prefix is None
+                else f"{name_prefix}.{name_map[MOE_EXPERT]}"
+            )
             result.append(f"{base_prefix}{expert_tag}.")
 
         return result
@@ -384,6 +412,13 @@ class TPGather:
                     ep_end = ep_start + etp_size
                     ep_ranks = ep_group[ep_start:ep_end]
                     moe_ranks_for_etp.extend(ep_ranks)
-                    moe_rank_groups_for_etp[f"{pp_rank}_{group_rank}_{ep_group_rank}_{ep_rank}"] = ep_ranks
+                    moe_rank_groups_for_etp[f"{pp_rank}_{group_rank}_{ep_group_rank}_{ep_rank}"] = (
+                        ep_ranks
+                    )
 
-        return dense_ranks_for_tp, dense_rank_groups_for_tp, moe_ranks_for_etp, moe_rank_groups_for_etp
+        return (
+            dense_ranks_for_tp,
+            dense_rank_groups_for_tp,
+            moe_ranks_for_etp,
+            moe_rank_groups_for_etp,
+        )

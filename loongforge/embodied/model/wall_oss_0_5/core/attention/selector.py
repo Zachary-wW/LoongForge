@@ -36,48 +36,52 @@ class AttentionsSelectorMixin:
             (`LlamaFlashAttention` for example)
             3. SDPA implementation, if available and supported by the model type. (`LlamaSdpaAttention` for example)
             4. The default model's implementation otherwise (`LlamaAttention` for example) .
-        """
-        # Here we use config._attn_implementation_internal to check whether the attention implementation was explicitly
+        """  # noqa: E501
+        # Here we use config._attn_implementation_internal to check whether the attention implementation was explicitly  # noqa: E501
         # set by the user.
-        # The property `PretrainedConfig._attn_implementation` is never `None`, for backward compatibility (always fall
+        # The property `PretrainedConfig._attn_implementation` is never `None`, for backward compatibility (always fall  # noqa: E501
         # back on "eager").
-        # The `hasattr` here is used as some Transformers tests for some reason do not call PretrainedConfig __init__
+        # The `hasattr` here is used as some Transformers tests for some reason do not call PretrainedConfig __init__  # noqa: E501
         # (e.g. test_no_super_init_config_and_model)
         requested_attn_implementation = None
-        if hasattr(config, "_attn_implementation_internal") and config._attn_implementation_internal is not None:
+        if (
+            hasattr(config, "_attn_implementation_internal")
+            and config._attn_implementation_internal is not None
+        ):
             if config._attn_implementation != "flash_attention_2" and use_flash_attention_2:
                 raise ValueError(
-                    f'Both attn_implementation="{config._attn_implementation}" and `use_flash_attention_2=True` were '
+                    f'Both attn_implementation="{config._attn_implementation}" and `use_flash_attention_2=True` were '  # noqa: E501
                     f"used when loading the model, which are not compatible."
-                    ' We recommend to just use `attn_implementation="flash_attention_2"` when loading the model.'
+                    ' We recommend to just use `attn_implementation="flash_attention_2"` when loading the model.'  # noqa: E501
                 )
 
             if (
                 not isinstance(config._attn_implementation, dict)
-                and config._attn_implementation not in ["eager"] + ALL_ATTENTION_FUNCTIONS.valid_keys()
+                and config._attn_implementation
+                not in ["eager"] + ALL_ATTENTION_FUNCTIONS.valid_keys()
             ):
                 message = (
-                    f'Specified `attn_implementation="{config._attn_implementation}"` is not supported. The only '
-                    f'possible arguments are `attn_implementation="eager"` (manual attention implementation)'
+                    f'Specified `attn_implementation="{config._attn_implementation}"` is not supported. The only '  # noqa: E501
+                    f'possible arguments are `attn_implementation="eager"` (manual attention implementation)'  # noqa: E501
                 )
                 if cls._supports_flash_attn_2:
-                    message += ', `"attn_implementation=flash_attention_2"` (implementation using flash attention 2)'
+                    message += ', `"attn_implementation=flash_attention_2"` (implementation using flash attention 2)'  # noqa: E501
                 if cls._supports_sdpa:
                     message += (
                         ', `"attn_implementation=sdpa"` (implementation using '
                         "torch.nn.functional.scaled_dot_product_attention)"
                     )
                 if cls._supports_flex_attn:
-                    message += ', `"attn_implementation=flex_attention"` (implementation using torch\'s flex_attention)'
+                    message += ', `"attn_implementation=flex_attention"` (implementation using torch\'s flex_attention)'  # noqa: E501
                 raise ValueError(message + ".")
 
-            # If a config is passed with a preset attn_implementation, we skip the automatic dispatch and use the
-            # user-provided config, with hard checks that the requested attention implementation is available.
+            # If a config is passed with a preset attn_implementation, we skip the automatic dispatch and use the  # noqa: E501
+            # user-provided config, with hard checks that the requested attention implementation is available.  # noqa: E501
             requested_attn_implementation = config._attn_implementation_internal
 
         if use_flash_attention_2:
             logger.warning_once(
-                "The model was loaded with use_flash_attention_2=True, which is deprecated and may be removed in a "
+                "The model was loaded with use_flash_attention_2=True, which is deprecated and may be removed in a "  # noqa: E501
                 'future release. Please use `attn_implementation="flash_attention_2"` instead.'
             )
             config._attn_implementation = "flash_attention_2"
@@ -106,7 +110,7 @@ class AttentionsSelectorMixin:
                 and version.parse(torch.__version__) < version.parse("2.4.1")
             ):
                 logger.warning_once(
-                    "Using the `SDPA` attention implementation on multi-gpu setup with ROCM may lead to performance "
+                    "Using the `SDPA` attention implementation on multi-gpu setup with ROCM may lead to performance "  # noqa: E501
                     "issues due to the FA backend. Disabling it to use alternative backends."
                 )
                 torch.backends.cuda.enable_flash_sdp(False)

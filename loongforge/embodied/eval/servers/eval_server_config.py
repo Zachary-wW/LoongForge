@@ -94,12 +94,14 @@ def parse_eval_server_config(config_path: str) -> tuple[EvalServerArgs, Dict[str
     server = raw.get("server") or {}
 
     # Build a dict containing only fields declared in EvalServerArgs, plus model_type.
-    # This avoids passing unknown server: keys (host, python, log, etc.) to OmegaConf structured merge.
+    # This avoids passing unknown server: keys (host, python, log, etc.) to OmegaConf structured merge.  # noqa: E501
     _EVAL_SERVER_FIELDS = {f.name for f in __import__("dataclasses").fields(EvalServerArgs)}
     server_known = {k: v for k, v in server.items() if k in _EVAL_SERVER_FIELDS}
     model_type = model.get("model_type")
     if not model_type:
-        raise ValueError(f"'model.model_type' is required in the eval config but was missing: {config_path}")
+        raise ValueError(
+            f"'model.model_type' is required in the eval config but was missing: {config_path}"
+        )
     server_with_extras = {
         **server_known,
         "model_type": str(model_type).lower(),

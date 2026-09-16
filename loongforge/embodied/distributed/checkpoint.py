@@ -101,7 +101,7 @@ def save_checkpoint(
             logger.warning("--async-save ignored: only effective with --save-format=dcp.")
         elif not hasattr(dcp, "async_save"):
             logger.warning(
-                "--async-save ignored: torch.distributed.checkpoint.async_save unavailable (requires PyTorch >= 2.4)."
+                "--async-save ignored: torch.distributed.checkpoint.async_save unavailable (requires PyTorch >= 2.4)."  # noqa: E501
             )
 
     if ctx.is_main:
@@ -263,7 +263,9 @@ def load_pretrained(model: nn.Module, checkpoint_path: str, ctx: DistributedCont
     return model
 
 
-def get_latest_checkpoint(checkpoint_dir: str, require_training_state: bool = True) -> Tuple[Optional[str], int, int]:
+def get_latest_checkpoint(
+    checkpoint_dir: str, require_training_state: bool = True
+) -> Tuple[Optional[str], int, int]:
     """Find the latest *resumable* checkpoint directory.
 
     Validates the latest ``steps_N`` only — no fallback to older dirs. A
@@ -289,12 +291,14 @@ def get_latest_checkpoint(checkpoint_dir: str, require_training_state: bool = Tr
     if not os.path.exists(meta_path):
         raise FileNotFoundError(f"resume_meta.json not found in {ckpt_dir}")
     dcp_dir = os.path.join(ckpt_dir, "dcp")
-    has_dcp_training_state = os.path.exists(os.path.join(ckpt_dir, _DCP_METADATA_FILE)) and _dcp_has_key(
-        dcp_dir, "optim"
-    )
+    has_dcp_training_state = os.path.exists(
+        os.path.join(ckpt_dir, _DCP_METADATA_FILE)
+    ) and _dcp_has_key(dcp_dir, "optim")
     has_zero_training_state = os.path.exists(os.path.join(ckpt_dir, _ZERO_OPTIMIZER_METADATA_FILE))
     has_training_state = os.path.exists(os.path.join(ckpt_dir, "training_state.pt"))
-    if require_training_state and not (has_dcp_training_state or has_zero_training_state or has_training_state):
+    if require_training_state and not (
+        has_dcp_training_state or has_zero_training_state or has_training_state
+    ):
         raise FileNotFoundError(
             f"No resumable training state in {ckpt_dir}: expected optimizer state "
             f"in dcp/, {_ZERO_OPTIMIZER_DIR}/, or training_state.pt. "
@@ -345,11 +349,11 @@ def restore_rank_rng_state(rng_per_rank, ctx: DistributedContext, source: str = 
     """Validate per-rank RNG payload and restore this rank's stream."""
     if rng_per_rank is None:
         raise KeyError(
-            f"RNG state not present in {source} (older checkpoint format). Re-save with --save-training-state."
+            f"RNG state not present in {source} (older checkpoint format). Re-save with --save-training-state."  # noqa: E501
         )
     if len(rng_per_rank) != ctx.world_size:
         raise RuntimeError(
-            f"RNG state was saved for world_size={len(rng_per_rank)} but current world_size={ctx.world_size}."
+            f"RNG state was saved for world_size={len(rng_per_rank)} but current world_size={ctx.world_size}."  # noqa: E501
         )
     _set_rank_rng(rng_per_rank[ctx.rank], ctx)
 
@@ -376,7 +380,9 @@ def detect_checkpoint_format(path: str) -> str:
 
 def is_lora_adapter_checkpoint(path: str) -> bool:
     """Return whether a checkpoint directory contains a LoRA adapter."""
-    return os.path.isfile(adapter_file_path(path)) and os.path.isfile(os.path.join(path, _ADAPTER_CONFIG_FILE))
+    return os.path.isfile(adapter_file_path(path)) and os.path.isfile(
+        os.path.join(path, _ADAPTER_CONFIG_FILE)
+    )
 
 
 def read_adapter_meta(path: str) -> Optional[dict]:
@@ -486,7 +492,9 @@ def _write_adapter_meta(path: str, training_args, model_cfg) -> None:
 def _config_to_json_value(value):
     """Convert config values to JSON data without ``deepcopy`` side effects."""
     if is_dataclass(value):
-        return {field.name: _config_to_json_value(getattr(value, field.name)) for field in fields(value)}
+        return {
+            field.name: _config_to_json_value(getattr(value, field.name)) for field in fields(value)
+        }
     if isinstance(value, Mapping):
         return {str(key): _config_to_json_value(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
@@ -507,7 +515,9 @@ def _fill_missing_optimizer_state(optim_state_dict: dict) -> tuple[dict, int]:
     if state and all(isinstance(key, int) for key in state):
         return optim_state_dict, 0
 
-    param_names = {param_name for param_group in param_groups for param_name in param_group.get("params", [])}
+    param_names = {
+        param_name for param_group in param_groups for param_name in param_group.get("params", [])
+    }
     missing = param_names.difference(state)
     if not missing:
         return optim_state_dict, 0
@@ -668,7 +678,9 @@ def _resume_dcp(model, optimizer, scheduler, checkpoint_path, ctx, restore_rng):
         raise FileNotFoundError(f"No dcp/ metadata in {checkpoint_path}")
 
     has_optim = _dcp_has_key(dcp_dir, "optim")
-    has_local_zero_optim = os.path.exists(os.path.join(checkpoint_path, _ZERO_OPTIMIZER_METADATA_FILE))
+    has_local_zero_optim = os.path.exists(
+        os.path.join(checkpoint_path, _ZERO_OPTIMIZER_METADATA_FILE)
+    )
     if has_local_zero_optim and not _is_zero_optimizer(optimizer):
         raise RuntimeError(
             "Checkpoint contains rank-local ZeRO optimizer state, but the current "
@@ -900,12 +912,16 @@ def _is_zero_optimizer(optimizer) -> bool:
     """Check if optimizer is a ZeroRedundancyOptimizer."""
     from torch.distributed.optim import ZeroRedundancyOptimizer
 
-    return isinstance(optimizer, ZeroRedundancyOptimizer) or getattr(optimizer, "_is_multi_dtype_zero_optimizer", False)
+    return isinstance(optimizer, ZeroRedundancyOptimizer) or getattr(
+        optimizer, "_is_multi_dtype_zero_optimizer", False
+    )
 
 
 def _has_te_module(model) -> bool:
     """Whether the model contains any TransformerEngine module."""
-    return any(type(module).__module__.startswith("transformer_engine") for module in model.modules())
+    return any(
+        type(module).__module__.startswith("transformer_engine") for module in model.modules()
+    )
 
 
 def _zero_optimizer_children(optimizer) -> list:
@@ -994,7 +1010,7 @@ def _load_zero_optimizer_state(checkpoint_path, optimizer, ctx) -> None:
     expected_count = int(metadata["optimizer_count"])
     if expected_count != len(children):
         raise RuntimeError(
-            f"ZeRO optimizer shard count mismatch: checkpoint={expected_count}, current={len(children)}."
+            f"ZeRO optimizer shard count mismatch: checkpoint={expected_count}, current={len(children)}."  # noqa: E501
         )
 
     rank_path = os.path.join(checkpoint_path, _ZERO_OPTIMIZER_DIR, f"rank_{ctx.rank}.pt")
@@ -1003,7 +1019,7 @@ def _load_zero_optimizer_state(checkpoint_path, optimizer, ctx) -> None:
     local_state = torch.load(rank_path, map_location="cpu", weights_only=False)
     if len(local_state) != len(children):
         raise RuntimeError(
-            f"ZeRO optimizer state count mismatch in rank file: checkpoint={len(local_state)}, current={len(children)}."
+            f"ZeRO optimizer state count mismatch in rank file: checkpoint={len(local_state)}, current={len(children)}."  # noqa: E501
         )
     for child, state_dict in zip(children, local_state):
         _load_local_optimizer_state_dict(child.optim, state_dict)
@@ -1027,7 +1043,7 @@ def _copy_param_group_options(source_groups, target_groups) -> None:
     """Copy optimizer options without replacing parameter lists."""
     if len(source_groups) != len(target_groups):
         raise RuntimeError(
-            f"Optimizer parameter-group count mismatch: source={len(source_groups)}, target={len(target_groups)}."
+            f"Optimizer parameter-group count mismatch: source={len(source_groups)}, target={len(target_groups)}."  # noqa: E501
         )
     for source, target in zip(source_groups, target_groups):
         for key, value in source.items():

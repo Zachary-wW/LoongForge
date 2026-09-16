@@ -98,7 +98,11 @@ class BaseVisionModel(BaseMegatronVisionModule):
     config_class = Qwen2VisionModelConfig
 
     def __init__(
-        self, config: Qwen2VisionModelConfig, spatial_merge_size: int = 2, vp_stage: Optional[int] = None, **kwargs
+        self,
+        config: Qwen2VisionModelConfig,
+        spatial_merge_size: int = 2,
+        vp_stage: Optional[int] = None,
+        **kwargs,
     ) -> None:
         super().__init__(config)
         if self.config.model_spec is None:

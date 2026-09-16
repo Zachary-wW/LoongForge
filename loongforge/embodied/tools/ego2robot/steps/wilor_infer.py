@@ -34,16 +34,22 @@ def prepare_mano_assets(repo: Path, mano_dir: str | None = None):
     """Make the user-provided MANO files visible to WiLoR's fixed paths."""
     source_value = mano_dir or os.environ.get("EGO2ROBOT_MANO_DIR")
     if not source_value:
-        raise ValueError("MANO directory is not configured; pass --mano_dir or set EGO2ROBOT_MANO_DIR")
+        raise ValueError(
+            "MANO directory is not configured; pass --mano_dir or set EGO2ROBOT_MANO_DIR"
+        )
     source = Path(source_value).expanduser().resolve()
     right = source / "MANO_RIGHT.pkl"
     mean = source / "mano_mean_params.npz"
     if not mean.is_file():
         mean = repo / "mano_data" / "mano_mean_params.npz"
     if not right.is_file():
-        raise FileNotFoundError(f"MANO_RIGHT.pkl not found in {source}; pass --mano_dir or set EGO2ROBOT_MANO_DIR")
+        raise FileNotFoundError(
+            f"MANO_RIGHT.pkl not found in {source}; pass --mano_dir or set EGO2ROBOT_MANO_DIR"
+        )
     if not mean.is_file():
-        raise FileNotFoundError(f"mano_mean_params.npz not found in {source} or {repo / 'mano_data'}")
+        raise FileNotFoundError(
+            f"mano_mean_params.npz not found in {source} or {repo / 'mano_data'}"
+        )
     target = repo / "mano_data"
     target.mkdir(parents=True, exist_ok=True)
     for src in (right, mean):
@@ -85,7 +91,9 @@ def load_wilor_no_renderer(checkpoint_path: str, cfg_path: str):
         model_cfg.MANO.MODEL_PATH = "./mano_data/"
         model_cfg.MANO.MEAN_PARAMS = "./mano_data/mano_mean_params.npz"
         model_cfg.freeze()
-    model = WiLoR.load_from_checkpoint(checkpoint_path, strict=False, cfg=model_cfg, init_renderer=False)
+    model = WiLoR.load_from_checkpoint(
+        checkpoint_path, strict=False, cfg=model_cfg, init_renderer=False
+    )
     return model, model_cfg
 
 
@@ -123,7 +131,9 @@ def run(args):
 
     cfg = args.config or str(repo / "pretrained_models" / "model_config.yaml")
     model, model_cfg = load_wilor_no_renderer(args.checkpoint, cfg)
-    device = torch.device(args.device if args.device else ("cuda" if torch.cuda.is_available() else "cpu"))
+    device = torch.device(
+        args.device if args.device else ("cuda" if torch.cuda.is_available() else "cpu")
+    )
     model = model.to(device).eval()
     # Ultralytics 8.1.x predates PyTorch 2.6's ``weights_only`` default and
     # its detector checkpoint contains a serialized PoseModel class. This is
@@ -175,7 +185,9 @@ def run(args):
             rescale_factor=args.rescale_factor,
             fp16=args.fp16,
         )
-        loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
+        loader = torch.utils.data.DataLoader(
+            dataset, batch_size=args.batch_size, shuffle=False, num_workers=0
+        )
         offset = 0
         for batch in loader:
             batch = recursive_to(batch, device)
@@ -197,7 +209,9 @@ def run(args):
             pred_cam = output["pred_cam"].detach().cpu().numpy().astype(np.float32)
             img_size = batch["img_size"].detach().cpu().numpy().astype(np.float32)
             scaled_focal = (
-                float(model_cfg.EXTRA.FOCAL_LENGTH) / float(model_cfg.MODEL.IMAGE_SIZE) * np.max(img_size, axis=1)
+                float(model_cfg.EXTRA.FOCAL_LENGTH)
+                / float(model_cfg.MODEL.IMAGE_SIZE)
+                * np.max(img_size, axis=1)
             )
             cam_bbox = pred_cam.copy()
             cam_bbox[:, 1] *= 2.0 * right - 1.0
@@ -225,8 +239,10 @@ def run(args):
                 pts_wilor = kp_j + trans_j[None, :]
                 desired_2d = np.stack(
                     [
-                        scaled_focal[j] * pts_wilor[:, 0] / np.maximum(pts_wilor[:, 2], 1e-6) + img_size[j, 0] / 2.0,
-                        scaled_focal[j] * pts_wilor[:, 1] / np.maximum(pts_wilor[:, 2], 1e-6) + img_size[j, 1] / 2.0,
+                        scaled_focal[j] * pts_wilor[:, 0] / np.maximum(pts_wilor[:, 2], 1e-6)
+                        + img_size[j, 0] / 2.0,
+                        scaled_focal[j] * pts_wilor[:, 1] / np.maximum(pts_wilor[:, 2], 1e-6)
+                        + img_size[j, 1] / 2.0,
                     ],
                     axis=1,
                 ).astype(np.float32)
@@ -245,8 +261,10 @@ def run(args):
                 kp_center = kp_j.mean(axis=0)
                 trans_j = np.asarray(
                     [
-                        (desired_center[0] - img_size[j, 0] / 2.0) * z_target / render_focal - kp_center[0],
-                        (desired_center[1] - img_size[j, 1] / 2.0) * z_target / render_focal - kp_center[1],
+                        (desired_center[0] - img_size[j, 0] / 2.0) * z_target / render_focal
+                        - kp_center[0],
+                        (desired_center[1] - img_size[j, 1] / 2.0) * z_target / render_focal
+                        - kp_center[1],
                         z_target,
                     ],
                     dtype=np.float32,

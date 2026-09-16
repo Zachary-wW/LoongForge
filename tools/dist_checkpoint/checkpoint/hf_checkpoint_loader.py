@@ -11,7 +11,9 @@ import sys
 from typing import Tuple
 
 # Add project root to Python path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 
 import torch
 import torch.distributed as dist
@@ -129,7 +131,9 @@ def load_hf_checkpoint_online(model, optimizer, opt_param_scheduler, args) -> Tu
             f"PP={args.pipeline_model_parallel_size}, EP={ep_size}, ETP={etp_size}"
         )
     else:
-        print_rank_0(f"Parallel config: TP={args.tensor_model_parallel_size}, PP={args.pipeline_model_parallel_size}")
+        print_rank_0(
+            f"Parallel config: TP={args.tensor_model_parallel_size}, PP={args.pipeline_model_parallel_size}"  # noqa: E501
+        )
 
     # Step 1: Parse args to get config
     print_rank_0("Parsing config from args")
@@ -140,8 +144,8 @@ def load_hf_checkpoint_online(model, optimizer, opt_param_scheduler, args) -> Tu
 
     print_rank_0(f"Model type: {parser.type}")
 
-    # Step 2: Initialize TopoSharder (parallel_state already initialized by training, only get coordinates here)
-    # Note: parallel_state is already set up by training initialization, TopoSharder only used to get coordinates
+    # Step 2: Initialize TopoSharder (parallel_state already initialized by training, only get coordinates here)  # noqa: E501
+    # Note: parallel_state is already set up by training initialization, TopoSharder only used to get coordinates  # noqa: E501
     topo_sharder = TopoSharder(parallel_config)
     tp_rank, pp_rank, ep_rank, etp_rank, dp_rank = topo_sharder.get_current_rank_coordinates()
     parallel_config.tp_ranks = [tp_rank]
@@ -161,17 +165,23 @@ def load_hf_checkpoint_online(model, optimizer, opt_param_scheduler, args) -> Tu
     # Step 3: Create HF converter
     print_rank_0("Creating HF checkpoint converter...")
     c_config = get_yaml_config(
-        parser.config_file, parser.convert_file, for_vlm=(parser.vision_patch_convert_file is not None)
+        parser.config_file,
+        parser.convert_file,
+        for_vlm=(parser.vision_patch_convert_file is not None),
     )
     c_vision_patch_config = (
         get_yaml_config(
-            parser.config_file, parser.vision_patch_convert_file, adapter_convert_file=parser.adapter_convert_file
+            parser.config_file,
+            parser.vision_patch_convert_file,
+            adapter_convert_file=parser.adapter_convert_file,
         )
         if parser.vision_patch_convert_file is not None
         else None
     )
 
-    hf_converter = HfCheckpointConverter(parallel_config, c_config, vision_patch_config=c_vision_patch_config)
+    hf_converter = HfCheckpointConverter(
+        parallel_config, c_config, vision_patch_config=c_vision_patch_config
+    )
 
     # Step 4: Load and convert HF checkpoint based on model type
 
@@ -180,7 +190,9 @@ def load_hf_checkpoint_online(model, optimizer, opt_param_scheduler, args) -> Tu
     # All real work (safetensors shard reads, MXFP4 dequant, HF->Mcore
     # sharding) happens inside get_mcore_ckpt below; rank 0 emits
     # [hf-load] / [mxfp4-dequant] progress lines during it.
-    print_rank_0(f"Converting HF checkpoint from {args.load} (shard reads + dequant + Mcore sharding)...")
+    print_rank_0(
+        f"Converting HF checkpoint from {args.load} (shard reads + dequant + Mcore sharding)..."
+    )
 
     # Convert to Mcore format
     mem_before = 0.0
@@ -192,7 +204,7 @@ def load_hf_checkpoint_online(model, optimizer, opt_param_scheduler, args) -> Tu
         peak_mem_gb = torch.cuda.max_memory_allocated() / (1024**3)
         mem_after = torch.cuda.memory_allocated() / (1024**3)
         print_rank_0(
-            f"Mcore conversion completed. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → "
+            f"Mcore conversion completed. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → "  # noqa: E501
             f"After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
         )
 
@@ -251,7 +263,7 @@ def load_hf_checkpoint_online(model, optimizer, opt_param_scheduler, args) -> Tu
         peak_mem_gb = torch.cuda.max_memory_allocated() / (1024**3)
         mem_after = torch.cuda.memory_allocated() / (1024**3)
         print_rank_0(
-            f"Model state_dict loaded successfully. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → "
+            f"Model state_dict loaded successfully. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → "  # noqa: E501
             f"After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
         )
     else:

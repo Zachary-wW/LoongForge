@@ -98,7 +98,11 @@ class XVLAPreprocessor(BasePreprocessor):
         dataset=None,
     ) -> "XVLAPreprocessor":
         """Construct an XVLAPreprocessor from typed ModelConfig + DataConfig."""
-        num_views = (data_cfg.num_image_views if data_cfg is not None else None) or model_cfg.num_image_views or 3
+        num_views = (
+            (data_cfg.num_image_views if data_cfg is not None else None)
+            or model_cfg.num_image_views
+            or 3
+        )
         processor_path = (
             (training_args.tokenizer_path if training_args is not None else None)
             or os.environ.get("PROCESSOR_PATH", "")
@@ -127,13 +131,17 @@ class XVLAPreprocessor(BasePreprocessor):
 
     def __call__(self, examples: List[Dict[str, Any]]) -> XVLABatch:
         """Collate a list of sample dicts into an X-VLA-native batch."""
-        batch_texts: List[str] = [str(ex.get("prompt") or ex.get("task") or ex.get("lang") or "") for ex in examples]
+        batch_texts: List[str] = [
+            str(ex.get("prompt") or ex.get("task") or ex.get("lang") or "") for ex in examples
+        ]
 
         batch = XVLABatch()
 
         if all("image_input" in ex for ex in examples):
             # Images were already preprocessed by the dataset (reference path).
-            batch["input_ids"] = self.tokenize_transform.encode_language_batch(batch_texts)["input_ids"]
+            batch["input_ids"] = self.tokenize_transform.encode_language_batch(batch_texts)[
+                "input_ids"
+            ]
             batch["image_input"] = torch.stack(
                 [
                     ex["image_input"]

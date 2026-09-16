@@ -63,7 +63,9 @@ def register_model_config(model_family: str, model_arch: str):
             raise ValueError(f"Cannot register duplicate model, family ({_family}), arch ({_arch})")
 
         if not callable(fn):
-            raise ValueError(f"Model arch register must be callable, family ({_family}), arch ({_arch})")
+            raise ValueError(
+                f"Model arch register must be callable, family ({_family}), arch ({_arch})"
+            )
 
         MODEL_ARCH_CONFIGS[_arch] = fn
         MODEL_ARCH_TO_FAMILY[_arch] = _family

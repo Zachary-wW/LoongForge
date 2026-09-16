@@ -102,9 +102,7 @@ class _MicroBatchLoadTracker:
         """Return a formatted summary string of skip/apply counters."""
         vit_total = self._vit_skip + self._vit_apply
         vlm_total = self._dp_skip + self._dp_apply
-        return (
-            f"ViT_rebalance: {self._vit_apply}/{vit_total} applied, VLM_rebalance: {self._dp_apply}/{vlm_total} applied"
-        )
+        return f"ViT_rebalance: {self._vit_apply}/{vit_total} applied, VLM_rebalance: {self._dp_apply}/{vlm_total} applied"  # noqa: E501
 
 
 _load_tracker = _MicroBatchLoadTracker()
@@ -216,7 +214,9 @@ def gather_sample_info_across_dp(local_seq_lengths: torch.Tensor):
     # --------------------------------
     # Step 3: All-gather padded tensors (merged into single communication)
     # --------------------------------
-    padded_combined = torch.stack([padded_len.to(torch.int), padded_idx], dim=0)  # [2, max_sample_num]
+    padded_combined = torch.stack(
+        [padded_len.to(torch.int), padded_idx], dim=0
+    )  # [2, max_sample_num]
     gathered_combined = [torch.zeros_like(padded_combined) for _ in range(dp_size)]
 
     dist.all_gather(gathered_combined, padded_combined, group=dp_group)
@@ -328,7 +328,9 @@ def solve_sample_dp_reorder_plan(
     items = []
     seq_lens = []
 
-    for sample_len, local_idx, src_rank in zip(global_sample_lengths, local_sample_index, sample_src_dp_rank):
+    for sample_len, local_idx, src_rank in zip(
+        global_sample_lengths, local_sample_index, sample_src_dp_rank
+    ):
         seq_len = int(sample_len)
         cost = float(cost_fn(float(sample_len)))
         items.append((cost, seq_len, int(local_idx), int(src_rank)))
@@ -341,10 +343,14 @@ def solve_sample_dp_reorder_plan(
 
     # Total load including history from previous micro-batches
     has_history = (
-        cross_micro_batch_balance and dp_historical_costs is not None and any(c > 0 for c in dp_historical_costs)
+        cross_micro_batch_balance
+        and dp_historical_costs is not None
+        and any(c > 0 for c in dp_historical_costs)
     )
     if has_history:
-        total_load_per_dp = [dp_historical_costs[i] + current_load_per_dp[i] for i in range(dp_size)]
+        total_load_per_dp = [
+            dp_historical_costs[i] + current_load_per_dp[i] for i in range(dp_size)
+        ]
     else:
         total_load_per_dp = current_load_per_dp
 
@@ -472,7 +478,8 @@ def solve_sample_dp_reorder_plan(
 
         # ---- swap
         swap_ok = (not use_pack_constraint) or (
-            dp_pack_lens[max_r] - len_a + len_b <= pack_cap and dp_pack_lens[min_r] - len_b + len_a <= pack_cap
+            dp_pack_lens[max_r] - len_a + len_b <= pack_cap
+            and dp_pack_lens[min_r] - len_b + len_a <= pack_cap
         )
 
         if swap_ok:
@@ -528,7 +535,9 @@ def solve_sample_dp_reorder_plan(
             f"  cumulative: {_load_tracker.get_stats_str()}"
         )
 
-    plan = [[(local_idx, src_rank) for (_, _, local_idx, src_rank) in bucket] for bucket in dp_buckets]
+    plan = [
+        [(local_idx, src_rank) for (_, _, local_idx, src_rank) in bucket] for bucket in dp_buckets
+    ]
     return plan, micro_batch_dp_costs
 
 
@@ -672,7 +681,8 @@ def redistribute_tensor_helper(
         send_list = list(send_tensor.split(send_splits))
         # Prepare output buffer as list
         recv_list = [
-            torch.empty(recv_splits[i], dtype=send_tensor.dtype, device=send_tensor.device) for i in range(dp_size)
+            torch.empty(recv_splits[i], dtype=send_tensor.dtype, device=send_tensor.device)
+            for i in range(dp_size)
         ]
         # Perform all-to-all communication with gradient support
         # all_to_all expects: all_to_all(output_list, input_list, group=group)

@@ -115,8 +115,12 @@ def convert_to_wds(args):
                     "json": json.dumps(entry[args.columns_messages]).encode("utf-8"),
                 }
             else:
-                video_paths = [entry.get("video")] if entry.get("video") is not None else entry.get("videos")
-                image_paths = [entry.get("image")] if entry.get("image") is not None else entry.get("images")
+                video_paths = (
+                    [entry.get("video")] if entry.get("video") is not None else entry.get("videos")
+                )
+                image_paths = (
+                    [entry.get("image")] if entry.get("image") is not None else entry.get("images")
+                )
 
                 if video_paths is not None:
                     sample = construct_sample(args, "video", video_paths, index, entry)
@@ -143,7 +147,11 @@ def write_config(path: EPath, media: str = None, sample_type: bool = False):
         # VQA sample type with field mapping
         dataset_definition = {
             "sample_type": {"__module__": "megatron.energon", "__class__": "VQASample"},
-            "field_map": {"image": "jpg", "context": "json[0][content]", "answers": "json[1][content]"},
+            "field_map": {
+                "image": "jpg",
+                "context": "json[0][content]",
+                "answers": "json[1][content]",
+            },
         }
     elif sample_type == "caption":
         # Captioning sample type with field mapping
@@ -180,8 +188,12 @@ def _add_arguments(parser: argparse.ArgumentParser):
     group.add_argument("--video_dir", type=str, required=False, help="Video directory")
     group.add_argument("--maxcount", type=int, default=10000, help="Number of samples per shard")
     group.add_argument("--maxsize", type=int, default=3000000000, help="Maximum size of each shard")
-    group.add_argument("--media", type=str, choices=["mix", "image", "video"], default="image", help="Media type")
-    group.add_argument("--columns_messages", type=str, default="messages", help="Column name for messages")
+    group.add_argument(
+        "--media", type=str, choices=["mix", "image", "video"], default="image", help="Media type"
+    )
+    group.add_argument(
+        "--columns_messages", type=str, default="messages", help="Column name for messages"
+    )
     group.add_argument("--sample_type", type=str, required=True, help="Data sample type")
 
     return parser

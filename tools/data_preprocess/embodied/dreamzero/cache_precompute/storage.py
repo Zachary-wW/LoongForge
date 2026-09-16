@@ -67,7 +67,8 @@ class _PrecomputeStats:
     cache_files: list[dict[str, Any]] = field(default_factory=list)
     compare: dict[str, dict[str, float]] = field(
         default_factory=lambda: {
-            feature: {"max_abs_diff": 0.0, "max_mean_abs_diff": 0.0} for feature in _COMPARE_RESULT_KEYS
+            feature: {"max_abs_diff": 0.0, "max_mean_abs_diff": 0.0}
+            for feature in _COMPARE_RESULT_KEYS
         }
     )
 
@@ -99,7 +100,9 @@ class _PrecomputeStats:
         return summary
 
 
-def _cache_path(output_dir: Path, template: str, index: int, trajectory_id: int, base_index: int) -> Path:
+def _cache_path(
+    output_dir: Path, template: str, index: int, trajectory_id: int, base_index: int
+) -> Path:
     rendered = Path(
         template.format(
             index=int(index),
@@ -160,7 +163,9 @@ def _record_for_csv(record: dict[str, Any]) -> dict[str, Any]:
     row["first_frame_shape"] = (
         json.dumps(record["first_frame_shape"]) if record["first_frame_shape"] is not None else ""
     )
-    row["prompt_shape"] = json.dumps(record["prompt_shape"]) if record.get("prompt_shape") is not None else ""
+    row["prompt_shape"] = (
+        json.dumps(record["prompt_shape"]) if record.get("prompt_shape") is not None else ""
+    )
     return row
 
 
@@ -182,7 +187,9 @@ def _read_jsonl_records(path: Path) -> list[dict[str, Any]]:
     return records
 
 
-def _write_manifest_files(manifest_path: Path, csv_path: Path, records: list[dict[str, Any]]) -> None:
+def _write_manifest_files(
+    manifest_path: Path, csv_path: Path, records: list[dict[str, Any]]
+) -> None:
     tmp_manifest_path = manifest_path.with_suffix(".jsonl.tmp")
     tmp_csv_path = csv_path.with_suffix(".csv.tmp")
     with tmp_manifest_path.open("w", encoding="utf-8") as mf:
@@ -214,12 +221,16 @@ def _compare_tensor(
     atol: float,
 ) -> tuple[float, float]:
     if cached.shape != current.shape:
-        raise ValueError(f"{path} {feature} shape {tuple(cached.shape)} does not match online {tuple(current.shape)}")
+        raise ValueError(
+            f"{path} {feature} shape {tuple(cached.shape)} does not match online {tuple(current.shape)}"  # noqa: E501
+        )
     diff = (cached.to(dtype=current.dtype) - current).abs().float()
     max_abs_diff = float(diff.max().item())
     mean_abs_diff = float(diff.mean().item())
     if max_abs_diff > atol:
-        raise ValueError(f"{path} {feature} max_abs_diff {max_abs_diff:.6e} exceeds --compare-atol {atol:.6e}")
+        raise ValueError(
+            f"{path} {feature} max_abs_diff {max_abs_diff:.6e} exceeds --compare-atol {atol:.6e}"
+        )
     return max_abs_diff, mean_abs_diff
 
 
@@ -302,9 +313,13 @@ def _process_cache_sample(
     file_sha256 = sha256_file(out_path)
 
     stats = _tensor_stats(sample_latents) if sample_latents is not None else {}
-    first_frame_stats = _tensor_stats(sample_first_frame_latents) if sample_first_frame_latents is not None else {}
+    first_frame_stats = (
+        _tensor_stats(sample_first_frame_latents) if sample_first_frame_latents is not None else {}
+    )
     prompt_stats = _tensor_stats(sample_prompt_embs) if sample_prompt_embs is not None else {}
-    relative_path = str(out_path.relative_to(output_dir) if out_path.is_relative_to(output_dir) else out_path)
+    relative_path = str(
+        out_path.relative_to(output_dir) if out_path.is_relative_to(output_dir) else out_path
+    )
     record = {
         "index": int(dataset_index),
         "trajectory_id": int(trajectory_id),
@@ -482,24 +497,32 @@ class _TensorShardWriter:
         row_offset = int(shard["count"])
         for payload_key, tensor in payload.items():
             if payload_key not in shard["features"]:
-                raise ValueError(f"tensor shard feature set changed inside shard: missing {payload_key}")
+                raise ValueError(
+                    f"tensor shard feature set changed inside shard: missing {payload_key}"
+                )
             feature = shard["features"][payload_key]
             if list(tensor.shape) != feature["shape"]:
                 raise ValueError(
-                    f"tensor shard {payload_key} shape changed: {list(tensor.shape)} vs {feature['shape']}"
+                    f"tensor shard {payload_key} shape changed: {list(tensor.shape)} vs {feature['shape']}"  # noqa: E501
                 )
             storage_array, storage_dtype = tensor_to_storage_array(tensor)
             if storage_dtype != feature["storage_dtype"]:
                 raise ValueError(
-                    f"tensor shard {payload_key} storage dtype changed: {storage_dtype} vs {feature['storage_dtype']}"
+                    f"tensor shard {payload_key} storage dtype changed: {storage_dtype} vs {feature['storage_dtype']}"  # noqa: E501
                 )
             feature["mmap"][row_offset] = storage_array
         shard["count"] = row_offset + 1
 
         stats = _tensor_stats(sample_latents) if sample_latents is not None else {}
-        first_frame_stats = _tensor_stats(sample_first_frame_latents) if sample_first_frame_latents is not None else {}
+        first_frame_stats = (
+            _tensor_stats(sample_first_frame_latents)
+            if sample_first_frame_latents is not None
+            else {}
+        )
         prompt_stats = _tensor_stats(sample_prompt_embs) if sample_prompt_embs is not None else {}
-        sample_bytes = int(sum(tensor.numel() * tensor.element_size() for tensor in payload.values()))
+        sample_bytes = int(
+            sum(tensor.numel() * tensor.element_size() for tensor in payload.values())
+        )
         record = {
             "index": int(dataset_index),
             "trajectory_id": int(trajectory_id),
@@ -594,7 +617,9 @@ def _write_tensor_shard_index(
     index_dir.mkdir(parents=True, exist_ok=True)
     arrays = {
         "dataset_indices": np.asarray([int(row["index"]) for row in records], dtype=np.int64),
-        "trajectory_ids": np.asarray([int(row["trajectory_id"]) for row in records], dtype=np.int64),
+        "trajectory_ids": np.asarray(
+            [int(row["trajectory_id"]) for row in records], dtype=np.int64
+        ),
         "base_indices": np.asarray([int(row["base_index"]) for row in records], dtype=np.int64),
         "shard_ids": np.asarray([int(row["shard_id"]) for row in records], dtype=np.int64),
         "row_offsets": np.asarray([int(row["row_offset"]) for row in records], dtype=np.int64),

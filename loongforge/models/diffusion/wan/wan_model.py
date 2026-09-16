@@ -149,7 +149,9 @@ def precompute_freqs_cis(dim: int, end: int = 1024, theta: float = 10000.0):
 
 def rope_apply(x, freqs, num_heads):
     x = rearrange(x, "b s (n d) -> b s n d", n=num_heads)
-    x_out = torch.view_as_complex(x.to(torch.float64).reshape(x.shape[0], x.shape[1], x.shape[2], -1, 2))
+    x_out = torch.view_as_complex(
+        x.to(torch.float64).reshape(x.shape[0], x.shape[1], x.shape[2], -1, 2)
+    )
     x_out = torch.view_as_real(x_out * freqs).flatten(2)
     return x_out.to(x.dtype)
 
@@ -184,7 +186,9 @@ class Head(nn.Module):
         self.modulation = nn.Parameter(torch.randn(1, 2, dim) / dim**0.5)
 
     def forward(self, x, t_mod):
-        shift, scale = (self.modulation.to(dtype=t_mod.dtype, device=t_mod.device) + t_mod).chunk(2, dim=1)
+        shift, scale = (self.modulation.to(dtype=t_mod.dtype, device=t_mod.device) + t_mod).chunk(
+            2, dim=1
+        )
         x = self.head(self.norm(x) * (1 + scale) + shift)
         return x
 
@@ -232,14 +236,18 @@ class WanModel(VisionModule):
         eps = config.norm_epsilon
         self.has_image_pos_emb = config.has_image_pos_emb
 
-        self.patch_embedding = nn.Conv3d(in_dim, config.hidden_size, kernel_size=patch_size, stride=patch_size)
+        self.patch_embedding = nn.Conv3d(
+            in_dim, config.hidden_size, kernel_size=patch_size, stride=patch_size
+        )
         self.text_embedding = nn.Sequential(
             nn.Linear(text_dim, self.hidden_size),
             nn.GELU(approximate="tanh"),
             nn.Linear(self.hidden_size, self.hidden_size),
         )
         self.time_embedding = nn.Sequential(
-            nn.Linear(self.freq_dim, self.hidden_size), nn.SiLU(), nn.Linear(self.hidden_size, self.hidden_size)
+            nn.Linear(self.freq_dim, self.hidden_size),
+            nn.SiLU(),
+            nn.Linear(self.hidden_size, self.hidden_size),
         )
 
         self.head = Head(self.hidden_size, out_dim, patch_size, eps)
@@ -302,7 +310,9 @@ class WanModel(VisionModule):
         pad_num = self.config.context_parallel_size - seq % self.config.context_parallel_size
         pad_num = pad_num % self.config.context_parallel_size
         if pad_num != 0:
-            pad = torch.zeros(clip.shape[0], pad_num, clip.shape[2], device=clip.device, dtype=clip.dtype)
+            pad = torch.zeros(
+                clip.shape[0], pad_num, clip.shape[2], device=clip.device, dtype=clip.dtype
+            )
             clip = torch.cat([clip, pad], dim=1)
         return pad_num, clip
 
@@ -386,7 +396,9 @@ class WanModel(VisionModule):
 
         if self.has_image_input:
             if clip_feature is None:
-                raise ValueError("Wan2.1 I2V forward requires clip_feature when has_image_input=True.")
+                raise ValueError(
+                    "Wan2.1 I2V forward requires clip_feature when has_image_input=True."
+                )
             if y is None and self.require_vae_embedding:
                 raise ValueError("Wan2.1 I2V forward requires y when require_vae_embedding=True.")
             _, clip_feature = self.pad_image(clip_feature)
@@ -395,11 +407,15 @@ class WanModel(VisionModule):
         timestep_mod = None
         if self.pre_process:
             target_dtype = next(self.decoder.parameters()).dtype
-            t = self.time_embedding(sinusoidal_embedding_1d(self.freq_dim, timestep)).to(dtype=target_dtype)
+            t = self.time_embedding(sinusoidal_embedding_1d(self.freq_dim, timestep)).to(
+                dtype=target_dtype
+            )
             t_s = t.unsqueeze(0)
             t_for_head = t
 
-            timestep_mod = self.time_projection(t).unflatten(1, (6, self.hidden_size)).to(dtype=target_dtype)
+            timestep_mod = (
+                self.time_projection(t).unflatten(1, (6, self.hidden_size)).to(dtype=target_dtype)
+            )
             context = self.text_embedding(context).to(dtype=target_dtype)
             if y is not None and self.require_vae_embedding:
                 x = torch.cat([x, y], dim=1)
@@ -434,13 +450,17 @@ class WanModel(VisionModule):
 
             cp = self.config.context_parallel_size
             if cp > 1:
-                x = split_forward_gather_backward(x, get_context_parallel_group(), dim=0, grad_scale="down")
+                x = split_forward_gather_backward(
+                    x, get_context_parallel_group(), dim=0, grad_scale="down"
+                )
                 if not self.has_image_input:
                     # Wan2.2: split context across CP group
                     context = split_forward_gather_backward(
                         context, get_context_parallel_group(), dim=0, grad_scale="down"
                     )
-                freqs = split_forward_gather_backward(freqs, get_context_parallel_group(), dim=0, grad_scale="down")
+                freqs = split_forward_gather_backward(
+                    freqs, get_context_parallel_group(), dim=0, grad_scale="down"
+                )
                 rotary_pos_cos = split_forward_gather_backward(
                     rotary_pos_cos, get_context_parallel_group(), dim=0, grad_scale="down"
                 )
@@ -484,7 +504,9 @@ class WanModel(VisionModule):
         x = self.head(x, t)
 
         if self.config.context_parallel_size > 1:
-            x = gather_forward_split_backward(x, get_context_parallel_group(), dim=1, grad_scale="up")
+            x = gather_forward_split_backward(
+                x, get_context_parallel_group(), dim=1, grad_scale="up"
+            )
 
         x = self.unpatchify(x, (f, h, w))
         return x
@@ -568,7 +590,9 @@ class WanModel(VisionModule):
         cu_seqlens_kv_padded = cross_attn_params.cu_seqlens_kv_padded
 
         x = thd_split_for_cp(x, cu_seqlens_q_padded, seq_len_q_padded, cp_size, cp_rank)
-        context = thd_split_for_cp(context, cu_seqlens_kv_padded, seq_len_kv_padded, cp_size, cp_rank)
+        context = thd_split_for_cp(
+            context, cu_seqlens_kv_padded, seq_len_kv_padded, cp_size, cp_rank
+        )
         freqs = thd_split_for_cp(freqs, cu_seqlens_q_padded, seq_len_q_padded, cp_size, cp_rank)
         freqs_cos = thd_split_for_cp(
             freqs_cos.unsqueeze(1), cu_seqlens_q_padded, seq_len_q_padded, cp_size, cp_rank
@@ -611,19 +635,25 @@ class WanModel(VisionModule):
                 x_video_local, get_context_parallel_group(), dim=0, grad_scale="up"
             )
             _, global_to_gathered = _build_thd_reorder_indices(seq_len_q_padded, cp_size)
-            return x_gathered.index_select(0, global_to_gathered.to(x_gathered.device)), timestep_state
+            return x_gathered.index_select(
+                0, global_to_gathered.to(x_gathered.device)
+            ), timestep_state
 
         num_trailing_tokens = 7 * num_samples
         timestep_state = x[-num_samples:, :, :]
         return x[:-num_trailing_tokens, :, :], timestep_state
 
-    def _apply_packed_head(self, x, timestep_state, self_attn_params, seq_len_q_padded, num_samples):
+    def _apply_packed_head(
+        self, x, timestep_state, self_attn_params, seq_len_q_padded, num_samples
+    ):
         """Apply output head independently for each packed sample."""
         cp_size = self.config.context_parallel_size
         if cp_size > 1:
             packed_boundaries = [0]
             for sample_index in range(num_samples):
-                packed_boundaries.append(packed_boundaries[-1] + seq_len_q_padded[sample_index].item())
+                packed_boundaries.append(
+                    packed_boundaries[-1] + seq_len_q_padded[sample_index].item()
+                )
         else:
             packed_boundaries = self_attn_params.cu_seqlens_q.tolist()
 
@@ -632,7 +662,9 @@ class WanModel(VisionModule):
             sample_start = packed_boundaries[sample_index]
             sample_end = packed_boundaries[sample_index + 1]
             sample_x = x[:, sample_start:sample_end, :]
-            sample_timestep_state = timestep_state[sample_index : sample_index + 1, 0, :].to(torch.bfloat16)
+            sample_timestep_state = timestep_state[sample_index : sample_index + 1, 0, :].to(
+                torch.bfloat16
+            )
             head_outputs.append(self.head(sample_x, sample_timestep_state))
         return torch.cat(head_outputs, dim=1)
 
@@ -662,14 +694,22 @@ class WanModel(VisionModule):
             timestep_mod = rearrange(timestep_mod, "B S C -> S B C").contiguous()
 
             if y is not None and self.require_vae_embedding:
-                raise NotImplementedError("Packed WAN I2V training with VAE image embeddings is not supported yet.")
+                raise NotImplementedError(
+                    "Packed WAN I2V training with VAE image embeddings is not supported yet."
+                )
             if clip_feature is not None and self.require_clip_embedding:
-                raise NotImplementedError("Packed WAN I2V training with CLIP image embeddings is not supported yet.")
+                raise NotImplementedError(
+                    "Packed WAN I2V training with CLIP image embeddings is not supported yet."
+                )
             x = x.to(dtype=self.patch_embedding.weight.dtype)
-            x = self._project_packed_latents(x, grid_sizes, seq_len_q_padded, self_attn_params.cu_seqlens_q_padded)
+            x = self._project_packed_latents(
+                x, grid_sizes, seq_len_q_padded, self_attn_params.cu_seqlens_q_padded
+            )
             context = self._embed_packed_context(context, cross_attn_params, num_samples)
-            x, context, freqs, freqs_cos, freqs_sin, local_cu_seqlens_q_padded = self._split_packed_inputs_for_cp(
-                x, context, freqs, freqs_cos, freqs_sin, self_attn_params, cross_attn_params
+            x, context, freqs, freqs_cos, freqs_sin, local_cu_seqlens_q_padded = (
+                self._split_packed_inputs_for_cp(
+                    x, context, freqs, freqs_cos, freqs_sin, self_attn_params, cross_attn_params
+                )
             )
             trailing_timestep_mod = timestep_mod.permute(1, 0, 2).reshape(-1, 1, self.hidden_size)
             trailing_timestep_state = timestep_state.unsqueeze(1)
@@ -681,7 +721,9 @@ class WanModel(VisionModule):
             timestep_state = None
             local_cu_seqlens_q_padded = None
 
-        self._set_packing_state_on_layers(self_attn_params, cross_attn_params, num_samples, local_cu_seqlens_q_padded)
+        self._set_packing_state_on_layers(
+            self_attn_params, cross_attn_params, num_samples, local_cu_seqlens_q_padded
+        )
 
         x = self.decoder(
             hidden_states=x,
@@ -698,10 +740,14 @@ class WanModel(VisionModule):
         if not self.post_process:
             return x
 
-        x, timestep_state = self._restore_packed_output_order(x, timestep_state, seq_len_q_padded, num_samples)
+        x, timestep_state = self._restore_packed_output_order(
+            x, timestep_state, seq_len_q_padded, num_samples
+        )
         x = x.to(torch.bfloat16)
         x = rearrange(x, "S B C -> B S C").contiguous()
-        x = self._apply_packed_head(x, timestep_state, self_attn_params, seq_len_q_padded, num_samples)
+        x = self._apply_packed_head(
+            x, timestep_state, self_attn_params, seq_len_q_padded, num_samples
+        )
         return rearrange(x, "B S C -> S B C").contiguous()
 
     def set_input_tensor(self, input_tensor: Tensor) -> None:

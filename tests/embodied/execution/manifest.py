@@ -1,7 +1,7 @@
 # Copyright 2026 The LoongForge Authors.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Script manifest loading: config/scripts.yaml -> {name: script path relative to examples/embodied}."""
+"""Script manifest loading: config/scripts.yaml -> {name: script path relative to examples/embodied}."""  # noqa: E501
 
 import os
 
@@ -23,11 +23,15 @@ def load_manifest(embodied_root):
     with open(path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
     if not isinstance(data, dict):
-        raise ValueError(f"{path} should be a YAML mapping of '<model name>: <training script relative path>'")
+        raise ValueError(
+            f"{path} should be a YAML mapping of '<model name>: <training script relative path>'"
+        )
     entries = {}
     for model_name, script in data.items():
         if not isinstance(script, str) or not script.strip():
-            raise ValueError(f"The script path for '{model_name}' in {path} should be a non-empty string: {script!r}")
+            raise ValueError(
+                f"The script path for '{model_name}' in {path} should be a non-empty string: {script!r}"  # noqa: E501
+            )
         entries[str(model_name)] = script.strip()
     return entries
 

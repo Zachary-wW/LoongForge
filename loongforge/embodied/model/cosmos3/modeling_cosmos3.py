@@ -110,7 +110,9 @@ class Cosmos3(nn.Module):
         self.enable_fps_modulation = config.enable_fps_modulation
         self.base_fps = config.base_fps
         self.unified_3d_mrope_reset_spatial_ids = config.unified_3d_mrope_reset_spatial_ids
-        self.unified_3d_mrope_temporal_modality_margin = config.unified_3d_mrope_temporal_modality_margin
+        self.unified_3d_mrope_temporal_modality_margin = (
+            config.unified_3d_mrope_temporal_modality_margin
+        )
 
         vfm_config = Cosmos3VFMNetworkConfig(
             vision_gen=config.vision_gen,
@@ -139,7 +141,7 @@ class Cosmos3(nn.Module):
             for _layer in _layers:
                 _layer.compile(fullgraph=False, dynamic=config.compile_dynamic)
             logger.info(
-                "[compile] in-place torch.compile on %d MoTDecoderLayer blocks (fullgraph=True, dynamic=%s)",
+                "[compile] in-place torch.compile on %d MoTDecoderLayer blocks (fullgraph=True, dynamic=%s)",  # noqa: E501
                 len(_layers),
                 config.compile_dynamic,
             )
@@ -187,7 +189,9 @@ class Cosmos3(nn.Module):
                 vae_path=self._vae_path, encode_exact_durations=self.encode_exact_durations
             )
             if self._compile_vae_encode:
-                self._vae_encoder.encode = torch.compile(self._vae_encoder.encode, dynamic=self._compile_dynamic)
+                self._vae_encoder.encode = torch.compile(
+                    self._vae_encoder.encode, dynamic=self._compile_dynamic
+                )
         return self._vae_encoder
 
     def freeze_modules(self):
@@ -244,8 +248,14 @@ class Cosmos3(nn.Module):
 
         # Skip the action-head weights on checkpoint load
         _before = len(state_dict)
-        state_dict = {k: v for k, v in state_dict.items() if not any(s in k for s in self.keys_to_skip_loading)}
-        logger.info(f"DCP: skipping {_before - len(state_dict)} action-head keys on load (kept fresh init)")
+        state_dict = {
+            k: v
+            for k, v in state_dict.items()
+            if not any(s in k for s in self.keys_to_skip_loading)
+        }
+        logger.info(
+            f"DCP: skipping {_before - len(state_dict)} action-head keys on load (kept fresh init)"
+        )
 
         storage_reader = FileSystemReader(model_dir)
         dcp.load(state_dict, storage_reader=storage_reader)
@@ -272,7 +282,10 @@ class Cosmos3(nn.Module):
             raise NotImplementedError
 
     def _remove_padding_from_latent(
-        self, x0_tokens_vision: list[torch.Tensor], frame_size: list[torch.Tensor], spatial_factor=16
+        self,
+        x0_tokens_vision: list[torch.Tensor],
+        frame_size: list[torch.Tensor],
+        spatial_factor=16,
     ) -> list[torch.Tensor]:
         """
         Remove reflection padding from encoded latent vision tokens.
@@ -287,12 +300,14 @@ class Cosmos3(nn.Module):
             orig_w = int(fs[3].item())
             if orig_h // spatial_factor == 0 or orig_w // spatial_factor == 0:
                 logger.warning(
-                    f"Zero-sized latent found: orig_h: {orig_h}, orig_w: {orig_w}, spatial_factor: {spatial_factor}"
+                    f"Zero-sized latent found: orig_h: {orig_h}, orig_w: {orig_w}, spatial_factor: {spatial_factor}"  # noqa: E501
                 )
             orig_h_latent = max(orig_h // spatial_factor, 1)
             orig_w_latent = max(orig_w // spatial_factor, 1)
 
-            cropped_latent = x0_tokens_vision[i][:, :, :, :orig_h_latent, :orig_w_latent].contiguous()
+            cropped_latent = x0_tokens_vision[i][
+                :, :, :, :orig_h_latent, :orig_w_latent
+            ].contiguous()
             cropped_latents.append(cropped_latent)
         return cropped_latents
 
@@ -363,13 +378,19 @@ class Cosmos3(nn.Module):
         for i, latent in enumerate(latents):
             # Compute interpolation in fp32 then cast to model dtype (matches cosmos behavior).
             latent_fp32 = latent.float()
-            noise = torch.randn(latent.shape, device=latent.device, dtype=torch.float32, generator=_noise_gen)
+            noise = torch.randn(
+                latent.shape, device=latent.device, dtype=torch.float32, generator=_noise_gen
+            )
             noisy_mask_v = 1.0 - condition_masks_vision[i]  # [T, 1, 1] fp32
-            sigma_i = sigmas[i].to(device=device, dtype=torch.float32).view(-1, 1, 1)  # [1,1,1] in base mode
+            sigma_i = (
+                sigmas[i].to(device=device, dtype=torch.float32).view(-1, 1, 1)
+            )  # [1,1,1] in base mode
             sigma_i = sigma_i * noisy_mask_v  # [T, 1, 1] — broadcasts across [C, T, H, W]
             x_t = sigma_i * noise + (1.0 - sigma_i) * latent_fp32  # fp32
             noised_latents.append(x_t.to(dtype=dtype).unsqueeze(0))
-            vt_targets_vision.append((noise - latent_fp32).unsqueeze(0))  # fp32, no masking — matches cosmos
+            vt_targets_vision.append(
+                (noise - latent_fp32).unsqueeze(0)
+            )  # fp32, no masking — matches cosmos
 
         # 4. Action noise injection. Conditioning frames are kept clean by zeroing
         #    sigma along their condition_mask entries (matches cosmos's
@@ -438,7 +459,9 @@ class Cosmos3(nn.Module):
 
         # 6. Forward through MoT.
         packed_seq.to_cuda()
-        output_dict = self.net(packed_seq, fps_vision=fps_vision.to(device), fps_action=fps_action.to(device))
+        output_dict = self.net(
+            packed_seq, fps_vision=fps_vision.to(device), fps_action=fps_action.to(device)
+        )
 
         # 7. Vision + action flow-matching losses.
         vision = packed_seq.vision

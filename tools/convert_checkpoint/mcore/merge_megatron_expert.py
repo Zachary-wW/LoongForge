@@ -36,12 +36,20 @@ def parse_args(title=None):
     group.add_argument("--save_ckpt_path", type=str, help="Path to save checkpoint.")
     group.add_argument("--megatron_path", type=str, help="Base directory of Megatron repository")
     group.add_argument(
-        "--encoder_tensor_model_parallel_size", type=int, default=None, help="Tensor parallel size for encoder."
+        "--encoder_tensor_model_parallel_size",
+        type=int,
+        default=None,
+        help="Tensor parallel size for encoder.",
     )
     group.add_argument(
-        "--decoder_tensor_model_parallel_size", type=int, default=1, help="Tensor parallel size for decoder."
+        "--decoder_tensor_model_parallel_size",
+        type=int,
+        default=1,
+        help="Tensor parallel size for decoder.",
     )
-    group.add_argument("--pipeline_model_parallel_size", type=int, default=1, help="Pipeline parallel size.")
+    group.add_argument(
+        "--pipeline_model_parallel_size", type=int, default=1, help="Pipeline parallel size."
+    )
     group.add_argument("--expert_parallel_size", type=int, default=1, help="Expert parallel size.")
     group.add_argument(
         "--num_virtual_stages_per_pipeline_rank",
@@ -68,7 +76,10 @@ args = parse_args()
 if args.megatron_path is not None:
     sys.path.insert(0, args.megatron_path)
 
-prefix_mapping = {"vision_model": "encoder_model.image_encoder", "adapter": "encoder_model.image_projector"}
+prefix_mapping = {
+    "vision_model": "encoder_model.image_encoder",
+    "adapter": "encoder_model.image_projector",
+}
 
 print("===== merge megatron checkpoints ======")
 
@@ -85,24 +96,36 @@ if args.config_file is None:
     vpp_size = args.num_virtual_stages_per_pipeline_rank
 else:
     model_cfg = load_config(args.config_file)
-    if hasattr(args, "encoder_tensor_model_parallel_size") and hasattr(args, "decoder_tensor_model_parallel_size"):
+    if hasattr(args, "encoder_tensor_model_parallel_size") and hasattr(
+        args, "decoder_tensor_model_parallel_size"
+    ):
         etp_size = args.encoder_tensor_model_parallel_size
         dtp_size = args.decoder_tensor_model_parallel_size
     else:
-        etp_size = parallel_param_parser(args, model_cfg, "tensor_model_parallel_size", "image_encoder")
-        dtp_size = parallel_param_parser(args, model_cfg, "tensor_model_parallel_size", "foundation")
+        etp_size = parallel_param_parser(
+            args, model_cfg, "tensor_model_parallel_size", "image_encoder"
+        )
+        dtp_size = parallel_param_parser(
+            args, model_cfg, "tensor_model_parallel_size", "foundation"
+        )
 
     pp_size = parallel_param_parser(args, model_cfg, "pipeline_model_parallel_size", "foundation")
     ep_size = parallel_param_parser(args, model_cfg, "expert_parallel_size", "foundation")
-    vpp_size = parallel_param_parser(args, model_cfg, "num_virtual_stages_per_pipeline_rank", "foundation")
+    vpp_size = parallel_param_parser(
+        args, model_cfg, "num_virtual_stages_per_pipeline_rank", "foundation"
+    )
 
     # Validate that etp_size divides dtp_size evenly
-    assert dtp_size % etp_size == 0, f"decoder TP size ({dtp_size}) must be divisible by encoder TP size ({etp_size})"
+    assert dtp_size % etp_size == 0, (
+        f"decoder TP size ({dtp_size}) must be divisible by encoder TP size ({etp_size})"
+    )
     transform_key(vision_model, prefix_mapping, pp_size, etp_size)
     transform_key(adapter, prefix_mapping, pp_size, etp_size)
     transform_key(patch, prefix_mapping, pp_size, etp_size)
 
-    assert ep_size > 1, "This merge file is designed for Expert Parallel and requires EP size must be > 1"
+    assert ep_size > 1, (
+        "This merge file is designed for Expert Parallel and requires EP size must be > 1"
+    )
 
 
 sub_dirs = sorted([x for x in os.listdir(args.language_model_path) if x.startswith("mp_rank")])

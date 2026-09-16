@@ -146,7 +146,9 @@ class Florence2VisionConfig(PretrainedConfig):
         self.patch_size = patch_size if patch_size is not None else [7, 3, 3, 3]
         self.patch_stride = patch_stride if patch_stride is not None else [4, 2, 2, 2]
         self.patch_padding = patch_padding if patch_padding is not None else [3, 1, 1, 1]
-        self.patch_prenorm = patch_prenorm if patch_prenorm is not None else [False, True, True, True]
+        self.patch_prenorm = (
+            patch_prenorm if patch_prenorm is not None else [False, True, True, True]
+        )
         self.enable_checkpoint = enable_checkpoint
         # When True, WindowAttention uses FlashAttention-2 (fused, faster) instead of the
         # explicit q·kᵀ→softmax→·v path. Mathematically equivalent (loss curve unchanged).
@@ -160,7 +162,9 @@ class Florence2VisionConfig(PretrainedConfig):
         self.visual_temporal_embedding = visual_temporal_embedding
         self.image_pos_embed = image_pos_embed
         self.image_feature_source = (
-            image_feature_source if image_feature_source is not None else ["spatial_avg_pool", "temporal_avg_pool"]
+            image_feature_source
+            if image_feature_source is not None
+            else ["spatial_avg_pool", "temporal_avg_pool"]
         )
         super().__init__(**kwargs)
 
@@ -223,7 +227,9 @@ class Florence2LanguageConfig(PretrainedConfig):
         self.classifier_dropout = classifier_dropout
         self.scale_embedding = scale_embedding
         self.use_cache = use_cache
-        self.num_hidden_layers = num_hidden_layers if num_hidden_layers is not None else encoder_layers
+        self.num_hidden_layers = (
+            num_hidden_layers if num_hidden_layers is not None else encoder_layers
+        )
         # When True, Florence2SdpaAttention prefers flash_attn_func (no-mask CUDA
         # fp16/bf16) and falls back to SDPA. Default off keeps the original SDPA path.
         self.sdpa_use_fa2 = sdpa_use_fa2
@@ -404,7 +410,9 @@ class Florence2VisionConfigSchema:
     image_pos_embed: dict[str, Any] = field(
         default_factory=lambda: {"type": "learned_abs_2d", "max_pos_embeddings": 50}
     )
-    image_feature_source: list[str] = field(default_factory=lambda: ["spatial_avg_pool", "temporal_avg_pool"])
+    image_feature_source: list[str] = field(
+        default_factory=lambda: ["spatial_avg_pool", "temporal_avg_pool"]
+    )
 
 
 @dataclass
@@ -441,7 +449,9 @@ class Florence2ConfigSchema:
     torch_dtype: str = "float32"
     is_encoder_decoder: bool = True
     vision_config: Florence2VisionConfigSchema = field(default_factory=Florence2VisionConfigSchema)
-    text_config: Florence2LanguageConfigSchema = field(default_factory=Florence2LanguageConfigSchema)
+    text_config: Florence2LanguageConfigSchema = field(
+        default_factory=Florence2LanguageConfigSchema
+    )
 
 
 @dataclass

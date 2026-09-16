@@ -70,7 +70,7 @@ class ModelClient:
 
         if action_bridge not in _BRIDGE_WIRING:
             raise ValueError(
-                f"Unsupported RoboTwin action_bridge {action_bridge!r}. Supported: {sorted(_BRIDGE_WIRING)}"
+                f"Unsupported RoboTwin action_bridge {action_bridge!r}. Supported: {sorted(_BRIDGE_WIRING)}"  # noqa: E501
             )
         self.client = PolicyClient(host=host, port=port, timeout=timeout)
         # ee6d_dual / pi05_aloha_14d own the action protocol via the paired
@@ -109,7 +109,9 @@ class ModelClient:
     def reset(self, task_description: str = "", episode_id: Optional[str] = None) -> None:
         """Run reset."""
         self.task_description = task_description
-        self.episode_id = episode_id or f"robotwin/{self.adapter.task_name}/{task_description or 'default'}"
+        self.episode_id = (
+            episode_id or f"robotwin/{self.adapter.task_name}/{task_description or 'default'}"
+        )
         self.payload_builder.reset(self.episode_id)
         self.decoder.reset()
         self.trace_records = []
@@ -203,7 +205,9 @@ class ModelClient:
             "episode_id": self.episode_id,
             "steps": self.trace_records,
         }
-        self.trace_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.trace_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
     def close(self) -> None:
         """Run close."""

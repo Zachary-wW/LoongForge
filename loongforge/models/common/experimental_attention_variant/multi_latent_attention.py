@@ -109,7 +109,9 @@ class MLASelfAttentionFused(MLASelfAttention):
         else:
             # TE backend: use TEGroupedLinear absorb modules
             if TEGroupedLinear is None:
-                raise ImportError("--use-dsa-fused requires TEGroupedLinear from transformer_engine.")
+                raise ImportError(
+                    "--use-dsa-fused requires TEGroupedLinear from transformer_engine."
+                )
 
             self.linear_kv_up_proj_absorb_q = build_module(
                 TEGroupedLinear,
@@ -159,7 +161,9 @@ class MLASelfAttentionFused(MLASelfAttention):
 
         # SP-First: convert all 4 linear modules from TP-sharded to duplicated.
         args = get_args()
-        self.use_dsa_sp_first = getattr(args, "use_dsa_sp_first", False) if args is not None else False
+        self.use_dsa_sp_first = (
+            getattr(args, "use_dsa_sp_first", False) if args is not None else False
+        )
         if self.use_dsa_sp_first:
             self._convert_to_sp_first()
             if self.absorb_backend == "te":
@@ -337,7 +341,8 @@ class MLASelfAttentionFused(MLASelfAttention):
             self.linear_kv_up_proj = build_module(
                 _TELinear,
                 self.config.kv_lora_rank,
-                self.config.num_attention_heads * (self.config.qk_head_dim + self.config.v_head_dim),
+                self.config.num_attention_heads
+                * (self.config.qk_head_dim + self.config.v_head_dim),
                 parallel_mode="duplicated",
                 config=self.config,
                 init_method=self.config.init_method,
@@ -355,7 +360,9 @@ class MLASelfAttentionFused(MLASelfAttention):
         # tensor_model_parallel=False: avoids grad norm overcounting across TP ranks.
         sp_modules = [self.linear_q_up_proj, self.linear_proj]
         if self.absorb_backend == "te":
-            sp_modules.extend([self.linear_kv_up_proj_absorb_q, self.linear_kv_up_proj_absorb_output])
+            sp_modules.extend(
+                [self.linear_kv_up_proj_absorb_q, self.linear_kv_up_proj_absorb_output]
+            )
         else:
             sp_modules.append(self.linear_kv_up_proj)
         for module in sp_modules:
@@ -434,15 +441,21 @@ class MLASelfAttentionFused(MLASelfAttention):
                 q_absorb_weight = getattr(self.linear_kv_up_proj_absorb_q, f"weight{head_idx}")
                 if is_float8tensor(q_absorb_weight):
                     q_absorb_weight.quantize_(k_up_proj[head_idx])
-                    if k_up_proj_hp is not None and hasattr(q_absorb_weight, "set_high_precision_init_val"):
+                    if k_up_proj_hp is not None and hasattr(
+                        q_absorb_weight, "set_high_precision_init_val"
+                    ):
                         q_absorb_weight.set_high_precision_init_val(k_up_proj_hp[head_idx])
                 else:
                     q_absorb_weight.copy_(k_up_proj[head_idx])
 
-                output_absorb_weight = getattr(self.linear_kv_up_proj_absorb_output, f"weight{head_idx}")
+                output_absorb_weight = getattr(
+                    self.linear_kv_up_proj_absorb_output, f"weight{head_idx}"
+                )
                 if is_float8tensor(output_absorb_weight):
                     output_absorb_weight.quantize_(v_up_proj[head_idx])
-                    if v_up_proj_hp is not None and hasattr(output_absorb_weight, "set_high_precision_init_val"):
+                    if v_up_proj_hp is not None and hasattr(
+                        output_absorb_weight, "set_high_precision_init_val"
+                    ):
                         output_absorb_weight.set_high_precision_init_val(v_up_proj_hp[head_idx])
                 else:
                     output_absorb_weight.copy_(v_up_proj[head_idx])
@@ -466,7 +479,9 @@ class MLASelfAttentionFused(MLASelfAttention):
 
         is_forward = self.config.chunkpipe_forward
         microbatch_idx = (
-            self.config.chunkpipe_forward_microbatch if is_forward else self.config.chunkpipe_backward_microbatch
+            self.config.chunkpipe_forward_microbatch
+            if is_forward
+            else self.config.chunkpipe_backward_microbatch
         )
         current_chunk_idx = microbatch_idx % self.num_chunks_per_seq
         start_microbatch_idx = microbatch_idx - current_chunk_idx
@@ -475,10 +490,16 @@ class MLASelfAttentionFused(MLASelfAttention):
         total_concatenated_tokens = (current_chunk_idx + 1) * self.config.chunksize
         # DSA key shape: [seq, batch, kv_lora_rank + qk_pos_emb_head_dim]
         key_hidden_size = self.config.kv_lora_rank + self.config.qk_pos_emb_head_dim
-        concatenated_key_shape = (total_concatenated_tokens, self.config.micro_batch_size, key_hidden_size)
+        concatenated_key_shape = (
+            total_concatenated_tokens,
+            self.config.micro_batch_size,
+            key_hidden_size,
+        )
 
         concatenated_key = torch.zeros(
-            concatenated_key_shape, device=self.kv_compressed_cache.device, dtype=self.kv_compressed_cache.dtype
+            concatenated_key_shape,
+            device=self.kv_compressed_cache.device,
+            dtype=self.kv_compressed_cache.dtype,
         )
 
         def kv_compressed_hook_fn(chunk_index):
@@ -508,13 +529,17 @@ class MLASelfAttentionFused(MLASelfAttention):
         # Retrieve all previous chunks from cache
         current_pos = 0
         for prev_chunk_idx in range(current_chunk_idx):
-            cache_chunk_idx = self.micro_batch_to_cache_chunk_map[start_microbatch_idx + prev_chunk_idx]
+            cache_chunk_idx = self.micro_batch_to_cache_chunk_map[
+                start_microbatch_idx + prev_chunk_idx
+            ]
 
             tp_size = parallel_state.get_tensor_model_parallel_world_size()
             kv_indices = torch.arange(self.config.chunksize // tp_size) + (
                 cache_chunk_idx * self.config.chunksize // tp_size
             )
-            pos_indices = torch.arange(self.config.chunksize) + (cache_chunk_idx * self.config.chunksize)
+            pos_indices = torch.arange(self.config.chunksize) + (
+                cache_chunk_idx * self.config.chunksize
+            )
 
             cached_kv_compressed = self.kv_compressed_cache[kv_indices, :, :]
             cached_key_pos_emb = self.key_pos_emb_cache[pos_indices, :, 0:1, :]
@@ -528,12 +553,16 @@ class MLASelfAttentionFused(MLASelfAttention):
 
             # For DSA: need to gather kv_compressed if sequence parallel, then cat
             if self.config.sequence_parallel:
-                cached_kv_compressed_all = gather_from_sequence_parallel_region(cached_kv_compressed)
+                cached_kv_compressed_all = gather_from_sequence_parallel_region(
+                    cached_kv_compressed
+                )
             else:
                 cached_kv_compressed_all = cached_kv_compressed
 
             # Reconstruct key as [kv_compressed, k_pos_emb]
-            cached_key = torch.cat([cached_kv_compressed_all, cached_key_pos_emb.squeeze(1)], dim=-1)
+            cached_key = torch.cat(
+                [cached_kv_compressed_all, cached_key_pos_emb.squeeze(1)], dim=-1
+            )
 
             concatenated_key[current_pos : current_pos + self.config.chunksize, :, :] = cached_key
             current_pos += self.config.chunksize
@@ -680,7 +709,9 @@ class MLASelfAttentionFused(MLASelfAttention):
         absorb_out_pfx = prefix + "linear_kv_up_proj_absorb_output."
 
         # Check if checkpoint has absorb keys (TE absorb format)
-        absorb_keys = [k for k in state_dict if k.startswith(absorb_q_pfx) or k.startswith(absorb_out_pfx)]
+        absorb_keys = [
+            k for k in state_dict if k.startswith(absorb_q_pfx) or k.startswith(absorb_out_pfx)
+        ]
         if not absorb_keys:
             # Standard checkpoint with kv_up_proj.weight — may still need all-gather for SP-First
             if self.use_dsa_sp_first and kv_up_key in state_dict:
@@ -722,8 +753,12 @@ class MLASelfAttentionFused(MLASelfAttention):
             # Reconstruct kv_up_proj: absorb_q is [kv_lora_rank, qk_head_dim] per head
             # Need to transpose back: k_up_proj was transposed(1,2) when decomposed
             q_absorb = torch.stack(q_absorb_list, dim=0)  # [num_heads, kv_lora_rank, qk_head_dim]
-            q_absorb = q_absorb.transpose(1, 2).contiguous()  # [num_heads, qk_head_dim, kv_lora_rank]
-            output_absorb = torch.stack(output_absorb_list, dim=0)  # [num_heads, v_head_dim, kv_lora_rank]
+            q_absorb = q_absorb.transpose(
+                1, 2
+            ).contiguous()  # [num_heads, qk_head_dim, kv_lora_rank]
+            output_absorb = torch.stack(
+                output_absorb_list, dim=0
+            )  # [num_heads, v_head_dim, kv_lora_rank]
 
             # Concatenate back: [num_heads, (qk_head_dim + v_head_dim), kv_lora_rank]
             kv_up_weight = torch.cat([q_absorb, output_absorb], dim=-2)
@@ -756,7 +791,9 @@ class MLASelfAttentionFused(MLASelfAttention):
                 ".linear_kv_up_proj_absorb_output.",
             )
             incompatible_keys.missing_keys[:] = [
-                key for key in incompatible_keys.missing_keys if not any(marker in key for marker in suppress_markers)
+                key
+                for key in incompatible_keys.missing_keys
+                if not any(marker in key for marker in suppress_markers)
             ]
 
     def _reconstruct_kv_up_weight(self, num_heads):
@@ -771,13 +808,17 @@ class MLASelfAttentionFused(MLASelfAttention):
         q_absorb_list = []
         output_absorb_list = []
         for head_idx in range(num_heads):
-            head_q_absorb = getattr(self.linear_kv_up_proj_absorb_q, f"weight{head_idx}").clone().detach()
+            head_q_absorb = (
+                getattr(self.linear_kv_up_proj_absorb_q, f"weight{head_idx}").clone().detach()
+            )
             if is_float8tensor(head_q_absorb):
                 q_absorb_list.append(head_q_absorb.dequantize())
             else:
                 q_absorb_list.append(head_q_absorb)
 
-            head_output_absorb = getattr(self.linear_kv_up_proj_absorb_output, f"weight{head_idx}").clone().detach()
+            head_output_absorb = (
+                getattr(self.linear_kv_up_proj_absorb_output, f"weight{head_idx}").clone().detach()
+            )
             if is_float8tensor(head_output_absorb):
                 output_absorb_list.append(head_output_absorb.dequantize())
             else:
@@ -841,7 +882,9 @@ class MLASelfAttentionFused(MLASelfAttention):
                     shard_dim=1,
                 )
             else:
-                kv_up_weight = self._reconstruct_kv_up_weight(self.num_attention_heads_per_partition)
+                kv_up_weight = self._reconstruct_kv_up_weight(
+                    self.num_attention_heads_per_partition
+                )
 
         state_dict[prefix + "linear_kv_up_proj.weight"] = kv_up_weight
 
@@ -873,8 +916,14 @@ class MLASelfAttentionFused(MLASelfAttention):
             w = w.dequantize()
         # SP-First: linear_kv_up_proj is duplicated (full heads); use global head count.
         # Non-SP-First: weight is TP-sharded; use per-partition head count.
-        num_heads = self.config.num_attention_heads if self.use_dsa_sp_first else self.num_attention_heads_per_partition
-        w = w.view(num_heads, self.config.qk_head_dim + self.config.v_head_dim, self.config.kv_lora_rank)
+        num_heads = (
+            self.config.num_attention_heads
+            if self.use_dsa_sp_first
+            else self.num_attention_heads_per_partition
+        )
+        w = w.view(
+            num_heads, self.config.qk_head_dim + self.config.v_head_dim, self.config.kv_lora_rank
+        )
         k_up, v_up = torch.split(w, [self.config.qk_head_dim, self.config.v_head_dim], dim=1)
         self._cached_kv_up_slices = (k_up, v_up)
         self._cached_kv_up_key = cache_key
@@ -901,9 +950,13 @@ class MLASelfAttentionFused(MLASelfAttention):
         """Forward pass with Omni absorb-output projection before linear_proj."""
         assert rotary_pos_emb is None, "Rotary position embeddings should not be passed into MLA."
         assert attention_bias is None, "Attention bias should not be passed into MLA."
-        assert rotary_pos_cos is None and rotary_pos_sin is None, "MLA does not support Flash Decoding"
+        assert rotary_pos_cos is None and rotary_pos_sin is None, (
+            "MLA does not support Flash Decoding"
+        )
         assert not rotary_pos_cos_sin, "Flash-infer rope has not been tested with MLA."
-        assert not (self.training and self.cache_mla_latents), "cache_mla_latents conflicts with training."
+        assert not (self.training and self.cache_mla_latents), (
+            "cache_mla_latents conflicts with training."
+        )
 
         inference_context = deprecate_inference_params(inference_context, inference_params)
         if inference_context and not inference_context.is_static_batching():
@@ -974,7 +1027,9 @@ class MLASelfAttentionFused(MLASelfAttention):
                     )
                     m_splits_v = [math.prod(core_attn_out.size()[:-2])] * num_heads_out
                     core_attn_out_permute = core_attn_out.movedim(-2, 0).contiguous()
-                    core_attn_out, _ = self.linear_kv_up_proj_absorb_output(core_attn_out_permute, m_splits_v)
+                    core_attn_out, _ = self.linear_kv_up_proj_absorb_output(
+                        core_attn_out_permute, m_splits_v
+                    )
                     core_attn_out = core_attn_out.transpose(0, core_attn_out.ndim - 2)
                 core_attn_out = core_attn_out.flatten(-2, -1).contiguous()
 
@@ -1051,7 +1106,9 @@ class MLASelfAttentionFused(MLASelfAttention):
                 inference_params=inference_params,
             )
 
-        assert hidden_states.ndim == 3, f"hidden_states should be 3D, [s, b, n*h], got {hidden_states.ndim}D"
+        assert hidden_states.ndim == 3, (
+            f"hidden_states should be 3D, [s, b, n*h], got {hidden_states.ndim}D"
+        )
 
         inference_context = deprecate_inference_params(inference_context, inference_params)
         rotary_seq_len = self.rotary_pos_emb.get_rotary_seq_len(
@@ -1069,7 +1126,9 @@ class MLASelfAttentionFused(MLASelfAttention):
         mscale = 1.0
         packed_seq = packed_seq_params is not None and packed_seq_params.qkv_format == "thd"
         if self.config.rope_type == "rope":
-            rotary_pos_emb = self.rotary_pos_emb(rotary_seq_len, offset=pos_emb_offset, packed_seq=packed_seq)
+            rotary_pos_emb = self.rotary_pos_emb(
+                rotary_seq_len, offset=pos_emb_offset, packed_seq=packed_seq
+            )
         else:
             if self.config.apply_rope_fusion:
                 rotary_pos_cos, rotary_pos_sin = self.rotary_pos_emb.get_cached_cos_sin(
@@ -1115,7 +1174,10 @@ class MLASelfAttentionFused(MLASelfAttention):
             kv_compressed, k_pos_emb = torch.split(
                 kv_combined, [self.config.kv_lora_rank, self.config.qk_pos_emb_head_dim], dim=-1
             )
-            if parallel_state.get_tensor_model_parallel_world_size() > 1 and self.config.sequence_parallel:
+            if (
+                parallel_state.get_tensor_model_parallel_world_size() > 1
+                and self.config.sequence_parallel
+            ):
                 k_pos_emb = gather_from_sequence_parallel_region(k_pos_emb)
 
         if packed_seq_params is not None:
@@ -1127,7 +1189,9 @@ class MLASelfAttentionFused(MLASelfAttention):
             q_compressed = self.q_layernorm(q_compressed)
         kv_compressed = self.kv_layernorm(kv_compressed)
 
-        def qkv_up_proj_and_rope_apply_for_dsa(q_compressed, kv_compressed, k_pos_emb, rotary_pos_emb):
+        def qkv_up_proj_and_rope_apply_for_dsa(
+            q_compressed, kv_compressed, k_pos_emb, rotary_pos_emb
+        ):
             assert self.absorb_backend == "torch" or self.linear_kv_up_proj_absorb_q is not None, (
                 "get_query_kv_tensor() can only be called when absorb_backend is 'torch' or "
                 "linear_kv_up_proj_absorb_q is not None."
@@ -1176,7 +1240,9 @@ class MLASelfAttentionFused(MLASelfAttention):
                     if q_content.ndim == 4:
                         # SBHD [s, b, h, kv_lora_rank] -> HSD [h, s*b, kv_lora_rank]
                         q_content = (
-                            q_content.permute(2, 0, 1, 3).reshape(num_heads_q, -1, q_content.shape[-1]).contiguous()
+                            q_content.permute(2, 0, 1, 3)
+                            .reshape(num_heads_q, -1, q_content.shape[-1])
+                            .contiguous()
                         )
                     else:
                         # THD [t, h, kv_lora_rank] -> HSD [h, t, kv_lora_rank]
@@ -1214,12 +1280,14 @@ class MLASelfAttentionFused(MLASelfAttention):
                 if inference_context is not None:
                     sequence_start = inference_context.sequence_len_offset
                     sequence_end = sequence_start + q_len
-                    rotary_pos_emb_k = rotary_pos_emb_q = rotary_pos_emb[sequence_start:sequence_end]
+                    rotary_pos_emb_k = rotary_pos_emb_q = rotary_pos_emb[
+                        sequence_start:sequence_end
+                    ]
                 elif packed_seq_params is None or self.config.context_parallel_size == 1:
                     if self.use_dsa_sp_first:
                         if packed_seq_params is not None:
                             # Packed-seq + SP-first: pass the full rotary_pos_emb as freqs,
-                            # because per-fragment offsets (from shard_packed_cu_seqlens_for_sp_rank)
+                            # because per-fragment offsets (from shard_packed_cu_seqlens_for_sp_rank)  # noqa: E501
                             # will index into it to get the correct within-sequence positions.
                             rotary_pos_emb_q = rotary_pos_emb
                         else:
@@ -1231,7 +1299,9 @@ class MLASelfAttentionFused(MLASelfAttention):
                 else:
                     rotary_pos_emb_k = rotary_pos_emb_q = rotary_pos_emb
 
-                q_no_pe, q_pos_emb = torch.split(q, [self.config.qk_head_dim, self.config.qk_pos_emb_head_dim], dim=-1)
+                q_no_pe, q_pos_emb = torch.split(
+                    q, [self.config.qk_head_dim, self.config.qk_pos_emb_head_dim], dim=-1
+                )
 
                 # In SP-first mode, q_pos_emb is sharded along the sequence dim by
                 # TP size, but cu_seqlens_q still describes the full packed sequence.
@@ -1272,21 +1342,29 @@ class MLASelfAttentionFused(MLASelfAttention):
                 if self.config.enable_chunkpipe:
 
                     def kv_compressed_hook_fn(grad):
-                        """Hook function to combine compressed KV gradients from subsequent chunk."""
-                        chunks_in_current_sequence = self.config.chunkpipe_backward_microbatch % self.num_chunks_per_seq
+                        """Hook function to combine compressed KV gradients from subsequent chunk."""  # noqa: E501
+                        chunks_in_current_sequence = (
+                            self.config.chunkpipe_backward_microbatch % self.num_chunks_per_seq
+                        )
                         if chunks_in_current_sequence == self.num_chunks_per_seq - 1:
                             return grad
                         else:
-                            grad_from_prev_chunk = self.kv_compressed_cache_grad.pop(chunks_in_current_sequence)
+                            grad_from_prev_chunk = self.kv_compressed_cache_grad.pop(
+                                chunks_in_current_sequence
+                            )
                             return grad + grad_from_prev_chunk
 
                     def key_pos_emb_hook_fn(grad):
-                        """Hook function to combine key position embedding gradients from subsequent chunk."""
-                        chunks_in_current_sequence = self.config.chunkpipe_backward_microbatch % self.num_chunks_per_seq
+                        """Hook function to combine key position embedding gradients from subsequent chunk."""  # noqa: E501
+                        chunks_in_current_sequence = (
+                            self.config.chunkpipe_backward_microbatch % self.num_chunks_per_seq
+                        )
                         if chunks_in_current_sequence == self.num_chunks_per_seq - 1:
                             return grad
                         else:
-                            grad_from_prev_chunk = self.key_pos_emb_cache_grad.pop(chunks_in_current_sequence)
+                            grad_from_prev_chunk = self.key_pos_emb_cache_grad.pop(
+                                chunks_in_current_sequence
+                            )
                             return grad + grad_from_prev_chunk
 
                     if self.is_enable_grad_chunkpipe():

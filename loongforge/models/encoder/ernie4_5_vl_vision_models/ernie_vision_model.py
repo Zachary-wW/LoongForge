@@ -77,7 +77,9 @@ class VisionRotaryEmbedding(nn.Module):
             theta (float, optional): the frequency factor. Defaults to 10000.0.
         """
         super().__init__()
-        self.inv_freq = 1.0 / theta ** (torch.arange(start=0, end=dim, step=2, dtype=torch.float32) / dim)
+        self.inv_freq = 1.0 / theta ** (
+            torch.arange(start=0, end=dim, step=2, dtype=torch.float32) / dim
+        )
 
     def forward(self, seqlen: int) -> torch.Tensor:
         """
@@ -109,7 +111,9 @@ class VariableResolutionResamplerModel(nn.Module):
         # compress 2d conv(picture) to 1d
         self.spatial_dim = self.in_dim * self.spatial_conv_size * self.spatial_conv_size
         # compress 3d conv(video) to 1d
-        self.temporal_dim = self.in_dim * self.spatial_conv_size * self.spatial_conv_size * self.temporal_conv_size
+        self.temporal_dim = (
+            self.in_dim * self.spatial_conv_size * self.spatial_conv_size * self.temporal_conv_size
+        )
 
         # using unique name space start with "mm_resampler_"
         with UniqueNameGuard("mm_resampler_") as guard:  # noqa: F841
@@ -147,7 +151,7 @@ class VariableResolutionResamplerModel(nn.Module):
             x in the shape of [S, H]
             S is ordered in the following way: [ [patch_h*patch_w (row-major traversal)] * patch_time]
             H is simply hidden
-            """
+            """  # noqa: E501
             x = self.spatial_conv_reshape(x, self.spatial_conv_size)
             x = self.spatial_linear(x)
             return x
@@ -168,11 +172,15 @@ class VariableResolutionResamplerModel(nn.Module):
             batch_offset[0] = 0
             batch_offset[1:] = tokens_per_img_or_vid.cumsum()[:-1]
 
-            assert self.temporal_conv_size == 2, f"Hard Code: temporal_conv_size==2, got:{self.temporal_conv_size}"
+            assert self.temporal_conv_size == 2, (
+                f"Hard Code: temporal_conv_size==2, got:{self.temporal_conv_size}"
+            )
 
             # TODO: support any temporal conv size
             slice_offsets = []
-            for temporoal_size, spatial_size, b_offset in zip(grid_t, grid_hw_after_conv, batch_offset):
+            for temporoal_size, spatial_size, b_offset in zip(
+                grid_t, grid_hw_after_conv, batch_offset
+            ):
                 for temp_offset in range(0, temporoal_size, 2):
                     slice_offsets.append(
                         np.arange(
@@ -183,7 +191,9 @@ class VariableResolutionResamplerModel(nn.Module):
             slice_offsets = torch.tensor(np.concatenate(slice_offsets, axis=-1)).to(x.device)
 
             slice_offsets2 = []
-            for temporoal_size, spatial_size, b_offset in zip(grid_t, grid_hw_after_conv, batch_offset):
+            for temporoal_size, spatial_size, b_offset in zip(
+                grid_t, grid_hw_after_conv, batch_offset
+            ):
                 for temp_offset in range(1 if temporoal_size > 1 else 0, temporoal_size, 2):
                     slice_offsets2.append(
                         np.arange(
@@ -327,7 +337,9 @@ class ErnieVisionModel(BaseMegatronVisionModule):
         rotary_pos_emb = rotary_pos_emb_full[pos_ids].flatten(start_dim=1)
         return rotary_pos_emb
 
-    def forward(self, hidden_states: torch.Tensor, image_grid_thw: torch.Tensor, num_pad=0) -> torch.Tensor:
+    def forward(
+        self, hidden_states: torch.Tensor, image_grid_thw: torch.Tensor, num_pad=0
+    ) -> torch.Tensor:
         """
         Args:
             hidden_states (torch.Tensor): image input tensor, shape [S, C*P*P], uint8
@@ -347,9 +359,9 @@ class ErnieVisionModel(BaseMegatronVisionModule):
         rotary_pos_emb = rotary_pos_emb.to(hidden_states.device).float()
 
         # ---- cu_seqlens for varlen attention ----
-        cu_seqlens = torch.repeat_interleave(image_grid_thw[:, 1] * image_grid_thw[:, 2], image_grid_thw[:, 0]).cumsum(
-            dim=0, dtype=torch.int32
-        )
+        cu_seqlens = torch.repeat_interleave(
+            image_grid_thw[:, 1] * image_grid_thw[:, 2], image_grid_thw[:, 0]
+        ).cumsum(dim=0, dtype=torch.int32)
 
         if num_pad > 0:
             cu_seqlens = F.pad(cu_seqlens, (1, 1), value=0)

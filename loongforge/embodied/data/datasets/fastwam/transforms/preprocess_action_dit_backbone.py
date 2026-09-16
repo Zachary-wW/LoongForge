@@ -91,7 +91,7 @@ def _resize_tensor_to_shape(src: torch.Tensor, target_shape: tuple[int, ...]) ->
     while out.ndim > len(target_shape):
         if out.shape[0] != 1:
             raise ValueError(
-                f"Cannot reduce tensor rank for resize: src shape={tuple(src.shape)}, target={target_shape}"
+                f"Cannot reduce tensor rank for resize: src shape={tuple(src.shape)}, target={target_shape}"  # noqa: E501
             )
         out = out.squeeze(0)
 
@@ -111,7 +111,7 @@ def _resize_tensor_to_shape(src: torch.Tensor, target_shape: tuple[int, ...]) ->
 
     if tuple(out.shape) != tuple(target_shape):
         raise ValueError(
-            f"Resize produced wrong shape. src={tuple(src.shape)}, target={target_shape}, got={tuple(out.shape)}"
+            f"Resize produced wrong shape. src={tuple(src.shape)}, target={target_shape}, got={tuple(out.shape)}"  # noqa: E501
         )
     return out.to(dtype=src.dtype)
 
@@ -159,7 +159,10 @@ def main() -> None:
     args = parse_args()
 
     from loongforge.embodied.model.fastwam.action.dit import ActionDiT
-    from loongforge.embodied.model.fastwam.wan.loader import _load_registered_model, _resolve_configs
+    from loongforge.embodied.model.fastwam.wan.loader import (
+        _load_registered_model,
+        _resolve_configs,
+    )
 
     apply_alpha_scaling = not args.no_alpha_scaling
     torch_dtype = _resolve_dtype(args.dtype)
@@ -236,7 +239,9 @@ def main() -> None:
     if action_cfg["num_heads"] != video_expert.num_heads:
         raise ValueError("ActionDiT `num_heads` must match video expert for MoT mixed attention.")
     if action_cfg["attn_head_dim"] != video_expert.attn_head_dim:
-        raise ValueError("ActionDiT `attn_head_dim` must match video expert for MoT mixed attention.")
+        raise ValueError(
+            "ActionDiT `attn_head_dim` must match video expert for MoT mixed attention."
+        )
     if action_cfg["num_layers"] != len(video_expert.blocks):
         raise ValueError("ActionDiT `num_layers` must match video expert.")
 

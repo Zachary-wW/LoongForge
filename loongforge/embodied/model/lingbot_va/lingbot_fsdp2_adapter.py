@@ -22,13 +22,17 @@ from loongforge.embodied.model.lingbot_va.modules.wan_model import WanTransforme
 
 def _configure_lingbot_checkpoint(model, training_args):
     """Use TE's FP8-aware checkpoint for LingBot's internal block recompute."""
-    if not (getattr(training_args, "fp8", False) and getattr(training_args, "fp8_backend", None) == "te"):
+    if not (
+        getattr(training_args, "fp8", False) and getattr(training_args, "fp8_backend", None) == "te"
+    ):
         return
 
     backbone = getattr(model, "model", None)
     set_checkpoint = getattr(backbone, "set_block_checkpoint_fn", None)
     if not callable(set_checkpoint):
-        raise RuntimeError("LingBot TE FP8 requires a backbone that supports set_block_checkpoint_fn().")
+        raise RuntimeError(
+            "LingBot TE FP8 requires a backbone that supports set_block_checkpoint_fn()."
+        )
 
     from loongforge.embodied.distributed.fp8_utils import te_checkpoint_fn
 
@@ -210,7 +214,7 @@ def _lingbot_local_gradient_groups(optimizer):
             continue
         if not isinstance(gradient, DTensor):
             raise RuntimeError(
-                f"LingBot optimizer-owned gradient handling requires DTensor gradients; got {type(gradient).__name__}."
+                f"LingBot optimizer-owned gradient handling requires DTensor gradients; got {type(gradient).__name__}."  # noqa: E501
             )
         local_gradient = gradient._local_tensor
         if local_gradient.is_sparse:
@@ -243,7 +247,11 @@ def clip_lingbot_optimizer_gradients(optimizer, max_norm):
     if parameters:
         device = parameters[0]._local_tensor.device
     else:
-        device = torch.device("cuda", torch.cuda.current_device()) if torch.cuda.is_available() else torch.device("cpu")
+        device = (
+            torch.device("cuda", torch.cuda.current_device())
+            if torch.cuda.is_available()
+            else torch.device("cpu")
+        )
     total_norm_sq = _lingbot_local_norm_sq(gradient_groups, device)
     if torch.distributed.is_available() and torch.distributed.is_initialized():
         torch.distributed.all_reduce(total_norm_sq, op=torch.distributed.ReduceOp.SUM)
@@ -287,13 +295,17 @@ def register_lingbot_post_step_reshard(
     chunks = model if isinstance(model, (list, tuple)) else [model]
     for chunk in chunks:
         for module in chunk.modules():
-            if id(module) in seen or not (hasattr(module, "unshard") and hasattr(module, "reshard")):
+            if id(module) in seen or not (
+                hasattr(module, "unshard") and hasattr(module, "reshard")
+            ):
                 continue
             seen.add(id(module))
             fsdp_modules.append(module)
 
     if not hasattr(optimizer, "register_step_post_hook"):
-        raise TypeError("LingBot optimizer must expose register_step_post_hook for post-step reshard")
+        raise TypeError(
+            "LingBot optimizer must expose register_step_post_hook for post-step reshard"
+        )
 
     logged = False
 
@@ -301,7 +313,9 @@ def register_lingbot_post_step_reshard(
         nonlocal logged
         for module in fsdp_modules:
             module.reshard()
-        if not logged and (not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0):
+        if not logged and (
+            not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0
+        ):
             print(
                 f"[lingbot-post-step-reshard] active modules={len(fsdp_modules)}",
                 flush=True,

@@ -61,7 +61,9 @@ def get_batch(data_iterator, vp_stage: Optional[int] = None):
     # get batches based on the TP rank you are on
     batch = get_batch_on_this_tp_rank(
         data_iterator,
-        mtp_on_this_rank=mtp_on_this_rank(config=get_model_config(), ignore_virtual=False, vp_stage=vp_stage),
+        mtp_on_this_rank=mtp_on_this_rank(
+            config=get_model_config(), ignore_virtual=False, vp_stage=vp_stage
+        ),
     )
 
     # slice batch along sequence dimension for context parallelism
@@ -154,7 +156,12 @@ def forward_step(data_iterator, model, return_schedule_plan: bool = False):
     timers("batch-generator").stop()
 
     next_batch = None
-    if args.enable_chunkpipe and args.mtp_num_layers and args.mtp_num_layers > 0 and mpu.is_pipeline_last_stage():
+    if (
+        args.enable_chunkpipe
+        and args.mtp_num_layers
+        and args.mtp_num_layers > 0
+        and mpu.is_pipeline_last_stage()
+    ):
         next_batch = get_next_batch_on_this_tp_rank(data_iterator)
 
     extra_block_kwargs = None
@@ -189,7 +196,7 @@ def train_valid_test_datasets_provider(train_val_test_num_samples, vp_stage=None
     """Build the train test and validation datasets.
 
     For GPT-like models, if there are no special requirements, we should directly reuse the Megatron GPTDataset.
-    """
+    """  # noqa: E501
     args = get_args()
     tokenizer = get_tokenizer()
 

@@ -58,7 +58,7 @@ def get_qwen3_5_transformer_layer_spec(config, vp_stage=None):
     """Helper function to get module spec for Qwen3_5"""
     if not HAVE_TE:
         raise ImportError(
-            "Qwen3_5 layer spec requires Transformer Engine. Please install it with: pip install transformer-engine"
+            "Qwen3_5 layer spec requires Transformer Engine. Please install it with: pip install transformer-engine"  # noqa: E501
         )
 
     layer_norm_impl = Qwen3NextRMSNorm
@@ -120,7 +120,9 @@ def get_qwen3_5_transformer_layer_spec(config, vp_stage=None):
 
     # Slice layer specs for pipeline parallelism
     local_layer_specs = get_local_layer_specs(config, layer_specs, vp_stage=vp_stage)
-    block_spec = TransformerBlockSubmodules(layer_specs=local_layer_specs, layer_norm=layer_norm_impl)
+    block_spec = TransformerBlockSubmodules(
+        layer_specs=local_layer_specs, layer_norm=layer_norm_impl
+    )
 
     # Build MTP (Multi-Token Prediction) block spec if configured
     mtp_block_spec = None

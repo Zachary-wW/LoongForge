@@ -4,7 +4,9 @@
 """Transform external checkpoint keys into LoongForge naming schemes."""
 
 
-def transform_key(module, prefix_mapping, pipeline_model_parallel_size=1, tensor_model_parallel_size=1):
+def transform_key(
+    module, prefix_mapping, pipeline_model_parallel_size=1, tensor_model_parallel_size=1
+):
     """
     Transform keys in module using prefix mapping, supporting VPP.
 

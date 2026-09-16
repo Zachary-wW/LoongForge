@@ -58,7 +58,9 @@ class MockPolicy:
         self._chunk_cache.pop(episode_id, None)
         return {"episode_id": episode_id}
 
-    def predict_action(self, episode_id: str = "default", episode_step: int = 0, **_: Any) -> Dict[str, Any]:
+    def predict_action(
+        self, episode_id: str = "default", episode_step: int = 0, **_: Any
+    ) -> Dict[str, Any]:
         """Run predict_action."""
         cache_entry = self._chunk_cache.get(episode_id)
         if cache_entry is not None:

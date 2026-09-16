@@ -33,14 +33,16 @@ def shard_packed_cu_seqlens_for_sp_rank(
             sequence fragment on this rank. Aligned with local_cu_seqlens[1:].
     """
     if global_cu_seqlens.dim() != 1 or global_cu_seqlens.numel() < 2:
-        raise ValueError(f"global_cu_seqlens must be 1D with length >= 2, got {tuple(global_cu_seqlens.shape)}")
+        raise ValueError(
+            f"global_cu_seqlens must be 1D with length >= 2, got {tuple(global_cu_seqlens.shape)}"
+        )
     if not (0 <= sp_rank < sp_world_size):
         raise ValueError(f"sp_rank must be in [0, {sp_world_size}), got {sp_rank}")
 
     total_packed_tokens = int(global_cu_seqlens[-1].item())
     if total_packed_tokens % sp_world_size != 0:
         raise ValueError(
-            f"total_packed_tokens ({total_packed_tokens}) must be divisible by sp_world_size ({sp_world_size})"
+            f"total_packed_tokens ({total_packed_tokens}) must be divisible by sp_world_size ({sp_world_size})"  # noqa: E501
         )
 
     local_token_count = total_packed_tokens // sp_world_size
@@ -172,7 +174,9 @@ class _GatherHeadsAndSplitSequence(torch.autograd.Function):
     def forward(ctx, input_):
         """input_: [seq_len, batch, heads_per_tp, head_dim]"""
         # Gather head and split sequence at the same time
-        output = all_to_all_hp2sp_with_padding(input_)  # [seq_len_padded/tp, batch, total_heads, head_dim]
+        output = all_to_all_hp2sp_with_padding(
+            input_
+        )  # [seq_len_padded/tp, batch, total_heads, head_dim]
         ctx.orig_s = input_.size(0)
         return output
 
@@ -181,7 +185,9 @@ class _GatherHeadsAndSplitSequence(torch.autograd.Function):
         """grad_output: [seq_len_padded/tp, batch, total_heads, head_dim]"""
         # Gather sequence and scatter head at the same time
         orig_s = ctx.orig_s
-        output = all_to_all_sp2hp_with_padding(grad_output, orig_s)  # [seq_len, batch, heads_per_tp, head_dim]
+        output = all_to_all_sp2hp_with_padding(
+            grad_output, orig_s
+        )  # [seq_len, batch, heads_per_tp, head_dim]
         return output
 
 
@@ -205,7 +211,9 @@ class _GatherSequenceAndScatterHeads(torch.autograd.Function):
         # Swap batch and sequence dim to prepare for all_to_all_hp2sp_with_padding
         grad_output = grad_output.transpose(0, 1).contiguous()
         # Gather head and split sequence at the same time
-        output = all_to_all_hp2sp_with_padding(grad_output)  # [seq_len_padded/tp, batch, total_heads, head_dim]
+        output = all_to_all_hp2sp_with_padding(
+            grad_output
+        )  # [seq_len_padded/tp, batch, total_heads, head_dim]
         # Swap back batch and sequence dim
         output = output.transpose(0, 1).contiguous()
         return output

@@ -81,7 +81,9 @@ class HuggingfaceTokenizer:
         # arguments
         _kwargs = {"return_tensors": "pt"}
         if self.seq_len is not None:
-            _kwargs.update({"padding": "max_length", "truncation": True, "max_length": self.seq_len})
+            _kwargs.update(
+                {"padding": "max_length", "truncation": True, "max_length": self.seq_len}
+            )
         _kwargs.update(**kwargs)
 
         # tokenization
@@ -108,7 +110,9 @@ class HuggingfaceTokenizer:
         return text
 
 
-def collate(features: List[dict], tokenizer: AutoTokenizer, num_views=3, embodiment_tag_mapping=None) -> dict:
+def collate(
+    features: List[dict], tokenizer: AutoTokenizer, num_views=3, embodiment_tag_mapping=None
+) -> dict:
     """Collate a list of per-sample dicts into a batched dict, tokenizing text fields."""
     batch = {}
     keys = features[0].keys()
@@ -127,105 +131,149 @@ def collate(features: List[dict], tokenizer: AutoTokenizer, num_views=3, embodim
                         # If it's already a scalar (string, float, int, etc.), convert to string
                         processed_item = str(parsed_item)
 
-                    if num_views > 1 and elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.AGIBOT.value]:
+                    if (
+                        num_views > 1
+                        and elem["embodiment_id"]
+                        == embodiment_tag_mapping[EmbodimentTag.AGIBOT.value]
+                    ):
                         processed_item = (
                             "A multi-view video shows that a robot "
                             + processed_item.lower()
-                            + " The video is split into four views: The top-left view shows the camera view "
-                            "from the robot's head, the top-right view shows the camera view from the right "
-                            "hand, the bottom-left view shows the camera view from the left hand, and the "
-                            "bottom-right view is a black screen (inactive view). The robot " + processed_item.lower()
+                            + " The video is split into four views: The top-left view shows the camera view "  # noqa: E501
+                            "from the robot's head, the top-right view shows the camera view from the right "  # noqa: E501
+                            "hand, the bottom-left view shows the camera view from the left hand, and the "  # noqa: E501
+                            "bottom-right view is a black screen (inactive view). The robot "
+                            + processed_item.lower()
                         )
-                    elif elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.OXE_DROID.value]:
+                    elif (
+                        elem["embodiment_id"]
+                        == embodiment_tag_mapping[EmbodimentTag.OXE_DROID.value]
+                    ):
                         processed_item = (
                             "A multi-view video shows that a robot "
                             + processed_item.lower()
-                            + " The video is split into three views: The top view shows the camera view "
-                            "from the robot's wrist, the bottom-left view shows the camera view from the "
-                            "left exterior camera, and the bottom-right view shows the camera view from the "
-                            "right exterior camera. During training, one of the two bottom exterior views "
-                            "may be a black screen (dropped view). The robot " + processed_item.lower()
+                            + " The video is split into three views: The top view shows the camera view "  # noqa: E501
+                            "from the robot's wrist, the bottom-left view shows the camera view from the "  # noqa: E501
+                            "left exterior camera, and the bottom-right view shows the camera view from the "  # noqa: E501
+                            "right exterior camera. During training, one of the two bottom exterior views "  # noqa: E501
+                            "may be a black screen (dropped view). The robot "
+                            + processed_item.lower()
                         )
-                    elif elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.LIBERO_SIM.value]:
+                    elif (
+                        elem["embodiment_id"]
+                        == embodiment_tag_mapping[EmbodimentTag.LIBERO_SIM.value]
+                    ):
                         processed_item = (
                             "A multi-view video shows that a robot "
                             + processed_item.lower()
-                            + " The video is split into two horizontal views: the left view shows the "
+                            + " The video is split into two horizontal views: the left view shows the "  # noqa: E501
                             "exterior camera and the right view shows the wrist camera. The robot "
                             + processed_item.lower()
                         )
-                    elif elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.GR1_UNIFIED.value]:
-                        processed_item = "A single view video shows that a human " + processed_item.lower()
-                    elif elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.MECKA_HANDS.value]:
-                        processed_item = "A single view video shows that a human " + processed_item.lower()
+                    elif (
+                        elem["embodiment_id"]
+                        == embodiment_tag_mapping[EmbodimentTag.GR1_UNIFIED.value]
+                    ):
+                        processed_item = (
+                            "A single view video shows that a human " + processed_item.lower()
+                        )
+                    elif (
+                        elem["embodiment_id"]
+                        == embodiment_tag_mapping[EmbodimentTag.MECKA_HANDS.value]
+                    ):
+                        processed_item = (
+                            "A single view video shows that a human " + processed_item.lower()
+                        )
                     elif elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.XDOF.value]:
                         processed_item = (
                             "A multi-view video shows that a robot "
                             + processed_item.lower()
-                            + " The video is split into four views: The top-left view shows the camera view "
-                            "from the robot's head, the top-right view shows the camera view from the right "
-                            "hand, the bottom-left view shows the camera view from the left hand, and the "
-                            "bottom-right view is a black screen (inactive view). The robot " + processed_item.lower()
+                            + " The video is split into four views: The top-left view shows the camera view "  # noqa: E501
+                            "from the robot's head, the top-right view shows the camera view from the right "  # noqa: E501
+                            "hand, the bottom-left view shows the camera view from the left hand, and the "  # noqa: E501
+                            "bottom-right view is a black screen (inactive view). The robot "
+                            + processed_item.lower()
                         )
                     elif elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.YAM.value]:
                         processed_item = (
                             "A multi-view video shows that a robot "
                             + processed_item.lower()
-                            + " The video is split into four views: The top-left view shows the top camera, "
-                            "the top-right view shows the right camera, the bottom-left view shows the left "
-                            "camera, and the bottom-right view is a black screen. The robot " + processed_item.lower()
+                            + " The video is split into four views: The top-left view shows the top camera, "  # noqa: E501
+                            "the top-right view shows the right camera, the bottom-left view shows the left "  # noqa: E501
+                            "camera, and the bottom-right view is a black screen. The robot "
+                            + processed_item.lower()
                         )
                     else:
                         raise ValueError(f"Embodiment ID {elem['embodiment_id']} not supported.")
                     output_values.append(processed_item)
                 except (ValueError, SyntaxError, TypeError):
                     # If parsing fails or item is already a string, use it directly
-                    if num_views > 1 and elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.AGIBOT.value]:
+                    if (
+                        num_views > 1
+                        and elem["embodiment_id"]
+                        == embodiment_tag_mapping[EmbodimentTag.AGIBOT.value]
+                    ):
                         item = (
                             "A multi-view video shows that a robot "
                             + str(item).lower()
-                            + " The video is split into four views: The top-left view shows the camera view "
-                            "from the robot's head, the top-right view shows the camera view from the right "
-                            "hand, the bottom-left view shows the camera view from the left hand, and the "
-                            "bottom-right view is a black screen (inactive view). The robot " + str(item).lower()
+                            + " The video is split into four views: The top-left view shows the camera view "  # noqa: E501
+                            "from the robot's head, the top-right view shows the camera view from the right "  # noqa: E501
+                            "hand, the bottom-left view shows the camera view from the left hand, and the "  # noqa: E501
+                            "bottom-right view is a black screen (inactive view). The robot "
+                            + str(item).lower()
                         )
-                    elif elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.OXE_DROID.value]:
+                    elif (
+                        elem["embodiment_id"]
+                        == embodiment_tag_mapping[EmbodimentTag.OXE_DROID.value]
+                    ):
                         item = (
                             "A multi-view video shows that a robot "
                             + str(item).lower()
-                            + " The video is split into three views: The top view shows the camera view "
-                            "from the robot's wrist, the bottom-left view shows the camera view from the "
-                            "left exterior camera, and the bottom-right view shows the camera view from the "
-                            "right exterior camera. During training, one of the two bottom exterior views "
+                            + " The video is split into three views: The top view shows the camera view "  # noqa: E501
+                            "from the robot's wrist, the bottom-left view shows the camera view from the "  # noqa: E501
+                            "left exterior camera, and the bottom-right view shows the camera view from the "  # noqa: E501
+                            "right exterior camera. During training, one of the two bottom exterior views "  # noqa: E501
                             "may be a black screen (dropped view). The robot " + str(item).lower()
                         )
-                    elif elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.LIBERO_SIM.value]:
+                    elif (
+                        elem["embodiment_id"]
+                        == embodiment_tag_mapping[EmbodimentTag.LIBERO_SIM.value]
+                    ):
                         item = (
                             "A multi-view video shows that a robot "
                             + str(item).lower()
-                            + " The video is split into two horizontal views: the left view shows the "
-                            "exterior camera and the right view shows the wrist camera. The robot " + str(item).lower()
+                            + " The video is split into two horizontal views: the left view shows the "  # noqa: E501
+                            "exterior camera and the right view shows the wrist camera. The robot "
+                            + str(item).lower()
                         )
-                    elif elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.GR1_UNIFIED.value]:
+                    elif (
+                        elem["embodiment_id"]
+                        == embodiment_tag_mapping[EmbodimentTag.GR1_UNIFIED.value]
+                    ):
                         item = "A single view video shows that a human " + str(item).lower()
-                    elif elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.MECKA_HANDS.value]:
+                    elif (
+                        elem["embodiment_id"]
+                        == embodiment_tag_mapping[EmbodimentTag.MECKA_HANDS.value]
+                    ):
                         item = "A single view video shows that a human " + str(item).lower()
                     elif elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.XDOF.value]:
                         item = (
                             "A multi-view video shows that a robot "
                             + str(item).lower()
-                            + " The video is split into four views: The top-left view shows the camera view "
-                            "from the robot's head, the top-right view shows the camera view from the right "
-                            "hand, the bottom-left view shows the camera view from the left hand, and the "
-                            "bottom-right view is a black screen (inactive view). The robot " + str(item).lower()
+                            + " The video is split into four views: The top-left view shows the camera view "  # noqa: E501
+                            "from the robot's head, the top-right view shows the camera view from the right "  # noqa: E501
+                            "hand, the bottom-left view shows the camera view from the left hand, and the "  # noqa: E501
+                            "bottom-right view is a black screen (inactive view). The robot "
+                            + str(item).lower()
                         )
                     elif elem["embodiment_id"] == embodiment_tag_mapping[EmbodimentTag.YAM.value]:
                         item = (
                             "A multi-view video shows that a robot "
                             + str(item).lower()
-                            + " The video is split into four views: The top-left view shows the top camera, "
-                            "the top-right view shows the right camera, the bottom-left view shows the left "
-                            "camera, and the bottom-right view is a black screen. The robot " + str(item).lower()
+                            + " The video is split into four views: The top-left view shows the top camera, "  # noqa: E501
+                            "the top-right view shows the right camera, the bottom-left view shows the left "  # noqa: E501
+                            "camera, and the bottom-right view is a black screen. The robot "
+                            + str(item).lower()
                         )
                     else:
                         raise ValueError(f"Embodiment ID {elem['embodiment_id']} not supported.")
@@ -255,7 +303,7 @@ def collate(features: List[dict], tokenizer: AutoTokenizer, num_views=3, embodim
                     for i, value in enumerate(values)
                 ]
                 raise ValueError(
-                    f"DreamZero collate failed for key={key!r}; batch_size={len(values)}; shapes={shape_info}"
+                    f"DreamZero collate failed for key={key!r}; batch_size={len(values)}; shapes={shape_info}"  # noqa: E501
                 ) from exc
     return batch
 
@@ -322,13 +370,17 @@ class DefaultDataCollator(DataCollatorMixin):
     ):
         """Build the tokenizer used to collate text fields in a batch."""
         super().__init__()
-        self.tokenizer = HuggingfaceTokenizer(name=tokenizer_path, seq_len=max_length, clean="whitespace")
+        self.tokenizer = HuggingfaceTokenizer(
+            name=tokenizer_path, seq_len=max_length, clean="whitespace"
+        )
         self.num_views = num_views
         self.embodiment_tag_mapping = embodiment_tag_mapping
 
     def __call__(self, features: List[Dict[str, Any]]) -> "DreamZeroPreparedBatch":
         """Collate a list of feature dicts into a training batch (PreparedBatch-equivalent)."""
-        return DreamZeroPreparedBatch(collate(features, self.tokenizer, self.num_views, self.embodiment_tag_mapping))
+        return DreamZeroPreparedBatch(
+            collate(features, self.tokenizer, self.num_views, self.embodiment_tag_mapping)
+        )
 
 
 class DreamTransform(InvertibleModalityTransform):
@@ -339,7 +391,9 @@ class DreamTransform(InvertibleModalityTransform):
         default_factory=list,
         description="Inherited modality selector; DreamTransform consumes canonical batch keys.",
     )
-    training: bool = Field(default=True, description="Whether to apply the transform in training mode.")
+    training: bool = Field(
+        default=True, description="Whether to apply the transform in training mode."
+    )
 
     embodiment_tag_mapping: dict[str, int] = Field(
         default_factory=dict,
@@ -352,7 +406,7 @@ class DreamTransform(InvertibleModalityTransform):
     )
     always_use_default_instruction: bool = Field(
         default=False,
-        description="Whether to always use the default instruction. For studying how much the language helps.",
+        description="Whether to always use the default instruction. For studying how much the language helps.",  # noqa: E501
     )
 
     # Private attributes to keep track of shapes/dimensions across apply/unapply
@@ -381,7 +435,9 @@ class DreamTransform(InvertibleModalityTransform):
         """Initialize the transform and construct its tokenizer."""
         super().__init__(**kwargs)
         # Initialize the tokenizer
-        self._tokenizer = HuggingfaceTokenizer(name=self.tokenizer_path, seq_len=self.max_length, clean="whitespace")
+        self._tokenizer = HuggingfaceTokenizer(
+            name=self.tokenizer_path, seq_len=self.max_length, clean="whitespace"
+        )
 
     @property
     def tokenizer(self):
@@ -394,7 +450,9 @@ class DreamTransform(InvertibleModalityTransform):
 
     def get_embodiment_tag(self) -> int:
         """Get the embodiment tag from the data."""
-        assert self.embodiment_tag is not None, "Embodiment tag not set. Please call set_metadata first."
+        assert self.embodiment_tag is not None, (
+            "Embodiment tag not set. Please call set_metadata first."
+        )
         return self.embodiment_tag_mapping[self.embodiment_tag.value]
 
     def check_keys_and_batch_size(self, data):
@@ -551,7 +609,11 @@ class DreamTransform(InvertibleModalityTransform):
             and self.embodiment_tag == EmbodimentTag.OXE_DROID
         ):
             selected_key = random.choice(self._language_keys)
-        elif self._language_keys is not None and len(self._language_keys) > 0 and selected_key is None:
+        elif (
+            self._language_keys is not None
+            and len(self._language_keys) > 0
+            and selected_key is None
+        ):
             selected_key = self._language_keys[0]
 
         if selected_key is not None:
@@ -636,7 +698,9 @@ class DreamTransform(InvertibleModalityTransform):
             return actions, actions_mask, n_action_tokens
 
         actions = data["action"]
-        assert actions.shape[0] % self.action_horizon == 0, f"{actions.shape=}, {self.action_horizon=}"
+        assert actions.shape[0] % self.action_horizon == 0, (
+            f"{actions.shape=}, {self.action_horizon=}"
+        )
 
         n_action_tokens = actions.shape[0]  # T
         n_action_dims = actions.shape[1]
@@ -661,7 +725,9 @@ class DreamTransform(InvertibleModalityTransform):
         # 1) Prepare video and language with vlm processing.
         images = self._prepare_video(data)
         images = images.astype(np.uint8)
-        language, is_lapa_instance, is_dream_instance, is_cotrain_instance = self._prepare_language(data)
+        language, is_lapa_instance, is_dream_instance, is_cotrain_instance = self._prepare_language(
+            data
+        )
         batch_data = {"images": images, "language": language}
         vlm_outputs = self._apply_vlm_processing(batch_data)
 
@@ -698,7 +764,7 @@ class DreamTransform(InvertibleModalityTransform):
         transformed_data["text_negative"] = (
             "Vibrant colors, overexposed, static, blurry details, text, subtitles, style, artwork, "
             "painting, image, still, grayscale, dull, worst quality, low quality, JPEG artifacts, "
-            "ugly, mutilated, extra fingers, bad hands, bad face, deformed, disfigured, mutated limbs, "
+            "ugly, mutilated, extra fingers, bad hands, bad face, deformed, disfigured, mutated limbs, "  # noqa: E501
             "fused fingers, stagnant image, cluttered background, three legs, many people in the "
             "background, walking backwards."
         )
@@ -736,13 +802,13 @@ class DreamTransform(InvertibleModalityTransform):
             transformed_data["state"] = np.zeros_like(transformed_data["state"])
             actions_shape = transformed_data["action"].shape
 
-            # Treat the "dream" IDM action as a real action so that flow matching loss will be applied.
+            # Treat the "dream" IDM action as a real action so that flow matching loss will be applied.  # noqa: E501
             transformed_data["has_real_action"] = np.ones((), dtype=bool)
             transformed_data["has_lapa_action"] = np.zeros((), dtype=bool)
 
             dream_actions = data["dream_actions"]
             assert dream_actions.size == actions_shape[0] * actions_shape[1], (
-                f"dream_actions size {dream_actions.size} does not match action shape {actions_shape}"
+                f"dream_actions size {dream_actions.size} does not match action shape {actions_shape}"  # noqa: E501
             )
             transformed_data["action"] = dream_actions.reshape(actions_shape)
 
@@ -770,8 +836,11 @@ class DreamTransform(InvertibleModalityTransform):
         if self.training:
             action_and_mask_keys = ["action", "action_mask", "lapa_action", "lapa_action_mask"]
             assert all(
-                transformed_data[key].shape == transformed_data["action"].shape for key in action_and_mask_keys
-            ), f"Shape mismatch: {[(key, transformed_data[key].shape) for key in action_and_mask_keys]}"
+                transformed_data[key].shape == transformed_data["action"].shape
+                for key in action_and_mask_keys
+            ), (
+                f"Shape mismatch: {[(key, transformed_data[key].shape) for key in action_and_mask_keys]}"  # noqa: E501
+            )
 
         return transformed_data
 
@@ -785,7 +854,9 @@ class DreamTransform(InvertibleModalityTransform):
         data_split = [tree.map_structure(lambda x: x[i], data) for i in range(batch_size)]
         # Process each element.
         data_split_processed = [self.apply_single(elem) for elem in data_split]
-        return collate(data_split_processed, self.tokenizer, self.num_views, self.embodiment_tag_mapping)
+        return collate(
+            data_split_processed, self.tokenizer, self.num_views, self.embodiment_tag_mapping
+        )
 
     def apply(self, data: dict) -> dict:
         """Apply the transform to a batched or single sample."""

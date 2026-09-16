@@ -36,7 +36,10 @@ VIDEO_PIX_FMT = "yuv420p"
 VIDEO_CRF = 30
 VIDEO_G = 2
 VIDEO_PRESET = 12  # SVT-AV1 preset (matching reference)
-IMAGE_H, IMAGE_W = 368, 640  # robot_on_bg.mp4 is 640x368 (MuJoCo renderer rounds H up to multiple of 16)
+IMAGE_H, IMAGE_W = (
+    368,
+    640,
+)  # robot_on_bg.mp4 is 640x368 (MuJoCo renderer rounds H up to multiple of 16)
 
 # Legacy Panda layout; new retarget outputs carry their own morphology metadata.
 STATE_DIM = 18
@@ -242,7 +245,12 @@ def build_state_action(ik_path: str, n_frames: int) -> tuple:
 
 
 def build_episode_rows(
-    ep_index: int, task_index: int, n: int, state: np.ndarray, action: np.ndarray, dataset_offset: int
+    ep_index: int,
+    task_index: int,
+    n: int,
+    state: np.ndarray,
+    action: np.ndarray,
+    dataset_offset: int,
 ):
     """Build a per-frame dict list for one episode's parquet rows."""
     rows = []
@@ -317,7 +325,9 @@ def write_tasks_parquet(task_list: list, out_path: str):
     """
     import pandas as pd
 
-    df = pd.DataFrame({"task": [t[1] for t in task_list], "task_index": [t[0] for t in task_list]}).set_index("task")
+    df = pd.DataFrame(
+        {"task": [t[1] for t in task_list], "task_index": [t[0] for t in task_list]}
+    ).set_index("task")
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     df.to_parquet(out_path)
 
@@ -445,12 +455,16 @@ def run(args):
     """Write a LeRobot v3.0 dataset from retargeted IK results + action-alignment state."""
     episodes = args.episodes or discover_episodes(args.ik_dir, args.state_dir)
     if not episodes:
-        print("ERROR: no episodes found (need matching {ep}_ik.npz in --ik_dir and {ep}.npz in --state_dir)")
+        print(
+            "ERROR: no episodes found (need matching {ep}_ik.npz in --ik_dir and {ep}.npz in --state_dir)"  # noqa: E501
+        )
         sys.exit(1)
     print(f"episodes ({len(episodes)}): {episodes}")
 
     first_ik = np.load(f"{args.ik_dir}/{episodes[0]}_ik.npz", allow_pickle=True)
-    state_dim = int(first_ik["state"].shape[1]) if "state" in first_ik else int(first_ik["qpos"].shape[1])
+    state_dim = (
+        int(first_ik["state"].shape[1]) if "state" in first_ik else int(first_ik["qpos"].shape[1])
+    )
     robot_type = str(first_ik["robot_type"].item()) if "robot_type" in first_ik else "panda_dual"
     if "state_names" in first_ik:
         state_names = [str(x) for x in first_ik["state_names"].tolist()]
@@ -523,7 +537,9 @@ def run(args):
     per_ep_state = []
     per_ep_action = []
     reencoded_paths = []
-    reencoded_auxiliary_paths = {feature: [] for feature, enabled in auxiliary_enabled.items() if enabled}
+    reencoded_auxiliary_paths = {
+        feature: [] for feature, enabled in auxiliary_enabled.items() if enabled
+    }
     ep_lengths = []
     ep_image_stats = []
 
@@ -544,7 +560,11 @@ def run(args):
             ik_ok = np.asarray(ik_data["ik_ok"])
             ik_err_pos = np.asarray(ik_data["ik_err_pos"])
             ik_err_rot = np.asarray(ik_data["ik_err_rot"])
-        for key, values in (("ik_ok", ik_ok), ("ik_err_pos", ik_err_pos), ("ik_err_rot", ik_err_rot)):
+        for key, values in (
+            ("ik_ok", ik_ok),
+            ("ik_err_pos", ik_err_pos),
+            ("ik_err_rot", ik_err_rot),
+        ):
             if values.ndim == 0 or values.shape[0] != n:
                 raise ValueError(f"{ik_path} {key} shape {values.shape} does not match {n} frames")
         per_ep_state.append(state)
@@ -642,13 +662,18 @@ def run(args):
     print(f"data parquet: {total_frames} frames")
 
     # ── Concat H.264 videos ──
-    concat_videos_av1(reencoded_paths, str(out / "videos" / "observation.images.ego" / "chunk-000" / "file-000.mp4"))
+    concat_videos_av1(
+        reencoded_paths,
+        str(out / "videos" / "observation.images.ego" / "chunk-000" / "file-000.mp4"),
+    )
     for feature, paths in reencoded_auxiliary_paths.items():
         concat_videos_av1(paths, str(out / "videos" / feature / "chunk-000" / "file-000.mp4"))
     print("concatenated H.264 video written")
 
     # ── Write episodes parquet ──
-    write_episodes_parquet(ep_metas, str(out / "meta" / "episodes" / "chunk-000" / "file-000.parquet"))
+    write_episodes_parquet(
+        ep_metas, str(out / "meta" / "episodes" / "chunk-000" / "file-000.parquet")
+    )
 
     # ── Write tasks parquet ──
     write_tasks_parquet(task_list, str(out / "meta" / "tasks.parquet"))
@@ -668,7 +693,9 @@ def run(args):
         fi_all.append(np.arange(n, dtype=np.float64))
         idx_all.append(np.arange(off, off + n, dtype=np.float64))
         ei_all.append(np.full(n, ep_index, dtype=np.float64))
-        ti_all.append(np.full(n, task_text_to_index[ep_task_text[episodes[ep_index]]], dtype=np.float64))
+        ti_all.append(
+            np.full(n, task_text_to_index[ep_task_text[episodes[ep_index]]], dtype=np.float64)
+        )
         off += n
     global_stats["timestamp"] = compute_stats(np.concatenate(ts_all))
     global_stats["frame_index"] = compute_stats(np.concatenate(fi_all))
@@ -752,7 +779,9 @@ def build_arg_parser():
     """Build the argument parser for the lerobot subcommand."""
     ap = argparse.ArgumentParser(description="Step 7: LeRobot v3.0 Dataset Writer")
     ap.add_argument(
-        "--ik_dir", required=True, help="Retarget output directory (contains {ep}_ik.npz and {ep}_robot_on_bg.mp4)"
+        "--ik_dir",
+        required=True,
+        help="Retarget output directory (contains {ep}_ik.npz and {ep}_robot_on_bg.mp4)",
     )
     ap.add_argument(
         "--state_dir",
@@ -760,11 +789,15 @@ def build_arg_parser():
         help="Step 2 output directory (contains {ep}.npz for annotations and frame-count checks)",
     )
     ap.add_argument(
-        "--bg_video_dir", default=None, help="Directory containing {ep}_robot_on_bg.mp4; defaults to --ik_dir"
+        "--bg_video_dir",
+        default=None,
+        help="Directory containing {ep}_robot_on_bg.mp4; defaults to --ik_dir",
     )
     ap.add_argument("--output_dir", required=True)
     ap.add_argument(
-        "--tmp_dir", default=None, help="Temporary directory for AV1 re-encoding; defaults to <output_dir>/_tmp_av1"
+        "--tmp_dir",
+        default=None,
+        help="Temporary directory for AV1 re-encoding; defaults to <output_dir>/_tmp_av1",
     )
     ap.add_argument(
         "--episodes",

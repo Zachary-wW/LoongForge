@@ -58,7 +58,9 @@ def validate_predict_action_model(model: Any) -> None:
     """Validate that a model exposes the eval-compatible predict_action method."""
     predict_action = getattr(model, "predict_action", None)
     if not callable(predict_action):
-        raise TypeError("model must expose a callable predict_action(images, instructions, state, dataset_stats)")
+        raise TypeError(
+            "model must expose a callable predict_action(images, instructions, state, dataset_stats)"  # noqa: E501
+        )
 
     signature = inspect.signature(predict_action)
     parameters = signature.parameters
@@ -70,7 +72,9 @@ def validate_predict_action_model(model: Any) -> None:
         raise TypeError(f"model.predict_action is missing required parameters: {missing}")
     unsupported = [name for name in optional if name not in parameters and not has_kwargs]
     if unsupported:
-        raise TypeError(f"model.predict_action cannot accept eval keyword parameters: {unsupported}")
+        raise TypeError(
+            f"model.predict_action cannot accept eval keyword parameters: {unsupported}"
+        )
 
 
 def _filter_supported_kwargs(func: Any, kwargs: Dict[str, Any]) -> Dict[str, Any]:
@@ -129,6 +133,6 @@ def call_predict_action(
 
     if actions.shape[-1] < action_dim:
         raise ValueError(
-            f"model.predict_action returned action dim {actions.shape[-1]}, expected at least {action_dim}"
+            f"model.predict_action returned action dim {actions.shape[-1]}, expected at least {action_dim}"  # noqa: E501
         )
     return actions[:, :action_dim]

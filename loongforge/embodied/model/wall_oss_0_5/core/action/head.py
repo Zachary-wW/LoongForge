@@ -27,6 +27,8 @@ class SinusoidalPosEmb(nn.Module):
         """Run the forward pass."""
         half_dim = self.dim // 2
         exponent = math.log(10000) / (half_dim - 1)
-        frequencies = torch.exp(torch.arange(half_dim, device=x.device, dtype=torch.float32) * -exponent)
+        frequencies = torch.exp(
+            torch.arange(half_dim, device=x.device, dtype=torch.float32) * -exponent
+        )
         emb = x[:, None] * frequencies[None, :]
         return torch.cat((emb.sin(), emb.cos()), dim=-1)

@@ -98,7 +98,7 @@ Output:
     TE_LAYER_PERF_REPORT_PATH       Write results to a JSON file (optional)
     TE_LAYER_PERF_FP8_POLICY_PATH   Export FP8 dynamic policy JSON for training (optional)
     TE_LAYER_PERF_SPEEDUP_THRESHOLD Minimum speedup to consider FP8 beneficial (default: 1.0)
-"""
+"""  # noqa: E501
 
 import gc
 import json
@@ -153,10 +153,16 @@ PERF_CASES_PATH = os.getenv("TE_LAYER_PERF_CASES_PATH")
 PERF_CASES_JSON = os.getenv("TE_LAYER_PERF_CASES_JSON")
 PERF_FP8_RECIPE = os.getenv("TE_LAYER_PERF_FP8_RECIPE", "blockwise").strip().lower()
 PERF_PRECISIONS = tuple(
-    item.strip().lower() for item in os.getenv("TE_LAYER_PERF_PRECISIONS", "bf16,fp8").split(",") if item.strip()
+    item.strip().lower()
+    for item in os.getenv("TE_LAYER_PERF_PRECISIONS", "bf16,fp8").split(",")
+    if item.strip()
 )
 PERF_SPLIT_SKEW = float(os.getenv("TE_LAYER_PERF_SPLIT_SKEW", "1.2"))
-PERF_RECOMPUTE = os.getenv("TE_LAYER_PERF_RECOMPUTE", "true").strip().lower() in ("true", "1", "yes")
+PERF_RECOMPUTE = os.getenv("TE_LAYER_PERF_RECOMPUTE", "true").strip().lower() in (
+    "true",
+    "1",
+    "yes",
+)
 PERF_SHAPE_SWEEP = os.getenv("TE_LAYER_PERF_SHAPE_SWEEP")  # e.g. "1024x1,2048x4,8192x2"
 PERF_OMNI_CONFIG_PATH = os.getenv("TE_LAYER_PERF_OMNI_CONFIG_PATH")  # Omni Training YAML path
 PERF_TP_SIZE = int(
@@ -242,7 +248,9 @@ class ModelSpec:
 
     @property
     def qkv_output_size(self) -> int:
-        return self.kv_channels * self.num_attention_heads + 2 * (self.kv_channels * self.num_query_groups)
+        return self.kv_channels * self.num_attention_heads + 2 * (
+            self.kv_channels * self.num_query_groups
+        )
 
     @property
     def attention_projection_size(self) -> int:
@@ -495,7 +503,9 @@ def _build_attention_cases(model: ModelSpec, prefix: str) -> List[ModuleCase]:
     ]
 
 
-def _build_dense_ffn_cases(model: ModelSpec, prefix: str, ffn_hidden: int, ffn_output: int) -> List[ModuleCase]:
+def _build_dense_ffn_cases(
+    model: ModelSpec, prefix: str, ffn_hidden: int, ffn_output: int
+) -> List[ModuleCase]:
     """Build dense fc1/fc2 cases shared by ViT and dense-LLM variants."""
     dense_shape = _dense_input_shape(model)
     tp = model.tensor_model_parallel_size
@@ -586,7 +596,9 @@ def _build_cases_for_model(model: ModelSpec) -> List[ModuleCase]:
             )
         else:
             ffn_output_size = model.ffn_hidden_size * (2 if is_gated else 1)
-            cases.extend(_build_dense_ffn_cases(model, "llm_dense", model.ffn_hidden_size, ffn_output_size))
+            cases.extend(
+                _build_dense_ffn_cases(model, "llm_dense", model.ffn_hidden_size, ffn_output_size)
+            )
 
         return cases
 
@@ -608,7 +620,7 @@ def _parse_shape_sweep(raw: str) -> List[Tuple[int, int]]:
         parts = item.split("x")
         if len(parts) != 2:
             raise ValueError(
-                f"Invalid shape_sweep entry '{item}': expected format 'seq_lenxmicro_batch_size' (e.g. '1024x1')."
+                f"Invalid shape_sweep entry '{item}': expected format 'seq_lenxmicro_batch_size' (e.g. '1024x1')."  # noqa: E501
             )
         result.append((int(parts[0]), int(parts[1])))
     return result
@@ -624,7 +636,9 @@ def _load_config_file(path: str):
     return json.loads(text)
 
 
-def _resolve_hydra_default_path(config_dir: Path, relative_path_with_target: str, config_name: str) -> Tuple[str, Path]:
+def _resolve_hydra_default_path(
+    config_dir: Path, relative_path_with_target: str, config_name: str
+) -> Tuple[str, Path]:
     """Resolve a Hydra defaults entry.
 
     Args:
@@ -667,7 +681,9 @@ def _model_spec_from_cfg(cfg: dict, *, variant: str, name: str) -> ModelSpec:
         kv_channels=cfg.get("kv_channels") or (cfg["hidden_size"] // cfg["num_attention_heads"]),
         add_bias_linear=cfg.get("add_bias_linear", False),
         add_qkv_bias=cfg.get("add_qkv_bias", False),
-        normalization=_te_normalization(cfg.get("normalization", "LayerNorm" if is_vit else "RMSNorm")),
+        normalization=_te_normalization(
+            cfg.get("normalization", "LayerNorm" if is_vit else "RMSNorm")
+        ),
         swiglu=cfg.get("swiglu", False),
         gated_linear_unit=cfg.get("gated_linear_unit", False),
         image_size=image_size,
@@ -731,7 +747,9 @@ def _parse_omni_config(config_path: str) -> List[ModelSpec]:
     # Fallback: if no sub-configs found, treat as a direct model config.
     if not results:
         is_vit = data.get("model_type", "").endswith("vit")
-        results.append(_model_spec_from_cfg(data, variant="vit" if is_vit else "llm", name=model_name))
+        results.append(
+            _model_spec_from_cfg(data, variant="vit" if is_vit else "llm", name=model_name)
+        )
 
     return results
 
@@ -779,7 +797,9 @@ def _parse_model_specs(data) -> List[ModelSpec]:
     elif isinstance(data, list):
         models = data
     else:
-        raise ValueError("Configured benchmark JSON/YAML must be a list or an object containing `models`.")
+        raise ValueError(
+            "Configured benchmark JSON/YAML must be a list or an object containing `models`."
+        )
 
     # Determine global shape_sweep override: env var > config-level field > None
     global_shape_sweep: Optional[List[Tuple[int, int]]] = None
@@ -833,7 +853,11 @@ def _apply_parallel_overrides(models: List[ModelSpec]) -> List[ModelSpec]:
     if PERF_ETP_SIZE > 0:
         expert_overrides["expert_tensor_parallel_size"] = PERF_ETP_SIZE
     if PERF_SEQ_PARALLEL is not None:
-        common_overrides["sequence_parallel"] = PERF_SEQ_PARALLEL.strip().lower() in ("true", "1", "yes")
+        common_overrides["sequence_parallel"] = PERF_SEQ_PARALLEL.strip().lower() in (
+            "true",
+            "1",
+            "yes",
+        )
     if not common_overrides and not expert_overrides:
         return models
     result = []
@@ -983,7 +1007,9 @@ def _make_grouped_splits(
     experts receive many more tokens than cold ones.
     """
     if num_tokens < num_gemms:
-        raise ValueError(f"num_tokens ({num_tokens}) must be >= num_gemms ({num_gemms}) for grouped benchmarks.")
+        raise ValueError(
+            f"num_tokens ({num_tokens}) must be >= num_gemms ({num_gemms}) for grouped benchmarks."
+        )
 
     if skew <= 0:
         # Uniform distribution (legacy path).
@@ -1025,7 +1051,9 @@ def _round_up_to_multiple(value: int, multiple: int) -> int:
     return ((value + multiple - 1) // multiple) * multiple
 
 
-def _estimate_case_flops(case: ModuleCase, num_tokens: int, tp_size: int = 1) -> Tuple[float, float, float]:
+def _estimate_case_flops(
+    case: ModuleCase, num_tokens: int, tp_size: int = 1
+) -> Tuple[float, float, float]:
     # Per-GPU GEMM: one dimension is divided by tp_size (column or row).
     gemm_flops = 2.0 * num_tokens * case.input_size * case.output_size / tp_size
     forward_flops = gemm_flops
@@ -1100,7 +1128,10 @@ def _build_module_inputs(case: ModuleCase, precision: str) -> Tuple[Tuple, int]:
         if precision == "fp8" and PERF_FP8_RECIPE == "blockwise":
             # Use the already-aligned splits computed above.
             return (hidden_states, aligned_splits), effective_num_tokens
-        return (hidden_states, _make_grouped_splits(effective_num_tokens, case.num_gemms)), effective_num_tokens
+        return (
+            hidden_states,
+            _make_grouped_splits(effective_num_tokens, case.num_gemms),
+        ), effective_num_tokens
     return (hidden_states,), effective_num_tokens
 
 
@@ -1178,7 +1209,7 @@ def _run_timed_iterations(
 
 
 def _measure_case(case: ModuleCase, config: TransformerConfig, precision: str) -> BenchmarkResult:
-    """Benchmark a single (case, precision) combination: instantiate, warmup, measure, return result."""
+    """Benchmark a single (case, precision) combination: instantiate, warmup, measure, return result."""  # noqa: E501
     with _get_quantization_context(config, is_init=True):
         module = _instantiate_case_module(case, config)
     module_inputs, effective_num_tokens = _build_module_inputs(case, precision)
@@ -1222,8 +1253,12 @@ def _measure_case(case: ModuleCase, config: TransformerConfig, precision: str) -
     avg_total_ms = statistics.median(total_times)
     tokens_per_second = effective_num_tokens / (avg_total_ms / 1000.0)
     # Use expert_tensor_parallel_size for expert layers, tensor_model_parallel_size for dense.
-    flops_tp = config.expert_tensor_parallel_size if case.is_expert else config.tensor_model_parallel_size
-    forward_flops, backward_flops, total_flops = _estimate_case_flops(case, effective_num_tokens, flops_tp)
+    flops_tp = (
+        config.expert_tensor_parallel_size if case.is_expert else config.tensor_model_parallel_size
+    )
+    forward_flops, backward_flops, total_flops = _estimate_case_flops(
+        case, effective_num_tokens, flops_tp
+    )
     achieved_tflops = total_flops / (avg_total_ms * 1.0e9)
 
     return BenchmarkResult(
@@ -1298,7 +1333,9 @@ def _analyze_fp8_thresholds(
         if "bf16" not in precs or "fp8" not in precs:
             continue
         speedup = precs["bf16"].total_ms / precs["fp8"].total_ms
-        threshold_candidates.setdefault((module_kind, ub_name, parallel_key), []).append((num_tokens, speedup))
+        threshold_candidates.setdefault((module_kind, ub_name, parallel_key), []).append(
+            (num_tokens, speedup)
+        )
 
     # Build rules dict.  Dense -> nested by ub_name; MoE -> flat list.
     rules: dict = {}
@@ -1355,7 +1392,9 @@ def _analyze_fp8_thresholds(
         rules.setdefault(module_kind, []).append(rule)
     for module_kind in list(rules):
         if module_kind in _MOE_MODULE_KINDS:
-            rules[module_kind] = sorted(rules[module_kind], key=lambda r: (r["etp"], r["num_gemms"]))
+            rules[module_kind] = sorted(
+                rules[module_kind], key=lambda r: (r["etp"], r["num_gemms"])
+            )
 
     return rules
 
@@ -1414,7 +1453,9 @@ def merge_fp8_policy_reports(
             all_results.append(
                 BenchmarkResult(
                     **{
-                        k: tuple(v) if k in ("input_shape", "output_shape") and isinstance(v, list) else v
+                        k: tuple(v)
+                        if k in ("input_shape", "output_shape") and isinstance(v, list)
+                        else v
                         for k, v in item.items()
                     }
                 )
@@ -1448,7 +1489,9 @@ def _compute_speedups(results: Sequence[BenchmarkResult]) -> List[Tuple[str, str
     return speedups
 
 
-def _format_winning_lines(speedups: Sequence[Tuple[str, str, float]], label: str = "winning modules") -> List[str]:
+def _format_winning_lines(
+    speedups: Sequence[Tuple[str, str, float]], label: str = "winning modules"
+) -> List[str]:
     winners = sorted((s for s in speedups if s[2] > 1.0), key=lambda s: s[2], reverse=True)
     if not winners:
         return [f"{label} => none"]
@@ -1460,10 +1503,16 @@ def _append_group_summary(lines: List[str], group: Sequence[BenchmarkResult], ti
         return
     lines.extend(["", title])
     for model_name in sorted({r.model_name for r in group}):
-        bf16_ms = sum(r.total_ms for r in group if r.model_name == model_name and r.precision == "bf16")
-        fp8_ms = sum(r.total_ms for r in group if r.model_name == model_name and r.precision == "fp8")
+        bf16_ms = sum(
+            r.total_ms for r in group if r.model_name == model_name and r.precision == "bf16"
+        )
+        fp8_ms = sum(
+            r.total_ms for r in group if r.model_name == model_name and r.precision == "fp8"
+        )
         if fp8_ms > 0:
-            lines.append(f"{model_name} => bf16={bf16_ms:.3f} ms, fp8={fp8_ms:.3f} ms, speedup={bf16_ms / fp8_ms:.3f}x")
+            lines.append(
+                f"{model_name} => bf16={bf16_ms:.3f} ms, fp8={fp8_ms:.3f} ms, speedup={bf16_ms / fp8_ms:.3f}x"  # noqa: E501
+            )
         else:
             lines.append(f"{model_name} => bf16={bf16_ms:.3f} ms, fp8=N/A")
     lines.extend(_format_winning_lines(_compute_speedups(group)))

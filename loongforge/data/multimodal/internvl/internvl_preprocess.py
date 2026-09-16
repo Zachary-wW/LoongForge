@@ -64,7 +64,9 @@ def simulate_jpeg_degradation(quality):
         with io.BytesIO() as output:
             img.convert("RGB").save(output, format="JPEG", quality=quality)
             output.seek(0)  # Move the reading cursor to the start of the stream
-            img_jpeg = Image.open(output).copy()  # Use .copy() to make sure the image is loaded in memory
+            img_jpeg = Image.open(
+                output
+            ).copy()  # Use .copy() to make sure the image is loaded in memory
         return img_jpeg
 
     return jpeg_degrade
@@ -190,7 +192,9 @@ class InternvlPreprocess:
         self.dynamic_image_size = args.dynamic_image_size
         self.min_dynamic_patch = args.min_dynamic_patch
         self.template_name = args.conv_style
-        self.num_image_token = int((args.force_image_size // args.patch_size) ** 2 * (args.down_sample_ratio**2))
+        self.num_image_token = int(
+            (args.force_image_size // args.patch_size) ** 2 * (args.down_sample_ratio**2)
+        )
         self.group_by_length = args.group_by_length and not args.packing_sft_data
         self.packing_sft_data = args.packing_sft_data
         self.tokenizer = tokenizer
@@ -207,7 +211,9 @@ class InternvlPreprocess:
         # Ensure the first conversation contains a video placeholder
         first_turn_idx = 1 if data_item["texts"][0]["value"] == "system" else 0
         if "<video>" not in data_item["texts"][first_turn_idx]["value"]:
-            data_item["texts"][first_turn_idx]["value"] = "<video>\n" + data_item["texts"][first_turn_idx]["value"]
+            data_item["texts"][first_turn_idx]["value"] = (
+                "<video>\n" + data_item["texts"][first_turn_idx]["value"]
+            )
 
         # Get the video file path
         video_file = data_item["videos"]
@@ -224,10 +230,12 @@ class InternvlPreprocess:
         )
 
         # Generate special tokens for each video frame
-        special_tokens = "\n".join(["Frame-{}: <image>".format(i + 1) for i in range(len(image_list))])
-        data_item["texts"][first_turn_idx]["value"] = data_item["texts"][first_turn_idx]["value"].replace(
-            "<video>\n", special_tokens + "\n"
+        special_tokens = "\n".join(
+            ["Frame-{}: <image>".format(i + 1) for i in range(len(image_list))]
         )
+        data_item["texts"][first_turn_idx]["value"] = data_item["texts"][first_turn_idx][
+            "value"
+        ].replace("<video>\n", special_tokens + "\n")
 
         # Transform each frame image and stack them into a tensor
         transform = self.build_transform(
@@ -434,7 +442,9 @@ class InternvlPreprocess:
             transform = T.Compose(
                 [
                     T.Lambda(lambda img: img.convert("RGB") if img.mode != "RGB" else img),
-                    T.RandomChoice([T.Lambda(jpeg_degrade_functions[quality]) for quality in qualities]),
+                    T.RandomChoice(
+                        [T.Lambda(jpeg_degrade_functions[quality]) for quality in qualities]
+                    ),
                     T.Resize(
                         (input_size, input_size),
                         interpolation=InterpolationMode.BICUBIC,
@@ -519,7 +529,9 @@ class InternvlPreprocess:
                             f"{IMG_CONTEXT_TOKEN * num_image_token_list[current_image_idx]}"
                             f"{IMG_END_TOKEN}"
                         )
-                        conversation["value"] = conversation["value"].replace("<image>", image_tokens, 1)
+                        conversation["value"] = conversation["value"].replace(
+                            "<image>", image_tokens, 1
+                        )
                         current_image_idx += 1
                 new_conversations.append(conversation)
             conversations = new_conversations
@@ -621,9 +633,11 @@ class InternvlPreprocess:
                             break
                         image_tokens = (
                             f"{IMG_START_TOKEN}"
-                            f"{IMG_CONTEXT_TOKEN * num_image_token_list[current_image_idx]}{IMG_END_TOKEN}"
+                            f"{IMG_CONTEXT_TOKEN * num_image_token_list[current_image_idx]}{IMG_END_TOKEN}"  # noqa: E501
                         )
-                        conversation["value"] = conversation["value"].replace("<image>", image_tokens, 1)
+                        conversation["value"] = conversation["value"].replace(
+                            "<image>", image_tokens, 1
+                        )
                         current_image_idx += 1
                 new_conversations.append(conversation)
             conversations = new_conversations
@@ -638,7 +652,9 @@ class InternvlPreprocess:
                 batches.append(f"<|start|>user<|message|>{conversation['value']}<|end|>")
                 roles.append("human")
             elif conversation["from"] == "gpt":
-                batches.append(f"<|start|>assistant<|channel|>final<|message|>{conversation['value']}<|return|>")
+                batches.append(
+                    f"<|start|>assistant<|channel|>final<|message|>{conversation['value']}<|return|>"
+                )
                 roles.append("gpt")
             elif conversation["from"] == "function":
                 batches.append(f"<|start|>tool<|message|>{conversation['value']}<|end|>")
@@ -729,7 +745,7 @@ class InternvlPreprocess:
             new_conversations = []
             for conversation in conversations:
                 for i in range(num_image):
-                    image_tokens = f"{IMG_START_TOKEN}{IMG_CONTEXT_TOKEN * num_image_token_list[i]}{IMG_END_TOKEN}"
+                    image_tokens = f"{IMG_START_TOKEN}{IMG_CONTEXT_TOKEN * num_image_token_list[i]}{IMG_END_TOKEN}"  # noqa: E501
                     conversation = conversation.replace("<image>", image_tokens, 1)
                 new_conversations.append(conversation)
             conversations = new_conversations
@@ -898,19 +914,28 @@ class InternvlPreprocess:
         elif "fps" in sample:  # fps0.5, sequentially sample frames at 0.5 fps
             output_fps = float(sample[3:])
             duration = float(vlen) / input_fps
-            delta = 1 / output_fps  # gap between frames, this is also the clip length each frame represents
+            delta = (
+                1 / output_fps
+            )  # gap between frames, this is also the clip length each frame represents
             frame_seconds = np.arange(0 + delta / 2, duration + delta / 2, delta)
             frame_indices = np.around(frame_seconds * input_fps).astype(int)
             frame_indices = [e for e in frame_indices if e < vlen]
             if max_num_frames > 0 and len(frame_indices) > max_num_frames:
                 frame_indices = frame_indices[:max_num_frames]
-                # frame_indices = np.linspace(0 + delta / 2, duration + delta / 2, endpoint=False, num=max_num_frames)
+                # frame_indices = np.linspace(0 + delta / 2, duration + delta / 2, endpoint=False, num=max_num_frames)  # noqa: E501
         else:
             raise ValueError
         return frame_indices
 
     def read_frames_decord_opencv(
-        self, av_decoder, num_frames, sample="rand", fix_start=None, client=None, clip=None, min_num_frames=4
+        self,
+        av_decoder,
+        num_frames,
+        sample="rand",
+        fix_start=None,
+        client=None,
+        clip=None,
+        min_num_frames=4,
     ):
         """read_frames_decord"""
         cap = cv2.VideoCapture(av_decoder.stream, cv2.CAP_FFMPEG, [])
@@ -928,7 +953,9 @@ class InternvlPreprocess:
             start_index = int(start * fps)
 
         t_num_frames = np.random.randint(min_num_frames, num_frames + 1)
-        frame_indices = self.get_frame_indices(t_num_frames, vlen, sample=sample, fix_start=fix_start, input_fps=fps)
+        frame_indices = self.get_frame_indices(
+            t_num_frames, vlen, sample=sample, fix_start=fix_start, input_fps=fps
+        )
         if clip:
             frame_indices = [f + start_index for f in frame_indices]
 

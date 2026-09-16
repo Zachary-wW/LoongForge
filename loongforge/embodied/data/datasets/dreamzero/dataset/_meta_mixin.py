@@ -65,7 +65,9 @@ def _calculate_dataset_statistics(
     statistics = {}
     for feature_name in feature_names:
         logger.info("Computing statistics for %s...", feature_name)
-        values = np.vstack([np.asarray(value, dtype=np.float32) for value in all_low_dim_data[feature_name]])
+        values = np.vstack(
+            [np.asarray(value, dtype=np.float32) for value in all_low_dim_data[feature_name]]
+        )
         statistics[feature_name] = DatasetStatisticalValues(
             mean=np.mean(values, axis=0).tolist(),
             std=np.std(values, axis=0).tolist(),
@@ -218,9 +220,14 @@ class _DreamZeroMetaMixin:
     def _get_lerobot_modality_meta(self) -> LeRobotModalityMetadata:
         """Get the metadata for the LeRobot dataset."""
         if self.use_global_metadata:
-            assert self.metadata_version is not None, "metadata_version must be provided if use_global_metadata is True"
+            assert self.metadata_version is not None, (
+                "metadata_version must be provided if use_global_metadata is True"
+            )
             modality_meta_path = (
-                METADATA_DIR / self.tag.value / self.metadata_version / Path(LE_ROBOT_MODALITY_FILENAME).name
+                METADATA_DIR
+                / self.tag.value
+                / self.metadata_version
+                / Path(LE_ROBOT_MODALITY_FILENAME).name
             )
             assert modality_meta_path.exists(), (
                 f"Please provide a {Path(LE_ROBOT_MODALITY_FILENAME).name} file in "
@@ -248,8 +255,15 @@ class _DreamZeroMetaMixin:
     def _get_lerobot_stats_meta(self) -> dict[str, DatasetStatisticalValues]:
         """Get the metadata for the LeRobot dataset."""
         if self.use_global_metadata:
-            assert self.metadata_version is not None, "metadata_version must be provided if use_global_metadata is True"
-            stats_path = METADATA_DIR / self.tag.value / self.metadata_version / Path(LE_ROBOT_STATS_FILENAME).name
+            assert self.metadata_version is not None, (
+                "metadata_version must be provided if use_global_metadata is True"
+            )
+            stats_path = (
+                METADATA_DIR
+                / self.tag.value
+                / self.metadata_version
+                / Path(LE_ROBOT_STATS_FILENAME).name
+            )
         else:
             stats_path = self.dataset_path / LE_ROBOT_STATS_FILENAME
         try:
@@ -263,7 +277,7 @@ class _DreamZeroMetaMixin:
         except (FileNotFoundError, ValidationError) as e:
             if self.use_global_metadata:
                 raise ValueError(
-                    f"{e}: Please provide a {Path(LE_ROBOT_STATS_FILENAME).name} file in {stats_path}"
+                    f"{e}: Please provide a {Path(LE_ROBOT_STATS_FILENAME).name} file in {stats_path}"  # noqa: E501
                     " and ensure the metadata format is correct."
                 )
             logger.warning("Failed to load dataset statistics: %s", e)
@@ -287,12 +301,17 @@ class _DreamZeroMetaMixin:
 
         Returns:
             dict[str, DatasetStatisticalValues]: Dictionary mapping action keys to their relative stats.
-        """
+        """  # noqa: E501
         # Determine the path for relative stats file
         if self.use_global_metadata:
-            assert self.metadata_version is not None, "metadata_version must be provided if use_global_metadata is True"
+            assert self.metadata_version is not None, (
+                "metadata_version must be provided if use_global_metadata is True"
+            )
             stats_path = (
-                METADATA_DIR / self.tag.value / self.metadata_version / Path(LEROBOT_RELATIVE_STATS_FILE_NAME).name
+                METADATA_DIR
+                / self.tag.value
+                / self.metadata_version
+                / Path(LEROBOT_RELATIVE_STATS_FILE_NAME).name
             )
             assert stats_path.exists(), (
                 f"Please provide a {Path(LEROBOT_RELATIVE_STATS_FILE_NAME).name} file in "
@@ -318,7 +337,9 @@ class _DreamZeroMetaMixin:
         action_config = self.modality_configs.get("action")
         all_action_keys = action_config.modality_keys if action_config is not None else []
         if not all_action_keys:
-            logger.warning("No action keys found in modality configs, skipping relative stats calculation")
+            logger.warning(
+                "No action keys found in modality configs, skipping relative stats calculation"
+            )
             return {}
 
         # Filter to only the keys that should use relative action
@@ -369,7 +390,9 @@ class _DreamZeroMetaMixin:
         """
         # Determine the path for per-horizon relative stats file
         if self.use_global_metadata:
-            assert self.metadata_version is not None, "metadata_version must be provided if use_global_metadata is True"
+            assert self.metadata_version is not None, (
+                "metadata_version must be provided if use_global_metadata is True"
+            )
             stats_path = (
                 METADATA_DIR
                 / self.tag.value
@@ -398,7 +421,9 @@ class _DreamZeroMetaMixin:
         action_config = self.modality_configs.get("action")
         all_action_keys = action_config.modality_keys if action_config is not None else []
         if not all_action_keys:
-            logger.warning("No action keys found in modality configs, skipping per-horizon relative stats calculation")
+            logger.warning(
+                "No action keys found in modality configs, skipping per-horizon relative stats calculation"  # noqa: E501
+            )
             return {}
 
         # Filter to only the keys that should use relative action
@@ -421,7 +446,9 @@ class _DreamZeroMetaMixin:
                 relative_stats = self._calculate_relative_stats_for_key_per_horizon(action_key)
                 stats[action_key] = relative_stats
             except Exception as e:
-                logger.warning("Failed to calculate per-horizon relative stats for %s: %s", action_key, e)
+                logger.warning(
+                    "Failed to calculate per-horizon relative stats for %s: %s", action_key, e
+                )
                 continue
 
         if stats:
@@ -480,13 +507,15 @@ class _DreamZeroMetaMixin:
         # # Calculate relative actions for all trajectories
         all_relative_actions = []
 
-        # for traj_id in tqdm(self.trajectory_ids, desc=f"Calculating relative stats for {action_key}"):
+        # for traj_id in tqdm(self.trajectory_ids, desc=f"Calculating relative stats for {action_key}"):  # noqa: E501
         max_trajs_for_stats = 10000
         traj_ids_to_process = self.trajectory_ids
         if len(traj_ids_to_process) > max_trajs_for_stats:
             # Randomly sample 500 trajectories
             rng = np.random.default_rng(seed=42)
-            sampled_indices = rng.choice(len(traj_ids_to_process), size=max_trajs_for_stats, replace=False)
+            sampled_indices = rng.choice(
+                len(traj_ids_to_process), size=max_trajs_for_stats, replace=False
+            )
             traj_ids_to_process = traj_ids_to_process[sampled_indices]
             logger.info(
                 "Sampling %s trajectories out of %s for stats calculation",
@@ -497,12 +526,17 @@ class _DreamZeroMetaMixin:
         # Calculate relative actions for sampled trajectories
         all_relative_actions = []
 
-        for traj_id in tqdm(traj_ids_to_process, desc=f"Calculating relative stats for {action_key}"):
+        for traj_id in tqdm(
+            traj_ids_to_process, desc=f"Calculating relative stats for {action_key}"
+        ):
             try:
                 traj_data = self.get_trajectory_data(traj_id)
 
                 # Check if columns exist
-                if state_original_key not in traj_data.columns or action_original_key not in traj_data.columns:
+                if (
+                    state_original_key not in traj_data.columns
+                    or action_original_key not in traj_data.columns
+                ):
                     logger.warning(
                         "Missing columns: state=%r exists=%s, action=%r exists=%s",
                         state_original_key,
@@ -548,7 +582,9 @@ class _DreamZeroMetaMixin:
             raise ValueError(f"No relative actions calculated for {action_key}")
 
         all_relative_actions = np.array(all_relative_actions)
-        logger.info("Collected %s relative action samples for %s", len(all_relative_actions), action_key)
+        logger.info(
+            "Collected %s relative action samples for %s", len(all_relative_actions), action_key
+        )
 
         return DatasetStatisticalValues(
             max=np.max(all_relative_actions, axis=0).tolist(),
@@ -598,7 +634,7 @@ class _DreamZeroMetaMixin:
         action_delta_indices = self.modality_configs["action"].delta_indices
 
         logger.info(
-            "Calculating per-horizon relative stats for %s: state=%s[%s:%s], action=%s[%s:%s], action_delta_indices=%s",
+            "Calculating per-horizon relative stats for %s: state=%s[%s:%s], action=%s[%s:%s], action_delta_indices=%s",  # noqa: E501
             action_key,
             state_original_key,
             state_start,
@@ -610,14 +646,18 @@ class _DreamZeroMetaMixin:
         )
 
         # Initialize separate lists for each horizon index
-        all_relative_actions_per_horizon: dict[int, list] = {delta_idx: [] for delta_idx in action_delta_indices}
+        all_relative_actions_per_horizon: dict[int, list] = {
+            delta_idx: [] for delta_idx in action_delta_indices
+        }
 
         max_trajs_for_stats = 10000
         traj_ids_to_process = self.trajectory_ids
         if len(traj_ids_to_process) > max_trajs_for_stats:
             # Randomly sample trajectories
             rng = np.random.default_rng(seed=42)
-            sampled_indices = rng.choice(len(traj_ids_to_process), size=max_trajs_for_stats, replace=False)
+            sampled_indices = rng.choice(
+                len(traj_ids_to_process), size=max_trajs_for_stats, replace=False
+            )
             traj_ids_to_process = traj_ids_to_process[sampled_indices]
             logger.info(
                 "Sampling %s trajectories out of %s for stats calculation",
@@ -625,12 +665,17 @@ class _DreamZeroMetaMixin:
                 len(self.trajectory_ids),
             )
 
-        for traj_id in tqdm(traj_ids_to_process, desc=f"Calculating per-horizon relative stats for {action_key}"):
+        for traj_id in tqdm(
+            traj_ids_to_process, desc=f"Calculating per-horizon relative stats for {action_key}"
+        ):
             try:
                 traj_data = self.get_trajectory_data(traj_id)
 
                 # Check if columns exist
-                if state_original_key not in traj_data.columns or action_original_key not in traj_data.columns:
+                if (
+                    state_original_key not in traj_data.columns
+                    or action_original_key not in traj_data.columns
+                ):
                     continue
 
                 # Load full state and action arrays, then slice to get the specific component
@@ -673,7 +718,11 @@ class _DreamZeroMetaMixin:
         for delta_idx in action_delta_indices:
             relative_actions = all_relative_actions_per_horizon[delta_idx]
             if not relative_actions:
-                logger.warning("No relative actions calculated for %s at horizon index %s", action_key, delta_idx)
+                logger.warning(
+                    "No relative actions calculated for %s at horizon index %s",
+                    action_key,
+                    delta_idx,
+                )
                 # Add empty/placeholder values
                 for name in stat_names:
                     stats_by_name[name].append([])
@@ -711,7 +760,9 @@ class _DreamZeroMetaMixin:
                     step_filter[trajectory_id] = np.setdiff1d(all_indices, indices_to_filter)
         else:
             for trajectory_index, trajectory_id in enumerate(self.trajectory_ids):
-                step_filter[int(trajectory_id)] = np.arange(self.trajectory_lengths[trajectory_index].item())
+                step_filter[int(trajectory_id)] = np.arange(
+                    self.trajectory_lengths[trajectory_index].item()
+                )
         return step_filter
 
     def _get_metadata(self) -> DatasetMetadata:
@@ -726,7 +777,9 @@ class _DreamZeroMetaMixin:
         simplified_modality_meta: dict[str, dict] = {}
         for modality in ["state", "action"]:
             simplified_modality_meta[modality] = {}
-            le_state_action_meta: dict[str, LeRobotStateActionMetadata] = getattr(self.lerobot_modality_meta, modality)
+            le_state_action_meta: dict[str, LeRobotStateActionMetadata] = getattr(
+                self.lerobot_modality_meta, modality
+            )
             for subkey in le_state_action_meta:
                 state_action_dtype = np.dtype(le_state_action_meta[subkey].dtype)
                 if np.issubdtype(state_action_dtype, np.floating):
@@ -736,13 +789,17 @@ class _DreamZeroMetaMixin:
                 simplified_modality_meta[modality][subkey] = {
                     "absolute": le_state_action_meta[subkey].absolute,
                     "rotation_type": le_state_action_meta[subkey].rotation_type,
-                    "shape": [le_state_action_meta[subkey].end - le_state_action_meta[subkey].start],
+                    "shape": [
+                        le_state_action_meta[subkey].end - le_state_action_meta[subkey].start
+                    ],
                     "continuous": continuous,
                 }
 
         # 1.2. Video modalities
         le_info_path = self.dataset_path / LE_ROBOT_INFO_FILENAME
-        assert le_info_path.exists(), f"Please provide a {LE_ROBOT_INFO_FILENAME} file in {self.dataset_path}"
+        assert le_info_path.exists(), (
+            f"Please provide a {LE_ROBOT_INFO_FILENAME} file in {self.dataset_path}"
+        )
         with open(le_info_path, "r") as f:
             le_info = json.load(f)
         simplified_modality_meta["video"] = {}
@@ -753,7 +810,7 @@ class _DreamZeroMetaMixin:
             le_video_meta = le_info["features"][original_key]
             height = le_video_meta["shape"][le_video_meta["names"].index("height")]
             width = le_video_meta["shape"][le_video_meta["names"].index("width")]
-            # NOTE(FH): different lerobot dataset versions have different keys for the number of channels and fps
+            # NOTE(FH): different lerobot dataset versions have different keys for the number of channels and fps  # noqa: E501
             names = le_video_meta.get("names") or []
             video_info = le_video_meta.get("video_info") or le_video_meta.get("info") or {}
             if "video.channels" in video_info:
@@ -777,7 +834,9 @@ class _DreamZeroMetaMixin:
         # Prepare relative stats if available
         relative_stats = {}
         if self.relative_action:
-            relative_stats = {k: v.model_dump() for k, v in self._lerobot_relative_stats_meta.items()}
+            relative_stats = {
+                k: v.model_dump() for k, v in self._lerobot_relative_stats_meta.items()
+            }
 
         # Prepare per-horizon relative stats if available
         per_horizon_stats = {}
@@ -788,7 +847,9 @@ class _DreamZeroMetaMixin:
             dataset_statistics[our_modality] = {}
             for subkey in simplified_modality_meta[our_modality]:
                 dataset_statistics[our_modality][subkey] = {}
-                state_action_meta = self.lerobot_modality_meta.get_key_meta(f"{our_modality}.{subkey}")
+                state_action_meta = self.lerobot_modality_meta.get_key_meta(
+                    f"{our_modality}.{subkey}"
+                )
                 assert isinstance(state_action_meta, LeRobotStateActionMetadata)
 
                 # Check if we should use per-horizon relative stats for this action key
@@ -799,7 +860,7 @@ class _DreamZeroMetaMixin:
                     and (self.relative_action_keys is None or subkey in self.relative_action_keys)
                 )
 
-                # Use relative stats for action modality if relative_action is enabled and stats are available
+                # Use relative stats for action modality if relative_action is enabled and stats are available  # noqa: E501
                 # Also check if this subkey is in the list of keys that should use relative action
                 should_use_relative = (
                     our_modality == "action"
@@ -809,14 +870,18 @@ class _DreamZeroMetaMixin:
                 )
 
                 if should_use_per_horizon:
-                    # Use per-horizon relative action stats (format: {stat_name: [[h0_vals], [h1_vals], ...]})
+                    # Use per-horizon relative action stats (format: {stat_name: [[h0_vals], [h1_vals], ...]})  # noqa: E501
                     for stat_name in per_horizon_stats[subkey]:
-                        dataset_statistics[our_modality][subkey][stat_name] = per_horizon_stats[subkey][stat_name]
+                        dataset_statistics[our_modality][subkey][stat_name] = per_horizon_stats[
+                            subkey
+                        ][stat_name]
                     logger.info("Using per-horizon relative stats for %s", subkey)
                 elif should_use_relative:
                     # Use relative action stats directly
                     for stat_name in relative_stats[subkey]:
-                        dataset_statistics[our_modality][subkey][stat_name] = relative_stats[subkey][stat_name]
+                        dataset_statistics[our_modality][subkey][stat_name] = relative_stats[
+                            subkey
+                        ][stat_name]
                     logger.info("Using relative stats for %s", subkey)
                 else:
                     # Use original absolute stats
@@ -872,7 +937,7 @@ class _DreamZeroMetaMixin:
         """
         all_steps: list[tuple[int, int]] = []
         # All steps is used in single dataset, so we need to discard bad trajectories
-        # Mixture dataset directly use trajectory_ids, so we handle it by changing the sampling weights
+        # Mixture dataset directly use trajectory_ids, so we handle it by changing the sampling weights  # noqa: E501
         discarded_episode_indices = self.get_discarded_trajectory_ids()
 
         for trajectory_id in self.trajectory_ids:
@@ -895,7 +960,7 @@ class _DreamZeroMetaMixin:
         return modality_keys
 
     def _get_delta_indices(self) -> dict[str, np.ndarray]:
-        """Restructure the delta indices to use modality.key as keys instead of just the modalities."""
+        """Restructure the delta indices to use modality.key as keys instead of just the modalities."""  # noqa: E501
         delta_indices: dict[str, np.ndarray] = {}
         for config in self.modality_configs.values():
             for key in config.modality_keys:
@@ -930,7 +995,9 @@ class _DreamZeroMetaMixin:
         Returns:
             dict[int, dict]: Mapping from episode_index to detailed instruction dict.
         """
-        detailed_instruction_path = self.dataset_path / LE_ROBOT_DETAILED_GLOBAL_INSTRUCTION_FILENAME
+        detailed_instruction_path = (
+            self.dataset_path / LE_ROBOT_DETAILED_GLOBAL_INSTRUCTION_FILENAME
+        )
         if not detailed_instruction_path.exists():
             return {}
         with open(detailed_instruction_path, "r") as f:
@@ -956,4 +1023,6 @@ class _DreamZeroMetaMixin:
                 try:
                     self.lerobot_modality_meta.get_key_meta(key)
                 except Exception as e:
-                    raise ValueError(ERROR_MSG_HEADER + f"Unable to find key {key} in modality metadata:\n{e}")
+                    raise ValueError(
+                        ERROR_MSG_HEADER + f"Unable to find key {key} in modality metadata:\n{e}"
+                    )

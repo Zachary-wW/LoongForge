@@ -67,7 +67,12 @@ def _bias_norm_no_weight_decay(model: nn.Module):
             explicit_param_names.add(name)
 
     def no_decay(name: str, param) -> bool:
-        return name == "bias" or name.endswith(".bias") or id(param) in norm_param_ids or name in explicit_param_names
+        return (
+            name == "bias"
+            or name.endswith(".bias")
+            or id(param) in norm_param_ids
+            or name in explicit_param_names
+        )
 
     logger.info(
         "Bias/norm weight-decay grouping enabled: norm_param_tensors=%d explicit_param_names=%d",
@@ -83,7 +88,9 @@ def _weight_decay_grouping_predicate(model: nn.Module, training_args):
         return None
     if grouping == "bias_norm":
         return _bias_norm_no_weight_decay(model)
-    raise ValueError(f"Unknown weight decay grouping '{grouping}'. Supported values: all, bias_norm.")
+    raise ValueError(
+        f"Unknown weight decay grouping '{grouping}'. Supported values: all, bias_norm."
+    )
 
 
 def _append_param_group(
@@ -169,7 +176,11 @@ def _log_model_lr(model: nn.Module, max_depth: int = 3, groups: List[Dict] = Non
             param_str = str(trainable)
 
         if groups is not None:
-            lrs = {param_to_lr[id(p)] for p in module.parameters() if p.requires_grad and id(p) in param_to_lr}
+            lrs = {
+                param_to_lr[id(p)]
+                for p in module.parameters()
+                if p.requires_grad and id(p) in param_to_lr
+            }
             if not lrs:
                 lr_str = "  lr=frozen"
             elif len(lrs) == 1:
@@ -298,7 +309,10 @@ def build_scheduler(optimizer, training_args):
 
         return LambdaLR(optimizer, _scheduler.schedule)
 
-    if style in {"cosine_with_min_lr", "cosine_warmup_with_min_lr"} and training_args.custom_lr_lambda:
+    if (
+        style in {"cosine_with_min_lr", "cosine_warmup_with_min_lr"}
+        and training_args.custom_lr_lambda
+    ):
         peak_lr = float(optimizer.defaults["lr"])
         end_lr = float(training_args.min_lr if training_args.min_lr is not None else peak_lr * 0.1)
         num_warmup_steps = int(training_args.lr_warmup_iters)

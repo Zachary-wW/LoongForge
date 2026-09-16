@@ -42,8 +42,12 @@ def gripper_to_angular(value: np.ndarray) -> np.ndarray:
     """Aloha linear gripper -> pi angular space (openpi aloha_policy)."""
     value = _unnormalize_range(value, min_val=0.01844, max_val=0.05800)
 
-    def linear_to_radian(linear_position: np.ndarray, arm_length: float, horn_radius: float) -> np.ndarray:
-        ratio = (horn_radius**2 + linear_position**2 - arm_length**2) / (2 * horn_radius * linear_position)
+    def linear_to_radian(
+        linear_position: np.ndarray, arm_length: float, horn_radius: float
+    ) -> np.ndarray:
+        ratio = (horn_radius**2 + linear_position**2 - arm_length**2) / (
+            2 * horn_radius * linear_position
+        )
         return np.arcsin(np.clip(ratio, -1.0, 1.0))
 
     value = linear_to_radian(value, arm_length=0.036, horn_radius=0.022)
@@ -115,7 +119,9 @@ class Pi05PayloadBuilder(PayloadBuilder):
         yaml_benchmark=None,
     ) -> None:
         """Read pi05-specific instance fields on top of annotated defaults."""
-        super().__init__(yaml_model=yaml_model, yaml_server=yaml_server, yaml_benchmark=yaml_benchmark)
+        super().__init__(
+            yaml_model=yaml_model, yaml_server=yaml_server, yaml_benchmark=yaml_benchmark
+        )
         self.unnorm_key = str(self._yaml_model.get("unnorm_key", "") or "")
 
     def _encode_state(self, canonical: Dict[str, Any]) -> Optional[np.ndarray]:
@@ -129,7 +135,11 @@ class Pi05PayloadBuilder(PayloadBuilder):
         if self.state_encoding == "aloha_pi":
             # RoboTwin openpi adapt_to_pi: env joint -> pi internal space.
             joint = state_raw.get("joint")
-            return adapt_to_pi_decode_state(np.asarray(joint, dtype=np.float32)) if joint is not None else None
+            return (
+                adapt_to_pi_decode_state(np.asarray(joint, dtype=np.float32))
+                if joint is not None
+                else None
+            )
         raise ValueError(f"Unsupported pi05 state_encoding: {self.state_encoding!r}")
 
     def build(self, canonical: Dict[str, Any], ctx: Dict[str, Any]) -> Dict[str, Any]:

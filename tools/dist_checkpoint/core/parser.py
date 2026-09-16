@@ -9,7 +9,9 @@ from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
 import torch
 
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+project_root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 sys.path.insert(0, project_root)
 sys.path.insert(0, os.path.join(project_root, "tools"))
 
@@ -121,7 +123,9 @@ class Parser:
                     if vpp_id >= len(pp_layout):
                         break
                     vpp_layerout = pp_layout[vpp_id]
-                    decoder_count = sum(1 for layer_type in vpp_layerout if layer_type == LayerType.decoder)
+                    decoder_count = sum(
+                        1 for layer_type in vpp_layerout if layer_type == LayerType.decoder
+                    )
                     decoder_counts.append(str(decoder_count))
             param_dict["custom_pipeline_layers"] = ",".join(decoder_counts)
         else:
@@ -200,7 +204,11 @@ class Parser:
             f"cuda:{torch.cuda.current_device()}" if torch.cuda.is_available() else "cpu"
         )
         if "ep_size" in self.param_dict:
-            etp_size = self.param_dict["etp_size"] if "etp_size" in self.param_dict else self.param_dict["tp_size"]
+            etp_size = (
+                self.param_dict["etp_size"]
+                if "etp_size" in self.param_dict
+                else self.param_dict["tp_size"]
+            )
             if etp_size == 1:
                 parallel_params["hf_checkpoint_device"] = "cpu"
 
@@ -225,7 +233,9 @@ def get_module_convert_file(model_cfg, module_type):
         )
         if hasattr(model_cfg, "model"):
             if hasattr(model_cfg.model, module_type):
-                print(f"DEBUG: model_cfg.model.{module_type} keys: {list(model_cfg.model[module_type].keys())}")
+                print(
+                    f"DEBUG: model_cfg.model.{module_type} keys: {list(model_cfg.model[module_type].keys())}"  # noqa: E501
+                )
             else:
                 print(f"DEBUG: model_cfg.model does not have {module_type}")
         return None

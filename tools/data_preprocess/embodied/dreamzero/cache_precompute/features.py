@@ -75,7 +75,7 @@ def _load_vae_pretrained(vae: torch.nn.Module, path: str) -> None:
     target = getattr(vae, "model", vae)
     missing, unexpected = target.load_state_dict(state_dict, strict=False)
     print(
-        f"[dreamzero-cache] VAE loaded from {path}; missing={len(missing)} unexpected={len(unexpected)}",
+        f"[dreamzero-cache] VAE loaded from {path}; missing={len(missing)} unexpected={len(unexpected)}",  # noqa: E501
         flush=True,
     )
 

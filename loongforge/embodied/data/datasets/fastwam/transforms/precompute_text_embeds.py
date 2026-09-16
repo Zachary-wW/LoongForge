@@ -41,7 +41,9 @@ import torch
 
 DEFAULT_MODEL_ID = "Wan-AI/Wan2.2-TI2V-5B"
 DEFAULT_TOKENIZER_MODEL_ID = "Wan-AI/Wan2.1-T2V-1.3B"
-DEFAULT_PROMPT_TEMPLATE = "A video recorded from a robot's point of view executing the following instruction: {task}"
+DEFAULT_PROMPT_TEMPLATE = (
+    "A video recorded from a robot's point of view executing the following instruction: {task}"
+)
 
 logger = logging.getLogger("precompute_fastwam_text_embeds")
 
@@ -89,7 +91,12 @@ def _tasks_from_file(path: Path) -> list[str]:
         tasks = []
         for item in _read_jsonl(path):
             if isinstance(item, dict):
-                task = item.get("task") or item.get("instruction") or item.get("prompt") or item.get("text")
+                task = (
+                    item.get("task")
+                    or item.get("instruction")
+                    or item.get("prompt")
+                    or item.get("text")
+                )
             else:
                 task = item
             if task is not None:
@@ -100,13 +107,17 @@ def _tasks_from_file(path: Path) -> list[str]:
         return [line.strip() for line in handle if line.strip()]
 
 
-def _collect_tasks(dataset_roots: list[Path], prompt_files: list[Path], prompts: list[str]) -> list[str]:
+def _collect_tasks(
+    dataset_roots: list[Path], prompt_files: list[Path], prompts: list[str]
+) -> list[str]:
     """Aggregate and deduplicate tasks from dataset roots, prompt files, and inline prompts."""
     tasks = []
     for root in dataset_roots:
         root_tasks = _tasks_from_lerobot_root(root)
         if not root_tasks:
-            logger.warning("No tasks found under %s/meta/tasks.jsonl or %s/*/meta/tasks.jsonl", root, root)
+            logger.warning(
+                "No tasks found under %s/meta/tasks.jsonl or %s/*/meta/tasks.jsonl", root, root
+            )
         tasks.extend(root_tasks)
     for path in prompt_files:
         tasks.extend(_tasks_from_file(path))
@@ -142,7 +153,10 @@ def _resolve_dtype(dtype: str):
 
 def _load_text_encoder(args: argparse.Namespace, device: str, dtype: torch.dtype):
     """Load the Wan T5 text encoder and tokenizer from the configured model paths."""
-    from loongforge.embodied.model.fastwam.wan.loader import _load_registered_model, _resolve_configs
+    from loongforge.embodied.model.fastwam.wan.loader import (
+        _load_registered_model,
+        _resolve_configs,
+    )
     from loongforge.embodied.model.fastwam.wan.text_encoder import HuggingfaceTokenizer
 
     _, text_config, _, tokenizer_config = _resolve_configs(
@@ -167,7 +181,9 @@ def _load_text_encoder(args: argparse.Namespace, device: str, dtype: torch.dtype
     return text_encoder, tokenizer
 
 
-def _encode_batch(text_encoder, tokenizer, prompts: list[str], device: str) -> tuple[torch.Tensor, torch.Tensor]:
+def _encode_batch(
+    text_encoder, tokenizer, prompts: list[str], device: str
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Encode a batch of prompts and zero-pad positions beyond each sequence's true length."""
     ids, mask = tokenizer(prompts, return_mask=True, add_special_tokens=True)
     ids = ids.to(device)
@@ -275,7 +291,9 @@ def main() -> None:
                 },
                 path,
             )
-        logger.info("Encoded %d/%d prompt(s)", min(start + len(batch_prompts), len(pending)), len(pending))
+        logger.info(
+            "Encoded %d/%d prompt(s)", min(start + len(batch_prompts), len(pending)), len(pending)
+        )
 
 
 if __name__ == "__main__":

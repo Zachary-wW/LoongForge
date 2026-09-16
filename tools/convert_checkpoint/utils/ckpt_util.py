@@ -31,7 +31,7 @@ def _detect_shard_pattern(path):
             return "model.safetensors-{:05d}-of-{:05d}.safetensors"
     raise FileNotFoundError(
         f"No sharded safetensors files found in {path}. "
-        "Expected files matching 'model-*-of-*.safetensors' or 'model.safetensors-*-of-*.safetensors'."
+        "Expected files matching 'model-*-of-*.safetensors' or 'model.safetensors-*-of-*.safetensors'."  # noqa: E501
     )
 
 
@@ -104,13 +104,17 @@ def load_megatron_checkpoint(load_path):
             state_dict.append([])
             for t in range(tp):
                 checkpoint_name = f"mp_rank_{t:02d}_{p:03d}/model_optim_rng.pt"
-                ckpt = torch.load(os.path.join(load_path, checkpoint_name), map_location="cpu", weights_only=False)
+                ckpt = torch.load(
+                    os.path.join(load_path, checkpoint_name), map_location="cpu", weights_only=False
+                )
                 state_dict[p].append(ckpt)
         return state_dict
     else:
         for t in range(len(sub_dirs)):
             checkpoint_name = f"mp_rank_{t:02d}/model_optim_rng.pt"
-            ckpt = torch.load(os.path.join(load_path, checkpoint_name), map_location="cpu", weights_only=False)
+            ckpt = torch.load(
+                os.path.join(load_path, checkpoint_name), map_location="cpu", weights_only=False
+            )
             state_dict.append(ckpt)
         return state_dict
 
@@ -199,7 +203,7 @@ def load_megatron_checkpoint_tp_pp_ep(load_path: str):
         - All shards are loaded onto CPU (map_location='cpu').
         - This function is strict for 3D; it will error if only 1D/2D layout is found.
         - Directory numeric widths (zero-padding) are not assumed; we reuse the actual directory names found.
-    """
+    """  # noqa: E501
     dir_map_3d, t_vals, p_vals, e_vals = _scan_mp_dirs(load_path)
 
     # Build nested structure: [pp][tp][ep]
@@ -211,7 +215,9 @@ def load_megatron_checkpoint_tp_pp_ep(load_path: str):
             for e in e_vals:
                 sub_dir = dir_map_3d.get((t, p, e))
                 if sub_dir is None:
-                    raise FileNotFoundError(f"Missing shard directory for (tp={t}, pp={p}, ep={e}) under {load_path}")
+                    raise FileNotFoundError(
+                        f"Missing shard directory for (tp={t}, pp={p}, ep={e}) under {load_path}"
+                    )
                 checkpoint_path = os.path.join(load_path, sub_dir, _SHARD_FILE)
                 if not os.path.isfile(checkpoint_path):
                     raise FileNotFoundError(f"Shard file not found: {checkpoint_path}")
@@ -223,7 +229,9 @@ def load_megatron_checkpoint_tp_pp_ep(load_path: str):
     return state_dict
 
 
-def save_megatron_checkpoint_tp_pp_ep(state_dict, save_path: str, pad_tp: int = 2, pad_pp: int = 3, pad_ep: int = 3):
+def save_megatron_checkpoint_tp_pp_ep(
+    state_dict, save_path: str, pad_tp: int = 2, pad_pp: int = 3, pad_ep: int = 3
+):
     """
     Save a 3D Megatron checkpoint layout to save_path as:
         mp_rank_{tp:0{pad_tp}d}_{pp:0{pad_pp}d}_{ep:0{pad_ep}d}/model_optim_rng.pt
@@ -254,7 +262,9 @@ def save_megatron_checkpoint_tp_pp_ep(state_dict, save_path: str, pad_tp: int = 
             raise ValueError(f"Expected state_dict[{p_idx}] to be a list (tp dimension).")
         for t_idx, tp_list in enumerate(pp_list):
             if not isinstance(tp_list, list):
-                raise ValueError(f"Expected state_dict[{p_idx}][{t_idx}] to be a list (ep dimension).")
+                raise ValueError(
+                    f"Expected state_dict[{p_idx}][{t_idx}] to be a list (ep dimension)."
+                )
             for e_idx, ckpt in enumerate(tp_list):
                 sub_dir_name = f"mp_rank_{t_idx:0{pad_tp}d}_{p_idx:0{pad_pp}d}_{e_idx:0{pad_ep}d}"
                 full_dir = os.path.join(save_path, sub_dir_name)
@@ -313,7 +323,7 @@ def load_megatron_checkpoint_tp_ep(load_path: str):
         - All shards are loaded onto CPU (map_location='cpu').
         - This function is for 2D layout (tensor parallel + expert parallel).
         - Directory numeric widths (zero-padding) are not assumed; we reuse the actual directory names found.
-    """
+    """  # noqa: E501
     dir_map_2d, t_vals, e_vals = _scan_mp_dirs_2d(load_path)
 
     # Build nested structure: [tp][ep]
@@ -323,7 +333,9 @@ def load_megatron_checkpoint_tp_ep(load_path: str):
         for e in e_vals:
             sub_dir = dir_map_2d.get((t, e))
             if sub_dir is None:
-                raise FileNotFoundError(f"Missing shard directory for (tp={t}, ep={e}) under {load_path}")
+                raise FileNotFoundError(
+                    f"Missing shard directory for (tp={t}, ep={e}) under {load_path}"
+                )
             checkpoint_path = os.path.join(load_path, sub_dir, _SHARD_FILE)
             if not os.path.isfile(checkpoint_path):
                 raise FileNotFoundError(f"Shard file not found: {checkpoint_path}")

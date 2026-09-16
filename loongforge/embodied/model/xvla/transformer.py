@@ -209,7 +209,9 @@ class Attention(nn.Module):
         """
         B, T, C = x.shape
         qkv = (
-            self.qkv(x).reshape(B, T, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)  # 3 x [B, H, T, Dh]
+            self.qkv(x)
+            .reshape(B, T, 3, self.num_heads, self.head_dim)
+            .permute(2, 0, 3, 1, 4)  # 3 x [B, H, T, Dh]
         )
         q, k, v = qkv.unbind(0)  # each: [B, H, T, Dh]
         q, k = self.q_norm(q), self.k_norm(k)
@@ -271,7 +273,11 @@ def timestep_embedding(t: torch.Tensor, dim: int, max_period: int = 100) -> torc
         Shape [B, dim]. Sinusoidal embeddings.
     """
     half = dim // 2
-    freqs = torch.exp(-math.log(max_period) * torch.arange(start=0, end=half, dtype=t.dtype, device=t.device) / half)
+    freqs = torch.exp(
+        -math.log(max_period)
+        * torch.arange(start=0, end=half, dtype=t.dtype, device=t.device)
+        / half
+    )
     args = t[:, None] * freqs[None]
     embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
     if dim % 2 == 1:
@@ -354,7 +360,9 @@ class TransformerBlock(nn.Module):
         super().__init__()
         self.norm1 = nn.LayerNorm(hidden_size)
         self.norm2 = nn.LayerNorm(hidden_size)
-        self.attn = Attention(hidden_size, num_heads=num_heads, qkv_bias=True, attn_drop=attn_dropout, use_fa2=use_fa2)
+        self.attn = Attention(
+            hidden_size, num_heads=num_heads, qkv_bias=True, attn_drop=attn_dropout, use_fa2=use_fa2
+        )
         self.mlp = Mlp(
             in_features=hidden_size,
             hidden_features=int(hidden_size * mlp_ratio),
@@ -433,8 +441,12 @@ class SoftPromptedTransformer(nn.Module):
         )
 
         if use_hetero_proj:
-            self.vlm_proj = DomainAwareLinear(multi_modal_input_size, hidden_size, num_domains=num_domains)
-            self.aux_visual_proj = DomainAwareLinear(multi_modal_input_size, hidden_size, num_domains=num_domains)
+            self.vlm_proj = DomainAwareLinear(
+                multi_modal_input_size, hidden_size, num_domains=num_domains
+            )
+            self.aux_visual_proj = DomainAwareLinear(
+                multi_modal_input_size, hidden_size, num_domains=num_domains
+            )
         else:
             self.vlm_proj = nn.Linear(multi_modal_input_size, hidden_size)
             self.aux_visual_proj = nn.Linear(multi_modal_input_size, hidden_size)
@@ -492,21 +504,31 @@ class SoftPromptedTransformer(nn.Module):
         # Project visual streams and concatenate
         if self.use_hetero_proj:
             x = torch.cat(
-                [x, self.vlm_proj(vlm_features, domain_id), self.aux_visual_proj(aux_visual_inputs, domain_id)],
+                [
+                    x,
+                    self.vlm_proj(vlm_features, domain_id),
+                    self.aux_visual_proj(aux_visual_inputs, domain_id),
+                ],
                 dim=1,
             )
         else:
-            x = torch.cat([x, self.vlm_proj(vlm_features), self.aux_visual_proj(aux_visual_inputs)], dim=1)
+            x = torch.cat(
+                [x, self.vlm_proj(vlm_features), self.aux_visual_proj(aux_visual_inputs)], dim=1
+            )
 
         # Add positional embeddings (truncate if needed)
         seq_len = x.shape[1]
         if seq_len > self.pos_emb.shape[1]:
-            raise ValueError(f"Sequence length {seq_len} exceeds max_len_seq={self.pos_emb.shape[1]}.")
+            raise ValueError(
+                f"Sequence length {seq_len} exceeds max_len_seq={self.pos_emb.shape[1]}."
+            )
         x = x + self.pos_emb[:, :seq_len, :]
 
         # Append soft prompts
         if self.len_soft_prompts > 0:
-            soft_prompts = self.soft_prompt_hub(domain_id).view(B, self.len_soft_prompts, self.hidden_size)
+            soft_prompts = self.soft_prompt_hub(domain_id).view(
+                B, self.len_soft_prompts, self.hidden_size
+            )
             x = torch.cat([x, soft_prompts], dim=1)
 
         # Transformer backbone

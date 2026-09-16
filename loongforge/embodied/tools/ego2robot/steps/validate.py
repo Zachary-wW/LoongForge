@@ -17,7 +17,7 @@ to any dataset produced by this pipeline:
 
 Usage:
     python cli.py validate --dataset_dir data_output/06_lerobot
-"""
+"""  # noqa: E501
 
 import argparse
 import json
@@ -78,11 +78,16 @@ def run(args):
     # --- 3. data parquet ---
     print("\n═══ 3. data parquet ═══")
     td = pq.read_table(f"{root}/data/chunk-000/file-000.parquet")
-    check(td.num_rows == total_frames, f"data rows={td.num_rows} matches info.total_frames={total_frames}")
+    check(
+        td.num_rows == total_frames,
+        f"data rows={td.num_rows} matches info.total_frames={total_frames}",
+    )
     cols = td.column_names
     check("action" in cols, "action column")
     check("observation.state" in cols, "observation.state column")
-    check("timestamp" in cols and "frame_index" in cols and "episode_index" in cols, "index columns")
+    check(
+        "timestamp" in cols and "frame_index" in cols and "episode_index" in cols, "index columns"
+    )
     r0 = td.slice(0, 1).to_pylist()[0]
     check(len(r0["action"]) == action_dim, f"action dim={action_dim}")
     check(len(r0["observation.state"]) == state_dim, f"state dim={state_dim}")
@@ -98,10 +103,16 @@ def run(args):
     # --- 4. episodes parquet ---
     print("\n═══ 4. episodes parquet ═══")
     te = pq.read_table(f"{root}/meta/episodes/chunk-000/file-000.parquet")
-    check(te.num_rows == total_episodes, f"episode rows={te.num_rows} matches total_episodes={total_episodes}")
+    check(
+        te.num_rows == total_episodes,
+        f"episode rows={te.num_rows} matches total_episodes={total_episodes}",
+    )
     ep_rows = te.to_pylist()
     ep_rows.sort(key=lambda r: r["episode_index"])
-    check([r["episode_index"] for r in ep_rows] == list(range(total_episodes)), "episode_index values are 0..N-1")
+    check(
+        [r["episode_index"] for r in ep_rows] == list(range(total_episodes)),
+        "episode_index values are 0..N-1",
+    )
     cursor = 0
     for r in ep_rows:
         check(r["length"] > 0, f"ep{r['episode_index']} length={r['length']} > 0")
@@ -109,7 +120,10 @@ def run(args):
             r["dataset_from_index"] == cursor,
             f"ep{r['episode_index']} from_index={r['dataset_from_index']} matches cursor={cursor}",
         )
-        check(r["dataset_to_index"] == cursor + r["length"], f"ep{r['episode_index']} to_index consistent with length")
+        check(
+            r["dataset_to_index"] == cursor + r["length"],
+            f"ep{r['episode_index']} to_index consistent with length",
+        )
         cursor += r["length"]
     check(cursor == total_frames, f"episode lengths sum to total_frames={total_frames}")
     check("stats/action/mean" in ep_rows[0], "per-ep stats present")
@@ -136,7 +150,10 @@ def run(args):
 
     c = av.open(video_path)
     s = c.streams.video[0]
-    check(s.frames == total_frames, f"video frame_count={s.frames} matches total_frames={total_frames}")
+    check(
+        s.frames == total_frames,
+        f"video frame_count={s.frames} matches total_frames={total_frames}",
+    )
     check(s.codec_context.width == video_w, f"video width={video_w}")
     check(s.codec_context.height == video_h, f"video height={video_h}")
     c.close()
@@ -144,10 +161,14 @@ def run(args):
     # --- 8. Optional exact checks for comparison with a specific historical run. ---
     if args.expect_episodes is not None:
         check(
-            total_episodes == args.expect_episodes, f"total_episodes={total_episodes} == expect {args.expect_episodes}"
+            total_episodes == args.expect_episodes,
+            f"total_episodes={total_episodes} == expect {args.expect_episodes}",
         )
     if args.expect_frames is not None:
-        check(total_frames == args.expect_frames, f"total_frames={total_frames} == expect {args.expect_frames}")
+        check(
+            total_frames == args.expect_frames,
+            f"total_frames={total_frames} == expect {args.expect_frames}",
+        )
 
     # --- 9. Real-loader smoke test ---
     if not args.skip_loader_check:
@@ -156,7 +177,10 @@ def run(args):
             from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 
             ds = LeRobotDataset(repo_id=None, root=root)
-            check(len(ds) == total_frames, f"loader len(ds)={len(ds)} matches total_frames={total_frames}")
+            check(
+                len(ds) == total_frames,
+                f"loader len(ds)={len(ds)} matches total_frames={total_frames}",
+            )
             _ = ds[0]
             check(True, "loader can index ds[0]")
         except ImportError:
@@ -187,17 +211,17 @@ def build_arg_parser():
     ap.add_argument(
         "--skip_loader_check",
         action="store_true",
-        help="Skip the real LeRobotDataset loader smoke test (useful when lerobot is not installed)",
+        help="Skip the real LeRobotDataset loader smoke test (useful when lerobot is not installed)",  # noqa: E501
     )
     ap.add_argument(
         "--depth_dir",
         default=None,
-        help="Depth-step output containing {ep}/scene_depth.npz; enables numeric depth consistency checks",
+        help="Depth-step output containing {ep}/scene_depth.npz; enables numeric depth consistency checks",  # noqa: E501
     )
     ap.add_argument(
         "--depth_ik_dir",
         default=None,
-        help="Retarget IK directory containing {ep}_ik.npz, used for robot and DA3 depth comparison",
+        help="Retarget IK directory containing {ep}_ik.npz, used for robot and DA3 depth comparison",  # noqa: E501
     )
     ap.add_argument(
         "--depth_samples",
@@ -231,9 +255,16 @@ def check_depth_consistency(args):
         robot_type = str(ik["robot_type"].item()) if "robot_type" in ik else "panda"
         spec = get_robot_spec(robot_type)
         left_quat = np.asarray(ik["left_base_quat"] if "left_base_quat" in ik else ik["base_quat"])
-        right_quat = np.asarray(ik["right_base_quat"] if "right_base_quat" in ik else ik["base_quat"])
+        right_quat = np.asarray(
+            ik["right_base_quat"] if "right_base_quat" in ik else ik["base_quat"]
+        )
         model = build_dual_model(
-            np.asarray(ik["left_base_pos"]), left_quat, np.asarray(ik["right_base_pos"]), right_quat, 60.0, spec
+            np.asarray(ik["left_base_pos"]),
+            left_quat,
+            np.asarray(ik["right_base_pos"]),
+            right_quat,
+            60.0,
+            spec,
         )
         data = mujoco.MjData(model)
         rend = mujoco.Renderer(model, height=368, width=640)
@@ -262,8 +293,12 @@ def check_depth_consistency(args):
             continue
         a = np.array(ratios)
         cv = float(a.std() / a.mean()) if a.mean() > 1e-9 else float("nan")
-        print(f"{ep:<30}{len(ratios):>8}{np.median(zmeds):>9.3f}{np.median(dmeds):>9.3f}{a.mean():>9.3f}{cv:>8.2f}")
-    print("  (z=robot view depth, d=DA3 metric depth; ratio near 1 means agreement, low CV means stability)")
+        print(
+            f"{ep:<30}{len(ratios):>8}{np.median(zmeds):>9.3f}{np.median(dmeds):>9.3f}{a.mean():>9.3f}{cv:>8.2f}"
+        )
+    print(
+        "  (z=robot view depth, d=DA3 metric depth; ratio near 1 means agreement, low CV means stability)"  # noqa: E501
+    )
 
 
 def main():

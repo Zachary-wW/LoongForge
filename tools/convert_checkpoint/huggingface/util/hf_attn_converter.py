@@ -79,7 +79,9 @@ class HfAttnQkvConverter:
 
         if self.num_padded_heads != 0:
             padded_dim = self.num_padded_heads * self.hidden_size_per_head * 3
-            padded_tensor = torch.zeros((padded_dim, value.shape[-1]), dtype=value.dtype, device=value.device)
+            padded_tensor = torch.zeros(
+                (padded_dim, value.shape[-1]), dtype=value.dtype, device=value.device
+            )
             padded_tensor[: value.shape[0], :] = value
             value = padded_tensor
 

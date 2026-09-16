@@ -168,7 +168,9 @@ class OmniEncoderModel(torch.nn.Module):
                 config.image_encoder, vp_stage=vp_stage, **kwargs
             )
             self.encoder_modality["image"] = True
-            self.image_encoder.register_forward_pre_hook(make_encoder_forward_pre_hook("image_encoder"))
+            self.image_encoder.register_forward_pre_hook(
+                make_encoder_forward_pre_hook("image_encoder")
+            )
             self.image_encoder.register_forward_hook(make_encoder_forward_hook("text_decoder"))
 
         if hasattr(self.config, "video_encoder") and self.config.video_encoder is not None:
@@ -177,7 +179,9 @@ class OmniEncoderModel(torch.nn.Module):
                 self.config.video_encoder, vp_stage=vp_stage, **kwargs
             )
             self.encoder_modality["video"] = True
-            self.video_encoder.register_forward_pre_hook(make_encoder_forward_pre_hook("video_encoder"))
+            self.video_encoder.register_forward_pre_hook(
+                make_encoder_forward_pre_hook("video_encoder")
+            )
             self.video_encoder.register_forward_hook(make_encoder_forward_hook("text_decoder"))
         elif self.mix_used_vision_encoder:
             self.encoder_modality["video"] = True
@@ -188,7 +192,9 @@ class OmniEncoderModel(torch.nn.Module):
                 self.config.audio_encoder, vp_stage=vp_stage, **kwargs
             )
             self.encoder_modality["audio"] = True
-            self.audio_encoder.register_forward_pre_hook(make_encoder_forward_pre_hook("audio_encoder"))
+            self.audio_encoder.register_forward_pre_hook(
+                make_encoder_forward_pre_hook("audio_encoder")
+            )
             self.audio_encoder.register_forward_hook(make_encoder_forward_hook("text_decoder"))
 
         change_parallel_state("text_decoder")
@@ -202,7 +208,8 @@ class OmniEncoderModel(torch.nn.Module):
             )
             if allow_missing_adapter_checkpoint:
                 adapter_param_names = [
-                    f"encoder_model.image_projector.{name}" for name in self.image_projector.state_dict()
+                    f"encoder_model.image_projector.{name}"
+                    for name in self.image_projector.state_dict()
                 ]
                 self.image_projector.register_load_state_dict_post_hook(
                     partial(_load_state_dict_hook_ignore_param_names, adapter_param_names)
@@ -211,10 +218,13 @@ class OmniEncoderModel(torch.nn.Module):
             self.image_projector = None
 
         if hasattr(self.config, "video_projector") and self.config.video_projector is not None:
-            self.video_projector: BaseMegatronModule = AutoModel.from_config(self.config.video_projector, **kwargs)
+            self.video_projector: BaseMegatronModule = AutoModel.from_config(
+                self.config.video_projector, **kwargs
+            )
             if allow_missing_adapter_checkpoint:
                 adapter_param_names = [
-                    f"encoder_model.video_projector.{name}" for name in self.video_projector.state_dict().keys()
+                    f"encoder_model.video_projector.{name}"
+                    for name in self.video_projector.state_dict().keys()
                 ]
                 self.video_projector.register_load_state_dict_post_hook(
                     partial(_load_state_dict_hook_ignore_param_names, adapter_param_names)
@@ -223,10 +233,13 @@ class OmniEncoderModel(torch.nn.Module):
             self.video_projector = None
 
         if hasattr(self.config, "audio_projector") and self.config.audio_projector is not None:
-            self.audio_projector: BaseMegatronModule = AutoModel.from_config(self.config.audio_projector, **kwargs)
+            self.audio_projector: BaseMegatronModule = AutoModel.from_config(
+                self.config.audio_projector, **kwargs
+            )
             if allow_missing_adapter_checkpoint:
                 adapter_param_names = [
-                    f"encoder_model.audio_projector.{name}" for name in self.audio_projector.state_dict().keys()
+                    f"encoder_model.audio_projector.{name}"
+                    for name in self.audio_projector.state_dict().keys()
                 ]
                 self.audio_projector.register_load_state_dict_post_hook(
                     partial(_load_state_dict_hook_ignore_param_names, adapter_param_names)
@@ -256,10 +269,10 @@ class OmniEncoderModel(torch.nn.Module):
                 videos_mask_joint = videos_mask[visual_pos_masks]
 
                 for img_embed, vid_embed in zip(deepstack_image_embeds, deepstack_video_embeds):
-                    # Create a zero tensor to hold joint embeddings, size is (N_visual_tokens, Hidden_size)
-                    embed_joint = img_embed.new_zeros(visual_pos_masks.sum().item(), img_embed.shape[-1]).to(
-                        img_embed.device
-                    )
+                    # Create a zero tensor to hold joint embeddings, size is (N_visual_tokens, Hidden_size)  # noqa: E501
+                    embed_joint = img_embed.new_zeros(
+                        visual_pos_masks.sum().item(), img_embed.shape[-1]
+                    ).to(img_embed.device)
                     embed_joint[images_mask_joint, :] = img_embed
                     embed_joint[videos_mask_joint, :] = vid_embed
                     deepstack_visual_embeds.append(embed_joint)
@@ -318,7 +331,9 @@ class OmniEncoderModel(torch.nn.Module):
             image_embeddings = self.image_projector(image_embeddings, window_index)
 
         if isinstance(image_embeddings, (list, tuple)):
-            image_embeddings = torch.cat([e.reshape(-1, e.shape[-1]) for e in image_embeddings], dim=0)
+            image_embeddings = torch.cat(
+                [e.reshape(-1, e.shape[-1]) for e in image_embeddings], dim=0
+            )
 
         image_token_id = self.image_encoder.config.image_token_id
         n_image_tokens = (input_ids == image_token_id).sum().item()
@@ -330,7 +345,11 @@ class OmniEncoderModel(torch.nn.Module):
             inference_params.key_value_memory_dict["image_tokens_count"] = image_embeddings.shape[0]
 
         images_mask = (
-            (input_ids == image_token_id).transpose(0, 1).unsqueeze(-1).expand_as(input_embeds).to(input_embeds.device)
+            (input_ids == image_token_id)
+            .transpose(0, 1)
+            .unsqueeze(-1)
+            .expand_as(input_embeds)
+            .to(input_embeds.device)
         )
 
         image_embeddings = image_embeddings.to(input_embeds.device, input_embeds.dtype)
@@ -368,13 +387,17 @@ class OmniEncoderModel(torch.nn.Module):
         if n_video_tokens != n_video_features:
             raise ValueError(f"video features {n_video_features} != video tokens {n_video_tokens}")
 
-        # If running inference, the language model KV cache will be updated for image token positions.
-        # Here we store the image tokens sequence length, which can be used as an offset to the KV cache later.
+        # If running inference, the language model KV cache will be updated for image token positions.  # noqa: E501
+        # Here we store the image tokens sequence length, which can be used as an offset to the KV cache later.  # noqa: E501
         if inference_params is not None:
             inference_params.key_value_memory_dict["video_tokens_count"] = video_embeddings.shape[0]
 
         videos_mask = (
-            (input_ids == video_token_id).transpose(0, 1).unsqueeze(-1).expand_as(input_embeds).to(input_embeds.device)
+            (input_ids == video_token_id)
+            .transpose(0, 1)
+            .unsqueeze(-1)
+            .expand_as(input_embeds)
+            .to(input_embeds.device)
         )
         video_embeddings = video_embeddings.to(input_embeds.device, input_embeds.dtype)
         combined_embeddings = input_embeds.masked_scatter(videos_mask, video_embeddings)
@@ -433,7 +456,9 @@ class OmniEncoderModel(torch.nn.Module):
         # Process image modality
         if "image" in self.encoder_modality:
             if image_inputs is None and not self.encoder_modality["image"]:
-                input_embeds = self.encoder_dummy_forward(input_embeds, self.image_encoder, self.image_projector)
+                input_embeds = self.encoder_dummy_forward(
+                    input_embeds, self.image_encoder, self.image_projector
+                )
             else:
                 input_embeds, images_mask, deepstack_image_embeds = self.image_forward(
                     input_ids=input_ids,
@@ -446,7 +471,9 @@ class OmniEncoderModel(torch.nn.Module):
         # Process audio modality
         if "audio" in self.encoder_modality:
             if audio_inputs is None and not self.encoder_modality["audio"]:
-                input_embeds = self.encoder_dummy_forward(input_embeds, self.audio_encoder, self.audio_projector)
+                input_embeds = self.encoder_dummy_forward(
+                    input_embeds, self.audio_encoder, self.audio_projector
+                )
             else:
                 input_embeds = self.audio_forward(
                     input_ids=input_ids,
@@ -460,7 +487,9 @@ class OmniEncoderModel(torch.nn.Module):
         if "video" in self.encoder_modality:
             if video_inputs is None and not self.encoder_modality["video"]:
                 if self.mix_used_vision_encoder and not self.encoder_modality["image"]:
-                    input_embeds = self.encoder_dummy_forward(input_embeds, self.video_encoder, self.video_projector)
+                    input_embeds = self.encoder_dummy_forward(
+                        input_embeds, self.video_encoder, self.video_projector
+                    )
             else:
                 input_embeds, videos_mask, deepstack_video_embeds = self.video_forward(
                     input_ids=input_ids,
@@ -484,7 +513,7 @@ class OmniEncoderModel(torch.nn.Module):
         dummy_input = encoder_model.get_dummy_input(input_embeds.device)
         encoder_ret = encoder_model(*dummy_input)
         # Different encoders do not share a strict return signature:
-        # some return (features, window_index, ...), while others return (features, None, ...) or only features.
+        # some return (features, window_index, ...), while others return (features, None, ...) or only features.  # noqa: E501
         # We normalize both cases to avoid unpacking failures in dummy forward.
         if isinstance(encoder_ret, (tuple, list)):
             encoder_output = encoder_ret[0]
@@ -514,7 +543,7 @@ def _load_state_dict_hook_ignore_param_names(
         module (torch.nn.Module): The torch module this hook applies to. Unused here but required by the torch API.
         incompatible_keys (namedtuple): Namedtuple with fields missing_keys and unexpected_keys, which collect the
             missing and unexpected keys when calling load_state_dict on this torch module, respectively.
-    """
+    """  # noqa: E501
     for param_name in param_names:
         if param_name in incompatible_keys.missing_keys:
             logging.getLogger(__name__).warning(

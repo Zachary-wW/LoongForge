@@ -222,7 +222,9 @@ class ImageTransform(BaseTransform):
         t = self._to_tensor(img)
 
         # Step 2: Resize
-        if self.resize_strategy != "none" and (t.shape[-2] != self.image_size or t.shape[-1] != self.image_size):
+        if self.resize_strategy != "none" and (
+            t.shape[-2] != self.image_size or t.shape[-1] != self.image_size
+        ):
             t = self._resize(t.unsqueeze(0)).squeeze(0)
 
         # Step 3: Normalize

@@ -150,7 +150,10 @@ class LearnedAbsolutePositionEmbedding2D(nn.Module):
         x_emb = self.column_embeddings(width_values)
         y_emb = self.row_embeddings(height_values)
         # (height, width, embedding_dim * 2)
-        pos = torch.cat([x_emb.unsqueeze(0).repeat(height, 1, 1), y_emb.unsqueeze(1).repeat(1, width, 1)], dim=-1)
+        pos = torch.cat(
+            [x_emb.unsqueeze(0).repeat(height, 1, 1), y_emb.unsqueeze(1).repeat(1, width, 1)],
+            dim=-1,
+        )
         # (embedding_dim * 2, height, width)
         pos = pos.permute(2, 0, 1)
         pos = pos.unsqueeze(0)
@@ -351,7 +354,13 @@ class DepthWiseConv2d(nn.Module):
     ):
         super().__init__()
         self.dw = nn.Conv2d(
-            dim_in, dim_in, kernel_size=kernel_size, padding=padding, groups=dim_in, stride=stride, bias=bias
+            dim_in,
+            dim_in,
+            kernel_size=kernel_size,
+            padding=padding,
+            groups=dim_in,
+            stride=stride,
+            bias=bias,
         )
 
     def forward(self, x, size):
@@ -374,7 +383,16 @@ class DepthWiseConv2d(nn.Module):
 class ConvEmbed(nn.Module):
     """Image to Patch Embedding"""
 
-    def __init__(self, patch_size=7, in_chans=3, embed_dim=64, stride=4, padding=2, norm_layer=None, pre_norm=True):
+    def __init__(
+        self,
+        patch_size=7,
+        in_chans=3,
+        embed_dim=64,
+        stride=4,
+        padding=2,
+        norm_layer=None,
+        pre_norm=True,
+    ):
         """
         Convolutional patch embedding for hierarchical vision transformers.
 
@@ -384,7 +402,9 @@ class ConvEmbed(nn.Module):
         super().__init__()
         self.patch_size = patch_size
 
-        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=stride, padding=padding)
+        self.proj = nn.Conv2d(
+            in_chans, embed_dim, kernel_size=patch_size, stride=stride, padding=padding
+        )
 
         dim_norm = in_chans if pre_norm else embed_dim
         self.norm = norm_layer(dim_norm) if norm_layer else None
@@ -479,10 +499,14 @@ class ChannelBlock(nn.Module):
         drop_path = DropPath(drop_path_rate) if drop_path_rate > 0.0 else nn.Identity()
 
         self.conv1 = PreNorm(None, DepthWiseConv2d(dim, 3, 1, 1)) if conv_at_attn else None
-        self.channel_attn = PreNorm(norm_layer(dim), ChannelAttention(dim, groups=groups, qkv_bias=qkv_bias), drop_path)
+        self.channel_attn = PreNorm(
+            norm_layer(dim), ChannelAttention(dim, groups=groups, qkv_bias=qkv_bias), drop_path
+        )
         self.conv2 = PreNorm(None, DepthWiseConv2d(dim, 3, 1, 1)) if conv_at_ffn else None
         self.ffn = PreNorm(
-            norm_layer(dim), Mlp(in_features=dim, hidden_features=int(dim * mlp_ratio), act_layer=act_layer), drop_path
+            norm_layer(dim),
+            Mlp(in_features=dim, hidden_features=int(dim * mlp_ratio), act_layer=act_layer),
+            drop_path,
         )
 
     def forward(self, x, size):
@@ -590,7 +614,11 @@ class WindowAttention(nn.Module):
             x = flash_attn_func(q, k, v, 0.0, softmax_scale=self.scale, causal=False)
             x = x.reshape(B_, N, C)
         else:
-            qkv = self.qkv(x).reshape(B_, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+            qkv = (
+                self.qkv(x)
+                .reshape(B_, N, 3, self.num_heads, C // self.num_heads)
+                .permute(2, 0, 3, 1, 4)
+            )
             q, k, v = qkv[0], qkv[1], qkv[2]
 
             q = q * self.scale
@@ -646,11 +674,15 @@ class SpatialBlock(nn.Module):
 
         self.conv1 = PreNorm(None, DepthWiseConv2d(dim, 3, 1, 1)) if conv_at_attn else None
         self.window_attn = PreNorm(
-            norm_layer(dim), WindowAttention(dim, num_heads, window_size, qkv_bias=qkv_bias, use_fa2=use_fa2), drop_path
+            norm_layer(dim),
+            WindowAttention(dim, num_heads, window_size, qkv_bias=qkv_bias, use_fa2=use_fa2),
+            drop_path,
         )
         self.conv2 = PreNorm(None, DepthWiseConv2d(dim, 3, 1, 1)) if conv_at_ffn else None
         self.ffn = PreNorm(
-            norm_layer(dim), Mlp(in_features=dim, hidden_features=int(dim * mlp_ratio), act_layer=act_layer), drop_path
+            norm_layer(dim),
+            Mlp(in_features=dim, hidden_features=int(dim * mlp_ratio), act_layer=act_layer),
+            drop_path,
         )
 
     def forward(self, x, size):
@@ -687,7 +719,7 @@ class DaViT(nn.Module):
         enable_checkpoint (bool): If True, enable checkpointing. Default: False.
         conv_at_attn (bool): If True, performe depthwise convolution before attention layer. Default: True.
         conv_at_ffn (bool): If True, performe depthwise convolution before ffn layer. Default: True.
-    """
+    """  # noqa: E501
 
     def __init__(
         self,
@@ -791,7 +823,9 @@ class DaViT(nn.Module):
 
         self.norms = norm_layer(self.embed_dims[-1])
         self.avgpool = nn.AdaptiveAvgPool1d(1)
-        self.head = nn.Linear(self.embed_dims[-1], num_classes) if num_classes > 0 else nn.Identity()
+        self.head = (
+            nn.Linear(self.embed_dims[-1], num_classes) if num_classes > 0 else nn.Identity()
+        )
 
     @property
     def dim_out(self):
@@ -923,7 +957,10 @@ class Florence2LearnedPositionalEmbedding(nn.Embedding):
 
         bsz, seq_len = input_ids.shape[:2]
         positions = torch.arange(
-            past_key_values_length, past_key_values_length + seq_len, dtype=torch.long, device=self.weight.device
+            past_key_values_length,
+            past_key_values_length + seq_len,
+            dtype=torch.long,
+            device=self.weight.device,
         ).expand(bsz, -1)
 
         return super().forward(positions + self.offset)
@@ -934,7 +971,13 @@ class Florence2ScaledWordEmbedding(nn.Embedding):
     This module overrides nn.Embeddings' forward by multiplying with embeddings scale.
     """
 
-    def __init__(self, num_embeddings: int, embedding_dim: int, padding_idx: int, embed_scale: Optional[float] = 1.0):
+    def __init__(
+        self,
+        num_embeddings: int,
+        embedding_dim: int,
+        padding_idx: int,
+        embed_scale: Optional[float] = 1.0,
+    ):
         """
         Word embedding table with optional scale factor applied at lookup time.
 
@@ -1044,12 +1087,12 @@ class Florence2Attention(nn.Module):
             value_states = self._shape(self.v_proj(hidden_states), -1, bsz)
 
         if self.is_decoder:
-            # if cross_attention save Tuple(torch.Tensor, torch.Tensor) of all cross attention key/value_states.
+            # if cross_attention save Tuple(torch.Tensor, torch.Tensor) of all cross attention key/value_states.  # noqa: E501
             # Further calls to cross_attention layer can then reuse all cross-attention
             # key/value_states (first "if" case)
             # if uni-directional self-attention (decoder) save Tuple(torch.Tensor, torch.Tensor) of
             # all previous decoder key/value_states. Further calls to uni-directional self-attention
-            # can concat previous decoder key/value_states to current projected key/value_states (third "elif" case)
+            # can concat previous decoder key/value_states to current projected key/value_states (third "elif" case)  # noqa: E501
             # if encoder bi-directional self-attention `past_key_value` is always `None`
             past_key_value = (key_states, value_states)
 
@@ -1063,14 +1106,14 @@ class Florence2Attention(nn.Module):
 
         if attn_weights.size() != (bsz * self.num_heads, tgt_len, src_len):
             raise ValueError(
-                f"Attention weights should be of size {(bsz * self.num_heads, tgt_len, src_len)}, but is"
+                f"Attention weights should be of size {(bsz * self.num_heads, tgt_len, src_len)}, but is"  # noqa: E501
                 f" {attn_weights.size()}"
             )
 
         if attention_mask is not None:
             if attention_mask.size() != (bsz, 1, tgt_len, src_len):
                 raise ValueError(
-                    f"Attention mask should be of size {(bsz, 1, tgt_len, src_len)}, but is {attention_mask.size()}"
+                    f"Attention mask should be of size {(bsz, 1, tgt_len, src_len)}, but is {attention_mask.size()}"  # noqa: E501
                 )
             attn_weights = attn_weights.view(bsz, self.num_heads, tgt_len, src_len) + attention_mask
             attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
@@ -1083,7 +1126,9 @@ class Florence2Attention(nn.Module):
                     f"Head mask for a single layer should be of size {(self.num_heads,)}, but is"
                     f" {layer_head_mask.size()}"
                 )
-            attn_weights = layer_head_mask.view(1, -1, 1, 1) * attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
+            attn_weights = layer_head_mask.view(1, -1, 1, 1) * attn_weights.view(
+                bsz, self.num_heads, tgt_len, src_len
+            )
             attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
 
         if output_attentions:
@@ -1102,7 +1147,7 @@ class Florence2Attention(nn.Module):
 
         if attn_output.size() != (bsz * self.num_heads, tgt_len, self.head_dim):
             raise ValueError(
-                f"`attn_output` should be of size {(bsz * self.num_heads, tgt_len, self.head_dim)}, but is"
+                f"`attn_output` should be of size {(bsz * self.num_heads, tgt_len, self.head_dim)}, but is"  # noqa: E501
                 f" {attn_output.size()}"
             )
 
@@ -1124,7 +1169,7 @@ class Florence2FlashAttention2(Florence2Attention):
     Florence2 flash attention module. This module inherits from `Florence2Attention` as the weights of the module stays
     untouched. The only required change would be on the forward pass where it needs to correctly call the public API of
     flash attention and deal with padding tokens in case the input contains any of them.
-    """
+    """  # noqa: E501
 
     # Copied from transformers.models.llama.modeling_llama.LlamaFlashAttention2.__init__
     def __init__(self, *args, **kwargs):
@@ -1160,7 +1205,9 @@ class Florence2FlashAttention2(Florence2Attention):
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         # Florence2FlashAttention2 attention does not support output_attentions
         if output_attentions:
-            raise ValueError("Florence2FlashAttention2 attention does not support output_attentions")
+            raise ValueError(
+                "Florence2FlashAttention2 attention does not support output_attentions"
+            )
 
         # if key_value_states are provided this layer is used as a cross-attention layer
         # for the decoder
@@ -1198,12 +1245,12 @@ class Florence2FlashAttention2(Florence2Attention):
             value_states = self._reshape(self.v_proj(hidden_states), -1, bsz)
 
         if self.is_decoder:
-            # if cross_attention save Tuple(torch.Tensor, torch.Tensor) of all cross attention key/value_states.
+            # if cross_attention save Tuple(torch.Tensor, torch.Tensor) of all cross attention key/value_states.  # noqa: E501
             # Further calls to cross_attention layer can then reuse all cross-attention
             # key/value_states (first "if" case)
             # if uni-directional self-attention (decoder) save Tuple(torch.Tensor, torch.Tensor) of
             # all previous decoder key/value_states. Further calls to uni-directional self-attention
-            # can concat previous decoder key/value_states to current projected key/value_states (third "elif" case)
+            # can concat previous decoder key/value_states to current projected key/value_states (third "elif" case)  # noqa: E501
             # if encoder bi-directional self-attention `past_key_value` is always `None`
             past_key_value = (key_states.transpose(1, 2), value_states.transpose(1, 2))
 
@@ -1228,8 +1275,8 @@ class Florence2FlashAttention2(Florence2Attention):
                 target_dtype = self.q_proj.weight.dtype
 
             logger.warning_once(
-                f"The input hidden states seems to be silently casted in float32, this might be related to"
-                f" the fact you have upcasted embedding or layer norm layers in float32. We will cast back the input in"
+                f"The input hidden states seems to be silently casted in float32, this might be related to"  # noqa: E501
+                f" the fact you have upcasted embedding or layer norm layers in float32. We will cast back the input in"  # noqa: E501
                 f" {target_dtype}."
             )
 
@@ -1249,9 +1296,16 @@ class Florence2FlashAttention2(Florence2Attention):
 
         return attn_output, attn_weights, past_key_value
 
-    # Copied from transformers.models.llama.modeling_llama.LlamaFlashAttention2._flash_attention_forward
+    # Copied from transformers.models.llama.modeling_llama.LlamaFlashAttention2._flash_attention_forward  # noqa: E501
     def _flash_attention_forward(
-        self, query_states, key_states, value_states, attention_mask, query_length, dropout=0.0, softmax_scale=None
+        self,
+        query_states,
+        key_states,
+        value_states,
+        attention_mask,
+        query_length,
+        dropout=0.0,
+        softmax_scale=None,
     ):
         """
         Calls the forward method of Flash Attention - if the input hidden states contain at least one padding token
@@ -1271,7 +1325,7 @@ class Florence2FlashAttention2(Florence2Attention):
                 Attention dropout
             softmax_scale (`float`, *optional*):
                 The scaling of QK^T before applying softmax. Default to 1 / sqrt(head_dim)
-        """
+        """  # noqa: E501
         if not self._flash_attn_uses_top_left_mask:
             causal = self.is_causal
         else:
@@ -1282,8 +1336,10 @@ class Florence2FlashAttention2(Florence2Attention):
         # Contains at least one padding token in the sequence
         if attention_mask is not None:
             batch_size = query_states.shape[0]
-            query_states, key_states, value_states, indices_q, cu_seq_lens, max_seq_lens = self._upad_input(
-                query_states, key_states, value_states, attention_mask, query_length
+            query_states, key_states, value_states, indices_q, cu_seq_lens, max_seq_lens = (
+                self._upad_input(
+                    query_states, key_states, value_states, attention_mask, query_length
+                )
             )
 
             cu_seqlens_q, cu_seqlens_k = cu_seq_lens
@@ -1305,7 +1361,12 @@ class Florence2FlashAttention2(Florence2Attention):
             attn_output = pad_input(attn_output_unpad, indices_q, batch_size, query_length)
         else:
             attn_output = flash_attn_func(
-                query_states, key_states, value_states, dropout, softmax_scale=softmax_scale, causal=causal
+                query_states,
+                key_states,
+                value_states,
+                dropout,
+                softmax_scale=softmax_scale,
+                causal=causal,
             )
 
         return attn_output
@@ -1344,7 +1405,9 @@ class Florence2FlashAttention2(Florence2Attention):
         else:
             # The -q_len: slice assumes left padding.
             attention_mask = attention_mask[:, -query_length:]
-            query_layer, indices_q, cu_seqlens_q, max_seqlen_in_batch_q = unpad_input(query_layer, attention_mask)
+            query_layer, indices_q, cu_seqlens_q, max_seqlen_in_batch_q = unpad_input(
+                query_layer, attention_mask
+            )
 
         return (
             query_layer,
@@ -1382,7 +1445,7 @@ class Florence2SdpaAttention(Florence2Attention):
         layer_head_mask: Optional[torch.Tensor] = None,
         output_attentions: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
-        """SDPA attention forward; falls back to eager when output_attentions=True or layer_head_mask is set."""
+        """SDPA attention forward; falls back to eager when output_attentions=True or layer_head_mask is set."""  # noqa: E501
         if output_attentions or layer_head_mask is not None:
             # TODO: Improve this warning with e.g. `model.config._attn_implementation = "manual"`
             # once this is implemented.
@@ -1439,12 +1502,12 @@ class Florence2SdpaAttention(Florence2Attention):
             value_states = self._shape(self.v_proj(hidden_states), -1, bsz)
 
         if self.is_decoder:
-            # if cross_attention save Tuple(torch.Tensor, torch.Tensor) of all cross attention key/value_states.
+            # if cross_attention save Tuple(torch.Tensor, torch.Tensor) of all cross attention key/value_states.  # noqa: E501
             # Further calls to cross_attention layer can then reuse all cross-attention
             # key/value_states (first "if" case)
             # if uni-directional self-attention (decoder) save Tuple(torch.Tensor, torch.Tensor) of
             # all previous decoder key/value_states. Further calls to uni-directional self-attention
-            # can concat previous decoder key/value_states to current projected key/value_states (third "elif" case)
+            # can concat previous decoder key/value_states to current projected key/value_states (third "elif" case)  # noqa: E501
             # if encoder bi-directional self-attention `past_key_value` is always `None`
             past_key_value = (key_states, value_states)
 
@@ -1492,7 +1555,7 @@ class Florence2SdpaAttention(Florence2Attention):
 
             if attn_output.size() != (bsz, self.num_heads, tgt_len, self.head_dim):
                 raise ValueError(
-                    f"`attn_output` should be of size {(bsz, self.num_heads, tgt_len, self.head_dim)}, but is"
+                    f"`attn_output` should be of size {(bsz, self.num_heads, tgt_len, self.head_dim)}, but is"  # noqa: E501
                     f" {attn_output.size()}"
                 )
 
@@ -1516,7 +1579,7 @@ FLORENCE2_ATTENTION_CLASSES = {
 
 
 class Florence2EncoderLayer(nn.Module):
-    """Single encoder layer for Florence2: self-attention + FFN with pre-norm and residual connections."""
+    """Single encoder layer for Florence2: self-attention + FFN with pre-norm and residual connections."""  # noqa: E501
 
     def __init__(self, config: Florence2LanguageConfig):
         """
@@ -1524,7 +1587,7 @@ class Florence2EncoderLayer(nn.Module):
 
         Supports three attention implementations: eager, SDPA, and Flash Attention 2,
         selected via config._attn_implementation.
-        """
+        """  # noqa: E501
         super().__init__()
         self.embed_dim = config.d_model
 
@@ -1559,7 +1622,7 @@ class Florence2EncoderLayer(nn.Module):
             output_attentions (`bool`, *optional*):
                 Whether or not to return the attentions tensors of all attention layers. See `attentions` under
                 returned tensors for more detail.
-        """
+        """  # noqa: E501
         residual = hidden_states
         hidden_states, attn_weights, _ = self.self_attn(
             hidden_states=hidden_states,
@@ -1573,7 +1636,9 @@ class Florence2EncoderLayer(nn.Module):
 
         residual = hidden_states
         hidden_states = self.activation_fn(self.fc1(hidden_states))
-        hidden_states = nn.functional.dropout(hidden_states, p=self.activation_dropout, training=self.training)
+        hidden_states = nn.functional.dropout(
+            hidden_states, p=self.activation_dropout, training=self.training
+        )
         hidden_states = self.fc2(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
         hidden_states = residual + hidden_states
@@ -1654,7 +1719,7 @@ class Florence2DecoderLayer(nn.Module):
             output_attentions (`bool`, *optional*):
                 Whether or not to return the attentions tensors of all attention layers. See `attentions` under
                 returned tensors for more detail.
-        """
+        """  # noqa: E501
         residual = hidden_states
 
         # Self Attention
@@ -1688,7 +1753,9 @@ class Florence2DecoderLayer(nn.Module):
                 past_key_value=cross_attn_past_key_value,
                 output_attentions=output_attentions,
             )
-            hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
+            hidden_states = nn.functional.dropout(
+                hidden_states, p=self.dropout, training=self.training
+            )
             hidden_states = residual + hidden_states
             hidden_states = self.encoder_attn_layer_norm(hidden_states)
 
@@ -1698,7 +1765,9 @@ class Florence2DecoderLayer(nn.Module):
         # Fully Connected
         residual = hidden_states
         hidden_states = self.activation_fn(self.fc1(hidden_states))
-        hidden_states = nn.functional.dropout(hidden_states, p=self.activation_dropout, training=self.training)
+        hidden_states = nn.functional.dropout(
+            hidden_states, p=self.activation_dropout, training=self.training
+        )
         hidden_states = self.fc2(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
         hidden_states = residual + hidden_states
@@ -1776,7 +1845,9 @@ class Florence2Encoder(Florence2LanguagePreTrainedModel):
         embed_tokens (nn.Embedding): output embedding
     """
 
-    def __init__(self, config: Florence2LanguageConfig, embed_tokens: Optional[nn.Embedding] = None):
+    def __init__(
+        self, config: Florence2LanguageConfig, embed_tokens: Optional[nn.Embedding] = None
+    ):
         """
         Initialize the Florence2 Transformer encoder.
 
@@ -1806,7 +1877,9 @@ class Florence2Encoder(Florence2LanguagePreTrainedModel):
             config.max_position_embeddings,
             embed_dim,
         )
-        self.layers = nn.ModuleList([Florence2EncoderLayer(config) for _ in range(config.encoder_layers)])
+        self.layers = nn.ModuleList(
+            [Florence2EncoderLayer(config) for _ in range(config.encoder_layers)]
+        )
         self._use_flash_attention_2 = config._attn_implementation == "flash_attention_2"
         self._use_sdpa = config._attn_implementation == "sdpa"
         self.layernorm_embedding = nn.LayerNorm(embed_dim)
@@ -1868,10 +1941,14 @@ class Florence2Encoder(Florence2LanguagePreTrainedModel):
                 for more detail.
             return_dict (`bool`, *optional*):
                 Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
-        """
-        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        """  # noqa: E501
+        output_attentions = (
+            output_attentions if output_attentions is not None else self.config.output_attentions
+        )
         output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+            output_hidden_states
+            if output_hidden_states is not None
+            else self.config.output_hidden_states
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
@@ -1901,10 +1978,12 @@ class Florence2Encoder(Florence2LanguagePreTrainedModel):
             if self._use_flash_attention_2:
                 attention_mask = attention_mask if 0 in attention_mask else None
             elif self._use_sdpa and head_mask is None and not output_attentions:
-                # output_attentions=True & head_mask can not be supported when using SDPA, fall back to
+                # output_attentions=True & head_mask can not be supported when using SDPA, fall back to  # noqa: E501
                 # the manual implementation that requires a 4D causal mask in all cases.
                 # [bsz, seq_len] -> [bsz, 1, tgt_seq_len, src_seq_len]
-                attention_mask = _prepare_4d_attention_mask_for_sdpa(attention_mask, inputs_embeds.dtype)
+                attention_mask = _prepare_4d_attention_mask_for_sdpa(
+                    attention_mask, inputs_embeds.dtype
+                )
             else:
                 # [bsz, seq_len] -> [bsz, 1, tgt_seq_len, src_seq_len]
                 attention_mask = _prepare_4d_attention_mask(attention_mask, inputs_embeds.dtype)
@@ -1916,7 +1995,7 @@ class Florence2Encoder(Florence2LanguagePreTrainedModel):
         if head_mask is not None:
             if head_mask.size()[0] != (len(self.layers)):
                 raise ValueError(
-                    f"The head_mask should be specified for {len(self.layers)} layers, but it is for"
+                    f"The head_mask should be specified for {len(self.layers)} layers, but it is for"  # noqa: E501
                     f" {head_mask.size()[0]}."
                 )
 
@@ -1962,8 +2041,12 @@ class Florence2Encoder(Florence2LanguagePreTrainedModel):
             encoder_states = encoder_states + (hidden_states,)
 
         if not return_dict:
-            return tuple(v for v in [hidden_states, encoder_states, all_attentions] if v is not None)
-        return BaseModelOutput(last_hidden_state=hidden_states, hidden_states=encoder_states, attentions=all_attentions)
+            return tuple(
+                v for v in [hidden_states, encoder_states, all_attentions] if v is not None
+            )
+        return BaseModelOutput(
+            last_hidden_state=hidden_states, hidden_states=encoder_states, attentions=all_attentions
+        )
 
 
 class Florence2Decoder(Florence2LanguagePreTrainedModel):
@@ -1973,9 +2056,11 @@ class Florence2Decoder(Florence2LanguagePreTrainedModel):
     Args:
         config: Florence2LanguageConfig
         embed_tokens (nn.Embedding): output embedding
-    """
+    """  # noqa: E501
 
-    def __init__(self, config: Florence2LanguageConfig, embed_tokens: Optional[nn.Embedding] = None):
+    def __init__(
+        self, config: Florence2LanguageConfig, embed_tokens: Optional[nn.Embedding] = None
+    ):
         """
         Initialize the Florence2 Transformer decoder.
 
@@ -2000,7 +2085,9 @@ class Florence2Decoder(Florence2LanguagePreTrainedModel):
             config.max_position_embeddings,
             config.d_model,
         )
-        self.layers = nn.ModuleList([Florence2DecoderLayer(config) for _ in range(config.decoder_layers)])
+        self.layers = nn.ModuleList(
+            [Florence2DecoderLayer(config) for _ in range(config.decoder_layers)]
+        )
         self._use_flash_attention_2 = config._attn_implementation == "flash_attention_2"
         self._use_sdpa = config._attn_implementation == "sdpa"
 
@@ -2099,17 +2186,23 @@ class Florence2Decoder(Florence2LanguagePreTrainedModel):
                 for more detail.
             return_dict (`bool`, *optional*):
                 Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
-        """
-        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        """  # noqa: E501
+        output_attentions = (
+            output_attentions if output_attentions is not None else self.config.output_attentions
+        )
         output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+            output_hidden_states
+            if output_hidden_states is not None
+            else self.config.output_hidden_states
         )
         use_cache = use_cache if use_cache is not None else self.config.use_cache
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         # retrieve input_ids and inputs_embeds
         if input_ids is not None and inputs_embeds is not None:
-            raise ValueError("You cannot specify both decoder_input_ids and decoder_inputs_embeds at the same time")
+            raise ValueError(
+                "You cannot specify both decoder_input_ids and decoder_inputs_embeds at the same time"  # noqa: E501
+            )
         elif input_ids is not None:
             input = input_ids
             input_shape = input.shape
@@ -2118,19 +2211,25 @@ class Florence2Decoder(Florence2LanguagePreTrainedModel):
             input_shape = inputs_embeds.size()[:-1]
             input = inputs_embeds[:, :, -1]
         else:
-            raise ValueError("You have to specify either decoder_input_ids or decoder_inputs_embeds")
+            raise ValueError(
+                "You have to specify either decoder_input_ids or decoder_inputs_embeds"
+            )
 
         # past_key_values_length
-        past_key_values_length = past_key_values[0][0].shape[2] if past_key_values is not None else 0
+        past_key_values_length = (
+            past_key_values[0][0].shape[2] if past_key_values is not None else 0
+        )
 
         if inputs_embeds is None:
             inputs_embeds = self.embed_tokens(input)
 
         if self._use_flash_attention_2:
             # 2d mask is passed through the layers
-            attention_mask = attention_mask if (attention_mask is not None and 0 in attention_mask) else None
+            attention_mask = (
+                attention_mask if (attention_mask is not None and 0 in attention_mask) else None
+            )
         elif self._use_sdpa and not output_attentions and cross_attn_head_mask is None:
-            # output_attentions=True & cross_attn_head_mask can not be supported when using SDPA, and we fall back on
+            # output_attentions=True & cross_attn_head_mask can not be supported when using SDPA, and we fall back on  # noqa: E501
             # the manual implementation that requires a 4D causal mask in all cases.
             attention_mask = _prepare_4d_causal_attention_mask_for_sdpa(
                 attention_mask,
@@ -2147,7 +2246,9 @@ class Florence2Decoder(Florence2LanguagePreTrainedModel):
         # expand encoder attention mask
         if encoder_hidden_states is not None and encoder_attention_mask is not None:
             if self._use_flash_attention_2:
-                encoder_attention_mask = encoder_attention_mask if 0 in encoder_attention_mask else None
+                encoder_attention_mask = (
+                    encoder_attention_mask if 0 in encoder_attention_mask else None
+                )
             elif self._use_sdpa and cross_attn_head_mask is None and not output_attentions:
                 # output_attentions=True & cross_attn_head_mask can not be supported when using
                 # SDPA, and we fall back on
@@ -2176,22 +2277,26 @@ class Florence2Decoder(Florence2LanguagePreTrainedModel):
         if self.gradient_checkpointing and self.training:
             if use_cache:
                 logger.warning_once(
-                    "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
+                    "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."  # noqa: E501
                 )
                 use_cache = False
 
         # decoder layers
         all_hidden_states = () if output_hidden_states else None
         all_self_attns = () if output_attentions else None
-        all_cross_attentions = () if (output_attentions and encoder_hidden_states is not None) else None
+        all_cross_attentions = (
+            () if (output_attentions and encoder_hidden_states is not None) else None
+        )
         next_decoder_cache = () if use_cache else None
 
-        # check if head_mask/cross_attn_head_mask has a correct number of layers specified if desired
-        for attn_mask, mask_name in zip([head_mask, cross_attn_head_mask], ["head_mask", "cross_attn_head_mask"]):
+        # check if head_mask/cross_attn_head_mask has a correct number of layers specified if desired  # noqa: E501
+        for attn_mask, mask_name in zip(
+            [head_mask, cross_attn_head_mask], ["head_mask", "cross_attn_head_mask"]
+        ):
             if attn_mask is not None:
                 if attn_mask.size()[0] != (len(self.layers)):
                     raise ValueError(
-                        f"The `{mask_name}` should be specified for {len(self.layers)} layers, but it is for"
+                        f"The `{mask_name}` should be specified for {len(self.layers)} layers, but it is for"  # noqa: E501
                         f" {head_mask.size()[0]}."
                     )
 
@@ -2252,7 +2357,13 @@ class Florence2Decoder(Florence2LanguagePreTrainedModel):
         if not return_dict:
             return tuple(
                 v
-                for v in [hidden_states, next_cache, all_hidden_states, all_self_attns, all_cross_attentions]
+                for v in [
+                    hidden_states,
+                    next_cache,
+                    all_hidden_states,
+                    all_self_attns,
+                    all_cross_attentions,
+                ]
                 if v is not None
             )
         return BaseModelOutputWithPastAndCrossAttentions(
@@ -2344,9 +2455,13 @@ class Florence2LanguageModel(Florence2LanguagePreTrainedModel):
                 input_ids, self.config.pad_token_id, self.config.decoder_start_token_id
             )
 
-        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        output_attentions = (
+            output_attentions if output_attentions is not None else self.config.output_attentions
+        )
         output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+            output_hidden_states
+            if output_hidden_states is not None
+            else self.config.output_hidden_states
         )
         use_cache = use_cache if use_cache is not None else self.config.use_cache
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
@@ -2361,7 +2476,7 @@ class Florence2LanguageModel(Florence2LanguagePreTrainedModel):
                 output_hidden_states=output_hidden_states,
                 return_dict=return_dict,
             )
-        # If the user passed a tuple for encoder_outputs, we wrap it in a BaseModelOutput when return_dict=True
+        # If the user passed a tuple for encoder_outputs, we wrap it in a BaseModelOutput when return_dict=True  # noqa: E501
         elif return_dict and not isinstance(encoder_outputs, BaseModelOutput):
             encoder_outputs = BaseModelOutput(
                 last_hidden_state=encoder_outputs[0],
@@ -2404,13 +2519,19 @@ class Florence2LanguageForConditionalGeneration(Florence2LanguagePreTrainedModel
     """Encoder-decoder language model with an LM head for conditional generation."""
 
     base_model_prefix = "model"
-    _tied_weights_keys = ["encoder.embed_tokens.weight", "decoder.embed_tokens.weight", "lm_head.weight"]
+    _tied_weights_keys = [
+        "encoder.embed_tokens.weight",
+        "decoder.embed_tokens.weight",
+        "lm_head.weight",
+    ]
     _keys_to_ignore_on_load_missing = ["final_logits_bias"]
 
     def __init__(self, config: Florence2LanguageConfig):
         super().__init__(config)
         self.model = Florence2LanguageModel(config)
-        self.register_buffer("final_logits_bias", torch.zeros((1, self.model.shared.num_embeddings)))
+        self.register_buffer(
+            "final_logits_bias", torch.zeros((1, self.model.shared.num_embeddings))
+        )
         self.lm_head = nn.Linear(config.d_model, self.model.shared.num_embeddings, bias=False)
 
         # Initialize weights and apply final processing
@@ -2435,7 +2556,9 @@ class Florence2LanguageForConditionalGeneration(Florence2LanguagePreTrainedModel
         self, new_num_tokens: int, pad_to_multiple_of: Optional[int] = None, **kwargs
     ) -> nn.Embedding:
         """Resize token embeddings and adjust the final logits bias accordingly."""
-        new_embeddings = super().resize_token_embeddings(new_num_tokens, pad_to_multiple_of, **kwargs)
+        new_embeddings = super().resize_token_embeddings(
+            new_num_tokens, pad_to_multiple_of, **kwargs
+        )
         self._resize_final_logits_bias(new_embeddings.weight.shape[0])
         return new_embeddings
 
@@ -2445,7 +2568,9 @@ class Florence2LanguageForConditionalGeneration(Florence2LanguagePreTrainedModel
         if new_num_tokens <= old_num_tokens:
             new_bias = self.final_logits_bias[:, :new_num_tokens]
         else:
-            extra_bias = torch.zeros((1, new_num_tokens - old_num_tokens), device=self.final_logits_bias.device)
+            extra_bias = torch.zeros(
+                (1, new_num_tokens - old_num_tokens), device=self.final_logits_bias.device
+            )
             new_bias = torch.cat([self.final_logits_bias, extra_bias], dim=1)
         self.register_buffer("final_logits_bias", new_bias)
 
@@ -2483,12 +2608,14 @@ class Florence2LanguageForConditionalGeneration(Florence2LanguagePreTrainedModel
             (masked), the loss is only computed for the tokens with labels in `[0, ..., config.vocab_size]`.
 
         Returns:
-        """
+        """  # noqa: E501
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         if labels is not None:
             if use_cache:
-                logger.warning("The `use_cache` argument is changed to `False` since `labels` is provided.")
+                logger.warning(
+                    "The `use_cache` argument is changed to `False` since `labels` is provided."
+                )
             use_cache = False
             if decoder_input_ids is None and decoder_inputs_embeds is None:
                 decoder_input_ids = shift_tokens_right(
@@ -2585,7 +2712,9 @@ class Florence2LanguageForConditionalGeneration(Florence2LanguagePreTrainedModel
 
     def prepare_decoder_input_ids_from_labels(self, labels: torch.Tensor):
         """Shift labels right to produce decoder input ids for teacher-forced training."""
-        return shift_tokens_right(labels, self.config.pad_token_id, self.config.decoder_start_token_id)
+        return shift_tokens_right(
+            labels, self.config.pad_token_id, self.config.decoder_start_token_id
+        )
 
     @staticmethod
     def _reorder_cache(past_key_values, beam_idx):
@@ -2598,7 +2727,10 @@ class Florence2LanguageForConditionalGeneration(Florence2LanguagePreTrainedModel
         for layer_past in past_key_values:
             # cached cross_attention states don't have to be reordered -> they are always the same
             reordered_past += (
-                tuple(past_state.index_select(0, beam_idx.to(past_state.device)) for past_state in layer_past[:2])
+                tuple(
+                    past_state.index_select(0, beam_idx.to(past_state.device))
+                    for past_state in layer_past[:2]
+                )
                 + layer_past[2:],
             )
         return reordered_past
@@ -2670,7 +2802,7 @@ class Florence2Seq2SeqLMOutput(ModelOutput):
             num_image_tokens, hidden_size)`.
 
             image_hidden_states of the model produced by the vision encoder
-    """
+    """  # noqa: E501
 
     loss: Optional[torch.FloatTensor] = None
     logits: torch.FloatTensor = None
@@ -2699,7 +2831,7 @@ FLORENCE2_START_DOCSTRING = r"""
             Model configuration class with all the parameters of the model. Initializing with a config file does not
             load the weights associated with the model, only the configuration. Check out the
             [`~PreTrainedModel.from_pretrained`] method to load the model weights.
-"""
+"""  # noqa: E501
 
 
 @add_start_docstrings(
@@ -2795,7 +2927,7 @@ FLORENCE2_INPUTS_DOCSTRING = r"""
             more detail.
         return_dict (`bool`, *optional*):
             Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
-"""
+"""  # noqa: E501
 
 
 @add_start_docstrings(
@@ -2850,7 +2982,7 @@ class Florence2VisionModelWithProjection(Florence2PreTrainedModel):
         Called during __init__ for both Florence2VisionModelWithProjection and
         Florence2ForConditionalGeneration. Reads image_pos_embed and visual_temporal_embedding
         from config to determine the embedding types.
-        """
+        """  # noqa: E501
         image_dim_out = config.dim_embed[-1]
         dim_projection = config.projection_dim
         self.image_projection = nn.Parameter(torch.empty(image_dim_out, dim_projection))
@@ -2869,7 +3001,8 @@ class Florence2VisionModelWithProjection(Florence2PreTrainedModel):
         visual_temporal_embedding_config = config.visual_temporal_embedding
         if visual_temporal_embedding_config["type"] == "COSINE":
             self.visual_temporal_embed = PositionalEmbeddingCosine1D(
-                embed_dim=image_dim_out, max_seq_len=visual_temporal_embedding_config["max_temporal_embeddings"]
+                embed_dim=image_dim_out,
+                max_seq_len=visual_temporal_embedding_config["max_temporal_embeddings"],
             )
         else:
             raise NotImplementedError("Not implemented yet")
@@ -2899,8 +3032,12 @@ class Florence2VisionModelWithProjection(Florence2PreTrainedModel):
             x = x.view(batch_size, T * h * w, x.shape[-1])
 
         if self.visual_temporal_embed is not None:
-            visual_temporal_embed = self.visual_temporal_embed(x.view(batch_size, T, -1, x.shape[-1])[:, :, 0])
-            x = x.view(batch_size, T, -1, x.shape[-1]) + visual_temporal_embed.view(1, T, 1, x.shape[-1])
+            visual_temporal_embed = self.visual_temporal_embed(
+                x.view(batch_size, T, -1, x.shape[-1])[:, :, 0]
+            )
+            x = x.view(batch_size, T, -1, x.shape[-1]) + visual_temporal_embed.view(
+                1, T, 1, x.shape[-1]
+            )
 
         x_feat_dict = {}
 
@@ -2984,7 +3121,8 @@ class Florence2ForConditionalGeneration(Florence2PreTrainedModel):
         visual_temporal_embedding_config = config.vision_config.visual_temporal_embedding
         if visual_temporal_embedding_config["type"] == "COSINE":
             self.visual_temporal_embed = PositionalEmbeddingCosine1D(
-                embed_dim=image_dim_out, max_seq_len=visual_temporal_embedding_config["max_temporal_embeddings"]
+                embed_dim=image_dim_out,
+                max_seq_len=visual_temporal_embedding_config["max_temporal_embeddings"],
             )
         else:
             raise NotImplementedError("Not implemented yet")
@@ -3005,7 +3143,9 @@ class Florence2ForConditionalGeneration(Florence2PreTrainedModel):
         self, new_num_tokens: Optional[int] = None, pad_to_multiple_of=None, **kwargs
     ) -> nn.Embedding:
         """Resize token embeddings and update vocab size fields on the config."""
-        model_embeds = self.language_model.resize_token_embeddings(new_num_tokens, pad_to_multiple_of, **kwargs)
+        model_embeds = self.language_model.resize_token_embeddings(
+            new_num_tokens, pad_to_multiple_of, **kwargs
+        )
         # update vocab size
         self.config.text_config.vocab_size = model_embeds.num_embeddings
         self.config.vocab_size = model_embeds.num_embeddings
@@ -3037,8 +3177,12 @@ class Florence2ForConditionalGeneration(Florence2PreTrainedModel):
             x = x.view(batch_size, T * h * w, x.shape[-1])
 
         if self.visual_temporal_embed is not None:
-            visual_temporal_embed = self.visual_temporal_embed(x.view(batch_size, T, -1, x.shape[-1])[:, :, 0])
-            x = x.view(batch_size, T, -1, x.shape[-1]) + visual_temporal_embed.view(1, T, 1, x.shape[-1])
+            visual_temporal_embed = self.visual_temporal_embed(
+                x.view(batch_size, T, -1, x.shape[-1])[:, :, 0]
+            )
+            x = x.view(batch_size, T, -1, x.shape[-1]) + visual_temporal_embed.view(
+                1, T, 1, x.shape[-1]
+            )
 
         x_feat_dict = {}
 
@@ -3082,7 +3226,9 @@ class Florence2ForConditionalGeneration(Florence2PreTrainedModel):
             return image_features, image_attention_mask
 
         task_prefix_embeds = inputs_embeds
-        task_prefix_attention_mask = torch.ones(batch_size, task_prefix_embeds.size(1), device=device)
+        task_prefix_attention_mask = torch.ones(
+            batch_size, task_prefix_embeds.size(1), device=device
+        )
 
         if len(task_prefix_attention_mask.shape) == 3:
             task_prefix_attention_mask = task_prefix_attention_mask[:, 0]
@@ -3147,10 +3293,14 @@ class Florence2ForConditionalGeneration(Florence2PreTrainedModel):
         >>> generate_ids = model.generate(**inputs, max_length=100)
         >>> processor.batch_decode(generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
         "A green car parked in front of a yellow building."
-        ```"""
-        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        ```"""  # noqa: E501
+        output_attentions = (
+            output_attentions if output_attentions is not None else self.config.output_attentions
+        )
         output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+            output_hidden_states
+            if output_hidden_states is not None
+            else self.config.output_hidden_states
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
@@ -3163,7 +3313,9 @@ class Florence2ForConditionalGeneration(Florence2PreTrainedModel):
             if pixel_values is not None:
                 # (batch_size, num_image_tokens, hidden_size)
                 image_features = self._encode_image(pixel_values)
-                inputs_embeds, attention_mask = self._merge_input_ids_with_image_features(image_features, inputs_embeds)
+                inputs_embeds, attention_mask = self._merge_input_ids_with_image_features(
+                    image_features, inputs_embeds
+                )
 
         if inputs_embeds is not None:
             attention_mask = attention_mask.to(inputs_embeds.dtype)
@@ -3219,7 +3371,9 @@ class Florence2ForConditionalGeneration(Florence2PreTrainedModel):
             # 2. Merge text and images
             if pixel_values is not None:
                 image_features = self._encode_image(pixel_values)
-                inputs_embeds, attention_mask = self._merge_input_ids_with_image_features(image_features, inputs_embeds)
+                inputs_embeds, attention_mask = self._merge_input_ids_with_image_features(
+                    image_features, inputs_embeds
+                )
 
         return self.language_model.generate(input_ids=None, inputs_embeds=inputs_embeds, **kwargs)
 

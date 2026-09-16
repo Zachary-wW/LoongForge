@@ -174,9 +174,13 @@ def convert_custom_pipeline_to_layout(
 
     Returns:
         Layout string in pipeline-model-parallel-layout format.
-    """
+    """  # noqa: E501
     # Handle None case: default to 1 (no virtual pipeline)
-    vp_size = num_virtual_stages_per_pipeline_rank if num_virtual_stages_per_pipeline_rank is not None else 1
+    vp_size = (
+        num_virtual_stages_per_pipeline_rank
+        if num_virtual_stages_per_pipeline_rank is not None
+        else 1
+    )
 
     splits = []
     # Determine PP size based on which parameter is provided
@@ -189,7 +193,9 @@ def convert_custom_pipeline_to_layout(
             splits = [int(s) for s in custom_pipeline_layers.split(",") if s.strip()]
         pp_size = len(splits)
     else:
-        raise ValueError("One of custom_pipeline_layers or custom_virtual_pipeline_layers must be provided.")
+        raise ValueError(
+            "One of custom_pipeline_layers or custom_virtual_pipeline_layers must be provided."
+        )
 
     # Symbol mapping
     from megatron.core.transformer.enums import LayerType

@@ -28,12 +28,12 @@ class ConcatTransform(InvertibleModalityTransform):
 
     video_concat_order: list[str] = Field(
         ...,
-        description="Concatenation order for each video modality. Format: ['video.ego_view_pad_res224_freq20', ...]",
+        description="Concatenation order for each video modality. Format: ['video.ego_view_pad_res224_freq20', ...]",  # noqa: E501
     )
 
     state_concat_order: Optional[list[str]] = Field(
         default=None,
-        description="Concatenation order for each state modality. Format: ['state.position', 'state.velocity', ...].",
+        description="Concatenation order for each state modality. Format: ['state.position', 'state.velocity', ...].",  # noqa: E501
     )
 
     action_concat_order: Optional[list[str]] = Field(
@@ -111,14 +111,16 @@ class ConcatTransform(InvertibleModalityTransform):
             video_keys = grouped_keys["video"]
             assert self.video_concat_order is not None, f"{self.video_concat_order=}, {video_keys=}"
             assert all(item in video_keys for item in self.video_concat_order), (
-                f"keys in video_concat_order are misspecified, \n{video_keys=}, \n{self.video_concat_order=}"
+                f"keys in video_concat_order are misspecified, \n{video_keys=}, \n{self.video_concat_order=}"  # noqa: E501
             )
 
             # Process each video view
             unsqueezed_videos = []
             for video_key in self.video_concat_order:
                 video_data = data.pop(video_key)
-                unsqueezed_video = np.expand_dims(video_data, axis=-4)  # [..., H, W, C] -> [..., 1, H, W, C]
+                unsqueezed_video = np.expand_dims(
+                    video_data, axis=-4
+                )  # [..., H, W, C] -> [..., 1, H, W, C]
                 unsqueezed_videos.append(unsqueezed_video)
             # Concatenate along the new axis
             unsqueezed_video = np.concatenate(unsqueezed_videos, axis=-4)  # [..., V, H, W, C]
@@ -131,20 +133,24 @@ class ConcatTransform(InvertibleModalityTransform):
             state_keys = grouped_keys["state"]
             assert self.state_concat_order is not None, f"{self.state_concat_order=}"
             assert all(item in state_keys for item in self.state_concat_order), (
-                f"keys in state_concat_order are misspecified, \n{state_keys=}, \n{self.state_concat_order=}"
+                f"keys in state_concat_order are misspecified, \n{state_keys=}, \n{self.state_concat_order=}"  # noqa: E501
             )
             # Check the state dims
             for key in self.state_concat_order:
                 target_shapes = [self.state_dims[key]]
                 if self.is_rotation_key(key):
-                    target_shapes.extend([3, 4, 6])  # 3 -> axis_angle, 4 -> quaternion, 6 -> rotation_6d
+                    target_shapes.extend(
+                        [3, 4, 6]
+                    )  # 3 -> axis_angle, 4 -> quaternion, 6 -> rotation_6d
                 target_shapes.append(self.state_dims[key] * 2)  # Allow for sin-cos transform
                 assert data[key].shape[-1] in target_shapes, (
                     f"State dim mismatch for {key=}, {data[key].shape[-1]=}, {target_shapes=}"
                 )
             # Concatenate the state keys
             # We'll have StateActionToTensor before this transform, so here we use torch.cat
-            data["state"] = torch.cat([data.pop(key) for key in self.state_concat_order], dim=-1)  # [T, D_state]
+            data["state"] = torch.cat(
+                [data.pop(key) for key in self.state_concat_order], dim=-1
+            )  # [T, D_state]
 
         if "action" in grouped_keys:
             action_keys = grouped_keys["action"]
@@ -157,13 +163,17 @@ class ConcatTransform(InvertibleModalityTransform):
             for key in self.action_concat_order:
                 target_shapes = [self.action_dims[key]]
                 if self.is_rotation_key(key):
-                    target_shapes.extend([3, 4, 6])  # 3 -> axis_angle, 4 -> quaternion, 6 -> rotation_6d
+                    target_shapes.extend(
+                        [3, 4, 6]
+                    )  # 3 -> axis_angle, 4 -> quaternion, 6 -> rotation_6d
                 assert data[key].shape[-1] in target_shapes, (
                     f"Action dim mismatch for {key=}, {data[key].shape[-1]=}, {target_shapes=}"
                 )
             # Concatenate the action keys
             # We'll have StateActionToTensor before this transform, so here we use torch.cat
-            data["action"] = torch.cat([data.pop(key) for key in self.action_concat_order], dim=-1)  # [T, D_action]
+            data["action"] = torch.cat(
+                [data.pop(key) for key in self.action_concat_order], dim=-1
+            )  # [T, D_action]
 
         return data
 
@@ -216,7 +226,7 @@ class ConcatTransform(InvertibleModalityTransform):
         It is different from the `get_state_action_dims` function, because this function accounts for
         the case where we apply transforms and the # of dims is change eg. after applying axis_angle transform on
         quaternion, the dims change from 4D to 3D.
-        """
+        """  # noqa: E501
         modality_config = self.get_modality_metadata(key)
         shape = modality_config.shape
         assert len(shape) == 1, f"{shape=}"

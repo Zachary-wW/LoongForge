@@ -193,7 +193,9 @@ class GrootN1d6FeatureTransform(BaseTransform):
             action, action_mask = self._pack_action(normalized_actions)
             result["action"] = action
             result["action_mask"] = action_mask
-            result["action_is_pad"] = self._build_action_is_pad(data.get("action_is_pad"), action_mask)
+            result["action_is_pad"] = self._build_action_is_pad(
+                data.get("action_is_pad"), action_mask
+            )
 
         language = _normalize_text(data.get("task", ""))
         if self.formalize_language:
@@ -234,10 +236,14 @@ class GrootN1d6FeatureTransform(BaseTransform):
         dataset_stats_local = dict(dataset_stats or {})
         if self.embodiment_tag in EMBODIMENT_STAT_CONFIGS:
             action_cfg = EMBODIMENT_STAT_CONFIGS[self.embodiment_tag]["modality_config"]["action"]
-            needs_relative_stats = any(cfg.rep.value == "relative" for cfg in (action_cfg.action_configs or []))
+            needs_relative_stats = any(
+                cfg.rep.value == "relative" for cfg in (action_cfg.action_configs or [])
+            )
             if needs_relative_stats and "relative_action" not in dataset_stats_local:
                 if dataset is None:
-                    raise ValueError("Missing 'relative_action' stats for GR00T preprocessing and dataset is None")
+                    raise ValueError(
+                        "Missing 'relative_action' stats for GR00T preprocessing and dataset is None"  # noqa: E501
+                    )
                 dataset_stats_local["relative_action"] = compute_relative_action_stats(
                     dataset,
                     self.embodiment_tag,
@@ -354,10 +360,14 @@ class GrootN1d6FeatureTransform(BaseTransform):
         images: dict[str, list[np.ndarray]],
         language: str,
     ) -> dict[str, Any]:
-        image_keys = list(images.keys()) or self.modality_configs[self.embodiment_tag]["video"].modality_keys
+        image_keys = (
+            list(images.keys()) or self.modality_configs[self.embodiment_tag]["video"].modality_keys
+        )
         image_transform = None
         if not self.use_processor_image_size:
-            image_transform = self.train_image_transform if self.training else self.eval_image_transform
+            image_transform = (
+                self.train_image_transform if self.training else self.eval_image_transform
+            )
 
         temporal_stacked_images = {}
         if self.use_albumentations and image_transform is not None:
@@ -365,13 +375,17 @@ class GrootN1d6FeatureTransform(BaseTransform):
             for view in image_keys:
                 if view not in images:
                     raise KeyError(f"Missing GR00T image view '{view}'")
-                transformed_images, replay = apply_with_replay(image_transform, images[view], replay)
+                transformed_images, replay = apply_with_replay(
+                    image_transform, images[view], replay
+                )
                 temporal_stacked_images[view] = torch.stack(transformed_images)
         elif image_transform is not None:
             for view in image_keys:
                 if view not in images:
                     raise KeyError(f"Missing GR00T image view '{view}'")
-                temporal_stacked_images[view] = torch.stack([image_transform(img) for img in images[view]])
+                temporal_stacked_images[view] = torch.stack(
+                    [image_transform(img) for img in images[view]]
+                )
         else:
             for view in image_keys:
                 if view not in images:
@@ -382,7 +396,9 @@ class GrootN1d6FeatureTransform(BaseTransform):
 
         for view, tensor in temporal_stacked_images.items():
             if tensor.ndim != 4 or tensor.shape[1] != 3:
-                raise ValueError(f"GR00T image view '{view}' must be [T, 3, H, W], got {tuple(tensor.shape)}")
+                raise ValueError(
+                    f"GR00T image view '{view}' must be [T, 3, H, W], got {tuple(tensor.shape)}"
+                )
             if tensor.dtype != torch.uint8:
                 tensor = tensor.clamp(0, 255).to(torch.uint8)
                 temporal_stacked_images[view] = tensor
@@ -476,7 +492,9 @@ def build_groot_n1_6_transforms(ctx: TransformBuilderContext):
     """Build GR00T-N1.6-specific per-sample transforms."""
     preprocess_mode = ctx.data_cfg.groot_preprocess_mode
     if preprocess_mode != "sample":
-        raise ValueError(f"Unsupported GR00T-N1.6 preprocess mode for per-sample transforms: {preprocess_mode!r}")
+        raise ValueError(
+            f"Unsupported GR00T-N1.6 preprocess mode for per-sample transforms: {preprocess_mode!r}"
+        )
 
     return [
         GrootPromptTransform(),

@@ -140,7 +140,7 @@ def run_hashbucket_processor(processor, tracker, max_token_len):
         return bins_boxs
     int(mean - (mean - min_) * 0.1)
     print(
-        f"in the first round of end ----------the current processing box number: {len(bin_boxs_001)}, "
+        f"in the first round of end ----------the current processing box number: {len(bin_boxs_001)}, "  # noqa: E501
         f"total box {len(bins_boxs)}, handle the {num - tmp_num} items, remaining {num} the items"
     )
     # tmp_items=[(1,0.96),(5,0.96),(5,0.94),(6,0.92),(4,0.92),(4,0.92)]
@@ -188,7 +188,7 @@ def run_hashbucket_processor(processor, tracker, max_token_len):
             mean, min_, max_, tmp_num = get_hs(processor.hash_buckets)
             print(
                 f"top{i} end----------the current processing box number: {len(bin_boxs_TOP)}, "
-                f"total box{len(bins_boxs)},handle the{num - tmp_num}items,remaining {tmp_num} items"
+                f"total box{len(bins_boxs)},handle the{num - tmp_num}items,remaining {tmp_num} items"  # noqa: E501
             )
             if num - tmp_num < 3000:
                 break
@@ -215,7 +215,7 @@ def run_hashbucket_processor(processor, tracker, max_token_len):
             print(
                 f" the final pack_with_flexible_seeds end ---------- "
                 f"current number of processed boxes: {len(bin_boxs_turn)}, "
-                f"total box {len(bins_boxs)}, processed {num - tmp_num}items, remaining {tmp_num}items"
+                f"total box {len(bins_boxs)}, processed {num - tmp_num}items, remaining {tmp_num}items"  # noqa: E501
             )
             num = tmp_num
 
@@ -281,7 +281,9 @@ def run_wds_native(cfg):
         plan_path = write_bins_plan(cfg, media_type, bins_boxs)
         total_boxes += len(bins_boxs)
         if keep_intermediate:
-            print(f"{media_type} bins saved to {file_path}, compact_plan={plan_path}, boxes={len(bins_boxs)}")
+            print(
+                f"{media_type} bins saved to {file_path}, compact_plan={plan_path}, boxes={len(bins_boxs)}"  # noqa: E501
+            )
         else:
             print(f"{media_type} compact bins plan saved to {plan_path}, boxes={len(bins_boxs)}")
     print(f"WDS-native hashbucket done, total boxes={total_boxes}")

@@ -53,7 +53,9 @@ def _map_loss_log_dict(log_loss_dict, *, backward_loss, gradient_accumulation_st
         if metric_key == "action_loss":
             metric_key = "lingbot_logged_action_loss"
         mapped_log_dict[metric_key] = value
-    mapped_log_dict["action_loss"] = backward_loss.detach() * float(max(1, int(gradient_accumulation_steps)))
+    mapped_log_dict["action_loss"] = backward_loss.detach() * float(
+        max(1, int(gradient_accumulation_steps))
+    )
     return mapped_log_dict
 
 
@@ -98,13 +100,17 @@ class LingBotFinetuneTrainer(FinetuneTrainer):
         optimizer = super()._build_optimizer()
         if feature_enabled("LINGBOT_FSDP_RESHARD"):
             reshard_module_count = sum(
-                1 for module in self.model.modules() if hasattr(module, "set_reshard_after_backward")
+                1
+                for module in self.model.modules()
+                if hasattr(module, "set_reshard_after_backward")
             )
             reshard_mode = "framework-default"
         else:
-            self._lingbot_post_step_reshard_hook, reshard_module_count = register_lingbot_post_step_reshard(
-                self.model,
-                optimizer,
+            self._lingbot_post_step_reshard_hook, reshard_module_count = (
+                register_lingbot_post_step_reshard(
+                    self.model,
+                    optimizer,
+                )
             )
             reshard_mode = "post-step"
         if self.ctx is not None and self.ctx.is_main:
@@ -133,7 +139,9 @@ class LingBotFinetuneTrainer(FinetuneTrainer):
         """
         threshold = self.training_args.loss_spike_threshold
         with self._stage_timers("backward-compute"):
-            loss, raw_loss, invalid, spiked = _COMPILED_DEVICE_LOSS_GUARD(loss, grad_accum, threshold)
+            loss, raw_loss, invalid, spiked = _COMPILED_DEVICE_LOSS_GUARD(
+                loss, grad_accum, threshold
+            )
             self._lingbot_loss_guard_records.append(
                 (
                     raw_loss,

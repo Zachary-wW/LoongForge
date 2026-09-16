@@ -169,7 +169,7 @@ def _add_log_tensor_args(parser):
         "--save-tensor-dir",
         type=str,
         default="",
-        help="[llm-inspector] Directory path to save tensor files. Required when --save-tensor is enabled. "
+        help="[llm-inspector] Directory path to save tensor files. Required when --save-tensor is enabled. "  # noqa: E501
         "Default: '' (current directory)",
     )
 
@@ -196,7 +196,8 @@ def _add_extra_training_rice_vl_args(parser: argparse.ArgumentParser) -> argpars
     for answer length during training.
     """
     group = parser.add_argument_group(
-        title="Training Rice-VL", description="Arguments specific to Rice-VL vision-language model training"
+        title="Training Rice-VL",
+        description="Arguments specific to Rice-VL vision-language model training",
     )
 
     group.add_argument(
@@ -301,14 +302,14 @@ def _add_extra_bridge_args(parser):
         dest="quant_method",
         default="te",
         choices=["te", "pt"],
-        help="fp8 quantization backend for bf16->fp8 conversion during bridge load. Default: te (TransformerEngine)",
+        help="fp8 quantization backend for bf16->fp8 conversion during bridge load. Default: te (TransformerEngine)",  # noqa: E501
     )
     group.add_argument(
         "--pretrain-as-fp8",
         "--pretrain_as_fp8",
         dest="pretrain_as_fp8",
         action="store_true",
-        help="Treat the loaded checkpoint as fp8 for pretrain (bf16 saved ckpt + pretrain fp8). Default: False",
+        help="Treat the loaded checkpoint as fp8 for pretrain (bf16 saved ckpt + pretrain fp8). Default: False",  # noqa: E501
     )
     return parser
 
@@ -325,7 +326,8 @@ def _add_extra_model_args(parser: argparse.ArgumentParser):
     and checkpoint handling.
     """
     group = parser.add_argument_group(
-        title="Model Configuration", description="Arguments for model architecture and parameter management"
+        title="Model Configuration",
+        description="Arguments for model architecture and parameter management",
     )
 
     group.add_argument(
@@ -399,7 +401,8 @@ def _add_extra_tokenizer_args(parser: argparse.ArgumentParser):
     and vocabulary configuration.
     """
     group = parser.add_argument_group(
-        title="Tokenizer Configuration", description="Arguments for tokenizer initialization and behavior"
+        title="Tokenizer Configuration",
+        description="Arguments for tokenizer initialization and behavior",
     )
 
     group.add_argument(
@@ -436,7 +439,7 @@ def _add_extra_tokenizer_args(parser: argparse.ArgumentParser):
         "--use-fast-tokenizer",
         action="store_true",
         dest="use_fast_tokenizer",
-        help="Use the fast (Rust-based) tokenizer implementation when --tokenizer-type=HFTokenizer. "
+        help="Use the fast (Rust-based) tokenizer implementation when --tokenizer-type=HFTokenizer. "  # noqa: E501
         "Requires tokenizers library. Default: False",
     )
 
@@ -507,7 +510,8 @@ def _add_extra_sft_args(parser: argparse.ArgumentParser):
     and training behavior for SFT tasks.
     """
     group = parser.add_argument_group(
-        title="SFT Data Configuration", description="Arguments for supervised fine-tuning data processing"
+        title="SFT Data Configuration",
+        description="Arguments for supervised fine-tuning data processing",
     )
 
     group.add_argument(
@@ -604,7 +608,7 @@ def _add_extra_sft_args(parser: argparse.ArgumentParser):
         help=(
             "Strategy for mixing multiple SFT datasets: "
             "'concat': concatenate datasets sequentially; "
-            "'interleave_under': interleave datasets and stop when the shortest dataset is exhausted; "
+            "'interleave_under': interleave datasets and stop when the shortest dataset is exhausted; "  # noqa: E501
             "'interleave_over': interleave datasets until the longest dataset is exhausted."
         ),
     )
@@ -642,7 +646,7 @@ def _add_extra_sft_args(parser: argparse.ArgumentParser):
     group.add_argument(
         "--packing-sft-data",
         action="store_true",
-        help="Pack multiple short sequences into a single training sample to improve GPU utilization. Default: False",
+        help="Pack multiple short sequences into a single training sample to improve GPU utilization. Default: False",  # noqa: E501
     )
 
     group.add_argument(
@@ -664,7 +668,7 @@ def _add_extra_sft_args(parser: argparse.ArgumentParser):
     group.add_argument(
         "--use-fixed-seq-lengths",
         action="store_true",
-        help="Pad all sequences to exactly --seq-length. Currently only supported for language models. Default: False",
+        help="Pad all sequences to exactly --seq-length. Currently only supported for language models. Default: False",  # noqa: E501
     )
 
     group.add_argument(
@@ -702,14 +706,14 @@ def _add_extra_video_args(parser):
         "--latent-in-channels",
         type=int,
         default=None,
-        help="Number of input channels in latent space. Used by video diffusion models. Default: None",
+        help="Number of input channels in latent space. Used by video diffusion models. Default: None",  # noqa: E501
     )
 
     group.add_argument(
         "--latent-out-channels",
         type=int,
         default=None,
-        help="Number of output channels in latent space. Used by video diffusion models. Default: None",
+        help="Number of output channels in latent space. Used by video diffusion models. Default: None",  # noqa: E501
     )
 
     group.add_argument(
@@ -727,11 +731,17 @@ def _add_extra_video_args(parser):
     )
 
     group.add_argument(
-        "--latent-space-scale", type=float, default=1.0, help="Spatial scaling factor for latent space. Default: 1.0"
+        "--latent-space-scale",
+        type=float,
+        default=1.0,
+        help="Spatial scaling factor for latent space. Default: 1.0",
     )
 
     group.add_argument(
-        "--latent-time-scale", type=float, default=1.0, help="Temporal scaling factor for latent space. Default: 1.0"
+        "--latent-time-scale",
+        type=float,
+        default=1.0,
+        help="Temporal scaling factor for latent space. Default: 1.0",
     )
 
     group.add_argument(
@@ -742,20 +752,39 @@ def _add_extra_video_args(parser):
     )
 
     group.add_argument(
-        "--max-latent-height", type=int, default=None, help="Maximum height of video in latent space. Default: None"
+        "--max-latent-height",
+        type=int,
+        default=None,
+        help="Maximum height of video in latent space. Default: None",
     )
 
     group.add_argument(
-        "--max-latent-width", type=int, default=None, help="Maximum width of video in latent space. Default: None"
+        "--max-latent-width",
+        type=int,
+        default=None,
+        help="Maximum width of video in latent space. Default: None",
     )
 
     group.add_argument(
-        "--max-text-length", type=int, default=None, help="Maximum text/caption token length. Default: None"
+        "--max-text-length",
+        type=int,
+        default=None,
+        help="Maximum text/caption token length. Default: None",
     )
 
-    group.add_argument("--max-video-length", type=int, default=32760, help="Maximum video token length. Default: 32760")
+    group.add_argument(
+        "--max-video-length",
+        type=int,
+        default=32760,
+        help="Maximum video token length. Default: 32760",
+    )
 
-    group.add_argument("--max-image-length", type=int, default=None, help="Maximum image token length. Default: None")
+    group.add_argument(
+        "--max-image-length",
+        type=int,
+        default=None,
+        help="Maximum image token length. Default: None",
+    )
 
     group.add_argument(
         "--max-timestep-boundary",
@@ -796,7 +825,10 @@ def _add_extra_video_args(parser):
     )
 
     group.add_argument(
-        "--force-image-size", type=int, default=448, help="Force resize images to this size (pixels). Default: 448"
+        "--force-image-size",
+        type=int,
+        default=448,
+        help="Force resize images to this size (pixels). Default: 448",
     )
 
     group.add_argument(
@@ -807,7 +839,9 @@ def _add_extra_video_args(parser):
     )
 
     group.add_argument(
-        "--pad2square", action="store_true", help="Pad rectangular images to square shape with padding. Default: False"
+        "--pad2square",
+        action="store_true",
+        help="Pad rectangular images to square shape with padding. Default: False",
     )
 
     group.add_argument(
@@ -818,11 +852,17 @@ def _add_extra_video_args(parser):
     )
 
     group.add_argument(
-        "--max-buffer-size", type=int, default=20, help="Buffer size for packed dataset construction. Default: 20"
+        "--max-buffer-size",
+        type=int,
+        default=20,
+        help="Buffer size for packed dataset construction. Default: 20",
     )
 
     group.add_argument(
-        "--max-packed-tokens", type=int, default=8192, help="Target token length per packed sample. Default: 8192"
+        "--max-packed-tokens",
+        type=int,
+        default=8192,
+        help="Target token length per packed sample. Default: 8192",
     )
 
     group.add_argument(
@@ -845,7 +885,10 @@ def _add_extra_video_args(parser):
     )
 
     group.add_argument(
-        "--patch-size", type=int, default=14, help="Vision encoder patch size for image tokenization. Default: 14"
+        "--patch-size",
+        type=int,
+        default=14,
+        help="Vision encoder patch size for image tokenization. Default: 14",
     )
 
     group.add_argument(
@@ -855,11 +898,17 @@ def _add_extra_video_args(parser):
     )
 
     group.add_argument(
-        "--min-num-frame", type=int, default=8, help="Minimum number of frames to sample from video data. Default: 8"
+        "--min-num-frame",
+        type=int,
+        default=8,
+        help="Minimum number of frames to sample from video data. Default: 8",
     )
 
     group.add_argument(
-        "--max-num-frame", type=int, default=32, help="Maximum number of frames to sample from video data. Default: 32"
+        "--max-num-frame",
+        type=int,
+        default=32,
+        help="Maximum number of frames to sample from video data. Default: 32",
     )
 
     group.add_argument(
@@ -869,15 +918,23 @@ def _add_extra_video_args(parser):
     )
 
     group.add_argument(
-        "--min-dynamic-patch", type=int, default=1, help="Minimum number of dynamic patches per image. Default: 1"
+        "--min-dynamic-patch",
+        type=int,
+        default=1,
+        help="Minimum number of dynamic patches per image. Default: 1",
     )
 
     group.add_argument(
-        "--max-dynamic-patch", type=int, default=12, help="Maximum number of dynamic patches per image. Default: 12"
+        "--max-dynamic-patch",
+        type=int,
+        default=12,
+        help="Maximum number of dynamic patches per image. Default: 12",
     )
 
     group.add_argument(
-        "--use_thumbnail", action="store_true", help="Add thumbnail image alongside dynamic patches. Default: False"
+        "--use_thumbnail",
+        action="store_true",
+        help="Add thumbnail image alongside dynamic patches. Default: False",
     )
 
     group.add_argument(
@@ -890,7 +947,7 @@ def _add_extra_video_args(parser):
     group.add_argument(
         "--use-packed-ds",
         action="store_true",
-        help="[DEPRECATED] Enable packed dataset mode for efficient multi-image training. Default: False",
+        help="[DEPRECATED] Enable packed dataset mode for efficient multi-image training. Default: False",  # noqa: E501
     )
 
     group.add_argument(
@@ -945,7 +1002,8 @@ def _add_extra_training_args(parser: argparse.ArgumentParser):
     and EMA (Exponential Moving Average).
     """
     group = parser.add_argument_group(
-        title="Training Configuration", description="Arguments for training loop and checkpoint management"
+        title="Training Configuration",
+        description="Arguments for training loop and checkpoint management",
     )
 
     group.add_argument(
@@ -953,7 +1011,7 @@ def _add_extra_training_args(parser: argparse.ArgumentParser):
         type=str,
         default=constants.TrainingPhase.PRETRAIN,
         choices=[constants.TrainingPhase.PRETRAIN, constants.TrainingPhase.SFT],
-        help="Training phase: 'pretrain' for pre-training, 'sft' for supervised fine-tuning. Default: pretrain",
+        help="Training phase: 'pretrain' for pre-training, 'sft' for supervised fine-tuning. Default: pretrain",  # noqa: E501
     )
 
     group.add_argument(
@@ -999,7 +1057,7 @@ def _add_extra_training_args(parser: argparse.ArgumentParser):
     group.add_argument(
         "--variable-seq-lengths",
         action="store_true",
-        help="[DEPRECATED] This flag is ignored. Variable sequence length support is now automatic. Default: False",
+        help="[DEPRECATED] This flag is ignored. Variable sequence length support is now automatic. Default: False",  # noqa: E501
     )
 
     group.add_argument(
@@ -1050,7 +1108,7 @@ def _add_extra_training_args(parser: argparse.ArgumentParser):
         "--load-ema",
         type=str,
         default=None,
-        help="Directory path to load EMA checkpoint from. Defaults to ${args.load}/ema. Default: None",
+        help="Directory path to load EMA checkpoint from. Defaults to ${args.load}/ema. Default: None",  # noqa: E501
     )
 
     group.add_argument(
@@ -1084,7 +1142,7 @@ def _add_extra_training_args(parser: argparse.ArgumentParser):
         "--save-hf-path",
         type=str,
         default=None,
-        help="Path to save the HF model checkpoint. If not specified, will save to <save>/release_hf_weights/",
+        help="Path to save the HF model checkpoint. If not specified, will save to <save>/release_hf_weights/",  # noqa: E501
     )
 
     group.add_argument("--lora-alpha", type=int, help="Lora alpha for LoRA fine tuning.")
@@ -1134,7 +1192,8 @@ def _add_extra_multimodal_args(parser):
     processing parameters, and data packing strategies.
     """
     group = parser.add_argument_group(
-        title="Multimodal Configuration", description="Arguments for vision-language and multimodal models"
+        title="Multimodal Configuration",
+        description="Arguments for vision-language and multimodal models",
     )
 
     group.add_argument(
@@ -1243,14 +1302,25 @@ def _add_extra_multimodal_args(parser):
     )
 
     # Frame sampling arguments
-    group.add_argument("--fps", type=float, default=2.0, help="Frames per second to sample from video. Default: 2.0")
-
     group.add_argument(
-        "--fps-min-frames", type=int, default=4, help="Minimum number of frames to sample from video. Default: 4"
+        "--fps",
+        type=float,
+        default=2.0,
+        help="Frames per second to sample from video. Default: 2.0",
     )
 
     group.add_argument(
-        "--fps-max-frames", type=int, default=768, help="Maximum number of frames to sample from video. Default: 768"
+        "--fps-min-frames",
+        type=int,
+        default=4,
+        help="Minimum number of frames to sample from video. Default: 4",
+    )
+
+    group.add_argument(
+        "--fps-max-frames",
+        type=int,
+        default=768,
+        help="Maximum number of frames to sample from video. Default: 768",
     )
 
     group.add_argument(
@@ -1279,7 +1349,8 @@ def _add_extra_parallel_args(parser):
     data parallelism balancing, and distributed training configuration.
     """
     group = parser.add_argument_group(
-        title="Parallel Configuration", description="Arguments for distributed and parallel training"
+        title="Parallel Configuration",
+        description="Arguments for distributed and parallel training",
     )
 
     # Context parallelism (deprecated argument for backward compatibility)

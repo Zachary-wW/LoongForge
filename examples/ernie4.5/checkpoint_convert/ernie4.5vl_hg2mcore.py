@@ -168,7 +168,10 @@ def build_vision_mapping(args) -> WeightMapping:
     m = WeightMapping(forward_fn=copy_fn)
 
     # --- patch embedding & final layernorm ---
-    m.add("vision_model.patch_embed.proj.weight", "encoder_model.image_encoder.patch_embed.proj.weight")
+    m.add(
+        "vision_model.patch_embed.proj.weight",
+        "encoder_model.image_encoder.patch_embed.proj.weight",
+    )
     m.add("vision_model.ln.weight", "encoder_model.image_encoder.ln.weight")
     m.add("vision_model.ln.bias", "encoder_model.image_encoder.ln.bias")
 
@@ -180,8 +183,16 @@ def build_vision_mapping(args) -> WeightMapping:
         m.add(f"{hg}.norm1.weight", f"{mc}.input_layernorm.weight")
         m.add(f"{hg}.norm1.bias", f"{mc}.input_layernorm.bias")
 
-        m.add(f"{hg}.attn.qkv.weight", f"{mc}.self_attention.linear_qkv.weight", forward_fn=reorder_vit_qkv_weight)
-        m.add(f"{hg}.attn.qkv.bias", f"{mc}.self_attention.linear_qkv.bias", forward_fn=reorder_vit_qkv_bias)
+        m.add(
+            f"{hg}.attn.qkv.weight",
+            f"{mc}.self_attention.linear_qkv.weight",
+            forward_fn=reorder_vit_qkv_weight,
+        )
+        m.add(
+            f"{hg}.attn.qkv.bias",
+            f"{mc}.self_attention.linear_qkv.bias",
+            forward_fn=reorder_vit_qkv_bias,
+        )
 
         m.add(f"{hg}.attn.proj.weight", f"{mc}.self_attention.linear_proj.weight")
         m.add(f"{hg}.attn.proj.bias", f"{mc}.self_attention.linear_proj.bias")
@@ -246,9 +257,21 @@ def build_language_mapping(args) -> WeightMapping:
         # --- self attention ---
         m.add(f"{hg}.input_layernorm.weight", f"{mc}.input_layernorm.weight")
         # q/k/v are merged by merge_qkv_lm_fn; all three must share the same dst_name
-        m.add(f"{hg}.self_attn.q_proj.weight", f"{mc}.self_attention.linear_qkv.weight", forward_fn=merge_qkv_lm_fn)
-        m.add(f"{hg}.self_attn.k_proj.weight", f"{mc}.self_attention.linear_qkv.weight", forward_fn=merge_qkv_lm_fn)
-        m.add(f"{hg}.self_attn.v_proj.weight", f"{mc}.self_attention.linear_qkv.weight", forward_fn=merge_qkv_lm_fn)
+        m.add(
+            f"{hg}.self_attn.q_proj.weight",
+            f"{mc}.self_attention.linear_qkv.weight",
+            forward_fn=merge_qkv_lm_fn,
+        )
+        m.add(
+            f"{hg}.self_attn.k_proj.weight",
+            f"{mc}.self_attention.linear_qkv.weight",
+            forward_fn=merge_qkv_lm_fn,
+        )
+        m.add(
+            f"{hg}.self_attn.v_proj.weight",
+            f"{mc}.self_attention.linear_qkv.weight",
+            forward_fn=merge_qkv_lm_fn,
+        )
         m.add(f"{hg}.self_attn.o_proj.weight", f"{mc}.self_attention.linear_proj.weight")
         m.add(f"{hg}.post_attention_layernorm.weight", f"{mc}.pre_mlp_layernorm.weight")
 
@@ -286,7 +309,9 @@ def _add_moe_layer_mapping(m: WeightMapping, hg: str, mc: str, num_experts: int)
     # text experts  (HF expert 0..num_experts-1)
     for j in range(num_experts):
         _add_expert_mapping(
-            m, src_expert=f"{hg}.mlp.experts.{j}", dst_expert=f"{mc}.mlp.text_moe_layer.experts.local_experts.{j}"
+            m,
+            src_expert=f"{hg}.mlp.experts.{j}",
+            dst_expert=f"{mc}.mlp.text_moe_layer.experts.local_experts.{j}",
         )
 
     # vision experts (HF expert num_experts..2*num_experts-1)
@@ -369,8 +394,12 @@ def print_hf_summary(hf_sd: dict, args) -> None:
     print("\n" + "=" * W)
     print("  HuggingFace checkpoint summary")
     print(f"  ViT layers      : {args.num_vit_layers}")
-    print(f"  LM layers       : {args.num_lm_layers}  (layer 0: dense MLP, layers 1-{args.num_lm_layers - 1}: MoE)")
-    print(f"  Experts per MoE : {args.num_experts} text + {args.num_experts} vision = {2 * args.num_experts} total")
+    print(
+        f"  LM layers       : {args.num_lm_layers}  (layer 0: dense MLP, layers 1-{args.num_lm_layers - 1}: MoE)"  # noqa: E501
+    )
+    print(
+        f"  Experts per MoE : {args.num_experts} text + {args.num_experts} vision = {2 * args.num_experts} total"  # noqa: E501
+    )
     print("=" * W)
 
     # ---- global / non-layer tensors ----
@@ -429,7 +458,9 @@ def print_hf_summary(hf_sd: dict, args) -> None:
 
     # ---- LM MoE layers (first 2 of layers 1+) ----
     moe_layers = [i for i in range(1, min(3, args.num_lm_layers))]
-    print(f"\n[LM MoE layers]  (showing layers {moe_layers} of {list(range(1, args.num_lm_layers))})")
+    print(
+        f"\n[LM MoE layers]  (showing layers {moe_layers} of {list(range(1, args.num_lm_layers))})"
+    )
     for i in moe_layers:
         hg = f"model.layers.{i}"
         print(f"  -- layer {i} --")
@@ -554,7 +585,9 @@ def print_mcore_summary(mcore: list, args) -> None:
 
     # ---- LM MoE layers (first 2 of layers 1+) ----
     moe_layers = [i for i in range(1, min(3, args.num_lm_layers))]
-    print(f"\n[LM MoE layers]  (showing layers {moe_layers} of {list(range(1, args.num_lm_layers))})")
+    print(
+        f"\n[LM MoE layers]  (showing layers {moe_layers} of {list(range(1, args.num_lm_layers))})"
+    )
     for i in moe_layers:
         mc = f"foundation_model.decoder.layers.{i}"
         print(f"  -- layer {i} --")
@@ -625,7 +658,8 @@ def _build_dst_to_ops(mappings: List[WeightMapping]) -> dict:
             grouped[op.dst_name].append(op)
 
     return {
-        dst: sorted(ops, key=lambda op: _QKV_ORDER.get(op.src_name.split(".")[-2], 99)) for dst, ops in grouped.items()
+        dst: sorted(ops, key=lambda op: _QKV_ORDER.get(op.src_name.split(".")[-2], 99))
+        for dst, ops in grouped.items()
     }
 
 
@@ -647,7 +681,7 @@ def convert_hg2mcore(args) -> None:
         pp_offsets = [int(x) for x in args.pp_layer_offsets.split(",")]
         if len(pp_offsets) != args.pp:
             raise ValueError(
-                f"--pp_layer_offsets has {len(pp_offsets)} entries but --pp={args.pp}; lengths must match."
+                f"--pp_layer_offsets has {len(pp_offsets)} entries but --pp={args.pp}; lengths must match."  # noqa: E501
             )
 
     hf_sd = load_huggingface_checkpoints(args.load_hg_path)
@@ -687,7 +721,7 @@ def convert_hg2mcore(args) -> None:
                 converted = ops[0].forward_fn(ops, hf_sd, original_tensor.shape)
 
                 assert converted.shape == original_tensor.shape, (
-                    f"Shape mismatch for {dst_key!r}: expected {original_tensor.shape}, got {converted.shape}"
+                    f"Shape mismatch for {dst_key!r}: expected {original_tensor.shape}, got {converted.shape}"  # noqa: E501
                 )
                 srcs = [op.src_name for op in ops]
                 print(f"  {srcs} -> {dst_key}  {converted.shape}")
@@ -703,10 +737,16 @@ def convert_hg2mcore(args) -> None:
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Convert ERNIE-4.5-VL checkpoints from HuggingFace to Megatron-Core.")
+    parser = argparse.ArgumentParser(
+        description="Convert ERNIE-4.5-VL checkpoints from HuggingFace to Megatron-Core."
+    )
     parser.add_argument("--load_hg_path", required=True, help="HF checkpoint directory (input)")
-    parser.add_argument("--load_mcore_path", required=True, help="MCore checkpoint directory (input, template)")
-    parser.add_argument("--save_mcore_path", required=True, help="MCore checkpoint directory (output)")
+    parser.add_argument(
+        "--load_mcore_path", required=True, help="MCore checkpoint directory (input, template)"
+    )
+    parser.add_argument(
+        "--save_mcore_path", required=True, help="MCore checkpoint directory (output)"
+    )
     parser.add_argument("--tp", type=int, required=True, help="Tensor parallel size")
     parser.add_argument("--pp", type=int, required=True, help="Pipeline parallel size")
     parser.add_argument("--num_vit_layers", type=int, required=True, help="Number of ViT layers")

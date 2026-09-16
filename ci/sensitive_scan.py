@@ -150,7 +150,11 @@ def candidate_files(path_filters: list[str]) -> list[str]:
     untracked = git("ls-files", "--others", "--exclude-standard").splitlines()
     files = sorted({p for p in tracked + staged + untracked if p})
     if path_filters:
-        files = [p for p in files if any(p == f or p.startswith(f.rstrip("/") + "/") for f in path_filters)]
+        files = [
+            p
+            for p in files
+            if any(p == f or p.startswith(f.rstrip("/") + "/") for f in path_filters)
+        ]
     return [p for p in files if not excluded(p)]
 
 
@@ -218,7 +222,9 @@ def scan_history(rules, allowlist) -> list[Finding]:
     """
     findings = []
     sources = {
-        "git:authors": sorted(set(git("log", "--all", "--format=%an <%ae>%n%cn <%ce>").splitlines())),
+        "git:authors": sorted(
+            set(git("log", "--all", "--format=%an <%ae>%n%cn <%ce>").splitlines())
+        ),
         "git:commit-messages": git("log", "--all", "--format=%s%n%b").splitlines(),
         "git:tags": git("tag").splitlines(),
         "git:branches": git("branch", "-a", "--format=%(refname:short)").splitlines(),
@@ -300,7 +306,9 @@ def normalize_path_filters(path_filters: list[str], root: str) -> list[str]:
     """Convert path arguments to repository-relative paths without leaking them."""
     normalized = []
     for raw in path_filters:
-        candidate = os.path.abspath(raw) if os.path.isabs(raw) else os.path.abspath(os.path.join(root, raw))
+        candidate = (
+            os.path.abspath(raw) if os.path.isabs(raw) else os.path.abspath(os.path.join(root, raw))
+        )
         try:
             relative = os.path.relpath(candidate, root)
         except ValueError:
@@ -326,11 +334,23 @@ def main() -> int:
         "but still present in HEAD",
     )
     parser.add_argument("--strict", action="store_true", help="treat warnings as blocking")
-    parser.add_argument("--ci-summary", action="store_true", help="print aggregate-only output safe for CI logs")
-    parser.add_argument("--format", choices=("text", "json"), default="text")
-    parser.add_argument("--rule", action="append", dest="rules", metavar="ID", help="only run this rule (repeatable)")
     parser.add_argument(
-        "--paths", nargs="*", default=[], metavar="PATH", help="restrict the worktree scan to these paths"
+        "--ci-summary", action="store_true", help="print aggregate-only output safe for CI logs"
+    )
+    parser.add_argument("--format", choices=("text", "json"), default="text")
+    parser.add_argument(
+        "--rule",
+        action="append",
+        dest="rules",
+        metavar="ID",
+        help="only run this rule (repeatable)",
+    )
+    parser.add_argument(
+        "--paths",
+        nargs="*",
+        default=[],
+        metavar="PATH",
+        help="restrict the worktree scan to these paths",
     )
     parser.add_argument("--list-rules", action="store_true", help="print the rule table and exit")
     args = parser.parse_args()
@@ -356,7 +376,12 @@ def main() -> int:
         warns = len(findings) - errors
         json.dump(
             {
-                "summary": {"errors": errors, "warnings": warns, "total": len(findings), "strict": args.strict},
+                "summary": {
+                    "errors": errors,
+                    "warnings": warns,
+                    "total": len(findings),
+                    "strict": args.strict,
+                },
                 "findings": [asdict(f) for f in findings],
             },
             sys.stdout,
@@ -367,7 +392,9 @@ def main() -> int:
     else:
         report_text(findings, rules, args.strict)
 
-    blocking = [f for f in findings if f.severity == "error" or (args.strict and f.severity == "warn")]
+    blocking = [
+        f for f in findings if f.severity == "error" or (args.strict and f.severity == "warn")
+    ]
     return 1 if blocking else 0
 
 

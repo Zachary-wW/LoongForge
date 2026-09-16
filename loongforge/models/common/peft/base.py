@@ -48,7 +48,9 @@ class PEFT(ABC):
     params_to_save: set[str] = field(default_factory=set, init=False, repr=False)
 
     @abstractmethod
-    def transform(self, module: nn.Module, name: Optional[str] = None, prefix: Optional[str] = None) -> nn.Module:
+    def transform(
+        self, module: nn.Module, name: Optional[str] = None, prefix: Optional[str] = None
+    ) -> nn.Module:
         """Transform a single module according to the PEFT method.
 
         This method is called for each module in the model during the PEFT application process.
@@ -69,7 +71,7 @@ class PEFT(ABC):
         Note:
             This method is automatically called for each module in the model when the PEFT
             instance is applied to the model using the __call__ method.
-        """
+        """  # noqa: E501
         raise NotImplementedError("The transform method should be implemented by subclasses.")
 
     def __call__(self, model: ModelType, training: bool = True) -> ModelType:
@@ -157,7 +159,7 @@ class PEFT(ABC):
         Args:
             model: The model to be fine-tuned.
             training (bool): Whether the model is being used for training. Affects training mode handling.
-        """
+        """  # noqa: E501
 
         def freeze_parameters(module):
             """Freeze all parameters in a module."""

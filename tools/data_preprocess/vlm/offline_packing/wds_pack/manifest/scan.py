@@ -164,7 +164,11 @@ def _first_text(value) -> str:
 def load_messages_and_pair(json_data: dict, template_text_key: str) -> Tuple[list, str, str]:
     """Return normalized messages plus first user prompt and assistant answer."""
     text_data = next(
-        (json_data.get(key) for key in (template_text_key, "messages", "texts") if json_data.get(key) is not None),
+        (
+            json_data.get(key)
+            for key in (template_text_key, "messages", "texts")
+            if json_data.get(key) is not None
+        ),
         None,
     )
 
@@ -398,7 +402,9 @@ def _media_feature_lengths_from_grid(processor, model_inputs) -> List[int]:
     return lengths
 
 
-def _count_media_placeholder_tokens(processor, model_inputs, placeholder_tokens: Sequence[str]) -> int:
+def _count_media_placeholder_tokens(
+    processor, model_inputs, placeholder_tokens: Sequence[str]
+) -> int:
     tokenizer = getattr(processor, "tokenizer", processor)
     convert_tokens_to_ids = getattr(tokenizer, "convert_tokens_to_ids", None)
     if convert_tokens_to_ids is None:
@@ -503,16 +509,22 @@ def _compute_processor_token_len(
         return len(direct_input_ids)
 
     model_inputs = _processor_model_inputs(processor, text_input, media_inputs)
-    token_len = len(direct_input_ids) if direct_input_ids is not None else _input_ids_len(model_inputs)
+    token_len = (
+        len(direct_input_ids) if direct_input_ids is not None else _input_ids_len(model_inputs)
+    )
 
     feature_lengths = _media_feature_lengths_from_grid(processor, model_inputs)
     if not feature_lengths:
         return token_len
 
     if direct_input_ids is not None:
-        placeholder_count = _count_media_placeholder_token_ids(processor, direct_input_ids, placeholder_tokens)
+        placeholder_count = _count_media_placeholder_token_ids(
+            processor, direct_input_ids, placeholder_tokens
+        )
     else:
-        placeholder_count = _count_media_placeholder_tokens(processor, model_inputs, placeholder_tokens)
+        placeholder_count = _count_media_placeholder_tokens(
+            processor, model_inputs, placeholder_tokens
+        )
     replaced_tokens = min(placeholder_count, len(feature_lengths))
     return token_len - replaced_tokens + sum(feature_lengths)
 
@@ -562,7 +574,9 @@ def count_structured_media_parts(content, media_type: str) -> int:
     return sum(1 for part in content if isinstance(part, dict) and part.get("type") in aliases)
 
 
-def prepare_messages_for_hf_chat_template(messages: Sequence[dict], media_type: str, media_count: int):
+def prepare_messages_for_hf_chat_template(
+    messages: Sequence[dict], media_type: str, media_count: int
+):
     rendered_messages = []
     remaining_media = media_count
     for message in messages:
@@ -641,9 +655,13 @@ def render_chat_text(
     if should_use_hf_chat_template(processor, cfg):
         tokenizer = get_processor_tokenizer(processor)
         if not hasattr(tokenizer, "apply_chat_template"):
-            raise ValueError("Configured HF chat template path, but tokenizer has no apply_chat_template")
+            raise ValueError(
+                "Configured HF chat template path, but tokenizer has no apply_chat_template"
+            )
         if not getattr(tokenizer, "chat_template", None):
-            raise ValueError("Configured HF chat template rendering, but tokenizer.chat_template is empty")
+            raise ValueError(
+                "Configured HF chat template rendering, but tokenizer.chat_template is empty"
+            )
         rendered_messages = prepare_messages_for_hf_chat_template(messages, media_type, media_count)
         chat_kwargs = dict(cfg.get("model", {}).get("chat_template_kwargs", {}))
         chat_kwargs.pop("add_generation_prompt", None)
@@ -700,7 +718,9 @@ def resolve_media_files(json_data: dict, group: RawSampleGroup, media_type: str)
     media_files = flatten_media_files(raw_media_files)
     if media_type != "text" and not media_files:
         media_files = [
-            part for part in group.members if part != "json" and infer_media_type_from_part(part) == media_type
+            part
+            for part in group.members
+            if part != "json" and infer_media_type_from_part(part) == media_type
         ]
     return [] if media_type == "text" else media_files
 
@@ -800,7 +820,9 @@ def process_group(
         return None, skip_row("missing_media", group.base_key, missing_media=missing_media)
 
     try:
-        media_inputs = build_media_inputs(raw_file, group, media_type, media_files, media_preprocess)
+        media_inputs = build_media_inputs(
+            raw_file, group, media_type, media_files, media_preprocess
+        )
     except Exception as exc:
         return None, {
             "reason": "media_preprocess_failed",
@@ -885,7 +907,9 @@ def scan_shard(shard_path_str: str, cfg: dict) -> dict:
     processor = load_processor(cfg.get("model", {}))
     chat_template = None
     if not should_use_hf_chat_template(processor, cfg):
-        chat_template = get_chat_template(cfg["sample"]["sample_type"], cfg.get("model", {}).get("model_type", ""))
+        chat_template = get_chat_template(
+            cfg["sample"]["sample_type"], cfg.get("model", {}).get("model_type", "")
+        )
     media_preprocess = build_media_preprocess(cfg)
 
     rows = []
@@ -907,7 +931,9 @@ def scan_shard(shard_path_str: str, cfg: dict) -> dict:
             if row is not None:
                 rows.append(row)
                 if keep_debug:
-                    token_rows[row["media_type"]].append(f"{row['sample_id']}: {row['token_len']}\n")
+                    token_rows[row["media_type"]].append(
+                        f"{row['sample_id']}: {row['token_len']}\n"
+                    )
             elif skip is not None:
                 skip["shard"] = str(shard_path.relative_to(wds_dir))
                 skipped.append(skip)
@@ -945,9 +971,15 @@ def merge_outputs(cfg: dict, shard_results: Sequence[dict]) -> None:
     conn = create_manifest(manifest_sqlite)
     seen = set()
     with ExitStack() as stack:
-        manifest_out = stack.enter_context(manifest_jsonl.open("w", encoding="utf-8")) if keep_debug else None
-        combined_out = stack.enter_context(combined_report.open("w", encoding="utf-8")) if keep_debug else None
-        skipped_out = stack.enter_context(skipped_path.open("w", encoding="utf-8")) if keep_debug else None
+        manifest_out = (
+            stack.enter_context(manifest_jsonl.open("w", encoding="utf-8")) if keep_debug else None
+        )
+        combined_out = (
+            stack.enter_context(combined_report.open("w", encoding="utf-8")) if keep_debug else None
+        )
+        skipped_out = (
+            stack.enter_context(skipped_path.open("w", encoding="utf-8")) if keep_debug else None
+        )
         overlong_out = stack.enter_context(overlong_path.open("w", encoding="utf-8"))
 
         if keep_debug:
@@ -982,7 +1014,10 @@ def merge_outputs(cfg: dict, shard_results: Sequence[dict]) -> None:
             if keep_debug:
                 for media_type, token_path in result["token_paths"].items():
                     target = get_token_report_path(cfg, media_type)
-                    with target.open("a", encoding="utf-8") as out, Path(token_path).open("r", encoding="utf-8") as src:
+                    with (
+                        target.open("a", encoding="utf-8") as out,
+                        Path(token_path).open("r", encoding="utf-8") as src,
+                    ):
                         for line in src:
                             out.write(line)
 
@@ -1026,7 +1061,7 @@ def main() -> None:
     supported_sample_types = {"packed_multi_mix_qa", "packed_chat_mix"}
     if sample_type not in supported_sample_types:
         raise ValueError(
-            f"WDS-native V1 only supports sample.sample_type in {sorted(supported_sample_types)}, got {sample_type!r}"
+            f"WDS-native V1 only supports sample.sample_type in {sorted(supported_sample_types)}, got {sample_type!r}"  # noqa: E501
         )
 
     model_cfg = cfg.get("model", {})
@@ -1058,7 +1093,9 @@ def main() -> None:
     LOG.info("Scanning %d shards with %d worker(s)", len(shards), workers)
 
     if workers <= 1:
-        shard_results = [scan_shard(str(shard), cfg) for shard in tqdm(shards, desc="scan shards", unit="shard")]
+        shard_results = [
+            scan_shard(str(shard), cfg) for shard in tqdm(shards, desc="scan shards", unit="shard")
+        ]
     else:
         import multiprocessing as mp
 

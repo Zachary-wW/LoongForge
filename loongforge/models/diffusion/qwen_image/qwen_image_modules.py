@@ -116,7 +116,9 @@ class TimestepEmbeddings(nn.Module):
         if diffusers_compatible_format:
             self.timestep_embedder = DiffusersCompatibleTimestepProj(dim_in, dim_out)
         else:
-            self.timestep_embedder = nn.Sequential(nn.Linear(dim_in, dim_out), nn.SiLU(), nn.Linear(dim_out, dim_out))
+            self.timestep_embedder = nn.Sequential(
+                nn.Linear(dim_in, dim_out), nn.SiLU(), nn.Linear(dim_out, dim_out)
+            )
         self.use_additional_t_cond = use_additional_t_cond
         if use_additional_t_cond:
             self.addition_t_embedding = nn.Embedding(2, dim_out)
@@ -167,12 +169,24 @@ class AdaLayerNorm(nn.Module):
             return self.norm(x) * (1 + scale) + shift
         if self.dual:
             chunks = emb.unsqueeze(1).chunk(9, dim=2)
-            shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp, shift_msa2, scale_msa2, gate_msa2 = chunks
+            (
+                shift_msa,
+                scale_msa,
+                gate_msa,
+                shift_mlp,
+                scale_mlp,
+                gate_mlp,
+                shift_msa2,
+                scale_msa2,
+                gate_msa2,
+            ) = chunks
             norm_x = self.norm(x)
             x = norm_x * (1 + scale_msa) + shift_msa
             norm_x2 = norm_x * (1 + scale_msa2) + shift_msa2
             return x, gate_msa, shift_mlp, scale_mlp, gate_mlp, norm_x2, gate_msa2
-        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = emb.unsqueeze(1).chunk(6, dim=2)
+        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = emb.unsqueeze(1).chunk(
+            6, dim=2
+        )
         x = self.norm(x) * (1 + scale_msa) + shift_msa
         return x, gate_msa, shift_mlp, scale_mlp, gate_mlp
 
@@ -243,7 +257,13 @@ class QwenFeedForward(nn.Module):
         row_linear_cls = row_linear_cls or linear_cls
         self.net = nn.ModuleList([])
         self.net.append(
-            ApproximateGELU(dim, inner_dim, linear_cls=linear_cls, column_linear_cls=column_linear_cls, config=config)
+            ApproximateGELU(
+                dim,
+                inner_dim,
+                linear_cls=linear_cls,
+                column_linear_cls=column_linear_cls,
+                config=config,
+            )
         )
         self.net.append(nn.Dropout(dropout))
         if row_linear_cls is nn.Linear:
@@ -268,5 +288,9 @@ class QwenFeedForward(nn.Module):
         for module in self.net:
             hidden_states = module(hidden_states)
             if isinstance(hidden_states, tuple):
-                hidden_states = hidden_states[0] if hidden_states[1] is None else hidden_states[0] + hidden_states[1]
+                hidden_states = (
+                    hidden_states[0]
+                    if hidden_states[1] is None
+                    else hidden_states[0] + hidden_states[1]
+                )
         return hidden_states

@@ -145,7 +145,9 @@ def redact_json(text: str) -> str:
     payload = json.loads(text)
     if not isinstance(payload, dict):
         raise ValueError("JSON artifact must contain an object")
-    filtered = {key: _redact_json_value(value) for key, value in payload.items() if key in ALLOWED_JSON_KEYS}
+    filtered = {
+        key: _redact_json_value(value) for key, value in payload.items() if key in ALLOWED_JSON_KEYS
+    }
     return json.dumps(filtered, ensure_ascii=True, sort_keys=True) + "\n"
 
 

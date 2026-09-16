@@ -35,7 +35,9 @@ def test_ignores_external_urls_and_bare_output_paths():
 
 
 def test_placeholders_are_marked_for_main_to_skip():
-    found = _references("[run](../../examples/<model>/run.sh) and [config](../../configs/{name}.yaml)")
+    found = _references(
+        "[run](../../examples/<model>/run.sh) and [config](../../configs/{name}.yaml)"
+    )
     assert found
     assert all(PLACEHOLDER.search(raw) for raw, _ in found)
 

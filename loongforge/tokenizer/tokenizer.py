@@ -18,7 +18,9 @@ if TYPE_CHECKING:
     from loongforge.data import ChatTemplate
 
 
-def _update_tokenizer_with_template(args, tokenizer: AutoTokenizerFromHF, chat_template: "ChatTemplate"):
+def _update_tokenizer_with_template(
+    args, tokenizer: AutoTokenizerFromHF, chat_template: "ChatTemplate"
+):
     """
     Update tokenizer with chat template.
 
@@ -68,12 +70,14 @@ def _update_tokenizer_with_template(args, tokenizer: AutoTokenizerFromHF, chat_t
             replace_additional_special_tokens=False,
         )
         print_rank_0(
-            f"WARNING: add stop tokens ({','.join(stop_words)}) to tokenizer,  and will add {num_added} new tokens",
+            f"WARNING: add stop tokens ({','.join(stop_words)}) to tokenizer,  and will add {num_added} new tokens",  # noqa: E501
             args.rank,
         )
 
 
-def build_tokenizer(args, chat_template: Optional["ChatTemplate"] = None) -> Optional[MegatronLegacyTokenizer]:
+def build_tokenizer(
+    args, chat_template: Optional["ChatTemplate"] = None
+) -> Optional[MegatronLegacyTokenizer]:
     """Build tokenizer and chat template if needed."""
     if args.tokenizer_type == "HFTokenizer":
         print_rank_0(f"> Loongforge building {args.tokenizer_type} tokenizer ...", args.rank)
@@ -94,7 +98,7 @@ def build_tokenizer(args, chat_template: Optional["ChatTemplate"] = None) -> Opt
                 replace_additional_special_tokens=False,
             )
             print_rank_0(
-                f"INFO: Added {added_tokens} additional special tokens, include {args.additional_special_tokens}.",
+                f"INFO: Added {added_tokens} additional special tokens, include {args.additional_special_tokens}.",  # noqa: E501
                 args.rank,
             )
 

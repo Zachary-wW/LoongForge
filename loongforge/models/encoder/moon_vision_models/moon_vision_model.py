@@ -3,13 +3,13 @@
 #
 # Modified from moonshotai/Kimi-K2.5 under the Apache-2.0 / MIT License.
 # coding=utf-8
-# Copyright 2025-2026 The Moonshot AI Team, DeepSeek-AI, and HuggingFace Inc. team. All rights reserved.
+# Copyright 2025-2026 The Moonshot AI Team, DeepSeek-AI, and HuggingFace Inc. team. All rights reserved.  # noqa: E501
 #
-# The code is based on llava (llava/modeling_llava.py) and DeepSeek-V3 (DeepSeek-V3/modeling_deepseek.py),
+# The code is based on llava (llava/modeling_llava.py) and DeepSeek-V3 (DeepSeek-V3/modeling_deepseek.py),  # noqa: E501
 # but modified for Kimi-K2.5.
 #
 # Licensing Information:
-# - Code derived from llava (llava/modeling_llava.py) and DeepSeek-V3 (DeepSeek-V3/modeling_deepseek.py) is licensed
+# - Code derived from llava (llava/modeling_llava.py) and DeepSeek-V3 (DeepSeek-V3/modeling_deepseek.py) is licensed  # noqa: E501
 # under the Apache License, Version 2.0.
 # - Other parts of the code are licensed under the MIT License.
 #
@@ -124,7 +124,9 @@ class Learnable2DInterpPosEmbDivided(nn.Module):
         self.weight = nn.Parameter(torch.empty(height, width, dim))
         self.register_buffer(
             "time_weight",
-            torch.from_numpy(get_1d_sincos_pos_embed(self.dim, self.num_frames)).float().unsqueeze(1),
+            torch.from_numpy(get_1d_sincos_pos_embed(self.dim, self.num_frames))
+            .float()
+            .unsqueeze(1),
             persistent=False,
         )
 
@@ -176,7 +178,9 @@ def tpool_patch_merger(
         kernel_height, kernel_width = merge_kernel_size
         new_height, new_width = h // kernel_height, w // kernel_width
         reshaped_seq = seq.view(t, new_height, kernel_height, new_width, kernel_width, d_model)
-        reshaped_seq = reshaped_seq.permute(0, 1, 3, 2, 4, 5).contiguous().mean(dim=0)  # temporal pooling
+        reshaped_seq = (
+            reshaped_seq.permute(0, 1, 3, 2, 4, 5).contiguous().mean(dim=0)
+        )  # temporal pooling
         padded_seq = reshaped_seq.view(new_height * new_width, kernel_height * kernel_width, -1)
         outputs.append(padded_seq)
         pre_sum += t * h * w
@@ -200,7 +204,9 @@ class MoonVision3dPatchEmbed(nn.Module):
         pos_emb_interpolation_mode: str = "bicubic",
     ) -> None:
         super().__init__()
-        assert isinstance(patch_size, int | Sequence), f"Invalid patch_size type: {type(patch_size)}"
+        assert isinstance(patch_size, int | Sequence), (
+            f"Invalid patch_size type: {type(patch_size)}"
+        )
         if isinstance(patch_size, int):
             patch_size = (patch_size, patch_size)
         assert len(patch_size) == 2, f"Expected patch_size to be a tuple of 2, got {patch_size}"
@@ -264,7 +270,7 @@ class Rope2DPosEmbRepeated(nn.Module):
         max_width (int): the maximum width of the 2D grid
         theta_base (float): the base of the theta
         device (str): the device to store the precomputed cis
-    """
+    """  # noqa: E501
 
     def __init__(self, dim: int, max_height: int, max_width: int, theta_base=10000):
         super().__init__()
@@ -276,7 +282,7 @@ class Rope2DPosEmbRepeated(nn.Module):
 
     def extra_repr(self):
         """extra repr"""
-        return f"dim={self.dim}, max_height={self.max_height}, max_width={self.max_width}, theta_base={self.theta_base}"
+        return f"dim={self.dim}, max_height={self.max_height}, max_width={self.max_width}, theta_base={self.theta_base}"  # noqa: E501
 
     def _precompute_freqs_cis(self, device: torch.device) -> torch.Tensor:
         """Calculate the cis(freqs) for each position in the 2D grid.
@@ -285,7 +291,7 @@ class Rope2DPosEmbRepeated(nn.Module):
             height axis: ret[h, w, 2*i] = cis(h * theta_base**(-4*i/dim))
             weight axis: ret[h, w, 2*i+1] = cis(w * theta_base**(-4*i/dim))   with (i in [0, dim//4))
             note: `cis` is a mathematical notation defined by cis x = cos x + i sin x,
-        """
+        """  # noqa: E501
         N = self.max_height * self.max_width
         flat_pos = torch.arange(0, N).float().to(device)
         x_pos = flat_pos % self.max_width

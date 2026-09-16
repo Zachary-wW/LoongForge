@@ -23,8 +23,14 @@ logger = create_color_logger(name=__name__)
 # HF checkpoint check model layer mapping configuration
 HF_CHECK_MODEL_MAPPING = {
     "Qwen2.5-VL-7B-Instruct": {"llm": ["model.layers.", 28], "vit": ["visual.blocks.", 32]},
-    "InternVL2_5-8B": {"llm": ["language_model.model.layers.", 32], "vit": ["vision_model.encoder.layers.", 24]},
-    "InternVL3_5-8B": {"llm": ["language_model.model.layers.", 36], "vit": ["vision_tower.encoder.layer.", 24]},
+    "InternVL2_5-8B": {
+        "llm": ["language_model.model.layers.", 32],
+        "vit": ["vision_model.encoder.layers.", 24],
+    },
+    "InternVL3_5-8B": {
+        "llm": ["language_model.model.layers.", 36],
+        "vit": ["vision_tower.encoder.layer.", 24],
+    },
     "LLaVA-OneVision-1.5-4B": {"llm": ["model.layers.", 36], "vit": ["visual.blocks.", 24]},
 }
 
@@ -78,7 +84,9 @@ class BaseTask(object):
     @classmethod
     def _resolve_diff_base_dir(cls, category: str) -> str:
         try:
-            common_yaml = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "configs", "common.yaml"))
+            common_yaml = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "..", "configs", "common.yaml")
+            )
             if os.path.exists(common_yaml):
                 training_log_path = cls._resolve_training_log_path(common_yaml)
                 if training_log_path:
@@ -151,7 +159,9 @@ class BaseTask(object):
                 if item["failed_metrics"]:
                     metrics = ",".join(item["failed_metrics"])
                     if error_message:
-                        lines.append(f"{status}\t{case_name}\tfailed_metrics={metrics}\terror={error_message}")
+                        lines.append(
+                            f"{status}\t{case_name}\tfailed_metrics={metrics}\terror={error_message}"
+                        )
                     else:
                         lines.append(f"{status}\t{case_name}\tfailed_metrics={metrics}")
                 else:
@@ -179,7 +189,7 @@ class BaseTask(object):
 
     # Check lock file
     def check_lock_file(self, lock_file_path, task_flag):
-        # Traverse the total number of file contents under lock_file_path folder to see if it equals expected,
+        # Traverse the total number of file contents under lock_file_path folder to see if it equals expected,  # noqa: E501
         # if equal True, else False, then check if content is all task_flag, if so True, else False
         count = 0
         flag = True
@@ -209,10 +219,14 @@ class BaseTask(object):
                 #     shutil.rmtree(parent_path)
                 break
             else:
-                logger.info(f"Model [{model_name}] {scenarios_name} still has pending Pods, waiting...")
+                logger.info(
+                    f"Model [{model_name}] {scenarios_name} still has pending Pods, waiting..."
+                )
                 time.sleep(10)
         else:
-            raise TimeoutError(f"ERROR: Waited for other Pods more than {self.input_cmd_args.timeout} seconds")
+            raise TimeoutError(
+                f"ERROR: Waited for other Pods more than {self.input_cmd_args.timeout} seconds"
+            )
 
     # lock_file exists and content == MASTER_ADDR, proving this task has completed writing to file,
     # can continue execution
@@ -274,12 +288,16 @@ class BaseTask(object):
                         try:
                             logger.info(f"Executing {function.__name__} method:")
                             result = function(*args, **kwargs)  # Call function and pass arguments
-                            logger.info(f"Function {function.__name__} execution completed, return value: {result}")
+                            logger.info(
+                                f"Function {function.__name__} execution completed, return value: {result}"  # noqa: E501
+                            )
                         except Exception as e:
                             logger.error(f"Error executing function {function.__name__}: {e}")
                             # If raise_on_error parameter is True, raise exception
                             if raise_on_error:
-                                raise Exception(f"Error executing function {function.__name__}: {e}")
+                                raise Exception(
+                                    f"Error executing function {function.__name__}: {e}"
+                                )
                     else:
                         logger.error(f"Provided {function} is not a callable function.")
                 break
@@ -290,12 +308,16 @@ class BaseTask(object):
                 )
                 time.sleep(10)
         else:
-            raise TimeoutError(f"ERROR: Waited for other Pods more than {self.input_cmd_args.timeout} seconds")
+            raise TimeoutError(
+                f"ERROR: Waited for other Pods more than {self.input_cmd_args.timeout} seconds"
+            )
 
     def __init_ckpt_file__(self) -> None:
-        # Initialize data scenario, first entry needs to delete some files to avoid affecting subsequent tests
+        # Initialize data scenario, first entry needs to delete some files to avoid affecting subsequent tests  # noqa: E501
         scenario_name = ".init"
-        init_lock_path = os.path.join(self.model["model_lock_file_path"], scenario_name, self.master_addr)
+        init_lock_path = os.path.join(
+            self.model["model_lock_file_path"], scenario_name, self.master_addr
+        )
         init_lock_file = os.path.join(init_lock_path, f"{self.rank_name}_lock.txt")
 
         # Wait for all pods to be ready, then delete existing model ckpt files
@@ -318,9 +340,11 @@ class BaseTask(object):
             shutil.rmtree(step1_output_path)
 
     def __clean_up__(self):
-        # Initialize data scenario, first entry needs to delete some files to avoid affecting subsequent tests
+        # Initialize data scenario, first entry needs to delete some files to avoid affecting subsequent tests  # noqa: E501
         scenario_name = ".clean_up"
-        init_lock_path = os.path.join(self.model["model_lock_file_path"], scenario_name, self.master_addr)
+        init_lock_path = os.path.join(
+            self.model["model_lock_file_path"], scenario_name, self.master_addr
+        )
         init_lock_file = os.path.join(init_lock_path, f"{self.rank_name}_lock.txt")
 
         # Wait for all pods to be ready, then delete existing model ckpt files
@@ -332,18 +356,24 @@ class BaseTask(object):
             function=self.__del_ckpt_file__,
         )
 
-    def __init_model_scenarios_data__(self, index, scenarios_name, step_name, training_type_name=None) -> None:
+    def __init_model_scenarios_data__(
+        self, index, scenarios_name, step_name, training_type_name=None
+    ) -> None:
         model = deepcopy(self.model)
         function_step_data = {}
 
         if self.task_type == "perf":
             function_scenarios_name = "function"
-            function_step_data = self.model["scenarios"][0][function_scenarios_name][training_type_name][step_name]
+            function_step_data = self.model["scenarios"][0][function_scenarios_name][
+                training_type_name
+            ][step_name]
             # Merge function_step_data and model
             model = {**model, **function_step_data}
 
             # Normally get data under scenarios_name
-            step_data = self.model["scenarios"][index][scenarios_name][training_type_name][step_name]
+            step_data = self.model["scenarios"][index][scenarios_name][training_type_name][
+                step_name
+            ]
             # Merge function_step_data and model into one json
             model = {**model, **step_data}
 
@@ -355,13 +385,18 @@ class BaseTask(object):
 
                 function_scenarios_name = "function"
                 # Check if step exists, if not skip
-                if local_step_name not in self.model["scenarios"][0][function_scenarios_name][training_type_name]:
-                    logger.info(f"local_step_name {local_step_name} currently does not exist, skipping...")
+                if (
+                    local_step_name
+                    not in self.model["scenarios"][0][function_scenarios_name][training_type_name]
+                ):
+                    logger.info(
+                        f"local_step_name {local_step_name} currently does not exist, skipping..."
+                    )
                     continue
 
-                function_step_data = self.model["scenarios"][0][function_scenarios_name][training_type_name][
-                    local_step_name
-                ]
+                function_step_data = self.model["scenarios"][0][function_scenarios_name][
+                    training_type_name
+                ][local_step_name]
                 # Merge function_step_data and model
                 model = {**model, **function_step_data}
 
@@ -370,7 +405,9 @@ class BaseTask(object):
                     break
 
             # Normally get data under scenarios_name
-            step_data = self.model["scenarios"][index][scenarios_name][training_type_name][step_name]
+            step_data = self.model["scenarios"][index][scenarios_name][training_type_name][
+                step_name
+            ]
             # Merge function_step_data and model into one json
             model = {**model, **step_data}
 
@@ -416,7 +453,7 @@ class BaseTask(object):
                     lines = []
                     for line in value.split("\n"):
                         stripped_line = line.strip()
-                        # Skip empty lines and comment lines (including inline comments, e.g. "--arg # comment")
+                        # Skip empty lines and comment lines (including inline comments, e.g. "--arg # comment")  # noqa: E501
                         if stripped_line and not stripped_line.startswith("#"):
                             # Handle inline comments: remove # and content after it
                             if "#" in stripped_line:
@@ -424,7 +461,9 @@ class BaseTask(object):
                                 in_quotes = False
                                 quote_char = None
                                 for i, char in enumerate(stripped_line):
-                                    if char in ['"', "'"] and (i == 0 or stripped_line[i - 1] != "\\"):
+                                    if char in ['"', "'"] and (
+                                        i == 0 or stripped_line[i - 1] != "\\"
+                                    ):
                                         if not in_quotes:
                                             in_quotes = True
                                             quote_char = char
@@ -476,7 +515,9 @@ class BaseTask(object):
                 if loss_count != 0:
                     training_log_file = candidate_log
                     break
-        assert loss_count != 0, "Loss list for this task is empty, please check if training task is normal!!!"
+        assert loss_count != 0, (
+            "Loss list for this task is empty, please check if training task is normal!!!"
+        )
         # Optional: auto collect baseline from log
         if getattr(self.input_cmd_args, "auto_collect_baseline", False):
             self.save_baseline_from_log(training_log_file, training_type)
@@ -494,7 +535,9 @@ class BaseTask(object):
             training_type: Training type (e.g. 'pretrain', 'sft')
         """
         chip = getattr(self.input_cmd_args, "chip", "default")
-        baseline_data = ConfigManager.get_baseline_data(None, self.model, model_name, training_type, chip=chip)
+        baseline_data = ConfigManager.get_baseline_data(
+            None, self.model, model_name, training_type, chip=chip
+        )
         case_failed_metrics = []
         case_passed = True
         category = self._get_diff_category(self.model)
@@ -502,7 +545,11 @@ class BaseTask(object):
         # Accuracy metrics
         accuracy_relative_tolerance = self.accuracy_relative_tolerance
         # lm_loss
-        if hasattr(self.metric, "lm_loss_list") and self.metric.lm_loss_list and "lm_loss" in baseline_data[0]:
+        if (
+            hasattr(self.metric, "lm_loss_list")
+            and self.metric.lm_loss_list
+            and "lm_loss" in baseline_data[0]
+        ):
             expected_loss_list = [item["lm_loss"] for item in baseline_data]
             lm_loss_passed = self._compare_metric(
                 actual_list=self.metric.lm_loss_list,
@@ -515,9 +562,15 @@ class BaseTask(object):
             if not lm_loss_passed:
                 case_passed = False
                 case_failed_metrics.append("lm_loss")
-            self._plot_loss_diffs(expected_loss_list, self.metric.lm_loss_list, model_name, training_type)
+            self._plot_loss_diffs(
+                expected_loss_list, self.metric.lm_loss_list, model_name, training_type
+            )
         # grad_norm
-        if hasattr(self.metric, "grad_norm_list") and self.metric.grad_norm_list and "grad_norm" in baseline_data[0]:
+        if (
+            hasattr(self.metric, "grad_norm_list")
+            and self.metric.grad_norm_list
+            and "grad_norm" in baseline_data[0]
+        ):
             expected_grad_norm_list = [item["grad_norm"] for item in baseline_data]
             if not self.input_cmd_args.check_loss_only:
                 grad_norm_passed = self._compare_metric(
@@ -563,13 +616,13 @@ class BaseTask(object):
 
             if rel_err <= tol:
                 logger.info(
-                    f"{name} avg comparison: Actual: {avg_actual:.4f} vs Expected: {avg_expected:.4f}, "
+                    f"{name} avg comparison: Actual: {avg_actual:.4f} vs Expected: {avg_expected:.4f}, "  # noqa: E501
                     f"Relative Error: {rel_err * 100:.2f}%, Passed!"
                 )
             else:
                 logger.warning(
-                    f"{name} avg comparison: Actual: {avg_actual:.4f} vs Expected: {avg_expected:.4f}, "
-                    f"Relative Error: {rel_err * 100:.2f}% Exceeds {tol * 100:.0f}%, Failed (Warning Only)!"
+                    f"{name} avg comparison: Actual: {avg_actual:.4f} vs Expected: {avg_expected:.4f}, "  # noqa: E501
+                    f"Relative Error: {rel_err * 100:.2f}% Exceeds {tol * 100:.0f}%, Failed (Warning Only)!"  # noqa: E501
                 )
 
         # elapsed_time_ms
@@ -581,7 +634,10 @@ class BaseTask(object):
             expected_elapsed_time = [item["elapsed_time_ms"] for item in baseline_data[:num_iters]]
             actual_elapsed_time = [float(x) for x in self.metric.elapsed_time_match[:num_iters]]
             _check_avg_metric(
-                actual_elapsed_time, expected_elapsed_time, "elapsed_time_ms", performance_relative_tolerance
+                actual_elapsed_time,
+                expected_elapsed_time,
+                "elapsed_time_ms",
+                performance_relative_tolerance,
             )
             self._plot_metric_compare(
                 expected_list=expected_elapsed_time,
@@ -593,10 +649,16 @@ class BaseTask(object):
             )
 
         # throughput
-        if hasattr(self.metric, "throughput") and self.metric.throughput and "throughput" in baseline_data[0]:
+        if (
+            hasattr(self.metric, "throughput")
+            and self.metric.throughput
+            and "throughput" in baseline_data[0]
+        ):
             expected_throughput = [item["throughput"] for item in baseline_data[:num_iters]]
             actual_throughput = [float(x) for x in self.metric.throughput[:num_iters]]
-            _check_avg_metric(actual_throughput, expected_throughput, "throughput", performance_relative_tolerance)
+            _check_avg_metric(
+                actual_throughput, expected_throughput, "throughput", performance_relative_tolerance
+            )
             self._plot_metric_compare(
                 expected_list=expected_throughput,
                 actual_list=actual_throughput,
@@ -613,10 +675,15 @@ class BaseTask(object):
             and self.metric.mem_allocated_avg_MB
             and "mem_allocated_avg_MB" in baseline_data[0]
         ):
-            expected_mem_allocated = [item["mem_allocated_avg_MB"] for item in baseline_data[:num_iters]]
+            expected_mem_allocated = [
+                item["mem_allocated_avg_MB"] for item in baseline_data[:num_iters]
+            ]
             actual_mem_allocated = [float(x) for x in self.metric.mem_allocated_avg_MB[:num_iters]]
             _check_avg_metric(
-                actual_mem_allocated, expected_mem_allocated, "mem_allocated_avg_MB", performance_relative_tolerance
+                actual_mem_allocated,
+                expected_mem_allocated,
+                "mem_allocated_avg_MB",
+                performance_relative_tolerance,
             )
             self._plot_metric_compare(
                 expected_list=expected_mem_allocated,
@@ -633,8 +700,12 @@ class BaseTask(object):
             and self.metric.mem_max_allocated_avg_MB
             and "mem_max_allocated_avg_MB" in baseline_data[0]
         ):
-            expected_mem_max_allocated = [item["mem_max_allocated_avg_MB"] for item in baseline_data[:num_iters]]
-            actual_mem_max_allocated = [float(x) for x in self.metric.mem_max_allocated_avg_MB[:num_iters]]
+            expected_mem_max_allocated = [
+                item["mem_max_allocated_avg_MB"] for item in baseline_data[:num_iters]
+            ]
+            actual_mem_max_allocated = [
+                float(x) for x in self.metric.mem_max_allocated_avg_MB[:num_iters]
+            ]
             _check_avg_metric(
                 actual_mem_max_allocated,
                 expected_mem_max_allocated,
@@ -695,17 +766,21 @@ class BaseTask(object):
                 throughput_str = str(throughput_match.group(1)).strip()
                 self.metric.throughput.append(throughput_str)
             # Get elapsed time per iteration (ms) value
-            elapsed_time_match = re.search(r"elapsed time per iteration \(ms\): ([\d\.E\+-]+)", line)
+            elapsed_time_match = re.search(
+                r"elapsed time per iteration \(ms\): ([\d\.E\+-]+)", line
+            )
             if elapsed_time_match:
                 elapsed_time_str = str(elapsed_time_match.group(1)).strip()
                 self.metric.elapsed_time_match.append(elapsed_time_str)
-            # Get mem_allocated_avg_MB (training log format e.g.: mem-allocated-bytes-avg(MB): 15896.39)
+            # Get mem_allocated_avg_MB (training log format e.g.: mem-allocated-bytes-avg(MB): 15896.39)  # noqa: E501
             mem_allocated_match = re.search(r"mem-allocated-bytes-avg\(MB\):\s*([\d\.E\+-]+)", line)
             if mem_allocated_match:
                 mem_allocated_str = str(mem_allocated_match.group(1)).strip()
                 self.metric.mem_allocated_avg_MB.append(mem_allocated_str)
-            # Get mem_max_allocated_avg_MB (training log format e.g.: mem-max-allocated-bytes-avg(MB): 29039.47)
-            mem_max_allocated_match = re.search(r"mem-max-allocated-bytes-avg\(MB\):\s*([\d\.E\+-]+)", line)
+            # Get mem_max_allocated_avg_MB (training log format e.g.: mem-max-allocated-bytes-avg(MB): 29039.47)  # noqa: E501
+            mem_max_allocated_match = re.search(
+                r"mem-max-allocated-bytes-avg\(MB\):\s*([\d\.E\+-]+)", line
+            )
             if mem_max_allocated_match:
                 mem_max_allocated_str = str(mem_max_allocated_match.group(1)).strip()
                 self.metric.mem_max_allocated_avg_MB.append(mem_max_allocated_str)
@@ -768,7 +843,9 @@ class BaseTask(object):
         from tools import log2json
 
         chip = getattr(self.input_cmd_args, "chip", "default")
-        baseline_file = ConfigManager.get_baseline_file_path_for_write(self.model, self.model_name, chip=chip)
+        baseline_file = ConfigManager.get_baseline_file_path_for_write(
+            self.model, self.model_name, chip=chip
+        )
         phase, records = log2json.parse_log_file(training_log_file)
         if not records:
             logger.warning(f"No baseline records parsed from log: {training_log_file}")
@@ -794,9 +871,13 @@ class BaseTask(object):
 
         with open(baseline_file, "w") as f:
             json.dump(baseline_data, f, indent=2)
-        logger.info(f"Baseline saved to {baseline_file} (training_type={baseline_key}, records={len(records)})")
+        logger.info(
+            f"Baseline saved to {baseline_file} (training_type={baseline_key}, records={len(records)})"  # noqa: E501
+        )
 
-    def _plot_loss_diffs(self, expected_loss_list, actual_loss_list, model_name, training_type=None):
+    def _plot_loss_diffs(
+        self, expected_loss_list, actual_loss_list, model_name, training_type=None
+    ):
         try:
             from tools.diff_vis import save_loss_diff_plots
 
@@ -806,11 +887,15 @@ class BaseTask(object):
             config_dir = config_source.get("dir", "")
             if "optional_configs" in config_dir:
                 category = "optional"
-            common_yaml = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "configs", "common.yaml"))
+            common_yaml = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "..", "configs", "common.yaml")
+            )
             if os.path.exists(common_yaml):
                 training_log_path = self._resolve_training_log_path(common_yaml)
                 if training_log_path:
-                    output_dir = os.path.join(training_log_path, "E2E", "diff", category, model_name)
+                    output_dir = os.path.join(
+                        training_log_path, "E2E", "diff", category, model_name
+                    )
             save_loss_diff_plots(
                 baseline_list=expected_loss_list,
                 current_list=actual_loss_list,
@@ -822,7 +907,9 @@ class BaseTask(object):
         except Exception as e:
             logger.warning(f"Loss plot generation failed: {e}")
 
-    def _plot_metric_compare(self, expected_list, actual_list, model_name, training_type, metric_name, y_label=None):
+    def _plot_metric_compare(
+        self, expected_list, actual_list, model_name, training_type, metric_name, y_label=None
+    ):
         try:
             from tools.diff_vis import save_metric_compare_plot
 
@@ -832,11 +919,15 @@ class BaseTask(object):
             config_dir = config_source.get("dir", "")
             if "optional_configs" in config_dir:
                 category = "optional"
-            common_yaml = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "configs", "common.yaml"))
+            common_yaml = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "..", "configs", "common.yaml")
+            )
             if os.path.exists(common_yaml):
                 training_log_path = self._resolve_training_log_path(common_yaml)
                 if training_log_path:
-                    output_dir = os.path.join(training_log_path, "E2E", "diff", category, model_name)
+                    output_dir = os.path.join(
+                        training_log_path, "E2E", "diff", category, model_name
+                    )
             save_metric_compare_plot(
                 baseline_list=expected_list,
                 current_list=actual_list,
@@ -851,7 +942,13 @@ class BaseTask(object):
             logger.warning(f"Metric plot generation failed ({metric_name}): {e}")
 
     def _compare_metric(
-        self, actual_list, expected_list, metric_name, tolerance, is_relative=False, raise_on_fail=True
+        self,
+        actual_list,
+        expected_list,
+        metric_name,
+        tolerance,
+        is_relative=False,
+        raise_on_fail=True,
     ):
         """
         Generic metric comparison function, supports absolute and relative error, allows some
@@ -864,7 +961,7 @@ class BaseTask(object):
         """
         if len(actual_list) != len(expected_list):
             logger.warning(
-                f"Warning: {metric_name} length mismatch! Actual: {len(actual_list)}, Expected: {len(expected_list)}"
+                f"Warning: {metric_name} length mismatch! Actual: {len(actual_list)}, Expected: {len(expected_list)}"  # noqa: E501
             )
 
         is_close = []
@@ -915,7 +1012,7 @@ class BaseTask(object):
         passing = np.sum(is_close) >= (total_steps_evaluated - num_failing_steps_allowed)
         if not passing:
             message = (
-                f"{metric_name} comparison failed: Allowed failing steps {num_failing_steps_allowed}, "
+                f"{metric_name} comparison failed: Allowed failing steps {num_failing_steps_allowed}, "  # noqa: E501
                 f"Actual passed steps {np.sum(is_close)}, Total steps {total_steps_evaluated}"
             )
             if raise_on_fail:
@@ -951,7 +1048,9 @@ class BaseTask(object):
             checked_keys = []
             load_state_dict = load_file(filename, device="cpu")
             for key, value in load_state_dict.items():
-                if (f"{layer_prefix}{layer_id}." in key) or (layer_id == 0 and layer_prefix not in key):
+                if (f"{layer_prefix}{layer_id}." in key) or (
+                    layer_id == 0 and layer_prefix not in key
+                ):
                     checked_keys.append(key)
                     state_dict[key] = value
             return checked_keys, state_dict
@@ -962,7 +1061,9 @@ class BaseTask(object):
         with open(meta_file_name, "r") as f:
             file_content = json.load(f)
             for key, value in file_content["weight_map"].items():
-                if (f"{layer_prefix}{layer_id}." in key) or (layer_id == 0 and layer_prefix not in key):
+                if (f"{layer_prefix}{layer_id}." in key) or (
+                    layer_id == 0 and layer_prefix not in key
+                ):
                     if key in checked_keys:
                         raise ValueError(f"duplicate key: {key}")
                     checked_keys.append(key)
@@ -976,7 +1077,12 @@ class BaseTask(object):
         return checked_keys, state_dict
 
     def _check_hf_layer(
-        self, src_load_path: str, dst_load_path: str, layer_prefix: str, layer_id: int, module_name: str
+        self,
+        src_load_path: str,
+        dst_load_path: str,
+        layer_prefix: str,
+        layer_id: int,
+        module_name: str,
     ):
         """
         Check consistency of single layer hf checkpoint
@@ -990,8 +1096,12 @@ class BaseTask(object):
         """
         logger.info(f"Checking {module_name} layer {layer_id} ...")
 
-        src_checked_keys, src_state_dict = self._get_hf_layer_state_dict(src_load_path, layer_prefix, layer_id)
-        dst_checked_keys, dst_state_dict = self._get_hf_layer_state_dict(dst_load_path, layer_prefix, layer_id)
+        src_checked_keys, src_state_dict = self._get_hf_layer_state_dict(
+            src_load_path, layer_prefix, layer_id
+        )
+        dst_checked_keys, dst_state_dict = self._get_hf_layer_state_dict(
+            dst_load_path, layer_prefix, layer_id
+        )
 
         # Check if keys match
         if set(src_checked_keys) != set(dst_checked_keys):
@@ -1010,7 +1120,9 @@ class BaseTask(object):
             dst_data = dst_state_dict[key]
 
             if src_data.shape != dst_data.shape:
-                raise ValueError(f"{key} shape mismatch: src={src_data.shape}, dst={dst_data.shape}")
+                raise ValueError(
+                    f"{key} shape mismatch: src={src_data.shape}, dst={dst_data.shape}"
+                )
 
             if not torch.equal(src_data, dst_data):
                 diff = (src_data.float() - dst_data.float()).abs().max()
@@ -1035,7 +1147,9 @@ class BaseTask(object):
         logger.info(f"Converted path: {dst_load_path}")
 
         if model_name not in HF_CHECK_MODEL_MAPPING:
-            raise ValueError(f"Unsupported model: {model_name}, please add configuration in HF_CHECK_MODEL_MAPPING")
+            raise ValueError(
+                f"Unsupported model: {model_name}, please add configuration in HF_CHECK_MODEL_MAPPING"  # noqa: E501
+            )
 
         mapping = HF_CHECK_MODEL_MAPPING[model_name]
 
@@ -1086,7 +1200,9 @@ class BaseTask(object):
         step_name = "loongforge_convert_ckpt"
         logger.info(f"{step_stage} {step_name} Start Running ...")
 
-        model_config = self.__init_model_scenarios_data__(index, scenario_name, step_stage, training_type_name)
+        model_config = self.__init_model_scenarios_data__(
+            index, scenario_name, step_stage, training_type_name
+        )
 
         # ckpt weight conversion
         model_name = self.model_name
@@ -1106,7 +1222,9 @@ class BaseTask(object):
         self.create_shell_file(model_config, script_path, new_script_path)
 
         # Open a new file to write script output
-        training_log_file = f"{training_log_path}/convert_ckpt_{model_name}_{self.rank_name}_run.log"
+        training_log_file = (
+            f"{training_log_path}/convert_ckpt_{model_name}_{self.rank_name}_run.log"
+        )
         start_command = (
             f'{env_vars_str} bash -c "set -o pipefail; '
             f'bash {scripts_root_path}/executor/{step_name}/run.sh |tee {training_log_file}"'
@@ -1120,14 +1238,18 @@ class BaseTask(object):
 
         logger.info(f"{step_stage} End {step_name}")
 
-    def start_loongforge_reverse_convert_ckpt(self, index, step_stage, scenario_name, training_type_name):
+    def start_loongforge_reverse_convert_ckpt(
+        self, index, step_stage, scenario_name, training_type_name
+    ):
         """
         Execute mcore -> hf reverse conversion and verify consistency between converted hf checkpoint
         and source hf checkpoint
-        """
+        """  # noqa: E501
         step_name = "loongforge_convert_ckpt"
         logger.info(f"{step_stage} reverse_{step_name} Start Running ...")
-        model_config = self.__init_model_scenarios_data__(index, scenario_name, step_stage, training_type_name)
+        model_config = self.__init_model_scenarios_data__(
+            index, scenario_name, step_stage, training_type_name
+        )
 
         # Get configuration
         model_name = self.model_name
@@ -1140,19 +1262,25 @@ class BaseTask(object):
         step_stage_path = f"{model_lock_file_path}/{step_stage}/{self.master_addr}"
         model_lock_file = f"{step_stage_path}/{self.rank_name}_lock.txt"
         script_path = f"{scripts_root_path}/executor/{step_name}/reverse_run.sh"
-        new_script_path = f"{training_log_path}/reverse_convert_ckpt_{model_name}_{self.rank_name}_run.sh"
+        new_script_path = (
+            f"{training_log_path}/reverse_convert_ckpt_{model_name}_{self.rank_name}_run.sh"
+        )
         start_command = f"{env_vars_str} bash {script_path}"
         self.create_shell_file(model_config, script_path, new_script_path)
 
         # Open a new file to write script output
-        training_log_file = f"{training_log_path}/reverse_convert_ckpt_{model_name}_{self.rank_name}_run.log"
+        training_log_file = (
+            f"{training_log_path}/reverse_convert_ckpt_{model_name}_{self.rank_name}_run.log"
+        )
         start_command = (
             f'{env_vars_str} bash -c "set -o pipefail; '
-            f'bash {scripts_root_path}/executor/{step_name}/reverse_run.sh |tee {training_log_file}"'
+            f'bash {scripts_root_path}/executor/{step_name}/reverse_run.sh |tee {training_log_file}"'  # noqa: E501
         )
         logger.info(f"{step_stage} reverse_{step_name} Start: {start_command} .")
         if os.system(start_command) != 0:
-            raise RuntimeError(f"Start {step_stage} reverse_{step_name} error, cmd is {start_command}")
+            raise RuntimeError(
+                f"Start {step_stage} reverse_{step_name} error, cmd is {start_command}"
+            )
 
         # Get hf check related config and check
         hf_ckpt_path = model_config.get("HF_CKPT_PATH", "")
@@ -1164,12 +1292,14 @@ class BaseTask(object):
                 self.check_hf_checkpoint(hf_ckpt_path, reverse_hf_ckpt_path, hf_check_model_name)
         else:
             logger.warning(
-                f"Missing HF check config, skipping consistency check: HF_CKPT_PATH={hf_ckpt_path}, "
-                f"REVERSE_HF_CKPT_PATH={reverse_hf_ckpt_path}, HF_CHECK_MODEL_NAME={hf_check_model_name}"
+                f"Missing HF check config, skipping consistency check: HF_CKPT_PATH={hf_ckpt_path}, "  # noqa: E501
+                f"REVERSE_HF_CKPT_PATH={reverse_hf_ckpt_path}, HF_CHECK_MODEL_NAME={hf_check_model_name}"  # noqa: E501
             )
 
         # Wait for all pods to complete
-        self.wait_async_pod_complete(model_lock_file, model_name, f"{scenario_name}_reverse_{step_name}")
+        self.wait_async_pod_complete(
+            model_lock_file, model_name, f"{scenario_name}_reverse_{step_name}"
+        )
 
         logger.info(f"{step_stage} End reverse_{step_name}")
 
@@ -1185,7 +1315,9 @@ class BaseTask(object):
         step_name = "loongforge"
         logger.info(f"{step_stage} {step_name} Start Running ...")
 
-        model_config = self.__init_model_scenarios_data__(index, scenario_name, step_stage, training_type_name)
+        model_config = self.__init_model_scenarios_data__(
+            index, scenario_name, step_stage, training_type_name
+        )
 
         # ckpt weight conversion
         model_name = self.model_name
@@ -1202,7 +1334,7 @@ class BaseTask(object):
         model_lock_file = f"{step_stage_path}/{self.rank_name}_lock.txt"
 
         script_path = f"{scripts_root_path}/executor/{step_name}/run.sh"
-        new_script_path = f"{training_log_path}/training_{model_name}_{training_type_name}_{self.rank_name}_run.sh"
+        new_script_path = f"{training_log_path}/training_{model_name}_{training_type_name}_{self.rank_name}_run.sh"  # noqa: E501
         start_command = f"{env_vars_str} bash {script_path}"
         self.create_shell_file(model_config, script_path, new_script_path)
 

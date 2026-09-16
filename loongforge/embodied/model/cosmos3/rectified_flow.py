@@ -28,7 +28,9 @@ class TrainTimeWeight:
             return torch.ones_like(timesteps)
         elif self.method == "sigma":
             sigmas = self.noise_scheduler.sigmas.to(device=timesteps.device, dtype=timesteps.dtype)
-            schedule_timesteps = self.noise_scheduler.timesteps.to(device=timesteps.device, dtype=timesteps.dtype)
+            schedule_timesteps = self.noise_scheduler.timesteps.to(
+                device=timesteps.device, dtype=timesteps.dtype
+            )
             step_indices = [(schedule_timesteps == t).nonzero().squeeze().item() for t in timesteps]
             sigma = sigmas[step_indices]
             return 1.0 / (sigma * (1.0 - sigma)).clamp(min=1e-6)
@@ -64,7 +66,9 @@ class TrainTimeSampler:
         if self.distribution == "uniform":
             t = torch.rand((batch_size,), generator=generator).to(device=device, dtype=dtype)  # [B]
         elif self.distribution == "logitnormal":
-            t = torch.sigmoid(torch.randn((batch_size,), generator=generator)).to(device=device, dtype=dtype)  # [B]
+            t = torch.sigmoid(torch.randn((batch_size,), generator=generator)).to(
+                device=device, dtype=dtype
+            )  # [B]
         elif self.distribution == "waver":
             u = torch.rand((batch_size,), dtype=torch.float32, generator=generator)  # [B]
             t = 1.0 - u - self._WAVER_MODE_S * (torch.cos(torch.pi / 2.0 * u) ** 2 - 1 + u)  # [B]
@@ -99,7 +103,7 @@ class RectifiedFlow:
             train_time_weight (`TrainTimeWeight` or `str`, *optional*, defaults to `"uniform"`):
                 Weight applied to training times.
                 Can be an instance of `TrainTimeWeight` or a string specifying the weight type.
-        """
+        """  # noqa: E501
         self.velocity_field = velocity_field
         self.train_time_sampler: TrainTimeSampler = (
             train_time_distribution
@@ -108,7 +112,9 @@ class RectifiedFlow:
         )
 
         if use_dynamic_shift:
-            self.noise_scheduler = FlowMatchEulerDiscreteScheduler(use_dynamic_shifting=use_dynamic_shift)
+            self.noise_scheduler = FlowMatchEulerDiscreteScheduler(
+                use_dynamic_shifting=use_dynamic_shift
+            )
         else:
             self.noise_scheduler = FlowMatchEulerDiscreteScheduler(shift=shift)
         self.train_time_weight = TrainTimeWeight(self.noise_scheduler, train_time_weight_method)
@@ -143,7 +149,9 @@ class RectifiedFlow:
             # keeping reproducibility once the global seed is fixed.
             base = int(torch.randint(0, 2**31 - 1, (1,)).item())
             generator.manual_seed(base + rank * 7919)
-        time = self.train_time_sampler(batch_size, device=self.device, dtype=self.dtype, generator=generator)
+        time = self.train_time_sampler(
+            batch_size, device=self.device, dtype=self.dtype, generator=generator
+        )
         return time
 
     def get_discrete_timestamp(self, u, tensor_kwargs):
@@ -158,7 +166,9 @@ class RectifiedFlow:
         sigmas = self.noise_scheduler.sigmas.to(**tensor_kwargs)  # [N_timesteps+1]
         schedule_timesteps = self.noise_scheduler.timesteps.to(**tensor_kwargs)  # [N_timesteps]
         step_indices = [(schedule_timesteps == t).nonzero().squeeze().tolist() for t in timesteps]
-        assert len(step_indices) == timesteps.shape[0], "Number of indices do not match the given timesteps."
+        assert len(step_indices) == timesteps.shape[0], (
+            "Number of indices do not match the given timesteps."
+        )
         sigma = sigmas[step_indices].flatten()  # [B]
 
         return sigma  # [B]

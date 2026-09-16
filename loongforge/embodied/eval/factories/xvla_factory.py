@@ -38,10 +38,14 @@ class XVLAModelFactory:
         """
         import torch
 
-        pretrained_path = str(Path(server_args.ckpt_path).expanduser()) if server_args.ckpt_path else ""
+        pretrained_path = (
+            str(Path(server_args.ckpt_path).expanduser()) if server_args.ckpt_path else ""
+        )
         tokenizer_path = server_args.tokenizer_path or pretrained_path
         resolved_device = torch.device(
-            server_args.device if torch.cuda.is_available() or not server_args.device.startswith("cuda") else "cpu"
+            server_args.device
+            if torch.cuda.is_available() or not server_args.device.startswith("cuda")
+            else "cpu"
         )
 
         model = build_model(model_cfg)
@@ -49,7 +53,10 @@ class XVLAModelFactory:
         model._processor_path = tokenizer_path
         model._num_image_views = int(getattr(model_cfg, "num_image_views", 3) or 3)
         if not server_args.random_init:
-            model.load_pretrained(pretrained_path, device=str(resolved_device) if resolved_device is not None else None)
+            model.load_pretrained(
+                pretrained_path,
+                device=str(resolved_device) if resolved_device is not None else None,
+            )
         model = model.to(resolved_device)
         model.eval()
         if server_args.use_bf16 and resolved_device.type == "cuda":
@@ -68,7 +75,9 @@ class XVLAModelFactory:
         else:
             _chunk_execute_steps = _raw_chunk_steps
 
-        def _predict_action_wrapper(images, instructions, state=None, dataset_stats=None, domain_id=None, **kwargs):
+        def _predict_action_wrapper(
+            images, instructions, state=None, dataset_stats=None, domain_id=None, **kwargs
+        ):
             # Extra eval payload keys (unnorm_key, cfg_scale, ...) are ignored:
             # XVLA's predict_action does not consume them.
             if domain_id is not None:
@@ -82,7 +91,11 @@ class XVLAModelFactory:
             )
             # Truncate on the horizon axis. predict_action returns [B, H, D] (or [H, D]).
             # Index 0 is batch size (usually 1), not horizon — do not slice shape[0].
-            if _chunk_execute_steps > 0 and hasattr(result, "shape") and getattr(result, "ndim", 0) >= 2:
+            if (
+                _chunk_execute_steps > 0
+                and hasattr(result, "shape")
+                and getattr(result, "ndim", 0) >= 2
+            ):
                 if result.ndim == 3 and result.shape[1] > _chunk_execute_steps:
                     result = result[:, :_chunk_execute_steps]
                 elif result.ndim == 2 and result.shape[0] > _chunk_execute_steps:

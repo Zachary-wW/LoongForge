@@ -81,12 +81,16 @@ def _allow_dense_flash_attention(
             return False
         return True
 
-    warnings.warn(f"Unsupported flash_attention_dense_policy={policy!r}; disabling dense FlashAttention for this call.")
+    warnings.warn(
+        f"Unsupported flash_attention_dense_policy={policy!r}; disabling dense FlashAttention for this call."  # noqa: E501
+    )
     return False
 
 
 _FA_UNIFORM_LENS_CACHE: dict[tuple[str, int, int, int], torch.Tensor] = {}
-_FA_UNIFORM_CU_SEQLENS_CACHE: dict[tuple[str, int, int, int], tuple[torch.Tensor, torch.Tensor]] = {}
+_FA_UNIFORM_CU_SEQLENS_CACHE: dict[
+    tuple[str, int, int, int], tuple[torch.Tensor, torch.Tensor]
+] = {}
 
 
 def _device_cache_index(device: torch.device) -> int:

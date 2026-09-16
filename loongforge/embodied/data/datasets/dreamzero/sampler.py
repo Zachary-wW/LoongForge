@@ -227,7 +227,9 @@ class DreamZeroShardedSampler(Sampler[int]):
         micro_batch_size: int = 1,
     ) -> None:
         if num_replicas is None:
-            num_replicas = dist.get_world_size() if dist.is_available() and dist.is_initialized() else 1
+            num_replicas = (
+                dist.get_world_size() if dist.is_available() and dist.is_initialized() else 1
+            )
         if rank is None:
             rank = dist.get_rank() if dist.is_available() and dist.is_initialized() else 0
         if not 0.0 <= shard_sampling_rate <= 1.0:
@@ -268,7 +270,9 @@ class DreamZeroShardedSampler(Sampler[int]):
 
         self._estimated_rank_indices = self._estimate_rank_indices()
         self._precompute_indices = self._should_precompute_indices()
-        self._indices: list[int] | None = self._build_indices() if self._precompute_indices else None
+        self._indices: list[int] | None = (
+            self._build_indices() if self._precompute_indices else None
+        )
 
         if self.rank == 0:
             logger.info(
@@ -375,7 +379,10 @@ class DreamZeroShardedSampler(Sampler[int]):
         return self._build_rank_indices(num_workers=1, worker_id=0)
 
     def _use_upstream_worker_batching(self) -> bool:
-        return self.worker_batching_mode == _WORKER_BATCHING_UPSTREAM_ITERABLE and self.dataloader_num_workers > 1
+        return (
+            self.worker_batching_mode == _WORKER_BATCHING_UPSTREAM_ITERABLE
+            and self.dataloader_num_workers > 1
+        )
 
     def _build_worker_interleaved_indices(self) -> list[int]:
         """Mimic DreamZero IterableDataset multi-worker batch order.

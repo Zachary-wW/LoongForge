@@ -117,7 +117,11 @@ def is_scaled_image(image: np.ndarray) -> bool:
 
 def make_batched_images(images) -> List[List[ImageInput]]:
     """make_batched_images"""
-    if isinstance(images, (list, tuple)) and isinstance(images[0], (list, tuple)) and is_valid_image(images[0][0]):
+    if (
+        isinstance(images, (list, tuple))
+        and isinstance(images[0], (list, tuple))
+        and is_valid_image(images[0][0])
+    ):
         return [img for img_list in images for img in img_list]
     elif isinstance(images, (list, tuple)) and is_valid_image(images[0]):
         return images
@@ -128,7 +132,11 @@ def make_batched_images(images) -> List[List[ImageInput]]:
 
 def make_batched_videos(videos) -> List[VideoInput]:
     """make_batched_videos"""
-    if isinstance(videos, (list, tuple)) and isinstance(videos[0], (list, tuple)) and is_valid_image(videos[0][0]):
+    if (
+        isinstance(videos, (list, tuple))
+        and isinstance(videos[0], (list, tuple))
+        and is_valid_image(videos[0][0])
+    ):
         return videos
     elif isinstance(videos, (list, tuple)) and is_valid_image(videos[0]):
         if isinstance(videos[0], Image.Image):
@@ -258,7 +266,7 @@ class AdaptiveImageProcessor(BaseImageProcessor):
 
         if predetermined_grid_thw is not None:
             assert len(predetermined_grid_thw) == len(images), (
-                f"len(predetermined_grid_thw) {len(predetermined_grid_thw)} == len(images) {len(images)}"
+                f"len(predetermined_grid_thw) {len(predetermined_grid_thw)} == len(images) {len(images)}"  # noqa: E501
             )
 
         for img_idx, image in enumerate(images):
@@ -295,7 +303,9 @@ class AdaptiveImageProcessor(BaseImageProcessor):
                     data_format=input_data_format,
                 )
 
-            image = to_channel_dimension_format(image, data_format, input_channel_dim=input_data_format)
+            image = to_channel_dimension_format(
+                image, data_format, input_channel_dim=input_data_format
+            )
 
             processed_images.append(image)
 
@@ -322,7 +332,9 @@ class AdaptiveImageProcessor(BaseImageProcessor):
             ]
         )
         patches = patches.transpose([0, 2, 5, 3, 6, 1, 4, 7])
-        flatten_patches = patches.reshape([grid_t * grid_h * grid_w, channel * self.patch_size * self.patch_size])
+        flatten_patches = patches.reshape(
+            [grid_t * grid_h * grid_w, channel * self.patch_size * self.patch_size]
+        )
 
         return flatten_patches, (grid_t, grid_h, grid_w)
 
@@ -369,7 +381,9 @@ class AdaptiveImageProcessor(BaseImageProcessor):
             pixel_values, vision_grid_thws = [], []
             for img_idx, image in enumerate(images):
                 predetermined_grid_thw_one = (
-                    [predetermined_grid_thw[img_idx]] if predetermined_grid_thw is not None else None
+                    [predetermined_grid_thw[img_idx]]
+                    if predetermined_grid_thw is not None
+                    else None
                 )
                 patches, image_grid_thw = self._preprocess(
                     image,

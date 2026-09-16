@@ -28,7 +28,11 @@ from loongforge.embodied.train.lora import (
     is_lora_enabled,
     load_adapter_into_model,
 )
-from loongforge.embodied.train.utils.logging import TrainingLogger, StageTimers, log_effective_config
+from loongforge.embodied.train.utils.logging import (
+    TrainingLogger,
+    StageTimers,
+    log_effective_config,
+)
 from loongforge.embodied.train.utils.utils import (
     log_stage,
     set_deterministic,
@@ -131,7 +135,7 @@ class BaseTrainer(ABC):
         self.ctx.init()
 
         # 2. Seed — use the same seed on all ranks (align with lerobot/accelerate baseline).
-        # DistributedSampler handles per-rank data partitioning internally via its own seed+rank offset.
+        # DistributedSampler handles per-rank data partitioning internally via its own seed+rank offset.  # noqa: E501
         set_seed(training_args.seed, training_args.set_seed_by_rank)
         if training_args.deterministic_mode:
             set_deterministic()
@@ -206,7 +210,9 @@ class BaseTrainer(ABC):
                 ):
                     self._load_pretrained(training_args.pretrained_checkpoint)
         else:
-            logger.info("No pretrained weights or resume checkpoint found. Using random initialization.")
+            logger.info(
+                "No pretrained weights or resume checkpoint found. Using random initialization."
+            )
 
         self.model = self._apply_lora_before_wrap(self.model)
 
@@ -215,7 +221,7 @@ class BaseTrainer(ABC):
 
         with log_stage(
             "wrap_model",
-            start_msg=f"wrap_model: strategy={training_args.distributed_strategy}, dtype={training_args.dtype}",
+            start_msg=f"wrap_model: strategy={training_args.distributed_strategy}, dtype={training_args.dtype}",  # noqa: E501
             end_msg="done in {elapsed}",
         ):
             # 7. Parallel wrapping (DDP/FSDP + mixed precision via policy).
@@ -234,12 +240,16 @@ class BaseTrainer(ABC):
             if training_args.pretrained_checkpoint:
                 with log_stage(
                     "ckpt",
-                    start_msg=f"loading pretrained (sharded): {training_args.pretrained_checkpoint}",
+                    start_msg=f"loading pretrained (sharded): {training_args.pretrained_checkpoint}",  # noqa: E501
                     end_msg="pretrained loaded in {elapsed}",
                 ):
-                    self.model.load_pretrained(training_args.pretrained_checkpoint, device=self.ctx.device)
+                    self.model.load_pretrained(
+                        training_args.pretrained_checkpoint, device=self.ctx.device
+                    )
 
-        with log_stage("optimizer", start_msg="building optimizer", end_msg="optimizer built in {elapsed}"):
+        with log_stage(
+            "optimizer", start_msg="building optimizer", end_msg="optimizer built in {elapsed}"
+        ):
             # 8. Optimizer + Scheduler (after wrapping; FSDP use_orig_params=True)
             self.optimizer = self._build_optimizer()
             self.lr_scheduler = self._build_scheduler()
@@ -309,7 +319,9 @@ class BaseTrainer(ABC):
             # Detailed per-stage timing is enabled only on the step that will be
             # logged, so the cuda.synchronize() inside the timers does not slow
             # down steady-state training.
-            enable_detail = detail_log_interval > 0 and (self.completed_steps + 1) % detail_log_interval == 0
+            enable_detail = (
+                detail_log_interval > 0 and (self.completed_steps + 1) % detail_log_interval == 0
+            )
             self._stage_timers.set_enabled(enable_detail)
 
             t0 = time.perf_counter()
@@ -341,7 +353,9 @@ class BaseTrainer(ABC):
 
             # ── Metrics ──
             step_time = time.perf_counter() - t0
-            local_batch_size = training_args.gradient_accumulation_steps * training_args.per_device_batch_size
+            local_batch_size = (
+                training_args.gradient_accumulation_steps * training_args.per_device_batch_size
+            )
             global_batch_size = local_batch_size * self.ctx.world_size
             consumed_samples = self.completed_steps * global_batch_size
             metrics = self.logger.collect_metrics(
@@ -379,7 +393,9 @@ class BaseTrainer(ABC):
 
             # ── Per-stage timing log (all ranks call; rank 0 emits) ──
             if enable_detail:
-                self.logger.log_stage_times(self._stage_timers, self.ctx, log_level=training_args.timing_log_level)
+                self.logger.log_stage_times(
+                    self._stage_timers, self.ctx, log_level=training_args.timing_log_level
+                )
                 self._stage_timers.reset()
 
             # ── Checkpoint ──
@@ -399,7 +415,11 @@ class BaseTrainer(ABC):
         sets non-rank-0 loggers to WARNING level, which would filter
         ``logger.info``.
         """
-        loss_str = " ".join(f"{k}={v:.6f}" for k, v in log_dict.items() if "loss" in k and isinstance(v, (int, float)))
+        loss_str = " ".join(
+            f"{k}={v:.6f}"
+            for k, v in log_dict.items()
+            if "loss" in k and isinstance(v, (int, float))
+        )
         logger.warning("[rank %d][step %d] %s", self.ctx.rank, self.completed_steps, loss_str)
 
     # ═══════════════════════════════════════════════
@@ -539,7 +559,11 @@ class BaseTrainer(ABC):
 
     @abstractmethod
     def _backward_loss(
-        self, loss: torch.Tensor, log_loss_dict: Dict[str, torch.Tensor], log_dict: Dict[str, float], grad_accum: int
+        self,
+        loss: torch.Tensor,
+        log_loss_dict: Dict[str, torch.Tensor],
+        log_dict: Dict[str, float],
+        grad_accum: int,
     ) -> None:
         """Scale + spike-guard + backward, accumulating losses into log_dict.
 

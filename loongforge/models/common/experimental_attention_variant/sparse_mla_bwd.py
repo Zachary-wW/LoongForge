@@ -25,7 +25,9 @@ def prepare_position_ids(cu_seqlens: torch.LongTensor) -> torch.LongTensor:
     tensor of position ids for each token in the batch.
     """
     lens = prepare_lens(cu_seqlens)
-    return torch.cat([torch.arange(n, dtype=cu_seqlens.dtype, device=cu_seqlens.device) for n in lens.unbind()])
+    return torch.cat(
+        [torch.arange(n, dtype=cu_seqlens.dtype, device=cu_seqlens.device) for n in lens.unbind()]
+    )
 
 
 def prepare_sequence_ids(cu_seqlens: torch.LongTensor) -> torch.LongTensor:
@@ -166,7 +168,9 @@ def bwd(
     """Sparse MLA backward kernel."""
 
     assert is_causal is True, "non-casual is not supported now"
-    assert topk % block_size == 0, "otherwise will load some index=0 thus causing wrong kv to be loaded"
+    assert topk % block_size == 0, (
+        "otherwise will load some index=0 thus causing wrong kv to be loaded"
+    )
     assert dtype == T.bfloat16
     assert accum_dtype == T.float32
     assert indices_dtype == T.int32
@@ -258,7 +262,9 @@ def bwd(
                 for bi_i, d_i in T.Parallel(BS, D):
                     KV_shared[bi_i, d_i] = KV[bos + Indices[b_s_i, bz, i_i * BS + bi_i], bz, d_i]
                 for bi_i, d_i in T.Parallel(BS, D_tail):
-                    KV_tail_shared[bi_i, d_i] = KV[bos + Indices[b_s_i, bz, i_i * BS + bi_i], bz, D + d_i]
+                    KV_tail_shared[bi_i, d_i] = KV[
+                        bos + Indices[b_s_i, bz, i_i * BS + bi_i], bz, D + d_i
+                    ]
 
                 T.gemm(
                     Q_shared[:, 0:256],
@@ -279,7 +285,9 @@ def bwd(
 
                 # softmax prob (sparse)
                 for h_i, bi_i in T.Parallel(padded_H, BS):
-                    acc_p[h_i, bi_i] = T.exp(acc_p[h_i, bi_i] * sm_scale - Lse[b_s_i, bz * padded_H + h_i])
+                    acc_p[h_i, bi_i] = T.exp(
+                        acc_p[h_i, bi_i] * sm_scale - Lse[b_s_i, bz * padded_H + h_i]
+                    )
 
                 T.copy(acc_p, P_shared_cast)
 
@@ -294,13 +302,17 @@ def bwd(
                 )
                 for h_i, bi_i in T.Parallel(padded_H, BS):
                     acc_dp[h_i, bi_i] = (
-                        acc_p[h_i, bi_i] * (acc_dp[h_i, bi_i] - Delta[bos + s_i, bz * padded_H + h_i]) * sm_scale
+                        acc_p[h_i, bi_i]
+                        * (acc_dp[h_i, bi_i] - Delta[bos + s_i, bz * padded_H + h_i])
+                        * sm_scale
                     )
 
                 T.copy(acc_dp, dP_shared_cast)
 
                 # dQ
-                T.gemm(dP_shared_cast, KV_shared, acc_dq, policy=T.GemmWarpPolicy.FullCol, wg_wait=-1)
+                T.gemm(
+                    dP_shared_cast, KV_shared, acc_dq, policy=T.GemmWarpPolicy.FullCol, wg_wait=-1
+                )
                 T.gemm(
                     dP_shared_cast,
                     KV_tail_shared,
@@ -344,7 +356,9 @@ def bwd(
                     for bi_i, d_i in T.Parallel(BS // split_store, D):
                         acc_dkv_shared[bi_i, d_i] = acc_dkv[bi_i + s * (BS // split_store), d_i]
                     for bi_i, d_i in T.Parallel(BS // split_store, D_tail):
-                        acc_dkv_tail_shared[bi_i, d_i] = acc_dkv_tail[bi_i + s * (BS // split_store), d_i]
+                        acc_dkv_tail_shared[bi_i, d_i] = acc_dkv_tail[
+                            bi_i + s * (BS // split_store), d_i
+                        ]
 
                     for bi_i, d_i in T.Parallel(BS // split_store, D // 4):
                         T.atomic_addx4(

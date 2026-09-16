@@ -25,7 +25,11 @@ from transformers.modeling_rope_utils import ROPE_INIT_FUNCTIONS, dynamic_rope_u
 
 def _default_rope_init(config, device=None):
     """Default RoPE init for transformers versions that don't register 'default'."""
-    dim = config.head_dim if hasattr(config, "head_dim") else config.hidden_size // config.num_attention_heads
+    dim = (
+        config.head_dim
+        if hasattr(config, "head_dim")
+        else config.hidden_size // config.num_attention_heads
+    )
     base = config.rope_theta if hasattr(config, "rope_theta") else 10000.0
     import torch
 
@@ -57,13 +61,16 @@ class Qwen3VLVisionRotaryEmbedding(nn.Module):
     def init_weights(self, buffer_device: torch.device | None = None) -> None:
         """Reinitialize inverse frequency buffer on device."""
         inv_freq = 1.0 / (
-            self.theta ** (torch.arange(0, self.dim, 2, dtype=torch.float, device=buffer_device) / self.dim)
+            self.theta
+            ** (torch.arange(0, self.dim, 2, dtype=torch.float, device=buffer_device) / self.dim)
         )
         self.register_buffer("inv_freq", inv_freq, persistent=False)
 
     def forward(self, seqlen: int) -> torch.Tensor:
         """Compute rotary frequencies for given sequence length."""
-        seq = torch.arange(seqlen, device=self.inv_freq.device, dtype=self.inv_freq.dtype)  # [seqlen]
+        seq = torch.arange(
+            seqlen, device=self.inv_freq.device, dtype=self.inv_freq.dtype
+        )  # [seqlen]
         freqs = torch.outer(seq, self.inv_freq)  # [seqlen,dim//2]
         return freqs  # [seqlen,dim//2]
 
@@ -97,14 +104,16 @@ def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
     """
     This is the equivalent of torch.repeat_interleave(x, dim=1, repeats=n_rep). The hidden states go from (batch,
     num_key_value_heads, seqlen, head_dim) to (batch, num_attention_heads, seqlen, head_dim)
-    """
+    """  # noqa: E501
     batch, num_key_value_heads, slen, head_dim = hidden_states.shape
     if n_rep == 1:
         return hidden_states
     hidden_states = hidden_states[:, :, None, :, :].expand(
         batch, num_key_value_heads, n_rep, slen, head_dim
     )  # [B,num_kv_heads,n_rep,N,head_dim]
-    return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)  # [B,num_heads,N,head_dim]
+    return hidden_states.reshape(
+        batch, num_key_value_heads * n_rep, slen, head_dim
+    )  # [B,num_heads,N,head_dim]
 
 
 def eager_attention_forward(
@@ -121,7 +130,9 @@ def eager_attention_forward(
     key_states = repeat_kv(key, module.num_key_value_groups)  # [B,num_heads,N_kv,head_dim]
     value_states = repeat_kv(value, module.num_key_value_groups)  # [B,num_heads,N_kv,head_dim]
 
-    attn_weights = torch.matmul(query, key_states.transpose(2, 3)) * scaling  # [B,num_heads,N_q,N_kv]
+    attn_weights = (
+        torch.matmul(query, key_states.transpose(2, 3)) * scaling
+    )  # [B,num_heads,N_q,N_kv]
     if attention_mask is not None:
         causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]  # [B,1,N_q,N_kv]
         attn_weights = attn_weights + causal_mask  # [B,num_heads,N_q,N_kv]
@@ -153,7 +164,9 @@ class Qwen3VLTextRotaryEmbedding(nn.Module):
         self.rope_init_fn = ROPE_INIT_FUNCTIONS.get(self.rope_type, _default_rope_init)
 
         self.mrope_section = (
-            config.rope_scaling.get("mrope_section", [24, 20, 20]) if config.rope_scaling is not None else [24, 20, 20]
+            config.rope_scaling.get("mrope_section", [24, 20, 20])
+            if config.rope_scaling is not None
+            else [24, 20, 20]
         )
         inv_freq, self.attention_scaling = self.rope_init_fn(self.config)
         self.register_buffer("inv_freq", inv_freq, persistent=False)
@@ -192,7 +205,10 @@ class Qwen3VLTextRotaryEmbedding(nn.Module):
         if position_ids.ndim == 2:
             position_ids = position_ids[None, ...].expand(3, position_ids.shape[0], -1)  # [3,B,N]
         inv_freq_expanded = (
-            self.inv_freq[None, None, :, None].float().expand(3, position_ids.shape[1], -1, 1).to(x.device)
+            self.inv_freq[None, None, :, None]
+            .float()
+            .expand(3, position_ids.shape[1], -1, 1)
+            .to(x.device)
         )  # [3,B,head_dim//2,1]
         position_ids_expanded = position_ids[:, :, None, :].float()  # [3,B,1,N]
 
@@ -202,7 +218,9 @@ class Qwen3VLTextRotaryEmbedding(nn.Module):
         # mantissa, leading to ~45-unit absolute error and divergence between
         # fp32 and bf16 runs. Disable autocast for this matmul.
         with __import__("torch").amp.autocast(device_type="cuda", enabled=False):
-            freqs = (inv_freq_expanded.float() @ position_ids_expanded.float()).transpose(2, 3)  # [3,B,N,head_dim//2]
+            freqs = (inv_freq_expanded.float() @ position_ids_expanded.float()).transpose(
+                2, 3
+            )  # [3,B,N,head_dim//2]
         freqs = self.apply_interleaved_mrope(freqs, self.mrope_section)  # [B,N,head_dim//2]
         emb = torch.cat((freqs, freqs), dim=-1)  # [B,N,head_dim]
         cos = emb.cos() * self.attention_scaling  # [B,N,head_dim]
@@ -254,7 +272,7 @@ def apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
             the shape [batch_size, seq_len, heads, head_dim], then set unsqueeze_dim=2.
     Returns:
         `tuple(torch.Tensor)` comprising of the query and key tensors rotated using the Rotary Position Embedding.
-    """
+    """  # noqa: E501
     cos = cos.unsqueeze(unsqueeze_dim)  # [B,1,N,head_dim]
     sin = sin.unsqueeze(unsqueeze_dim)  # [B,1,N,head_dim]
     q_embed = (q * cos) + (rotate_half(q) * sin)  # [B,num_heads,N,head_dim]
@@ -270,25 +288,37 @@ class Qwen3VLTextAttention(nn.Module):
         super().__init__()
         self.config = config
         self.layer_idx = layer_idx
-        self.head_dim = getattr(config, "head_dim", config.hidden_size // config.num_attention_heads)
+        self.head_dim = getattr(
+            config, "head_dim", config.hidden_size // config.num_attention_heads
+        )
         self.num_key_value_groups = config.num_attention_heads // config.num_key_value_heads
         self.scaling = self.head_dim**-0.5
         self.attention_dropout = config.attention_dropout
         self.is_causal = True
 
         self.q_proj = nn.Linear(
-            config.hidden_size, config.num_attention_heads * self.head_dim, bias=config.attention_bias
+            config.hidden_size,
+            config.num_attention_heads * self.head_dim,
+            bias=config.attention_bias,
         )
         self.k_proj = nn.Linear(
-            config.hidden_size, config.num_key_value_heads * self.head_dim, bias=config.attention_bias
+            config.hidden_size,
+            config.num_key_value_heads * self.head_dim,
+            bias=config.attention_bias,
         )
         self.v_proj = nn.Linear(
-            config.hidden_size, config.num_key_value_heads * self.head_dim, bias=config.attention_bias
+            config.hidden_size,
+            config.num_key_value_heads * self.head_dim,
+            bias=config.attention_bias,
         )
         self.o_proj = nn.Linear(
-            config.num_attention_heads * self.head_dim, config.hidden_size, bias=config.attention_bias
+            config.num_attention_heads * self.head_dim,
+            config.hidden_size,
+            bias=config.attention_bias,
         )
-        self.q_norm = Qwen3VLTextRMSNorm(self.head_dim, eps=config.rms_norm_eps)  # unlike olmo, only on the head dim!
+        self.q_norm = Qwen3VLTextRMSNorm(
+            self.head_dim, eps=config.rms_norm_eps
+        )  # unlike olmo, only on the head dim!
         self.k_norm = Qwen3VLTextRMSNorm(
             self.head_dim, eps=config.rms_norm_eps
         )  # thus post q_norm does not need reshape
@@ -313,7 +343,9 @@ class Qwen3VLTextAttention(nn.Module):
         key_states = self.k_norm(self.k_proj(hidden_states).view(hidden_shape)).transpose(
             1, 2
         )  # [B,num_kv_heads,N,head_dim]
-        value_states = self.v_proj(hidden_states).view(hidden_shape).transpose(1, 2)  # [B,num_kv_heads,N,head_dim]
+        value_states = (
+            self.v_proj(hidden_states).view(hidden_shape).transpose(1, 2)
+        )  # [B,num_kv_heads,N,head_dim]
 
         cos, sin = position_embeddings
         query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
@@ -322,8 +354,10 @@ class Qwen3VLTextAttention(nn.Module):
         if past_key_values is not None:
             # sin and cos are specific to RoPE models; cache_position needed for the static cache
             cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
-            key_states, value_states = past_key_values.update(key_states, value_states, self.layer_idx, cache_kwargs)
-            # key_states: [B,num_kv_heads,N_cached,head_dim], value_states: [B,num_kv_heads,N_cached,head_dim]
+            key_states, value_states = past_key_values.update(
+                key_states, value_states, self.layer_idx, cache_kwargs
+            )
+            # key_states: [B,num_kv_heads,N_cached,head_dim], value_states: [B,num_kv_heads,N_cached,head_dim]  # noqa: E501
 
         attention_interface: Callable = eager_attention_forward
         if self.config._attn_implementation != "eager":
@@ -377,7 +411,9 @@ class Qwen3VLTextDecoderLayer(nn.Module):
 
         self.mlp = Qwen3VLTextMLP(config)
         self.input_layernorm = Qwen3VLTextRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-        self.post_attention_layernorm = Qwen3VLTextRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.post_attention_layernorm = Qwen3VLTextRMSNorm(
+            config.hidden_size, eps=config.rms_norm_eps
+        )
 
     @deprecate_kwarg("past_key_value", new_name="past_key_values", version="4.58")
     def forward(
@@ -470,7 +506,10 @@ class Qwen3VLTextModel(Qwen3VLPreTrainedModel):
 
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList(
-            [Qwen3VLTextDecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
+            [
+                Qwen3VLTextDecoderLayer(config, layer_idx)
+                for layer_idx in range(config.num_hidden_layers)
+            ]
         )
         self.norm = Qwen3VLTextRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.rotary_emb = Qwen3VLTextRotaryEmbedding(config=config)
@@ -499,9 +538,13 @@ class Qwen3VLTextModel(Qwen3VLPreTrainedModel):
         visual_pos_masks (`torch.Tensor` of shape `(batch_size, seqlen)`, *optional*):
             The mask of the visual positions.
         """
-        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        output_attentions = (
+            output_attentions if output_attentions is not None else self.config.output_attentions
+        )
         output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+            output_hidden_states
+            if output_hidden_states is not None
+            else self.config.output_hidden_states
         )
         use_cache = use_cache if use_cache is not None else self.config.use_cache
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
@@ -517,14 +560,20 @@ class Qwen3VLTextModel(Qwen3VLPreTrainedModel):
             inputs_embeds = self.embed_tokens(input_ids)  # [B,N,hidden_size]
 
         if cache_position is None:
-            past_seen_tokens = past_key_values.get_seq_length() if past_key_values is not None else 0
+            past_seen_tokens = (
+                past_key_values.get_seq_length() if past_key_values is not None else 0
+            )
             cache_position = torch.arange(
-                past_seen_tokens, past_seen_tokens + inputs_embeds.shape[1], device=inputs_embeds.device
+                past_seen_tokens,
+                past_seen_tokens + inputs_embeds.shape[1],
+                device=inputs_embeds.device,
             )  # [N]
 
         # the hard coded `3` is for temporal, height and width.
         if position_ids is None:
-            position_ids = cache_position.view(1, 1, -1).expand(3, inputs_embeds.shape[0], -1)  # [3,B,N]
+            position_ids = cache_position.view(1, 1, -1).expand(
+                3, inputs_embeds.shape[0], -1
+            )  # [3,B,N]
         elif position_ids.ndim == 2:
             position_ids = position_ids[None, ...].expand(3, position_ids.shape[0], -1)  # [3,B,N]
 
@@ -581,7 +630,12 @@ class Qwen3VLTextModel(Qwen3VLPreTrainedModel):
         if not return_dict:
             return tuple(
                 v
-                for v in [hidden_states, past_key_values if use_cache else None, all_hidden_states, all_self_attns]
+                for v in [
+                    hidden_states,
+                    past_key_values if use_cache else None,
+                    all_hidden_states,
+                    all_self_attns,
+                ]
                 if v is not None
             )
 

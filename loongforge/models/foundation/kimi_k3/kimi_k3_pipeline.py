@@ -30,7 +30,9 @@ def unpack_stage_boundary(
     """Unpack the prefix and snapshot bank received from a pipeline stage."""
     expected = (1 + num_rows) * hidden_size
     if packed.shape[-1] != expected:
-        raise ValueError(f"stage-boundary payload width {packed.shape[-1]} != (1 + {num_rows}) * {hidden_size}")
+        raise ValueError(
+            f"stage-boundary payload width {packed.shape[-1]} != (1 + {num_rows}) * {hidden_size}"
+        )
     prefix_sum = packed[..., :hidden_size].contiguous()
     block_residual = packed[..., hidden_size:].unflatten(-1, (num_rows, hidden_size)).contiguous()
     return prefix_sum, block_residual

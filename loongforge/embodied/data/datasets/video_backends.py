@@ -10,7 +10,9 @@ All backends return numpy arrays in (N, H, W, 3) RGB uint8 format.
 import numpy as np
 
 
-def decode_video_frame(video_path: str, timestamp: float, backend: str = "torchcodec", **kwargs) -> np.ndarray:
+def decode_video_frame(
+    video_path: str, timestamp: float, backend: str = "torchcodec", **kwargs
+) -> np.ndarray:
     """Decode a single frame at the given timestamp (seconds).
 
     Args:
@@ -48,7 +50,7 @@ def decode_video_frames_by_timestamps(
         return _decode_torchvision_av(video_path, timestamps=timestamps)
     else:
         raise ValueError(
-            f"Unknown video_backend: '{backend}'. Supported: torchcodec, decord, opencv, pyav, torchvision_av"
+            f"Unknown video_backend: '{backend}'. Supported: torchcodec, decord, opencv, pyav, torchvision_av"  # noqa: E501
         )
 
 

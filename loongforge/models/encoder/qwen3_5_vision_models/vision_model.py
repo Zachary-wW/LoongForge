@@ -61,10 +61,18 @@ class Qwen35VisionModel(BaseVisionModel):
             dh = h_idxs - h_floor.float()
             dw = w_idxs - w_floor.float()
 
-            idx_parts[0].append((h_floor[:, None] * self.num_grid_per_side + w_floor[None, :]).flatten())
-            idx_parts[1].append((h_floor[:, None] * self.num_grid_per_side + w_ceil[None, :]).flatten())
-            idx_parts[2].append((h_ceil[:, None] * self.num_grid_per_side + w_floor[None, :]).flatten())
-            idx_parts[3].append((h_ceil[:, None] * self.num_grid_per_side + w_ceil[None, :]).flatten())
+            idx_parts[0].append(
+                (h_floor[:, None] * self.num_grid_per_side + w_floor[None, :]).flatten()
+            )
+            idx_parts[1].append(
+                (h_floor[:, None] * self.num_grid_per_side + w_ceil[None, :]).flatten()
+            )
+            idx_parts[2].append(
+                (h_ceil[:, None] * self.num_grid_per_side + w_floor[None, :]).flatten()
+            )
+            idx_parts[3].append(
+                (h_ceil[:, None] * self.num_grid_per_side + w_ceil[None, :]).flatten()
+            )
 
             weight_parts[0].append(((1 - dh)[:, None] * (1 - dw)[None, :]).flatten())
             weight_parts[1].append(((1 - dh)[:, None] * dw[None, :]).flatten())
@@ -115,8 +123,16 @@ class Qwen35VisionModel(BaseVisionModel):
             rows = torch.arange(height, device=device).reshape(merged_h, merge_size)
             cols = torch.arange(width, device=device).reshape(merged_w, merge_size)
 
-            row_idx = rows[:, None, :, None].expand(merged_h, merged_w, merge_size, merge_size).reshape(-1)
-            col_idx = cols[None, :, None, :].expand(merged_h, merged_w, merge_size, merge_size).reshape(-1)
+            row_idx = (
+                rows[:, None, :, None]
+                .expand(merged_h, merged_w, merge_size, merge_size)
+                .reshape(-1)
+            )
+            col_idx = (
+                cols[None, :, None, :]
+                .expand(merged_h, merged_w, merge_size, merge_size)
+                .reshape(-1)
+            )
 
             if num_frames > 1:
                 row_idx = row_idx.unsqueeze(0).expand(num_frames, -1).reshape(-1)
@@ -143,7 +159,9 @@ class Qwen35VisionModel(BaseVisionModel):
         rotary_pos_emb = self.rot_pos_emb(image_grid_thw)
         rotary_pos_emb = rotary_pos_emb.reshape(seq_len, 1, 1, -1).repeat(1, 1, 1, 2)
 
-        cu_seqlens = torch.repeat_interleave(image_grid_thw[:, 1] * image_grid_thw[:, 2], image_grid_thw[:, 0]).cumsum(
+        cu_seqlens = torch.repeat_interleave(
+            image_grid_thw[:, 1] * image_grid_thw[:, 2], image_grid_thw[:, 0]
+        ).cumsum(
             dim=0,
             # Select dtype based on the following factors:
             #  - FA2 requires that cu_seqlens_q must have dtype int32

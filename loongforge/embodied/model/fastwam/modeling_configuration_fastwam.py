@@ -65,7 +65,9 @@ class FastWAMModelConfig:
     load_text_encoder: bool = False
     mot_checkpoint_mixed_attn: bool = True
     skip_dit_load_from_pretrain: bool = False
-    action_dit_pretrained_path: str | None = "checkpoints/ActionDiT_linear_interp_Wan22_alphascale_1024hdim.pt"
+    action_dit_pretrained_path: str | None = (
+        "checkpoints/ActionDiT_linear_interp_Wan22_alphascale_1024hdim.pt"
+    )
     redirect_common_files: bool = True
     dtype: str = "bfloat16"
 
@@ -145,7 +147,7 @@ class FastWAMModelConfig:
         valid_variants = {"base", "uncond", "joint", "idm"}
         if self.variant not in valid_variants:
             raise ValueError(
-                f"FastWAMModelConfig.variant must be one of {sorted(valid_variants)}, got {self.variant!r}"
+                f"FastWAMModelConfig.variant must be one of {sorted(valid_variants)}, got {self.variant!r}"  # noqa: E501
             )
 
         # ── Validate mot_compile_blocks ───────────────────────────────────────

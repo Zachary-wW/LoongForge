@@ -11,7 +11,7 @@ Usage examples:
     python3 tests/embodied/cli.py --models pi05 groot_n1_6
     python3 tests/embodied/cli.py --auto_collect_baseline   # collect baseline on first run
     python3 tests/embodied/cli.py --dry_run                 # only print commands, do not train
-"""
+"""  # noqa: E501
 
 import argparse
 import json
@@ -84,7 +84,7 @@ DEFAULT_LOG_ROOT = os.environ.get("EMBODIED_LOG_ROOT", "/workspace/loongforge_em
 
 def parse_args(available_models):
     parser = argparse.ArgumentParser(
-        description="Embodied regression runner. All flags below also accept an environment-variable form "
+        description="Embodied regression runner. All flags below also accept an environment-variable form "  # noqa: E501
         "(shown in each help string); CLI flags take precedence over env vars."
     )
 
@@ -118,10 +118,16 @@ def parse_args(available_models):
         "metrics_baseline/<chip>/. Env var: chip. Required.",
     )
     parser.add_argument(
-        "--timeout", type=int, default=env_timeout, help="Per-script timeout (seconds). Env var: TIMEOUT."
+        "--timeout",
+        type=int,
+        default=env_timeout,
+        help="Per-script timeout (seconds). Env var: TIMEOUT.",
     )
     parser.add_argument(
-        "--accuracy_relative_tolerance", type=float, default=env_acc_tol, help="Env var: accuracy_relative_tolerance."
+        "--accuracy_relative_tolerance",
+        type=float,
+        default=env_acc_tol,
+        help="Env var: accuracy_relative_tolerance.",
     )
     parser.add_argument(
         "--performance_relative_tolerance",
@@ -141,7 +147,7 @@ def parse_args(available_models):
         "--auto_collect_baseline",
         action="store_true",
         default=env_auto_collect,
-        help="Collect the current result as the baseline; do not compare. Env var: auto_collect_baseline.",
+        help="Collect the current result as the baseline; do not compare. Env var: auto_collect_baseline.",  # noqa: E501
     )
     parser.add_argument(
         "--dry_run",
@@ -153,7 +159,7 @@ def parse_args(available_models):
         "--fail_fast",
         action="store_true",
         default=env_fail_fast,
-        help="Abort the run as soon as any model fails (skip the remaining models). Env var: fail_fast.",
+        help="Abort the run as soon as any model fails (skip the remaining models). Env var: fail_fast.",  # noqa: E501
     )
     parser.add_argument(
         "--prepare",
@@ -166,9 +172,15 @@ def parse_args(available_models):
         default=env_log_dir,
         help=f"Log/result output directory, default {DEFAULT_LOG_ROOT}/run_<ts>. Env var: LOG_DIR.",
     )
-    parser.add_argument("--results_file", default=None, help="results.json output path, default <log_dir>/results.json")
     parser.add_argument(
-        "--list_models", action="store_true", help="List available names and exit (does not require --chip)"
+        "--results_file",
+        default=None,
+        help="results.json output path, default <log_dir>/results.json",
+    )
+    parser.add_argument(
+        "--list_models",
+        action="store_true",
+        help="List available names and exit (does not require --chip)",
     )
     args = parser.parse_args()
 
@@ -176,7 +188,7 @@ def parse_args(available_models):
     if args.list_models:
         return args
 
-    # --models given but without any name -> raise an explicit error to avoid silently running everything.
+    # --models given but without any name -> raise an explicit error to avoid silently running everything.  # noqa: E501
     if args.models is not None and len(args.models) == 0:
         parser.error("--models requires at least one name (or omit it to regress all)")
 
@@ -184,7 +196,7 @@ def parse_args(available_models):
         invalid = [m for m in args.models if m not in available_models]
         if invalid:
             parser.error(
-                f"unknown model(s) from model_names env var: {invalid}; available: {', '.join(available_models)}"
+                f"unknown model(s) from model_names env var: {invalid}; available: {', '.join(available_models)}"  # noqa: E501
             )
 
     if args.chip is None:
@@ -210,7 +222,9 @@ def main():
     os.makedirs(args.log_dir, exist_ok=True)
 
     global logger
-    logger = create_logger(log_dir=args.log_dir, name="embodied_regression", logfile_name="regression.log")
+    logger = create_logger(
+        log_dir=args.log_dir, name="embodied_regression", logfile_name="regression.log"
+    )
 
     if args.prepare:
         prepare_sh = os.path.join(EMBODIED_ROOT, "config", "prepare.sh")
@@ -238,7 +252,9 @@ def main():
                 )
     elif not args.dry_run:
         missing = [
-            (m, baseline_path(args.chip, m)) for m in models if load_baseline(args.chip, m, BASELINE_KEY) is None
+            (m, baseline_path(args.chip, m))
+            for m in models
+            if load_baseline(args.chip, m, BASELINE_KEY) is None
         ]
         if missing:
             logger.error(f"Missing baseline for chip={args.chip}:")
@@ -267,11 +283,15 @@ def main():
         result = run_script(model_name, script_path, args, args.log_dir, logger)
         results.append(result)
         status = "PASS" if result["passed"] else "FAIL"
-        logger.info(f"[{index}/{len(models)}] {model_name} finished: {status} ({result['duration_sec']}s)")
+        logger.info(
+            f"[{index}/{len(models)}] {model_name} finished: {status} ({result['duration_sec']}s)"
+        )
         if not result["passed"] and args.fail_fast:
             remaining = len(models) - index
             if remaining > 0:
-                logger.warning(f"--fail_fast: aborting run after {model_name} FAIL ({remaining} model(s) skipped)")
+                logger.warning(
+                    f"--fail_fast: aborting run after {model_name} FAIL ({remaining} model(s) skipped)"  # noqa: E501
+                )
             break
 
     results_file = args.results_file or os.path.join(args.log_dir, "results.json")
@@ -288,7 +308,10 @@ def main():
 
     failed = [r["model_name"] for r in results if not r["passed"]]
     total_run = len(results)
-    logger.info(f"Regression complete: ran {total_run}, failed {len(failed)}" + (f" ({failed})" if failed else ""))
+    logger.info(
+        f"Regression complete: ran {total_run}, failed {len(failed)}"
+        + (f" ({failed})" if failed else "")
+    )
     return 1 if failed else 0
 
 

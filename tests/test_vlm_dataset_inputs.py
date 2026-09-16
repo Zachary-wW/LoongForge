@@ -17,7 +17,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 def _load_functions(relative_path, names, namespace=None):
     path = REPO_ROOT / relative_path
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    functions = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in names]
+    functions = [
+        node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in names
+    ]
     assert {function.name for function in functions} == set(names)
 
     namespace = {} if namespace is None else namespace

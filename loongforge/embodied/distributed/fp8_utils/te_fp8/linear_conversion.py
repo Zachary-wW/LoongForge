@@ -89,7 +89,9 @@ def convert_linear_to_te(
             # and ModuleDict descendants all preserve the model's public shape.
             model.set_submodule(module_key, _build_te_linear(te_linear_cls, linear, device))
             if type(model.get_submodule(module_key)) is nn.Linear:
-                raise RuntimeError(f"FP8 conversion did not replace nn.Linear at {module_key} with te.Linear.")
+                raise RuntimeError(
+                    f"FP8 conversion did not replace nn.Linear at {module_key} with te.Linear."
+                )
             converted_keys.append(module_key)
             converted += 1
 
@@ -128,7 +130,7 @@ def _build_te_linear(
     weight = linear.weight
     if weight.device.type == "meta":
         raise RuntimeError(
-            "FP8 conversion cannot copy weights off the meta device; --fp8 and --init-on-meta are incompatible."
+            "FP8 conversion cannot copy weights off the meta device; --fp8 and --init-on-meta are incompatible."  # noqa: E501
         )
 
     te_linear = te_linear_cls(

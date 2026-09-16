@@ -154,7 +154,10 @@ class VideoProcess(Process):
                 assert len([i for i in text_info if i["text"] == self.image_end_token]) == len(
                     [i for i in text_info if i["text"] == self.image_start_token]
                 )
-                assert len([i for i in text_info if i["text"] == self.image_end_token]) == len(image_info) // 2
+                assert (
+                    len([i for i in text_info if i["text"] == self.image_end_token])
+                    == len(image_info) // 2
+                )
 
         sample["text_info"] = text_info
         sample["image_info"] = image_info
@@ -183,7 +186,9 @@ class VideoProcess(Process):
         if len(frame_indices_selected) > max_frames:
             random_seed = get_uniq_id(get_hashable(meta["image_info"][frames[0]]["image_url"]))
             with RandomSeedContext(random_seed):
-                indices_selected = random.sample(range(1, len(frame_indices_selected) - 1), k=max_frames - 2)
+                indices_selected = random.sample(
+                    range(1, len(frame_indices_selected) - 1), k=max_frames - 2
+                )
             indices_selected.sort()
             indices_selected = [0] + indices_selected + [len(frame_indices_selected) - 1]
             frame_indices_selected = [frame_indices_selected[i] for i in indices_selected]
@@ -225,7 +230,9 @@ class VideoProcess(Process):
 
             return tmp_grouped_frames_details, tmp_vision_tokens_num
 
-        def judge_single_adaptive_resolution(tmp_video_min_pixels, tmp_video_max_pixels, quota_num_tokens):
+        def judge_single_adaptive_resolution(
+            tmp_video_min_pixels, tmp_video_max_pixels, quota_num_tokens
+        ):
             """judge single resolution"""
             _, tmp_vision_tokens_num = get_vision_tokens(tmp_video_min_pixels, tmp_video_max_pixels)
 
@@ -234,7 +241,9 @@ class VideoProcess(Process):
 
             return False, tmp_vision_tokens_num
 
-        def judge_adaptive_resolution(permt_video_min_pixels, permt_video_max_pixels, quota_num_tokens):
+        def judge_adaptive_resolution(
+            permt_video_min_pixels, permt_video_max_pixels, quota_num_tokens
+        ):
             """judge adaptive resolution"""
             left = int(permt_video_min_pixels)
             right = int(permt_video_max_pixels)
@@ -253,7 +262,9 @@ class VideoProcess(Process):
                     else:
                         right = mid - 1
             except ValueError:
-                logger.debug("[BINARY SEARCH] encounter resized shape smaller than min_pixels, early exit!")
+                logger.debug(
+                    "[BINARY SEARCH] encounter resized shape smaller than min_pixels, early exit!"
+                )
                 return False, right, permt_vision_num_tokens
 
             if flag:
@@ -317,19 +328,23 @@ class VideoProcess(Process):
         # elements in the list: [num_of_placeholder_for_the_video, [frame_indices]]
         _, vision_tokens_num = get_vision_tokens(video_min_pixels, video_max_pixels)
 
-        logger.debug(f"original vision_tokens_num: {vision_tokens_num}, image_token_limit: {image_token_limit}")
+        logger.debug(
+            f"original vision_tokens_num: {vision_tokens_num}, image_token_limit: {image_token_limit}"  # noqa: E501
+        )
         if vision_tokens_num < image_token_limit:
             logger.debug(f"seq len: {vision_tokens_num + text_token_count}")
             logger.debug("no need to squeeze")
             return meta
 
-        (judge_adaptive_flag, judge_video_max_pixels, permt_vision_tokens_num) = judge_adaptive_resolution(
-            video_min_pixels, video_max_pixels, image_token_limit
+        (judge_adaptive_flag, judge_video_max_pixels, permt_vision_tokens_num) = (
+            judge_adaptive_resolution(video_min_pixels, video_max_pixels, image_token_limit)
         )
 
-        logger.debug(f"after adjust, video_min_pixels: {video_min_pixels}, video_max_pixels: {judge_video_max_pixels}")
         logger.debug(
-            f"after adjust, vision_tokens_num: {permt_vision_tokens_num}, image_token_limit: {image_token_limit}"
+            f"after adjust, video_min_pixels: {video_min_pixels}, video_max_pixels: {judge_video_max_pixels}"  # noqa: E501
+        )
+        logger.debug(
+            f"after adjust, vision_tokens_num: {permt_vision_tokens_num}, image_token_limit: {image_token_limit}"  # noqa: E501
         )
         self.adaptiver.set_video_pixels(
             video_max_pixels=judge_video_max_pixels,
@@ -386,7 +401,8 @@ class VideoProcess(Process):
                     # special tokens
                     tokens_to_delete += special_tokens_removed_per_video[video_index]
                     special_tokens_removed_per_video[video_index] = (
-                        num_frames_to_be_deleted_for_each_video[video_index] // self.temporal_conv_size
+                        num_frames_to_be_deleted_for_each_video[video_index]
+                        // self.temporal_conv_size
                     ) * num_special_tokens_per_conv_size
                     tokens_to_delete -= special_tokens_removed_per_video[video_index]
 
@@ -397,13 +413,17 @@ class VideoProcess(Process):
 
             # drop token
             frame_indices_to_remove = []
-            for frames, num_frames_to_be_deleted in zip(grouped_frames, num_frames_to_be_deleted_for_each_video):
+            for frames, num_frames_to_be_deleted in zip(
+                grouped_frames, num_frames_to_be_deleted_for_each_video
+            ):
                 logger.debug(
-                    f"original frames {len(frames)}, num_frames_to_be_deleted {num_frames_to_be_deleted}, "
+                    f"original frames {len(frames)}, num_frames_to_be_deleted {num_frames_to_be_deleted}, "  # noqa: E501
                     + f"final frames {len(frames) - num_frames_to_be_deleted}"
                 )
                 frame_indices_to_remove.extend(
-                    self.get_frame_indices_to_remove_for_one_video(meta, frames, num_frames_to_be_deleted)
+                    self.get_frame_indices_to_remove_for_one_video(
+                        meta, frames, num_frames_to_be_deleted
+                    )
                 )
 
             meta = self.remove_video_frames(meta, frame_indices_to_remove)
@@ -417,7 +437,9 @@ class VideoProcess(Process):
                 + f"final seq len: {final_vision_tokens_num + text_token_count}"
             )
 
-        num_frames_selected = sum([len(i) for i in grouped_frames]) - sum(num_frames_to_be_deleted_for_each_video)
+        num_frames_selected = sum([len(i) for i in grouped_frames]) - sum(
+            num_frames_to_be_deleted_for_each_video
+        )
         if self.is_training:
             logger.debug(f"for one_sample_in_one_seq_adaptive, num_frames={num_frames_selected}")
         else:
@@ -448,7 +470,9 @@ class VideoProcess(Process):
                     padded_image["is_padded_image"] = True
                     tmp.append(padded_image)
                 new_image_info = (
-                    new_image_info[: index_offset + len_frames] + tmp + new_image_info[index_offset + len_frames :]
+                    new_image_info[: index_offset + len_frames]
+                    + tmp
+                    + new_image_info[index_offset + len_frames :]
                 )
                 index_offset += len(tmp)
 
@@ -497,7 +521,9 @@ class VideoProcess(Process):
                 # take special care for the last match index
                 last_match_index = match_indices[-1]
                 if idx < len(images) - 1:
-                    contain_all_cor_image = last_match_index != images[idx + 1]["matched_text_index"]
+                    contain_all_cor_image = (
+                        last_match_index != images[idx + 1]["matched_text_index"]
+                    )
                 else:
                     # there isnt any image left, so the current window contains
                     # all correspoding images for the last match index
@@ -545,10 +571,10 @@ class VideoProcess(Process):
             assert resulted_image_info[i]["matched_text_index"] <= images[i]["matched_text_index"]
 
         assert len(resulted_image_info) == len(meta["image_info"]), (
-            f"len(resulted_image_info): {len(resulted_image_info)}, len(meta['image_info']): {len(meta['image_info'])}"
+            f"len(resulted_image_info): {len(resulted_image_info)}, len(meta['image_info']): {len(meta['image_info'])}"  # noqa: E501
         )
         assert len(resulted_text_info) == len(meta["text_info"]), (
-            f"len(resulted_text_info): {len(resulted_text_info)}, len(meta['text_info']): {len(meta['text_info'])}"
+            f"len(resulted_text_info): {len(resulted_text_info)}, len(meta['text_info']): {len(meta['text_info'])}"  # noqa: E501
         )
 
         result["text_info"] = resulted_text_info

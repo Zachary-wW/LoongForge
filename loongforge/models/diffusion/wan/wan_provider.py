@@ -26,7 +26,7 @@ def wan_i2v_model_provider(
 
     Returns:
         WanModel: The returned model
-    """
+    """  # noqa: E501
     args = get_args()
 
     print_rank_0(f"building {args.model_name} model ...")

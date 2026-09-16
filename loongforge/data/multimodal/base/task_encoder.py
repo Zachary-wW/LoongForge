@@ -168,7 +168,9 @@ def _format_packed_sample_overflow_error(
                 "labels_shape": _shape(sample.labels),
                 "attn_mask_shape": _shape(sample.attn_mask),
                 "num_images": len(sample.imgs) if sample.imgs is not None else 0,
-                "num_videos": (len(sample.pixel_values_videos) if sample.pixel_values_videos is not None else 0),
+                "num_videos": (
+                    len(sample.pixel_values_videos) if sample.pixel_values_videos is not None else 0
+                ),
             }
         )
 
@@ -239,7 +241,9 @@ def _load_vlm_tags(section: Optional[str] = None) -> Dict[str, any]:
     return tags
 
 
-def _parse_messages(raw_messages, section: Optional[str] = None) -> Tuple[List[Dict], Optional[str]]:
+def _parse_messages(
+    raw_messages, section: Optional[str] = None
+) -> Tuple[List[Dict], Optional[str]]:
     """Parse a list of raw message dicts into (messages, system).
 
     Field names and role aliases are read directly from the ``tags`` block of
@@ -493,14 +497,20 @@ def cooker_packed_multi_mix_qa(sample: dict):
 
     if len(captions) != len(prompts):
         raise ValueError(
-            f"[cooker_packed_multi_mix_qa] captions/prompts length mismatch for key={sample['__key__']}: "
+            f"[cooker_packed_multi_mix_qa] captions/prompts length mismatch for key={sample['__key__']}: "  # noqa: E501
             f"{len(captions)} vs {len(prompts)}"
         )
 
     # contexts/answers are List[List[str]]. A single-turn child is a
     # one-element list; multi-turn BMR children keep all turns.
-    contexts = [[p] if isinstance(p, str) else (list(p) if isinstance(p, (list, tuple)) else []) for p in prompts]
-    answers = [[c] if isinstance(c, str) else (list(c) if isinstance(c, (list, tuple)) else []) for c in captions]
+    contexts = [
+        [p] if isinstance(p, str) else (list(p) if isinstance(p, (list, tuple)) else [])
+        for p in prompts
+    ]
+    answers = [
+        [c] if isinstance(c, str) else (list(c) if isinstance(c, (list, tuple)) else [])
+        for c in captions
+    ]
     media_files = data.get("media_files", []) or []
     media_type = (data.get("media_type") or "").lower()
 
@@ -549,7 +559,7 @@ def cooker_packed_multi_mix_qa(sample: dict):
 
     else:
         raise ValueError(
-            f"[cooker_packed_multi_mix_qa] unknown media_type='{media_type}'. Expect 'image', 'video', or 'text'."
+            f"[cooker_packed_multi_mix_qa] unknown media_type='{media_type}'. Expect 'image', 'video', or 'text'."  # noqa: E501
         )
     if _ENERGON_NEEDS_SUBFLAVOR:
         return PackedMultiMixQASample(
@@ -661,7 +671,7 @@ def cooker_packed_chat_mix(sample: dict):
         videos = None
     else:
         raise ValueError(
-            f"[cooker_packed_chat_mix] unknown media_type='{media_type}'. Expect 'image', 'video', or 'text'."
+            f"[cooker_packed_chat_mix] unknown media_type='{media_type}'. Expect 'image', 'video', or 'text'."  # noqa: E501
         )
 
     if _ENERGON_NEEDS_SUBFLAVOR:
@@ -734,7 +744,9 @@ def cooker_default(sample: dict):
         raise NotImplementedError("Sample format not supported", sample)
 
 
-class BaseTaskEncoder(DefaultTaskEncoder[BaseTaskSample, BaseTaskSamplePacked, BaseTaskBatchPacked, dict]):
+class BaseTaskEncoder(
+    DefaultTaskEncoder[BaseTaskSample, BaseTaskSamplePacked, BaseTaskBatchPacked, dict]
+):
     """A simple task encoder for VLMs."""
 
     cookers = [
@@ -764,7 +776,9 @@ class BaseTaskEncoder(DefaultTaskEncoder[BaseTaskSample, BaseTaskSamplePacked, B
         self.max_buffer_size = self.args.max_buffer_size
 
     @stateless(restore_seeds=True)
-    def encode_sample(self, sample: Union[CaptioningSample, VQASample, MultiVidQASample, MultiMixQASample]):
+    def encode_sample(
+        self, sample: Union[CaptioningSample, VQASample, MultiVidQASample, MultiMixQASample]
+    ):
         """Generates an encoded sample from a raw sample."""
         assert not (
             self.args.packing_sft_data
@@ -819,7 +833,7 @@ class BaseTaskEncoder(DefaultTaskEncoder[BaseTaskSample, BaseTaskSamplePacked, B
     def encode_chat_mix(self, sample: ChatMixSample) -> BaseTaskSample:
         """Generates an encoded chat-format multimodal sample (with tool calling)."""
         raise NotImplementedError(
-            f"{type(self).__name__} must implement encode_chat_mix to use chat_mix or packed_chat_mix sample types.",
+            f"{type(self).__name__} must implement encode_chat_mix to use chat_mix or packed_chat_mix sample types.",  # noqa: E501
             sample,
         )
 
@@ -840,18 +854,22 @@ class BaseTaskEncoder(DefaultTaskEncoder[BaseTaskSample, BaseTaskSamplePacked, B
         raise NotImplementedError("encode_packed_multi_mix_qa not supported", sample)
 
     def encode_packed_chat_mix(self, sample: PackedChatMixSample) -> BaseTaskSample:
-        """Generates an encoded multimodal packed chat (incl. tool calling) sample from a raw sample."""
+        """Generates an encoded multimodal packed chat (incl. tool calling) sample from a raw sample."""  # noqa: E501
         raise NotImplementedError("encode_packed_chat_mix not supported", sample)
 
-    def process_images(self, samples: List[Union[BaseTaskSample, BaseTaskSamplePacked]]) -> torch.Tensor:
-        """Stack images to [num_tiles, c, h, w]. If there are no images (text-only), then use a dummy image."""
+    def process_images(
+        self, samples: List[Union[BaseTaskSample, BaseTaskSamplePacked]]
+    ) -> torch.Tensor:
+        """Stack images to [num_tiles, c, h, w]. If there are no images (text-only), then use a dummy image."""  # noqa: E501
         imgs = [img for s in samples for img in s.imgs]
         if len(imgs) > 0:
             return torch.stack(imgs)
         else:
             return torch.tensor([[0]], dtype=torch.float32)
 
-    def process_videos(self, samples: List[Union[BaseTaskSample, BaseTaskSamplePacked]]) -> torch.Tensor:
+    def process_videos(
+        self, samples: List[Union[BaseTaskSample, BaseTaskSamplePacked]]
+    ) -> torch.Tensor:
         """ "Process the data to get the model's input"""
         pixel_values_videos = [
             pixel_values_video
@@ -864,7 +882,9 @@ class BaseTaskEncoder(DefaultTaskEncoder[BaseTaskSample, BaseTaskSamplePacked, B
         else:
             return torch.tensor([[0]], dtype=torch.float32)
 
-    def batch(self, samples: List[Union[BaseTaskSample, BaseTaskSamplePacked]]) -> BaseTaskBatchPacked:
+    def batch(
+        self, samples: List[Union[BaseTaskSample, BaseTaskSamplePacked]]
+    ) -> BaseTaskBatchPacked:
         """Generates a batched version of the provided samples."""
         imgs = self.process_images(samples)
         pixel_values_videos = self.process_videos(samples)
@@ -969,7 +989,11 @@ class BaseTaskEncoder(DefaultTaskEncoder[BaseTaskSample, BaseTaskSamplePacked, B
             # This should not happen.
             # The select_samples_to_pack method should have already ensured that the samples fit.
             if current_length + sample_len > packing_seq_len:
-                raise ValueError(_format_packed_sample_overflow_error(samples, packing_seq_len, current_length, sample))
+                raise ValueError(
+                    _format_packed_sample_overflow_error(
+                        samples, packing_seq_len, current_length, sample
+                    )
+                )
 
             # Add the sample's tokens and labels
             packed_tokens.append(sample.tokens)

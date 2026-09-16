@@ -41,7 +41,9 @@ def _iter_unwrapped_models(model) -> Iterable[torch.nn.Module]:
             yield unwrapped
 
 
-def maybe_enable_recompute_inputs_grad(model, peft_recompute_patched: Set[int] | None = None) -> Set[int]:
+def maybe_enable_recompute_inputs_grad(
+    model, peft_recompute_patched: Set[int] | None = None
+) -> Set[int]:
     """Enable grad on TransformerBlock inputs when only adapters are trainable.
 
     Root cause analysis:
@@ -78,7 +80,8 @@ def maybe_enable_recompute_inputs_grad(model, peft_recompute_patched: Set[int] |
             params = list(unwrapped_model.named_parameters())
             trainable_adapter = any(p.requires_grad and ".adapter." in n.lower() for n, p in params)
             trainable_base = any(
-                p.requires_grad and (".to_wrap." not in n.lower() and ".adapter." not in n.lower()) for n, p in params
+                p.requires_grad and (".to_wrap." not in n.lower() and ".adapter." not in n.lower())
+                for n, p in params
             )
 
             if not (trainable_adapter and not trainable_base):
@@ -89,7 +92,9 @@ def maybe_enable_recompute_inputs_grad(model, peft_recompute_patched: Set[int] |
                     original_forward = module.forward
 
                     @wraps(original_forward)
-                    def patched_forward(hidden_states, *args, _original_forward=original_forward, **kwargs):
+                    def patched_forward(
+                        hidden_states, *args, _original_forward=original_forward, **kwargs
+                    ):
                         # Ensure hidden_states requires grad so checkpoint backward is called
                         if (
                             torch.is_tensor(hidden_states)

@@ -46,5 +46,9 @@ class GenerationDataClean:
     raw_state_action: list[torch.Tensor] | None = None
     x0_tokens_action: list[torch.Tensor] | None = None
     fps_action: torch.Tensor | None = None
-    action_domain_id: list[torch.Tensor] | None = None  # per-sample domain IDs, None when no action samples
-    raw_action_dim: list[torch.Tensor] | None = None  # raw action dimension, used adding masks to loss calculation
+    action_domain_id: list[torch.Tensor] | None = (
+        None  # per-sample domain IDs, None when no action samples
+    )
+    raw_action_dim: list[torch.Tensor] | None = (
+        None  # raw action dimension, used adding masks to loss calculation
+    )

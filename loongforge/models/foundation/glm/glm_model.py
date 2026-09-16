@@ -72,7 +72,7 @@ class GlmModelWithMTP(BaseGPTModel):
             position_embedding_type is 'rope'. Defaults to 10000.
         seq_len_interpolation_factor (Optional[float], optional): scale of linearly interpolating RoPE for
             longer sequences. The value must be a float larger than 1.0. Defaults to None.th
-    """
+    """  # noqa: E501
 
     config_class = GlmConfig
 
@@ -98,7 +98,9 @@ class GlmModelWithMTP(BaseGPTModel):
         else:
             model_spec = config.model_spec
 
-        transformer_layer_spec, mtp_layer_spec = import_module(model_spec, config, vp_stage=vp_stage)
+        transformer_layer_spec, mtp_layer_spec = import_module(
+            model_spec, config, vp_stage=vp_stage
+        )
 
         super().__init__(
             config=config,

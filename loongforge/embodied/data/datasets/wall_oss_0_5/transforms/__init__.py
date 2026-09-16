@@ -3,7 +3,7 @@
 
 """Wall-OSS-0.5 transforms and collator."""
 
-from loongforge.embodied.data.datasets.wall_oss_0_5.transforms.data_configuration_wall_oss_0_5 import (
+from loongforge.embodied.data.datasets.wall_oss_0_5.transforms.data_configuration_wall_oss_0_5 import (  # noqa: E501
     WallOss05DataConfig,
 )
 from loongforge.embodied.data.datasets.wall_oss_0_5.transforms.wall_oss_0_5_collator import (

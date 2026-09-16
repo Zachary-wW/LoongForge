@@ -29,7 +29,9 @@ def get_grad_norm(model: nn.Module) -> float:
         return float(total_norm)
 
     else:
-        gradients = [parameter.grad for parameter in model.parameters() if parameter.grad is not None]
+        gradients = [
+            parameter.grad for parameter in model.parameters() if parameter.grad is not None
+        ]
         if not gradients:
             return 0.0
 

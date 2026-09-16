@@ -72,7 +72,9 @@ def convert_linear_to_torchao(
     try:
         from torchao.float8 import convert_to_float8_training
     except ImportError as exc:
-        raise RuntimeError("--fp8-backend=torchao requires torchao.float8.convert_to_float8_training.") from exc
+        raise RuntimeError(
+            "--fp8-backend=torchao requires torchao.float8.convert_to_float8_training."
+        ) from exc
 
     config = build_torchao_config(training_args)
     convert_to_float8_training(
@@ -81,11 +83,15 @@ def convert_linear_to_torchao(
         module_filter_fn=lambda module, fqn: (type(module) is nn.Linear and fqn in eligible_keys),
     )
     converted_keys = [
-        module_key for module_key in eligible_keys if type(model.get_submodule(module_key)) is not nn.Linear
+        module_key
+        for module_key in eligible_keys
+        if type(model.get_submodule(module_key)) is not nn.Linear
     ]
     failed_keys = sorted(eligible_keys.difference(converted_keys))
     if failed_keys:
-        raise RuntimeError("TorchAO FP8 conversion did not replace nn.Linear at: " + ", ".join(failed_keys))
+        raise RuntimeError(
+            "TorchAO FP8 conversion did not replace nn.Linear at: " + ", ".join(failed_keys)
+        )
     logger.info(
         "Converted nn.Linear to TorchAO Float8Linear: converted=%d "
         "skipped_by_pattern=%d below_min_dim=%d unaligned_inner=%d "

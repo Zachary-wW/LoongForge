@@ -62,11 +62,15 @@ def _retie_input_embeddings(text_encoder) -> None:
         embed_tokens.weight = shared.weight
 
 
-def load_text_encoder(text_encoder_path: str, torch_dtype: torch.dtype, torch_device, subfolder: str | None = None):
+def load_text_encoder(
+    text_encoder_path: str, torch_dtype: torch.dtype, torch_device, subfolder: str | None = None
+):
     """Load the frozen UMT5 text encoder (``d_model=4096``)."""
     from transformers import UMT5EncoderModel
 
-    text_encoder = UMT5EncoderModel.from_pretrained(text_encoder_path, subfolder=subfolder, torch_dtype=torch_dtype)
+    text_encoder = UMT5EncoderModel.from_pretrained(
+        text_encoder_path, subfolder=subfolder, torch_dtype=torch_dtype
+    )
     _retie_input_embeddings(text_encoder)
     return text_encoder.to(torch_device).eval()
 
@@ -91,10 +95,14 @@ def normalize_vae_latent(enc_out: torch.Tensor, latents_mean, latents_std) -> to
     return ((mu.float() - mean) * inv_std).to(mu)
 
 
-def denormalize_latents(latents: torch.Tensor, latents_mean, latents_std, z_dim: int) -> torch.Tensor:
+def denormalize_latents(
+    latents: torch.Tensor, latents_mean, latents_std, z_dim: int
+) -> torch.Tensor:
     """Inverse of :func:`normalize_vae_latent`, for VAE-decoding predicted latents."""
     mean = torch.as_tensor(latents_mean).view(1, z_dim, 1, 1, 1).to(latents.device, latents.dtype)
-    inv_std = 1.0 / torch.as_tensor(latents_std).view(1, z_dim, 1, 1, 1).to(latents.device, latents.dtype)
+    inv_std = 1.0 / torch.as_tensor(latents_std).view(1, z_dim, 1, 1, 1).to(
+        latents.device, latents.dtype
+    )
     return latents / inv_std + mean
 
 
@@ -103,9 +111,23 @@ def _vae_patchify(x: torch.Tensor, patch_size: int | None) -> torch.Tensor:
     if patch_size is None or patch_size == 1:
         return x
     batch_size, channels, frames, height, width = x.shape
-    x = x.view(batch_size, channels, frames, height // patch_size, patch_size, width // patch_size, patch_size)
+    x = x.view(
+        batch_size,
+        channels,
+        frames,
+        height // patch_size,
+        patch_size,
+        width // patch_size,
+        patch_size,
+    )
     x = x.permute(0, 1, 6, 4, 2, 3, 5).contiguous()
-    return x.view(batch_size, channels * patch_size * patch_size, frames, height // patch_size, width // patch_size)
+    return x.view(
+        batch_size,
+        channels * patch_size * patch_size,
+        frames,
+        height // patch_size,
+        width // patch_size,
+    )
 
 
 class WanVAEStreamingWrapper:
@@ -133,7 +155,9 @@ class WanVAEStreamingWrapper:
         if cached_counts is not None:
             self.enc_conv_num = cached_counts["encoder"]
         else:
-            self.enc_conv_num = sum(1 for m in self.encoder.modules() if m.__class__.__name__ == "WanCausalConv3d")
+            self.enc_conv_num = sum(
+                1 for m in self.encoder.modules() if m.__class__.__name__ == "WanCausalConv3d"
+            )
         self.clear_cache()
 
     def clear_cache(self) -> None:
@@ -226,7 +250,9 @@ def encode_frames_width_concat(
     videos = torch.cat(per_cam_videos, dim=0)  # [num_cam, C, F, H, W]
     vae_device = next(streaming_vae.vae.parameters()).device
     enc_out = streaming_vae.encode_stream(videos.to(vae_device))
-    mu_norm = normalize_vae_latent(enc_out, streaming_vae.vae.config.latents_mean, streaming_vae.vae.config.latents_std)
+    mu_norm = normalize_vae_latent(
+        enc_out, streaming_vae.vae.config.latents_mean, streaming_vae.vae.config.latents_std
+    )
     video_latent = torch.cat(mu_norm.split(1, dim=0), dim=-1)
     return video_latent.to(device)
 

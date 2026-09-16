@@ -31,7 +31,7 @@ class TokenTypeRouter(nn.Module):
         Returns:
             experts_indices (torch.Tensor): Tensor of shape (batch_size, seq_length) containing each assigned expert
             index.
-        """
+        """  # noqa: E501
         # Simple rule: assign by token_type modulo the expert count
         experts_indices = token_types % self.num_experts
         return experts_indices
@@ -54,11 +54,13 @@ class BlockSparseMLP(nn.Module):
 
         self.act_fn = ACT2FN[self.hidden_act]
 
-    # FIXME: The full MLP is recomputed for now; recomputing only activations can be optimized later.
+    # FIXME: The full MLP is recomputed for now; recomputing only activations can be optimized later.  # noqa: E501
     def _full_mlp(self, hidden_state):
         """Full mlp."""
         gate_up_out = self.gate_up_proj(hidden_state)
-        gate_out, up_out = gate_up_out.split([self.intermediate_size, self.intermediate_size], dim=-1)
+        gate_out, up_out = gate_up_out.split(
+            [self.intermediate_size, self.intermediate_size], dim=-1
+        )
 
         if self.hidden_act == "silu":
             act_out = swiglu(gate_out, up_out)

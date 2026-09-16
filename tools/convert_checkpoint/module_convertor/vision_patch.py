@@ -21,14 +21,20 @@ from convert_checkpoint.utils.ckpt_util import (  # noqa: E402
     save_huggingface_checkpoint,
 )
 
-from convert_checkpoint.utils.config_utils import parse_at_configs, load_config, parallel_param_parser  # noqa: E402
+from convert_checkpoint.utils.config_utils import (  # noqa: E402
+    parse_at_configs,
+    load_config,
+    parallel_param_parser,
+)  # noqa: E402
 
 
 args = parse_args()
 with open(args.config_file, "r") as f:
     module_names = parse_at_configs(f.readlines())
 module_type = args.convert_file.split("/")[-3]
-cfg = load_config(args.convert_file, hydra_overrides={module_type + "@module=" + module_names[module_type]})
+cfg = load_config(
+    args.convert_file, hydra_overrides={module_type + "@module=" + module_names[module_type]}
+)
 name_map = cfg.vision_patch
 
 model_cfg = load_config(args.config_file)

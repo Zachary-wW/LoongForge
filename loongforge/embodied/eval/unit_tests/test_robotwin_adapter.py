@@ -58,14 +58,26 @@ def test_robotwin_obs_to_canonical_extracts_three_cameras_and_joint_state() -> N
 
     canonical = adapter.obs_to_canonical(
         fake_robotwin_obs(),
-        {"instruction": "pick the object", "episode_id": "robotwin/pick_object/0", "episode_step": 3},
+        {
+            "instruction": "pick the object",
+            "episode_id": "robotwin/pick_object/0",
+            "episode_step": 3,
+        },
     )
 
     assert canonical["instruction"] == "pick the object"
-    np.testing.assert_array_equal(canonical["images"]["primary"], np.full((2, 3, 3), 10, dtype=np.uint8))
-    np.testing.assert_array_equal(canonical["images"]["head"], np.full((2, 3, 3), 10, dtype=np.uint8))
-    np.testing.assert_array_equal(canonical["images"]["left"], np.full((2, 3, 3), 20, dtype=np.uint8))
-    np.testing.assert_array_equal(canonical["images"]["right"], np.full((2, 3, 3), 30, dtype=np.uint8))
+    np.testing.assert_array_equal(
+        canonical["images"]["primary"], np.full((2, 3, 3), 10, dtype=np.uint8)
+    )
+    np.testing.assert_array_equal(
+        canonical["images"]["head"], np.full((2, 3, 3), 10, dtype=np.uint8)
+    )
+    np.testing.assert_array_equal(
+        canonical["images"]["left"], np.full((2, 3, 3), 20, dtype=np.uint8)
+    )
+    np.testing.assert_array_equal(
+        canonical["images"]["right"], np.full((2, 3, 3), 30, dtype=np.uint8)
+    )
     assert canonical["state"]["joint"] == list(np.arange(14, dtype=np.float32))
     assert canonical["meta"]["benchmark"] == "robotwin"
     assert canonical["meta"]["bimanual"] is True
@@ -243,7 +255,11 @@ def test_robotwin_runner_builds_eval_policy_command() -> None:
 
     command = build_command(args, pathlib.Path("/tmp/deploy_policy.yml"))
 
-    assert command[:3] == ["/envs/robotwin/bin/python", "/workspace/RoboTwin/script/eval_policy.py", "--config"]
+    assert command[:3] == [
+        "/envs/robotwin/bin/python",
+        "/workspace/RoboTwin/script/eval_policy.py",
+        "--config",
+    ]
     assert "--policy_ckpt_path" not in command
     assert "loongforge.embodied.eval.bridges.robotwin_policy" in command
     assert "adjust_bottle" in command
@@ -279,7 +295,10 @@ def test_robotwin_eval_policy_override_round_trip(tmp_path: pathlib.Path) -> Non
     original_text = _override_eval_policy_for_smoke(robotwin_path, 1, True, 100001)
 
     text = eval_policy_path.read_text(encoding="utf-8")
-    assert original_text == "    st_seed = 100000 * (1 + seed)\n    test_num = 100\n    expert_check = True\n"
+    assert (
+        original_text
+        == "    st_seed = 100000 * (1 + seed)\n    test_num = 100\n    expert_check = True\n"
+    )
     assert "    st_seed = 100001\n" in text
     assert "    test_num = 1\n" in text
     assert "    expert_check = False\n" in text
@@ -343,7 +362,12 @@ def test_build_robotwin_records_expands_per_episode() -> None:
     records = _build_robotwin_records(
         args,
         returncode=0,
-        artifacts={"result_txt": "/tmp/_result.txt", "official_eval_log": "/tmp/log", "trace_path": None, "videos": []},
+        artifacts={
+            "result_txt": "/tmp/_result.txt",
+            "official_eval_log": "/tmp/log",
+            "trace_path": None,
+            "videos": [],
+        },
         episode_time_sec=500.0,
         result_txt=result_txt,
         log_text=log,

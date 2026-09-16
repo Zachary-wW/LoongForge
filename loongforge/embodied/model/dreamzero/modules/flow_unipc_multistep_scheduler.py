@@ -88,7 +88,7 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
         final_sigmas_type (`str`, defaults to `"zero"`):
             The final `sigma` value for the noise schedule during the sampling process. If `"sigma_min"`, the final
             sigma is the same as the last sigma in the training schedule. If `zero`, the final sigma is set to 0.
-    """
+    """  # noqa: E501
 
     _compatibles = [e.name for e in KarrasDiffusionSchedulers]
     order = 1
@@ -129,7 +129,7 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
         sigmas = torch.from_numpy(sigmas).to(dtype=torch.float32)
 
         if not use_dynamic_shifting:
-            # when use_dynamic_shifting is True, we apply the timestep shifting on the fly based on the image resolution
+            # when use_dynamic_shifting is True, we apply the timestep shifting on the fly based on the image resolution  # noqa: E501
             assert shift is not None, "shift must be not None when use_dynamic_shifting is False"
             sigmas = shift * sigmas / (1 + (shift - 1) * sigmas)
 
@@ -162,11 +162,13 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
                 Total number of the spacing of the time steps.
             device (`str` or `torch.device`, *optional*):
                 The device to which the timesteps should be moved to. If `None`, the timesteps are not moved.
-        """
+        """  # noqa: E501
         self.num_inference_steps = num_inference_steps
 
         if self.config.use_dynamic_shifting and mu is None:
-            raise ValueError(" you have to pass a value for `mu` when `use_dynamic_shifting` is set to be `True`")
+            raise ValueError(
+                " you have to pass a value for `mu` when `use_dynamic_shifting` is set to be `True`"
+            )
 
         if sigmas is None:
             sigmas = np.linspace(
@@ -191,7 +193,7 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
             sigma_last = 0
         else:
             raise ValueError(
-                f"`final_sigmas_type` must be one of 'zero', or 'sigma_min', but got {self.config.final_sigmas_type}"
+                f"`final_sigmas_type` must be one of 'zero', or 'sigma_min', but got {self.config.final_sigmas_type}"  # noqa: E501
             )
 
         timesteps = sigmas * self.config.num_train_timesteps
@@ -216,12 +218,14 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
         photorealism as well as better image-text alignment, especially when using very large guidance weights."
 
         https://arxiv.org/abs/2205.11487
-        """
+        """  # noqa: E501
         dtype = sample.dtype
         batch_size, channels, *remaining_dims = sample.shape
 
         if dtype not in (torch.float32, torch.float64):
-            sample = sample.float()  # upcast for quantile calculation, and clamp not implemented for cpu half
+            sample = (
+                sample.float()
+            )  # upcast for quantile calculation, and clamp not implemented for cpu half
 
         # Flatten sample for doing quantile calculation along each image
         sample = sample.reshape(batch_size, channels * np.prod(remaining_dims))
@@ -233,14 +237,16 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
             s, min=1, max=self.config.sample_max_value
         )  # When clamped to min=1, equivalent to standard clipping to [-1, 1]
         s = s.unsqueeze(1)  # (batch_size, 1) because clamp will broadcast along dim=0
-        sample = torch.clamp(sample, -s, s) / s  # "we threshold xt0 to the range [-s, s] and then divide by s"
+        sample = (
+            torch.clamp(sample, -s, s) / s
+        )  # "we threshold xt0 to the range [-s, s] and then divide by s"
 
         sample = sample.reshape(batch_size, channels, *remaining_dims)
         sample = sample.to(dtype)
 
         return sample
 
-    # Copied from diffusers.schedulers.scheduling_flow_match_euler_discrete.FlowMatchEulerDiscreteScheduler._sigma_to_t
+    # Copied from diffusers.schedulers.scheduling_flow_match_euler_discrete.FlowMatchEulerDiscreteScheduler._sigma_to_t  # noqa: E501
     def _sigma_to_t(self, sigma):
         return sigma * self.config.num_train_timesteps
 
@@ -281,7 +287,7 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
                 x0_pred = sample - sigma_t * model_output
             else:
                 raise ValueError(
-                    f"prediction_type given as {self.config.prediction_type} must be one of `epsilon`, `sample`,"
+                    f"prediction_type given as {self.config.prediction_type} must be one of `epsilon`, `sample`,"  # noqa: E501
                     " `v_prediction` or `flow_prediction` for the UniPCMultistepScheduler."
                 )
 
@@ -295,7 +301,7 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
                 epsilon = sample - (1 - sigma_t) * model_output
             else:
                 raise ValueError(
-                    f"prediction_type given as {self.config.prediction_type} must be one of `epsilon`, `sample`,"
+                    f"prediction_type given as {self.config.prediction_type} must be one of `epsilon`, `sample`,"  # noqa: E501
                     " `v_prediction` or `flow_prediction` for the UniPCMultistepScheduler."
                 )
 
@@ -330,7 +336,7 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
         Returns:
             `torch.Tensor`:
                 The sample tensor at the previous timestep.
-        """
+        """  # noqa: E501
         model_output_list = self.model_outputs
 
         s0 = self.timestep_list[-1]
@@ -446,7 +452,7 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
         Returns:
             `torch.Tensor`:
                 The corrected sample tensor at the current timestep.
-        """
+        """  # noqa: E501
         model_output_list = self.model_outputs
 
         m0 = model_output_list[-1]
@@ -572,13 +578,17 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
                 If return_dict is `True`, [`~schedulers.scheduling_utils.SchedulerOutput`] is returned, otherwise a
                 tuple is returned where the first element is the sample tensor.
 
-        """
+        """  # noqa: E501
         if self.num_inference_steps is None:
             raise ValueError(
-                "Number of inference steps is 'None', you need to run 'set_timesteps' after creating the scheduler"
+                "Number of inference steps is 'None', you need to run 'set_timesteps' after creating the scheduler"  # noqa: E501
             )
 
-        use_corrector = step_index > 0 and step_index - 1 not in self.disable_corrector and self.last_sample is not None
+        use_corrector = (
+            step_index > 0
+            and step_index - 1 not in self.disable_corrector
+            and self.last_sample is not None
+        )
 
         model_output_convert = self.convert_model_output(
             model_output=model_output,
@@ -646,10 +656,10 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
         Returns:
             `torch.Tensor`:
                 A scaled input sample.
-        """
+        """  # noqa: E501
         return sample
 
-    # Copied from diffusers.schedulers.scheduling_dpmsolver_multistep.DPMSolverMultistepScheduler.add_noise
+    # Copied from diffusers.schedulers.scheduling_dpmsolver_multistep.DPMSolverMultistepScheduler.add_noise  # noqa: E501
     def add_noise(
         self,
         original_samples: torch.Tensor,
@@ -666,7 +676,7 @@ class FlowUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
             schedule_timesteps = self.timesteps.to(original_samples.device)
             timesteps = timesteps.to(original_samples.device)
 
-        # begin_index is None when the scheduler is used for training or pipeline does not implement set_begin_index
+        # begin_index is None when the scheduler is used for training or pipeline does not implement set_begin_index  # noqa: E501
         step_indices = [self.index_for_timestep(t, schedule_timesteps) for t in timesteps]
 
         sigma = sigmas[step_indices].flatten()

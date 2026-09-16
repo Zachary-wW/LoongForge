@@ -29,9 +29,18 @@ class PolicyClient:
         """Run metadata."""
         return self._server_metadata
 
-    def _wait_for_server(self, timeout: float) -> Tuple[websockets.sync.client.ClientConnection, Dict[str, Any]]:
+    def _wait_for_server(
+        self, timeout: float
+    ) -> Tuple[websockets.sync.client.ClientConnection, Dict[str, Any]]:
         """Run _wait_for_server."""
-        for key in ("HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy"):
+        for key in (
+            "HTTP_PROXY",
+            "http_proxy",
+            "HTTPS_PROXY",
+            "https_proxy",
+            "ALL_PROXY",
+            "all_proxy",
+        ):
             os.environ.pop(key, None)
 
         start_time = time.time()
@@ -48,7 +57,7 @@ class PolicyClient:
                 metadata = msgpack_numpy.unpackb(conn.recv())
                 if metadata.get("protocol_version") != PROTOCOL_VERSION:
                     raise RuntimeError(
-                        f"protocol_version mismatch: {metadata.get('protocol_version')} != {PROTOCOL_VERSION}"
+                        f"protocol_version mismatch: {metadata.get('protocol_version')} != {PROTOCOL_VERSION}"  # noqa: E501
                     )
                 return conn, metadata
             except ConnectionRefusedError:
@@ -59,7 +68,10 @@ class PolicyClient:
         self._ws.close()
 
     def request(
-        self, message_type: str, payload: Optional[Dict[str, Any]] = None, request_id: str = "default"
+        self,
+        message_type: str,
+        payload: Optional[Dict[str, Any]] = None,
+        request_id: str = "default",
     ) -> Dict[str, Any]:
         """Run request."""
         message = {

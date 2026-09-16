@@ -33,14 +33,18 @@ def _assert_close(actual: torch.Tensor, expected: torch.Tensor, dtype: torch.dty
     torch.testing.assert_close(actual.float(), expected.float(), atol=atol, rtol=rtol)
 
 
-def _rms_norm_reference(hidden_states: torch.Tensor, weight: torch.Tensor, epsilon: float) -> torch.Tensor:
+def _rms_norm_reference(
+    hidden_states: torch.Tensor, weight: torch.Tensor, epsilon: float
+) -> torch.Tensor:
     """Pure PyTorch fp32 RMSNorm reference (matches the existing 3-step kernel chain)."""
     variance = (hidden_states.float() * hidden_states.float()).mean(-1, keepdim=True)
     normalized = hidden_states.float() * torch.rsqrt(variance + epsilon)
     return weight * normalized.to(hidden_states.dtype).float()
 
 
-def _rms_norm_3step(hidden_states: torch.Tensor, weight: torch.Tensor, epsilon: float) -> torch.Tensor:
+def _rms_norm_3step(
+    hidden_states: torch.Tensor, weight: torch.Tensor, epsilon: float
+) -> torch.Tensor:
     """Original 3-step CUDA kernel chain (square → Python mean → finish)."""
     squared = _ext.qwen3_vl_fused_text_rms_norm_square(hidden_states)
     variance = squared.mean(-1, keepdim=True)
@@ -57,8 +61,12 @@ def test_vision_rope_matches_reference(dtype):
     sin = torch.randn(sequence, head_dim, device="cuda", dtype=torch.float32, generator=generator)
 
     query_out, key_out = qwen3_vl_fused_vision_rope_forward(query, key, cos, sin)
-    query_ref = (query.float() * cos[:, None, :] + _rotate_half(query.float()) * sin[:, None, :]).to(dtype)
-    key_ref = (key.float() * cos[:, None, :] + _rotate_half(key.float()) * sin[:, None, :]).to(dtype)
+    query_ref = (
+        query.float() * cos[:, None, :] + _rotate_half(query.float()) * sin[:, None, :]
+    ).to(dtype)
+    key_ref = (key.float() * cos[:, None, :] + _rotate_half(key.float()) * sin[:, None, :]).to(
+        dtype
+    )
 
     _assert_close(query_out, query_ref, dtype)
     _assert_close(key_out, key_ref, dtype)
@@ -76,8 +84,12 @@ def test_vision_rope_accepts_strided_inputs():
     cos, sin = cos_base[..., ::2], sin_base[..., ::2]
 
     query_out, key_out = qwen3_vl_fused_vision_rope_forward(query, key, cos, sin)
-    query_ref = (query.float() * cos[:, None, :] + _rotate_half(query.float()) * sin[:, None, :]).to(query.dtype)
-    key_ref = (key.float() * cos[:, None, :] + _rotate_half(key.float()) * sin[:, None, :]).to(key.dtype)
+    query_ref = (
+        query.float() * cos[:, None, :] + _rotate_half(query.float()) * sin[:, None, :]
+    ).to(query.dtype)
+    key_ref = (key.float() * cos[:, None, :] + _rotate_half(key.float()) * sin[:, None, :]).to(
+        key.dtype
+    )
     _assert_close(query_out, query_ref, query.dtype)
     _assert_close(key_out, key_ref, key.dtype)
 
@@ -87,8 +99,12 @@ def test_vision_rope_accepts_strided_inputs():
 def test_text_rope_matches_reference(dtype, query_heads, key_heads):
     batch, sequence, head_dim = 2, 6, 8
     generator = torch.Generator(device="cuda").manual_seed(13)
-    query = torch.randn(batch, query_heads, sequence, head_dim, device="cuda", dtype=dtype, generator=generator)
-    key = torch.randn(batch, key_heads, sequence, head_dim, device="cuda", dtype=dtype, generator=generator)
+    query = torch.randn(
+        batch, query_heads, sequence, head_dim, device="cuda", dtype=dtype, generator=generator
+    )
+    key = torch.randn(
+        batch, key_heads, sequence, head_dim, device="cuda", dtype=dtype, generator=generator
+    )
     cos = torch.randn(batch, sequence, head_dim, device="cuda", dtype=dtype, generator=generator)
     sin = torch.randn_like(cos)
 
@@ -275,8 +291,12 @@ def test_text_rope_extended(dtype, batch, q_heads, k_heads, seq, head_dim):
     sin = torch.randn(batch, seq, head_dim, device="cuda", dtype=dtype, generator=gen)
 
     q_out, k_out = qwen3_vl_fused_text_rope_forward(q, k, cos, sin)
-    q_ref = (q.float() * cos[:, None].float() + _rotate_half(q.float()) * sin[:, None].float()).to(dtype)
-    k_ref = (k.float() * cos[:, None].float() + _rotate_half(k.float()) * sin[:, None].float()).to(dtype)
+    q_ref = (q.float() * cos[:, None].float() + _rotate_half(q.float()) * sin[:, None].float()).to(
+        dtype
+    )
+    k_ref = (k.float() * cos[:, None].float() + _rotate_half(k.float()) * sin[:, None].float()).to(
+        dtype
+    )
 
     assert q_out.shape == q.shape
     assert k_out.shape == k.shape
@@ -365,7 +385,9 @@ def test_vision_rope_extended(dtype, seq, heads, head_dim):
     sin = torch.randn(seq, head_dim, device="cuda", dtype=torch.float32, generator=gen)
 
     q_out, k_out = qwen3_vl_fused_vision_rope_forward(query, key, cos, sin)
-    q_ref = (query.float() * cos[:, None, :] + _rotate_half(query.float()) * sin[:, None, :]).to(dtype)
+    q_ref = (query.float() * cos[:, None, :] + _rotate_half(query.float()) * sin[:, None, :]).to(
+        dtype
+    )
     k_ref = (key.float() * cos[:, None, :] + _rotate_half(key.float()) * sin[:, None, :]).to(dtype)
 
     assert q_out.shape == query.shape

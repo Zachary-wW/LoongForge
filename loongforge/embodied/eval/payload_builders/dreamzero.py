@@ -56,7 +56,9 @@ def encode_libero_state(state_raw: Dict[str, Any]) -> np.ndarray:
             "DreamZero libero state requires eef_pos[3], eef_quat[4] and gripper; "
             f"got sizes {eef_pos.size}/{eef_quat.size}/{gripper}"
         )
-    return np.concatenate([eef_pos, eef_quat, np.asarray([gripper], dtype=np.float32)]).astype(np.float32)
+    return np.concatenate([eef_pos, eef_quat, np.asarray([gripper], dtype=np.float32)]).astype(
+        np.float32
+    )
 
 
 @register_payload_builder("dreamzero")

@@ -19,11 +19,13 @@ from loongforge.data.multimodal.flavors import (
 # touching individual encoder modules.
 TASK_ENCODER_REGISTRY = {
     "vlmtaskencoder": "loongforge.data.multimodal.vlm_task_encoder.VLMTaskEncoder",
-    "internvltaskencoder": "loongforge.data.multimodal.internvl.internvl_task_encoder.InternVLTaskEncoder",
+    "internvltaskencoder": "loongforge.data.multimodal.internvl.internvl_task_encoder.InternVLTaskEncoder",  # noqa: E501
     "llavaov15taskencoder": "loongforge.data.multimodal.llava_ov_task_encoder.LLavaOv15TaskEncoder",
     "ernietaskencoder": "loongforge.data.multimodal.ernie_task_encoder.ErnieTaskEncoder",
     "kimitaskencoder": "loongforge.data.multimodal.kimi_task_encoder.KimiTaskEncoder",
-    "minicpmv46taskencoder": ("loongforge.data.multimodal.minicpm_v_4_6_task_encoder.MiniCPMV46TaskEncoder"),
+    "minicpmv46taskencoder": (
+        "loongforge.data.multimodal.minicpm_v_4_6_task_encoder.MiniCPMV46TaskEncoder"
+    ),
 }
 
 

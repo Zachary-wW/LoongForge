@@ -21,7 +21,9 @@ class FastWAMKeyMappingTransform(BaseTransform):
     Single-frame inputs fall back to the images list for the collator to handle.
     """
 
-    DEFAULT_PROMPT = "A video recorded from a robot's point of view executing the following instruction: {task}"
+    DEFAULT_PROMPT = (
+        "A video recorded from a robot's point of view executing the following instruction: {task}"
+    )
 
     def __init__(self, image_size: int = 224, training: bool = True):
         super().__init__(apply_to=[], training=training)
@@ -30,11 +32,15 @@ class FastWAMKeyMappingTransform(BaseTransform):
     def _build_prompt(self, data: Dict[str, Any]) -> str:
         """Build the text prompt string from sample data."""
         task = str(data.get("prompt", data.get("task", "")))
-        return task if task.startswith("A video recorded") else self.DEFAULT_PROMPT.format(task=task)
+        return (
+            task if task.startswith("A video recorded") else self.DEFAULT_PROMPT.format(task=task)
+        )
 
     def apply(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Apply key mapping and preprocessing to a single sample."""
-        image_keys = sorted(k for k in data if k.startswith("observation.images.") and not k.endswith("_is_pad"))
+        image_keys = sorted(
+            k for k in data if k.startswith("observation.images.") and not k.endswith("_is_pad")
+        )
         images = [data[key].float() for key in image_keys]
 
         action = data.get("action")
@@ -55,7 +61,10 @@ class FastWAMKeyMappingTransform(BaseTransform):
             #   3. normalize(0.5, 0.5) → [-1, 1]
             resized = [
                 TF.resize(
-                    img, [self.image_size, self.image_size], interpolation=TF.InterpolationMode.BILINEAR, antialias=True
+                    img,
+                    [self.image_size, self.image_size],
+                    interpolation=TF.InterpolationMode.BILINEAR,
+                    antialias=True,
                 )
                 for img in images
             ]  # each [T, C, image_size, image_size]
@@ -103,9 +112,11 @@ def build_fastwam_transforms(ctx: TransformBuilderContext):
     )
 
     # Proprio normalization: normalize observation.state to match BCTrainer pipeline.
-    # bak pipeline.py applies ActionTransform(apply_to=["observation.state"], normalization_mode=q99)
+    # bak pipeline.py applies ActionTransform(apply_to=["observation.state"], normalization_mode=q99)  # noqa: E501
     # before FastWAMKeyMappingTransform reads it as `proprio`.
-    proprio_stats = convert_stats(ctx.dataset_stats.get("observation.state")) if ctx.dataset_stats else None
+    proprio_stats = (
+        convert_stats(ctx.dataset_stats.get("observation.state")) if ctx.dataset_stats else None
+    )
     transforms.append(
         ActionTransform(
             apply_to=["observation.state"],

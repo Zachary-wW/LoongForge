@@ -21,7 +21,7 @@ def prepare_models_list(args):
     Determine the list of models to run based on arguments (models, extra_models, optional_subdir, include_optional).
     Supports running models from default 'configs/' or 'optional_configs/'.
     For specific running modes, please refer to tests/README.md.
-    """
+    """  # noqa: E501
     extra_dirs = list(args.extra_configs_dirs) if args.extra_configs_dirs else []
     need_optional = args.include_optional or args.optional_subdir or args.extra_models
     if need_optional:
@@ -29,7 +29,7 @@ def prepare_models_list(args):
             extra_dirs.append("optional_configs")
     args.extra_configs_dirs = extra_dirs
 
-    # If args.models is None (not specified by user), decide default behavior based on other arguments
+    # If args.models is None (not specified by user), decide default behavior based on other arguments  # noqa: E501
     if args.models is None:
         if args.optional_subdir or args.extra_models:
             args.models = []
@@ -44,7 +44,9 @@ def prepare_models_list(args):
     # If --optional_subdir is specified, load all models in the specified subdirectory
     if args.optional_subdir:
         # Get all models under the specified subdirectory
-        subdir_models = ConfigManager.get_models_from_subdir("optional_configs", args.optional_subdir)
+        subdir_models = ConfigManager.get_models_from_subdir(
+            "optional_configs", args.optional_subdir
+        )
 
         if subdir_models:
             args.models = list(args.models) + subdir_models
@@ -116,8 +118,14 @@ def main() -> None:
             scenario_result.append(result)
 
         if resume_enabled and os.getenv("RANK", "0") == "0":
-            model_results = [item for item in BaseTask._validation_results if item.get("model_name") == model_name]
-            model_passed = all(item.get("passed") for item in model_results) if model_results else True
+            model_results = [
+                item
+                for item in BaseTask._validation_results
+                if item.get("model_name") == model_name
+            ]
+            model_passed = (
+                all(item.get("passed") for item in model_results) if model_results else True
+            )
             task_passed = {}
             for item in model_results:
                 task_name = item.get("task_name") or ""

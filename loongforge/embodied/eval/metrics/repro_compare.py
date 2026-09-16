@@ -52,12 +52,16 @@ def compare_results(left_path: PathLike, right_path: PathLike) -> Dict[str, Any]
     }
 
 
-def write_repro_comparison(left_path: PathLike, right_path: PathLike, output_path: PathLike) -> Dict[str, Any]:
+def write_repro_comparison(
+    left_path: PathLike, right_path: PathLike, output_path: PathLike
+) -> Dict[str, Any]:
     """Run write_repro_comparison."""
     result = compare_results(left_path, right_path)
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     return result
 
 
@@ -65,7 +69,9 @@ def _canonical_records(records: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]
     """Run _canonical_records."""
     canonical = []
     for record in records:
-        canonical.append({key: value for key, value in sorted(record.items()) if key not in _VOLATILE_KEYS})
+        canonical.append(
+            {key: value for key, value in sorted(record.items()) if key not in _VOLATILE_KEYS}
+        )
     return sorted(canonical, key=_record_key)
 
 
@@ -94,7 +100,9 @@ def main() -> None:
     result = write_repro_comparison(args.left, args.right, args.output)
     print(
         json.dumps(
-            {"match": result["match"], "changed_records": len(result["changed_records"])}, ensure_ascii=False, indent=2
+            {"match": result["match"], "changed_records": len(result["changed_records"])},
+            ensure_ascii=False,
+            indent=2,
         )
     )
 

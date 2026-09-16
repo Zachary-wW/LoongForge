@@ -50,7 +50,9 @@ def build_wall_oss_0_5_lerobot_dataset(model_cfg, data_cfg, training_args):
         action_horizon=model_cfg.action_horizon,
         episodes=train_episodes,
         video_backend=data_cfg.video_backend or training_args.video_backend,
-        delta_timestamps_fn=lambda ds, info, fps: {"action": [t / fps for t in range(model_cfg.action_horizon)]},
+        delta_timestamps_fn=lambda ds, info, fps: {
+            "action": [t / fps for t in range(model_cfg.action_horizon)]
+        },
     )
     if test_episodes:
         logger.info("Wall-OSS-0.5 selected test episodes: %s", test_episodes)

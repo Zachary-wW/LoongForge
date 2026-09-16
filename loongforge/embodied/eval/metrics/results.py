@@ -60,7 +60,9 @@ def write_summary_csv(path: PathLike, records: Iterable[Dict[str, Any]]) -> None
         writer.writerows(rows)
 
 
-def write_suite_summary_csv(path: PathLike, records: Iterable[Dict[str, Any]], min_episodes: int = 1) -> None:
+def write_suite_summary_csv(
+    path: PathLike, records: Iterable[Dict[str, Any]], min_episodes: int = 1
+) -> None:
     """Run write_suite_summary_csv."""
     rows = summarize_suites(records, min_episodes=min_episodes)
     summary_path = Path(path)
@@ -108,7 +110,9 @@ def summarize_records(records: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]
     return _summarize(records)
 
 
-def summarize_suites(records: Iterable[Dict[str, Any]], min_episodes: int = 1) -> List[Dict[str, Any]]:
+def summarize_suites(
+    records: Iterable[Dict[str, Any]], min_episodes: int = 1
+) -> List[Dict[str, Any]]:
     """Run summarize_suites."""
     grouped: Dict[Tuple[str, str], List[Dict[str, Any]]] = {}
     for record in records:
@@ -123,7 +127,9 @@ def summarize_suites(records: Iterable[Dict[str, Any]], min_episodes: int = 1) -
         ci_low, ci_high = _wilson_ci(successes, n_episodes)
         task_episode_counts = _task_episode_counts(suite_records)
         violations = [
-            f"task{task_id}:{count}" for task_id, count in sorted(task_episode_counts.items()) if count < min_episodes
+            f"task{task_id}:{count}"
+            for task_id, count in sorted(task_episode_counts.items())
+            if count < min_episodes
         ]
         rows.append(
             {
@@ -136,7 +142,9 @@ def summarize_suites(records: Iterable[Dict[str, Any]], min_episodes: int = 1) -
                 "success_stderr": _binomial_stderr(success_rate, n_episodes),
                 "success_ci95_low": ci_low,
                 "success_ci95_high": ci_high,
-                "min_episodes_per_task": min(task_episode_counts.values()) if task_episode_counts else 0,
+                "min_episodes_per_task": min(task_episode_counts.values())
+                if task_episode_counts
+                else 0,
                 "episode_floor_met": len(violations) == 0,
                 "episode_floor_violations": ";".join(violations),
                 "failure_reasons": _failure_reasons(suite_records),
@@ -145,12 +153,18 @@ def summarize_suites(records: Iterable[Dict[str, Any]], min_episodes: int = 1) -
     return rows
 
 
-def validate_episode_floor(records: Iterable[Dict[str, Any]], min_episodes: int) -> List[Dict[str, Any]]:
+def validate_episode_floor(
+    records: Iterable[Dict[str, Any]], min_episodes: int
+) -> List[Dict[str, Any]]:
     """Run validate_episode_floor."""
     violations = []
     grouped: Dict[Tuple[str, str, int], int] = {}
     for record in records:
-        key = (str(record.get("benchmark")), str(record.get("task_suite")), int(record.get("task_id")))
+        key = (
+            str(record.get("benchmark")),
+            str(record.get("task_suite")),
+            int(record.get("task_id")),
+        )
         grouped[key] = grouped.get(key, 0) + 1
     for (benchmark, task_suite, task_id), count in sorted(grouped.items()):
         if count < min_episodes:
@@ -170,7 +184,11 @@ def _summarize(records: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Run _summarize."""
     grouped: Dict[Tuple[str, str, int], List[Dict[str, Any]]] = {}
     for record in records:
-        key = (str(record.get("benchmark")), str(record.get("task_suite")), int(record.get("task_id")))
+        key = (
+            str(record.get("benchmark")),
+            str(record.get("task_suite")),
+            int(record.get("task_id")),
+        )
         grouped.setdefault(key, []).append(record)
 
     rows: List[Dict[str, Any]] = []
@@ -191,8 +209,12 @@ def _summarize(records: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "success_ci95_low": ci_low,
                 "success_ci95_high": ci_high,
                 "avg_steps": _average(record.get("steps") for record in task_records),
-                "avg_inference_latency_ms": _average(record.get("avg_inference_latency_ms") for record in task_records),
-                "avg_e2e_latency_ms": _average(record.get("avg_e2e_latency_ms") for record in task_records),
+                "avg_inference_latency_ms": _average(
+                    record.get("avg_inference_latency_ms") for record in task_records
+                ),
+                "avg_e2e_latency_ms": _average(
+                    record.get("avg_e2e_latency_ms") for record in task_records
+                ),
                 "failure_reasons": _failure_reasons(task_records),
             }
         )

@@ -29,7 +29,13 @@ class Normalizer:
 
     VALID_MODES = ["q99", "min_max", "mean_std", "binary", "scale", "identity"]
 
-    def __init__(self, mode: str, statistics: Dict[str, np.ndarray], binary_threshold: float = 0.5, eps: float = 1e-8):
+    def __init__(
+        self,
+        mode: str,
+        statistics: Dict[str, np.ndarray],
+        binary_threshold: float = 0.5,
+        eps: float = 1e-8,
+    ):
         """
         Args:
             mode: Normalization mode (q99, min_max, mean_std, binary, scale, identity)

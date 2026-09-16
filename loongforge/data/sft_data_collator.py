@@ -67,7 +67,8 @@ class DataCollatorForSupervisedDataset:
             and self.chunkpipe_base_length is not None
             and self.chunkpipe_mtp_num_layers > 0
             and "input_ids" in features[0]
-            and len(features[0]["input_ids"]) >= self.chunkpipe_base_length + self.chunkpipe_mtp_num_layers
+            and len(features[0]["input_ids"])
+            >= self.chunkpipe_base_length + self.chunkpipe_mtp_num_layers
         )
         bridge_inputs, bridge_labels, bridge_attention_masks, bridge_loss_masks = [], [], [], []
         if split_bridge:
@@ -76,7 +77,9 @@ class DataCollatorForSupervisedDataset:
             for feature in features:
                 bridge_inputs.append(feature["input_ids"][base_len : base_len + bridge_len])
                 bridge_labels.append(feature["labels"][base_len : base_len + bridge_len])
-                bridge_attention_masks.append(feature["attention_mask"][base_len : base_len + bridge_len])
+                bridge_attention_masks.append(
+                    feature["attention_mask"][base_len : base_len + bridge_len]
+                )
                 if "loss_mask" in feature:
                     bridge_loss_masks.append(feature["loss_mask"][base_len : base_len + bridge_len])
                     feature["loss_mask"] = feature["loss_mask"][:base_len]
@@ -85,7 +88,11 @@ class DataCollatorForSupervisedDataset:
                 feature["attention_mask"] = feature["attention_mask"][:base_len]
 
         # padding loss mask here
-        loss_mask = [feature["loss_mask"] for feature in features] if "loss_mask" in features[0].keys() else None
+        loss_mask = (
+            [feature["loss_mask"] for feature in features]
+            if "loss_mask" in features[0].keys()
+            else None
+        )
 
         if loss_mask is not None and self.padding and self.padding != PaddingStrategy.DO_NOT_PAD:
             max_loss_length = max(len(seq) for seq in loss_mask)
@@ -93,7 +100,9 @@ class DataCollatorForSupervisedDataset:
                 max_loss_length = self.max_length
             if self.pad_to_multiple_of is not None:
                 max_loss_length = (
-                    (max_loss_length + self.pad_to_multiple_of - 1) // self.pad_to_multiple_of * self.pad_to_multiple_of
+                    (max_loss_length + self.pad_to_multiple_of - 1)
+                    // self.pad_to_multiple_of
+                    * self.pad_to_multiple_of
                 )
 
             padding_side = self.tokenizer.padding_side
@@ -107,9 +116,13 @@ class DataCollatorForSupervisedDataset:
                             feature["loss_mask"] = remainder + feature["loss_mask"]
                     else:
                         if padding_side == "right":
-                            feature["loss_mask"] = np.concatenate([feature["loss_mask"], remainder]).astype(np.int64)
+                            feature["loss_mask"] = np.concatenate(
+                                [feature["loss_mask"], remainder]
+                            ).astype(np.int64)
                         else:
-                            feature["loss_mask"] = np.concatenate([remainder, feature["loss_mask"]]).astype(np.int64)
+                            feature["loss_mask"] = np.concatenate(
+                                [remainder, feature["loss_mask"]]
+                            ).astype(np.int64)
 
         # default only padding labels
         result = self.collator(features, return_tensors)
@@ -117,17 +130,25 @@ class DataCollatorForSupervisedDataset:
         if split_bridge:
             device = result["input_ids"].device
             result["input_ids"] = torch.cat(
-                [result["input_ids"], torch.tensor(bridge_inputs, dtype=result["input_ids"].dtype, device=device)],
+                [
+                    result["input_ids"],
+                    torch.tensor(bridge_inputs, dtype=result["input_ids"].dtype, device=device),
+                ],
                 dim=1,
             )
             result["labels"] = torch.cat(
-                [result["labels"], torch.tensor(bridge_labels, dtype=result["labels"].dtype, device=device)],
+                [
+                    result["labels"],
+                    torch.tensor(bridge_labels, dtype=result["labels"].dtype, device=device),
+                ],
                 dim=1,
             )
             result["attention_mask"] = torch.cat(
                 [
                     result["attention_mask"],
-                    torch.tensor(bridge_attention_masks, dtype=result["attention_mask"].dtype, device=device),
+                    torch.tensor(
+                        bridge_attention_masks, dtype=result["attention_mask"].dtype, device=device
+                    ),
                 ],
                 dim=1,
             )
@@ -135,7 +156,9 @@ class DataCollatorForSupervisedDataset:
                 result["loss_mask"] = torch.cat(
                     [
                         result["loss_mask"],
-                        torch.tensor(bridge_loss_masks, dtype=result["loss_mask"].dtype, device=device),
+                        torch.tensor(
+                            bridge_loss_masks, dtype=result["loss_mask"].dtype, device=device
+                        ),
                     ],
                     dim=1,
                 )
@@ -185,7 +208,7 @@ class MultiModalDataCollatorForSupervisedDataset(DataCollatorForSupervisedDatase
 
         features: Dict[str, "torch.Tensor"] = super().__call__(features)
 
-        # keys are named in transformers/src/transformers/models/qwen2_vl/image_processing_qwen2_vl.py
+        # keys are named in transformers/src/transformers/models/qwen2_vl/image_processing_qwen2_vl.py  # noqa: E501
         if "pixel_values" in mm_inputs:
             features["images"] = mm_inputs.get("pixel_values")
             features["image_grid_thw"] = mm_inputs.get("image_grid_thw")

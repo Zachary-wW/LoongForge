@@ -18,7 +18,9 @@ from convert_checkpoint.key_mappings.to_vanilla_key import transform_key_reverse
 from convert_checkpoint.utils.config_utils import load_config, parallel_param_parser  # noqa: E402
 
 
-def reverse_map_single_checkpoint_keys(reverse_mappings, shard_path, vpp_size=1, delete_word_embeddings=True):
+def reverse_map_single_checkpoint_keys(
+    reverse_mappings, shard_path, vpp_size=1, delete_word_embeddings=True
+):
     """
     Reverse the keys of a single checkpoint shard using predefined mapping rules.
 
@@ -32,11 +34,13 @@ def reverse_map_single_checkpoint_keys(reverse_mappings, shard_path, vpp_size=1,
 
     Returns:
         dict: The checkpoint dict with reversed keys, same top-level structure as input shard
-    """
+    """  # noqa: E501
 
     def _reverse_model_keys(model_dict):
         """Reverse keys for a single model dictionary"""
-        return {transform_key_reverse(key, reverse_mappings): value for key, value in model_dict.items()}
+        return {
+            transform_key_reverse(key, reverse_mappings): value for key, value in model_dict.items()
+        }
 
     # Load the shard
     shard = torch.load(shard_path, map_location="cpu", weights_only=False)
@@ -44,7 +48,10 @@ def reverse_map_single_checkpoint_keys(reverse_mappings, shard_path, vpp_size=1,
     if vpp_size == 1:
         # Standard mode: single 'model' key
         model_dict = shard["model"]
-        if delete_word_embeddings and "encoder_model.text_encoder.word_embeddings.weight" in model_dict:
+        if (
+            delete_word_embeddings
+            and "encoder_model.text_encoder.word_embeddings.weight" in model_dict
+        ):
             del model_dict["encoder_model.text_encoder.word_embeddings.weight"]
         shard["model"] = _reverse_model_keys(model_dict)
 
@@ -59,7 +66,10 @@ def reverse_map_single_checkpoint_keys(reverse_mappings, shard_path, vpp_size=1,
                 )
 
             model_dict = shard[model_key]
-            if delete_word_embeddings and "encoder_model.text_encoder.word_embeddings.weight" in model_dict:
+            if (
+                delete_word_embeddings
+                and "encoder_model.text_encoder.word_embeddings.weight" in model_dict
+            ):
                 del model_dict["encoder_model.text_encoder.word_embeddings.weight"]
             shard[model_key] = _reverse_model_keys(model_dict)
 
@@ -109,15 +119,24 @@ def process_checkpoint_shards(
 
 def parse_args(title=None):
     """Parse all arguments."""
-    parser = argparse.ArgumentParser(description="Reverse checkpoint shard keys using predefined mappings")
+    parser = argparse.ArgumentParser(
+        description="Reverse checkpoint shard keys using predefined mappings"
+    )
     parser.add_argument("--load_omni_ckpt_path", type=str, help="Path to load the omni checkpoint.")
-    parser.add_argument("--save_original_ckpt_path", type=str, help="Path to save the original checkpoint.")
+    parser.add_argument(
+        "--save_original_ckpt_path", type=str, help="Path to save the original checkpoint."
+    )
     # parser.add_argument("--encoder_tensor_model_parallel_size", type=int, default=None,
     #     help="Tensor parallel size for encoder.")
     parser.add_argument(
-        "--decoder_tensor_model_parallel_size", type=int, default=1, help="Tensor parallel size for decoder."
+        "--decoder_tensor_model_parallel_size",
+        type=int,
+        default=1,
+        help="Tensor parallel size for decoder.",
     )  # Use this as tp
-    parser.add_argument("--pipeline_model_parallel_size", type=int, default=1, help="Pipeline parallel size.")
+    parser.add_argument(
+        "--pipeline_model_parallel_size", type=int, default=1, help="Pipeline parallel size."
+    )
     parser.add_argument(
         "--num_virtual_stages_per_pipeline_rank",
         type=int,
@@ -135,13 +154,17 @@ def main():
     model_cfg = load_config(args.config_file)
 
     # In heterogeneous case, only need to use dtp size
-    # etp_size = parallel_param_parser(args, model_cfg, 'tensor_model_parallel_size', 'image_encoder')
+    # etp_size = parallel_param_parser(args, model_cfg, 'tensor_model_parallel_size', 'image_encoder')  # noqa: E501
     if hasattr(args, "decoder_tensor_model_parallel_size"):
         dtp_size = args.decoder_tensor_model_parallel_size
     else:
-        dtp_size = parallel_param_parser(args, model_cfg, "tensor_model_parallel_size", "foundation")
+        dtp_size = parallel_param_parser(
+            args, model_cfg, "tensor_model_parallel_size", "foundation"
+        )
     pp_size = parallel_param_parser(args, model_cfg, "pipeline_model_parallel_size", "foundation")
-    vpp_size = parallel_param_parser(args, model_cfg, "num_virtual_stages_per_pipeline_rank", "foundation")
+    vpp_size = parallel_param_parser(
+        args, model_cfg, "num_virtual_stages_per_pipeline_rank", "foundation"
+    )
 
     # Validate and normalize input path
     input_dir = os.path.abspath(args.load_omni_ckpt_path)

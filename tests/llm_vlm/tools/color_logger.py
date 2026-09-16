@@ -36,7 +36,9 @@ class CustomFormatter(logging.Formatter):
         return formatter.format(record)
 
 
-def create_color_logger(output_dir="./", dist_rank=0, name=__name__, logfile_name=None, level=GLOBAL_LOG_LEVEL):
+def create_color_logger(
+    output_dir="./", dist_rank=0, name=__name__, logfile_name=None, level=GLOBAL_LOG_LEVEL
+):
     """create_color_logger."""
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)

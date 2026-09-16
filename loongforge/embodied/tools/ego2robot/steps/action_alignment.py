@@ -231,7 +231,9 @@ def process_episode(
     # Sanity checks
     left_gripper = state[:, 14]
     right_gripper = state[:, 15]
-    print(f"    Left gripper: min={left_gripper.min():.4f} max={left_gripper.max():.4f} mean={left_gripper.mean():.4f}")
+    print(
+        f"    Left gripper: min={left_gripper.min():.4f} max={left_gripper.max():.4f} mean={left_gripper.mean():.4f}"  # noqa: E501
+    )
     print(
         f"    Right gripper: min={right_gripper.min():.4f} max={right_gripper.max():.4f} "
         f"mean={right_gripper.mean():.4f}"
@@ -265,10 +267,14 @@ def build_arg_parser():
     """Build the argument parser for the align subcommand."""
     parser = argparse.ArgumentParser(description="Step 2 Path A: Simplified Action Alignment")
     parser.add_argument("--input_dir", required=True, help="Directory with Step 1 .npz outputs")
-    parser.add_argument("--output_dir", required=True, help="Output directory for state/action .npz")
+    parser.add_argument(
+        "--output_dir", required=True, help="Output directory for state/action .npz"
+    )
     parser.add_argument("--skip", type=int, default=5, help="Action lookahead skip (default: 5)")
     parser.add_argument("--no-smooth", action="store_true", help="Disable Savitzky-Golay smoothing")
-    parser.add_argument("--smooth-window", type=int, default=11, help="Savgol window size (default: 11)")
+    parser.add_argument(
+        "--smooth-window", type=int, default=11, help="Savgol window size (default: 11)"
+    )
     return parser
 
 

@@ -61,7 +61,9 @@ def load_state_action_arrays(
         action_key,
         len(paths),
     )
-    table = pa_ds.dataset([str(p) for p in paths], format="parquet").to_table(columns=[state_key, action_key])
+    table = pa_ds.dataset([str(p) for p in paths], format="parquet").to_table(
+        columns=[state_key, action_key]
+    )
     states = np.asarray(table[state_key].to_pylist(), dtype=np.float32)
     actions = np.asarray(table[action_key].to_pylist(), dtype=np.float32)
     if states.ndim == 1:

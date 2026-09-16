@@ -30,7 +30,10 @@ def decode(obj):
     """Run decode."""
     if b"__ndarray__" in obj:
         array = np.frombuffer(
-            obj[b"data"], dtype=np.dtype(obj[b"dtype"].decode() if isinstance(obj[b"dtype"], bytes) else obj[b"dtype"])
+            obj[b"data"],
+            dtype=np.dtype(
+                obj[b"dtype"].decode() if isinstance(obj[b"dtype"], bytes) else obj[b"dtype"]
+            ),
         )
         return array.reshape(obj[b"shape"])
     return obj

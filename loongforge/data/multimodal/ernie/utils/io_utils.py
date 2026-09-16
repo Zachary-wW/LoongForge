@@ -85,7 +85,9 @@ def get_filename(url=None):
     return image_filname
 
 
-def get_downloadable(url, download_dir=RAW_VIDEO_DIR, save_to_disk=False, retry=0, retry_interval=3):
+def get_downloadable(
+    url, download_dir=RAW_VIDEO_DIR, save_to_disk=False, retry=0, retry_interval=3
+):
     """download video and store it in the disk
 
     return downloaded **path** if save_to_disk is set to true

@@ -40,7 +40,9 @@ from .kimi_k3_ops import RMSNorm, kda, sum_grads_across_tp
 def _linear(module: nn.Module, inputs: torch.Tensor) -> torch.Tensor:
     output, bias = module(inputs)
     if bias is not None:
-        raise ValueError(f"Kimi K3 requires bias-free projections, got bias from {type(module).__name__}")
+        raise ValueError(
+            f"Kimi K3 requires bias-free projections, got bias from {type(module).__name__}"
+        )
     return output
 
 
@@ -157,7 +159,9 @@ class KimiK3Attention(MegatronModule):
         dtype = config.params_dtype
         self.num_heads = config.kimi_linear_num_heads
         if self.num_heads % self.tp_size:
-            raise ValueError(f"KDA heads {self.num_heads} must be divisible by TP size {self.tp_size}")
+            raise ValueError(
+                f"KDA heads {self.num_heads} must be divisible by TP size {self.tp_size}"
+            )
         self.local_num_heads = self.num_heads // self.tp_size
         self.head_dim = config.kimi_linear_head_dim
         self.projection_size = self.num_heads * self.head_dim
@@ -184,8 +188,12 @@ class KimiK3Attention(MegatronModule):
         self.g_proj = self._column_linear(hidden_size, self.projection_size)
 
         # Stored in FP32 for checkpoint compatibility, then cast with the model.
-        self.A_log = nn.Parameter(torch.empty(self.local_num_heads, dtype=torch.float32, device=device))
-        self.dt_bias = nn.Parameter(torch.empty(self.local_projection_size, dtype=torch.float32, device=device))
+        self.A_log = nn.Parameter(
+            torch.empty(self.local_num_heads, dtype=torch.float32, device=device)
+        )
+        self.dt_bias = nn.Parameter(
+            torch.empty(self.local_projection_size, dtype=torch.float32, device=device)
+        )
         self.A_log._keep_in_float32 = True
         self.dt_bias._keep_in_float32 = True
         set_tensor_model_parallel_attributes(self.A_log, True, 0, 1)
@@ -208,7 +216,9 @@ class KimiK3Attention(MegatronModule):
         dtype = config.params_dtype
         self.num_heads = config.num_attention_heads
         if self.num_heads % self.tp_size:
-            raise ValueError(f"MLA heads {self.num_heads} must be divisible by TP size {self.tp_size}")
+            raise ValueError(
+                f"MLA heads {self.num_heads} must be divisible by TP size {self.tp_size}"
+            )
         self.local_num_heads = self.num_heads // self.tp_size
         self.q_lora_rank = config.q_lora_rank
         self.kv_lora_rank = config.kv_lora_rank
@@ -218,10 +228,16 @@ class KimiK3Attention(MegatronModule):
         self.q_head_dim = self.qk_nope_head_dim + self.qk_extra_head_dim
 
         self.q_a_proj = self._duplicated_linear(hidden_size, self.q_lora_rank)
-        self.q_a_layernorm = RMSNorm(self.q_lora_rank, config.layernorm_epsilon).to(device=device, dtype=dtype)
+        self.q_a_layernorm = RMSNorm(self.q_lora_rank, config.layernorm_epsilon).to(
+            device=device, dtype=dtype
+        )
         self.q_b_proj = self._column_linear(self.q_lora_rank, self.num_heads * self.q_head_dim)
-        self.kv_a_proj_with_mqa = self._duplicated_linear(hidden_size, self.kv_lora_rank + self.qk_extra_head_dim)
-        self.kv_a_layernorm = RMSNorm(self.kv_lora_rank, config.layernorm_epsilon).to(device=device, dtype=dtype)
+        self.kv_a_proj_with_mqa = self._duplicated_linear(
+            hidden_size, self.kv_lora_rank + self.qk_extra_head_dim
+        )
+        self.kv_a_layernorm = RMSNorm(self.kv_lora_rank, config.layernorm_epsilon).to(
+            device=device, dtype=dtype
+        )
         self.kv_b_proj = self._column_linear(
             self.kv_lora_rank,
             self.num_heads * (self.qk_nope_head_dim + self.v_head_dim),

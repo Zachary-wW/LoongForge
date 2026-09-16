@@ -73,7 +73,9 @@ _COMPILED_BASELINE_LOSS_REDUCTION = (
 )
 
 _COMPILED_NOISE_AND_TARGET = (
-    torch.compile(_noise_and_target, dynamic=True) if getattr(torch, "compile", None) is not None else _noise_and_target
+    torch.compile(_noise_and_target, dynamic=True)
+    if getattr(torch, "compile", None) is not None
+    else _noise_and_target
 )
 _COMPILED_ACTION_MASK = (
     torch.compile(_apply_action_mask, dynamic=True)
@@ -111,7 +113,8 @@ class LingBotVAEmbodiedModel(nn.Module):
         self.model = WanTransformer3DModel(
             patch_size=tuple(_cfg_get(cfg, "latent_patch_size", (1, 2, 2))),
             num_attention_heads=int(_cfg_get(cfg, "num_attention_heads", 24)),
-            attention_head_dim=int(_cfg_get(cfg, "hidden_size", 3072)) // int(_cfg_get(cfg, "num_attention_heads", 24)),
+            attention_head_dim=int(_cfg_get(cfg, "hidden_size", 3072))
+            // int(_cfg_get(cfg, "num_attention_heads", 24)),
             in_channels=int(_cfg_get(cfg, "latent_in_channels", 48)),
             out_channels=int(_cfg_get(cfg, "latent_out_channels", 48)),
             action_dim=int(_cfg_get(cfg, "action_dim", 30)),
@@ -232,7 +235,9 @@ class LingBotVAEmbodiedModel(nn.Module):
         timesteps = scheduler.timesteps_from_ids(device_timestep_ids)
         sigma = scheduler.sigma_from_ids(latent, device_timestep_ids, t_dim=2)
         noisy_latents, targets = _COMPILED_NOISE_AND_TARGET(latent, noise, sigma)
-        patch = (1, 1, 1) if action_mode else tuple(_cfg_get(self.cfg, "latent_patch_size", (1, 2, 2)))
+        patch = (
+            (1, 1, 1) if action_mode else tuple(_cfg_get(self.cfg, "latent_patch_size", (1, 2, 2)))
+        )
         grid_key = (
             frames // patch[0],
             height // patch[1],
@@ -275,7 +280,9 @@ class LingBotVAEmbodiedModel(nn.Module):
             cond_timesteps = torch.zeros_like(timesteps)
         if action_mask is not None:
             mask = action_mask.to(latent.dtype)
-            noisy_latents, targets, latent = _COMPILED_ACTION_MASK(noisy_latents, targets, latent, mask)
+            noisy_latents, targets, latent = _COMPILED_ACTION_MASK(
+                noisy_latents, targets, latent, mask
+            )
         return {
             "timesteps": timesteps[None].repeat(batch_size, 1),
             "timestep_ids": device_timestep_ids[None].repeat(batch_size, 1),

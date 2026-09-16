@@ -49,10 +49,12 @@ def iter_quantization_configs(obj, path=()):
 
 
 def load_compressed_tensors_weight_config(load_path, config_file=None):
-    config_path = Path(config_file).resolve() if config_file is not None else Path(load_path) / "config.json"
+    config_path = (
+        Path(config_file).resolve() if config_file is not None else Path(load_path) / "config.json"
+    )
     if not config_path.exists():
         LOGGER.warning(
-            "compressed-tensors config not found at %s; using fallback Kimi INT4 quantization args.",
+            "compressed-tensors config not found at %s; using fallback Kimi INT4 quantization args.",  # noqa: E501
             config_path,
         )
         return None, None
@@ -198,7 +200,9 @@ def dequantize_state_dict(
         missing_packed_keys = []
         for weight_key in sorted(target_weight_keys):
             if not weight_key.endswith(".weight"):
-                raise ValueError(f"Targeted dequant weight key must end with .weight, got: {weight_key}")
+                raise ValueError(
+                    f"Targeted dequant weight key must end with .weight, got: {weight_key}"
+                )
             key = f"{weight_key[: -len('.weight')]}.{packed_key}"
             if key in state_dict:
                 packed_keys.append(key)
@@ -206,9 +210,11 @@ def dequantize_state_dict(
                 missing_packed_keys.append(key)
         if missing_packed_keys:
             preview = ", ".join(missing_packed_keys[:5])
-            suffix = "" if len(missing_packed_keys) <= 5 else f", ... ({len(missing_packed_keys)} total)"
+            suffix = (
+                "" if len(missing_packed_keys) <= 5 else f", ... ({len(missing_packed_keys)} total)"
+            )
             raise KeyError(
-                "Targeted compressed-tensors dequant requested packed tensor(s) that were not loaded: "
+                "Targeted compressed-tensors dequant requested packed tensor(s) that were not loaded: "  # noqa: E501
                 f"{preview}{suffix}"
             )
     if not packed_keys:
@@ -262,6 +268,8 @@ def dequantize_state_dict(
             state_dict.pop(remove_key, None)
         converted += 1
         if converted == total or converted % progress_interval == 0:
-            LOGGER.info("Dequantized %d/%d compressed-tensors packed INT4 weight(s).", converted, total)
+            LOGGER.info(
+                "Dequantized %d/%d compressed-tensors packed INT4 weight(s).", converted, total
+            )
 
     return converted

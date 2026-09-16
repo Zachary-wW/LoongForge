@@ -61,7 +61,9 @@ class Encoder(object):
                 print("NLTK is not available to split sentences.")
                 exit()
             if os.environ.get("NLTK_DATA"):
-                library = os.path.join(os.environ.get("NLTK_DATA"), "tokenizers", "punkt", f"{self.args.lang}.pickle")
+                library = os.path.join(
+                    os.environ.get("NLTK_DATA"), "tokenizers", "punkt", f"{self.args.lang}.pickle"
+                )
                 url = f"file:{library}"
             else:
                 library = os.path.join("tokenizers", "punkt", f"{self.args.lang}.pickle")
@@ -84,7 +86,10 @@ class Encoder(object):
         for key in self.args.json_keys:
             text = data[key]
             max_len = 1000000
-            tokens_list = [Encoder.splitter.tokenize(text[i : i + max_len]) for i in range(0, len(text), max_len)]
+            tokens_list = [
+                Encoder.splitter.tokenize(text[i : i + max_len])
+                for i in range(0, len(text), max_len)
+            ]
             output[key] = [tokens for partial in tokens_list for tokens in partial]
         return json.dumps(output), len(json_line)
 
@@ -123,7 +128,11 @@ class Partition(object):
             current = time.time()
             elapsed = current - proc_start
             mbs = total_bytes_processed / elapsed / 1024 / 1024
-            print(f"Processed {count} documents", f"({count / elapsed} docs/s, {mbs} MB/s).", file=sys.stderr)
+            print(
+                f"Processed {count} documents",
+                f"({count / elapsed} docs/s, {mbs} MB/s).",
+                file=sys.stderr,
+            )
 
     def split_sentences(self, file_name):
         input_file_name, output_file_name = file_name
@@ -196,10 +205,19 @@ def get_args():
     group = parser.add_argument_group(title="input data")
     group.add_argument("--input", type=str, required=True, help="Path to input JSON")
     group.add_argument(
-        "--json-keys", nargs="+", default=["text"], help="space separate listed of keys to extract from json"
+        "--json-keys",
+        nargs="+",
+        default=["text"],
+        help="space separate listed of keys to extract from json",
     )
-    group.add_argument("--split-sentences", action="store_true", help="Split documents into sentences.")
-    group.add_argument("--keep-newlines", action="store_true", help="Keep newlines between sentences when splitting.")
+    group.add_argument(
+        "--split-sentences", action="store_true", help="Split documents into sentences."
+    )
+    group.add_argument(
+        "--keep-newlines",
+        action="store_true",
+        help="Keep newlines between sentences when splitting.",
+    )
 
     group = parser.add_argument_group(title="tokenizer")
     group.add_argument(
@@ -223,10 +241,17 @@ def get_args():
     group.add_argument("--tokenizer-model", type=str, default=None, help="YTTM tokenizer model.")
     group.add_argument("--vocab-file", type=str, default=None, help="Path to the vocab file")
     group.add_argument("--vocab-size", default=786, help="size of vocab for use with NullTokenizer")
-    group.add_argument("--merge-file", type=str, default=None, help="Path to the BPE merge file (if necessary).")
-    group.add_argument("--append-eod", action="store_true", help="Append an <eod> token to the end of a document.")
     group.add_argument(
-        "--lang", type=str, default="english", help="Language to use for NLTK-powered sentence splitting."
+        "--merge-file", type=str, default=None, help="Path to the BPE merge file (if necessary)."
+    )
+    group.add_argument(
+        "--append-eod", action="store_true", help="Append an <eod> token to the end of a document."
+    )
+    group.add_argument(
+        "--lang",
+        type=str,
+        default="english",
+        help="Language to use for NLTK-powered sentence splitting.",
     )
 
     group.add_argument("--seq-length", type=int, default=None, help="sequence length")
@@ -254,11 +279,13 @@ def get_args():
         "--additional-special-tokens",
         type=str,
         default=None,
-        help="Additional special tokens to add to the tokenizer. Use commas to separate multiple tokens",
+        help="Additional special tokens to add to the tokenizer. Use commas to separate multiple tokens",  # noqa: E501
     )
 
     group = parser.add_argument_group(title="output data")
-    group.add_argument("--output-prefix", type=str, required=True, help="Path to binary output file without suffix")
+    group.add_argument(
+        "--output-prefix", type=str, required=True, help="Path to binary output file without suffix"
+    )
 
     group = parser.add_argument_group(title="runtime")
     group.add_argument(
@@ -272,7 +299,9 @@ def get_args():
         ),
     )
     group.add_argument("--partitions", type=int, default=1, help="Number of file partitions")
-    group.add_argument("--log-interval", type=int, default=1000, help="Interval between progress updates")
+    group.add_argument(
+        "--log-interval", type=int, default=1000, help="Interval between progress updates"
+    )
     group.add_argument(
         "--keep-sequential-samples",
         action="store_true",
@@ -300,7 +329,11 @@ def get_file_name(args, file_id):
     input_file_name = file_name + "_" + str(file_id) + extension
     sentence_split_file = file_name + "_ss_" + str(file_id) + extension
     output_prefix = args.output_prefix + "_" + str(file_id)
-    file_names = {"partition": input_file_name, "sentence_split": sentence_split_file, "output_prefix": output_prefix}
+    file_names = {
+        "partition": input_file_name,
+        "sentence_split": sentence_split_file,
+        "output_prefix": output_prefix,
+    }
     return file_names
 
 
@@ -352,7 +385,9 @@ def main():
         partitions_present = check_files_exist(in_ss_out_names, "partition", args.partitions)
 
         # check to see if paritions with split sentences already created
-        split_sentences_present = check_files_exist(in_ss_out_names, "sentence_split", args.partitions)
+        split_sentences_present = check_files_exist(
+            in_ss_out_names, "sentence_split", args.partitions
+        )
 
         if not partitions_present and not split_sentences_present:
             # populate .jsonl partition files from parent files
@@ -396,7 +431,8 @@ def main():
         processes = []
         for name in in_ss_out_names:
             p = multiprocessing.Process(
-                target=partition.split_sentences, args=((name["partition"], name["sentence_split"]),)
+                target=partition.split_sentences,
+                args=((name["partition"], name["sentence_split"]),),
             )
             p.start()
             processes.append(p)

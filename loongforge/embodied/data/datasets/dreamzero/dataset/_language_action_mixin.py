@@ -361,7 +361,9 @@ class _DreamZeroLanguageActionMixin:
         """Return state data sampled and padded according to language-chunk anchors."""
         trajectory_index = self.get_trajectory_index(trajectory_id)
         max_length = self.trajectory_lengths[trajectory_index]
-        data_array, state_or_action_cfg, _ = self._get_state_action_array(trajectory_id, modality, key)
+        data_array, state_or_action_cfg, _ = self._get_state_action_array(
+            trajectory_id, modality, key
+        )
         sampled_indices = self._language_chunk_state_indices(trajectory_id, step_indices)
         return self.retrieve_data_and_pad(
             array=data_array,
@@ -380,7 +382,9 @@ class _DreamZeroLanguageActionMixin:
         """Return action data sampled/padded per language-chunk anchors, optionally relative."""
         trajectory_index = self.get_trajectory_index(trajectory_id)
         max_length = self.trajectory_lengths[trajectory_index]
-        data_array, state_or_action_cfg, subkey = self._get_state_action_array(trajectory_id, modality, key)
+        data_array, state_or_action_cfg, subkey = self._get_state_action_array(
+            trajectory_id, modality, key
+        )
         sampled_indices = self._language_chunk_action_indices(trajectory_id, step_indices)
         action_data = self.retrieve_data_and_pad(
             array=data_array,
@@ -446,7 +450,9 @@ class _DreamZeroLanguageActionMixin:
                 ref_state = state_array[-1]
             else:
                 ref_state = state_array[anchor_idx]
-            relative_action_data[chunk_start:chunk_end] = action_data[chunk_start:chunk_end] - ref_state
+            relative_action_data[chunk_start:chunk_end] = (
+                action_data[chunk_start:chunk_end] - ref_state
+            )
         return relative_action_data
 
     def get_state_or_action(
@@ -593,10 +599,12 @@ class _DreamZeroLanguageActionMixin:
         step_indices = np.maximum(step_indices, 0)
         step_indices = np.minimum(step_indices, max_length - 1)
         # Get the annotations
-        assert key.startswith("annotation."), f"Language key must start with 'annotation.', got {key}"
+        assert key.startswith("annotation."), (
+            f"Language key must start with 'annotation.', got {key}"
+        )
         subkey = key.replace("annotation.", "")
 
-        # Check if this is a metadata-based language key (detailed_global_instruction_medium/concise)
+        # Check if this is a metadata-based language key (detailed_global_instruction_medium/concise)  # noqa: E501
         if subkey in METADATA_LANG_KEYS:
             return self._get_language_from_metadata(trajectory_id, subkey, len(step_indices))
 
@@ -604,7 +612,7 @@ class _DreamZeroLanguageActionMixin:
         annotation_meta = self.lerobot_modality_meta.annotation
         assert annotation_meta is not None, f"Annotation metadata is None for {subkey}"
         assert subkey in annotation_meta, (
-            f"Annotation key {subkey} not found in metadata, available annotation keys: {annotation_meta.keys()}"
+            f"Annotation key {subkey} not found in metadata, available annotation keys: {annotation_meta.keys()}"  # noqa: E501
         )
         subkey_meta = annotation_meta[subkey]
         original_key = subkey_meta.original_key
@@ -712,9 +720,9 @@ class _DreamZeroLanguageActionMixin:
             if len(video_indices) > 1 and self._decode_first_video_frame_only():
                 # The sampled window is what the augment pipeline pays for: with max_chunk_size 4 it
                 # is 8 * 4 + 1 = 33 frames per view, and VideoColorJitter alone costs 703-772 ms of
-                # the 969-1034 ms per sample. When video latents come from the strict cache the model
+                # the 969-1034 ms per sample. When video latents come from the strict cache the model  # noqa: E501
                 # only reads videos[:, :, :1] (action_head_tf.py:903-908), which is this window's
-                # anchor frame, so every later frame is augmented and then discarded. Truncating here
+                # anchor frame, so every later frame is augmented and then discarded. Truncating here  # noqa: E501
                 # rather than at the caller's step_indices is required because this method replaces
                 # the incoming indices for the video modality.
                 video_indices = video_indices[:1]

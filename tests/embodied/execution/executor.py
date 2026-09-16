@@ -8,7 +8,7 @@ Scripts are executed verbatim (bash <script>) without injecting training paramet
 OUTPUT_DIR / TENSORBOARD_DIR environment variables are pointed to this run's log directory (the examples
 scripts all support overriding via ``${OUTPUT_DIR:-...}``), so that the metrics.jsonl flushed by the
 trainer can be read.
-"""
+"""  # noqa: E501
 
 import os
 import re
@@ -19,18 +19,18 @@ import time
 from execution import metrics as metrics_mod
 from reporting import baseline as baseline_mod
 
-# The top-level key of the baseline JSON (was training_type in the original framework, now unified to train)
+# The top-level key of the baseline JSON (was training_type in the original framework, now unified to train)  # noqa: E501
 BASELINE_KEY = "train"
 
-# Valid shell variable name: starts with a letter/underscore, followed by letters/digits/underscores.
-# When a model name starts with a digit (e.g. "5b..."), the derived variable name starts with a digit
+# Valid shell variable name: starts with a letter/underscore, followed by letters/digits/underscores.  # noqa: E501
+# When a model name starts with a digit (e.g. "5b..."), the derived variable name starts with a digit  # noqa: E501
 # and bash cannot reference it,
-# so it is skipped here with a warning, to avoid silently injecting a variable that the script cannot use.
+# so it is skipped here with a warning, to avoid silently injecting a variable that the script cannot use.  # noqa: E501
 _VALID_BASH_VAR = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def _inject_model_env(env, model_name, logger):
-    """Inject model-specific paths: EMBODIED_<MODEL NAME UPPERCASE>_<VAR> -> <VAR> (see config/env.sh)."""
+    """Inject model-specific paths: EMBODIED_<MODEL NAME UPPERCASE>_<VAR> -> <VAR> (see config/env.sh)."""  # noqa: E501
     prefix = "EMBODIED_" + re.sub(r"[^0-9A-Za-z]", "_", model_name).upper() + "_"
     for key, value in os.environ.items():
         if key.startswith(prefix) and value:
@@ -42,11 +42,13 @@ def _inject_model_env(env, model_name, logger):
                 )
                 continue
             env[var] = value
-            logger.info(f"[{model_name}] Injected model-specific environment variable {var}={value}")
+            logger.info(
+                f"[{model_name}] Injected model-specific environment variable {var}={value}"
+            )
 
 
 def _run_with_timeout(cmd, env, cwd, log_file, timeout, logger):
-    """Run the command, flushing stdout/stderr to log_file; on timeout, SIGTERM->SIGKILL the whole process group."""
+    """Run the command, flushing stdout/stderr to log_file; on timeout, SIGTERM->SIGKILL the whole process group."""  # noqa: E501
     with open(log_file, "w", encoding="utf-8") as f:
         proc = subprocess.Popen(
             cmd,
@@ -123,7 +125,7 @@ def run_script(model_name, script_path, args, log_dir, logger):
         result["duration_sec"] = round(time.time() - start, 1)
         return result
 
-    # Metric parsing: prefer the metrics.jsonl flushed by the trainer, fall back to the stdout log when missing
+    # Metric parsing: prefer the metrics.jsonl flushed by the trainer, fall back to the stdout log when missing  # noqa: E501
     records = []
     jsonl_file = os.path.join(output_dir, "metrics.jsonl")
     if os.path.exists(jsonl_file):
@@ -173,13 +175,20 @@ def run_script(model_name, script_path, args, log_dir, logger):
             logger.error(f"[{model_name}] {item}")
     else:
         logger.info(f"[{model_name}] Metric validation passed ({len(records)} iterations)")
-        # When performance improved (beyond tolerance and with no degradation), update the baseline's
+        # When performance improved (beyond tolerance and with no degradation), update the baseline's  # noqa: E501
         # performance metrics to this run's values
         updated = baseline_mod.update_perf_baseline(
-            args.chip, model_name, BASELINE_KEY, records, expected, performance_tol=args.performance_relative_tolerance
+            args.chip,
+            model_name,
+            BASELINE_KEY,
+            records,
+            expected,
+            performance_tol=args.performance_relative_tolerance,
         )
         if updated:
-            logger.info(f"[{model_name}] Performance better than baseline; performance metrics written back: {updated}")
+            logger.info(
+                f"[{model_name}] Performance better than baseline; performance metrics written back: {updated}"  # noqa: E501
+            )
 
     result["duration_sec"] = round(time.time() - start, 1)
     return result

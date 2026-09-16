@@ -138,7 +138,9 @@ def save_parallel_state(module_name):
     _ParallelStatesDict.setdefault(module_name, {}).update(state_snapshot)
 
 
-def create_parallel_state(module_name, tp_size=0, enable_encoder_hetero_dp=False, enable_full_hetero_dp=False):
+def create_parallel_state(
+    module_name, tp_size=0, enable_encoder_hetero_dp=False, enable_full_hetero_dp=False
+):
     """
     Create the parallel state of the model and save it
     """
@@ -148,7 +150,9 @@ def create_parallel_state(module_name, tp_size=0, enable_encoder_hetero_dp=False
     destroy_model_parallel_group()
 
     if enable_encoder_hetero_dp:
-        assert tp_size == 1, f"encoder_tp_size must be 1 when enable_encoder_hetero_dp is True, but got {tp_size}"
+        assert tp_size == 1, (
+            f"encoder_tp_size must be 1 when enable_encoder_hetero_dp is True, but got {tp_size}"
+        )
         if module_name == "image_encoder":
             global _ImageEncoderDataParallelSize
             _ImageEncoderDataParallelSize = _DecoderTensorParallelSize // tp_size
@@ -160,7 +164,9 @@ def create_parallel_state(module_name, tp_size=0, enable_encoder_hetero_dp=False
             _AudioEncoderDataParallelSize = _DecoderTensorParallelSize // tp_size
 
     if enable_full_hetero_dp:
-        assert tp_size == 1, f"encoder_tp_size must be 1 when enable_full_hetero_dp is True, but got {tp_size}"
+        assert tp_size == 1, (
+            f"encoder_tp_size must be 1 when enable_full_hetero_dp is True, but got {tp_size}"
+        )
 
     initialize_model_parallel(
         tensor_model_parallel_size=tp_size,
@@ -256,7 +262,9 @@ def initialize_loongforge_megatron(
             world_size: int = torch.distributed.get_world_size()
             global _ModelSize
             _ModelSize = (
-                args.tensor_model_parallel_size * args.pipeline_model_parallel_size * args.context_parallel_size
+                args.tensor_model_parallel_size
+                * args.pipeline_model_parallel_size
+                * args.context_parallel_size
             )
             if world_size % _ModelSize != 0:
                 raise RuntimeError(f"world_size ({world_size}) is not divisible by {_ModelSize}")
@@ -264,7 +272,7 @@ def initialize_loongforge_megatron(
             global _NumMicroBatchesPerDecoderDP, _NumRealMicroBatchesPerDecoderDP, _NumEncodeRounds
             _NumRealMicroBatchesPerDecoderDP = args.global_batch_size // data_parallel_size
             assert _NumRealMicroBatchesPerDecoderDP >= 1, (
-                f"_NumRealMicroBatchesPerDecoderDP ({_NumRealMicroBatchesPerDecoderDP}) must be at least 1"
+                f"_NumRealMicroBatchesPerDecoderDP ({_NumRealMicroBatchesPerDecoderDP}) must be at least 1"  # noqa: E501
             )
             if _NumRealMicroBatchesPerDecoderDP < _ModelSize:
                 _NumMicroBatchesPerDecoderDP = _ModelSize

@@ -167,7 +167,13 @@ def load_keypoint_frames(zarr_dir, ep, n_frames):
         (18, 19),
         (19, 20),
     ]
-    COLORS = [(0, 255, 255)] * 4 + [(0, 255, 0)] * 4 + [(255, 255, 0)] * 4 + [(255, 0, 255)] * 4 + [(255, 0, 0)] * 4
+    COLORS = (
+        [(0, 255, 255)] * 4
+        + [(0, 255, 0)] * 4
+        + [(255, 255, 0)] * 4
+        + [(255, 0, 255)] * 4
+        + [(255, 0, 0)] * 4
+    )
 
     store = zarr.open(f"{zarr_dir}/{ep}", mode="r")
     total = int(store.attrs["total_frames"])
@@ -182,7 +188,11 @@ def load_keypoint_frames(zarr_dir, ep, n_frames):
     if isinstance(v0, np.ndarray) and v0.dtype == object:
         v0 = v0.flat[0]
     ih0, iw0 = simplejpeg.decode_jpeg(bytes(v0), colorspace="RGB").shape[:2]
-    K = dataset_intrinsics_k(_ep_attrs, camera="front_1", img_shape=(ih0, iw0)) if _ep_attrs is not None else None
+    K = (
+        dataset_intrinsics_k(_ep_attrs, camera="front_1", img_shape=(ih0, iw0))
+        if _ep_attrs is not None
+        else None
+    )
     if K is None:
         print("  ⚠️ No intrinsics for front_1, skipping keypoint frames")
         return []
@@ -254,7 +264,11 @@ def load_gripper_frames(zarr_dir, ep, n_frames):
     if isinstance(v0, np.ndarray) and v0.dtype == object:
         v0 = v0.flat[0]
     ih0, iw0 = simplejpeg.decode_jpeg(bytes(v0), colorspace="RGB").shape[:2]
-    K = dataset_intrinsics_k(_ep_attrs, camera="front_1", img_shape=(ih0, iw0)) if _ep_attrs is not None else None
+    K = (
+        dataset_intrinsics_k(_ep_attrs, camera="front_1", img_shape=(ih0, iw0))
+        if _ep_attrs is not None
+        else None
+    )
     if K is None:
         print("  ⚠️ No intrinsics for front_1, skipping keypoint frames")
         return []
@@ -303,10 +317,21 @@ def load_gripper_frames(zarr_dir, ep, n_frames):
             txt = f"{label}:{width_cm:.1f}cm"
             (tw, th), _ = cv2.getTextSize(txt, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
             cv2.rectangle(
-                bgr, (mid[0] - tw // 2 - 2, mid[1] - th - 3), (mid[0] + tw // 2 + 2, mid[1] + 3), (255, 255, 255), -1
+                bgr,
+                (mid[0] - tw // 2 - 2, mid[1] - th - 3),
+                (mid[0] + tw // 2 + 2, mid[1] + 3),
+                (255, 255, 255),
+                -1,
             )
             cv2.putText(
-                bgr, txt, (mid[0] - tw // 2, mid[1] - 1), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 1, cv2.LINE_AA
+                bgr,
+                txt,
+                (mid[0] - tw // 2, mid[1] - 1),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.4,
+                (0, 0, 0),
+                1,
+                cv2.LINE_AA,
             )
         frames.append(resize_cell(bgr))
     return frames
@@ -370,10 +395,14 @@ def load_robot_only_frames(zarr_dir, ik_dir, ep, n_frames):
     except Exception:
         pass
     fovy = float(np.degrees(2.0 * np.arctan((height / 2.0) / fy)))
-    dual = build_dual_model(left_base_pos, left_base_quat, right_base_pos, right_base_quat, fovy, spec)
+    dual = build_dual_model(
+        left_base_pos, left_base_quat, right_base_pos, right_base_quat, fovy, spec
+    )
     cam_id = mujoco.mj_name2id(dual, mujoco.mjtObj.mjOBJ_CAMERA, "ego")
     hide_non_arm_geoms(dual, spec)
-    renderer = make_renderer(dual, 1280, 736)  # Match retargeting with 2x supersampling for noise reduction.
+    renderer = make_renderer(
+        dual, 1280, 736
+    )  # Match retargeting with 2x supersampling for noise reduction.
     data = mujoco.MjData(dual)
 
     frames = []
@@ -458,7 +487,11 @@ def build_demo(ep, zarr_dir, mask_dir, inpaint_dir, ik_dir, out_dir, depth_dir=N
         # Cell 8 (index 7): depth visualization when --depth_dir is provided, otherwise info.
         r, c = 7 // GRID_COLS, 7 % GRID_COLS
         if depth_frames is not None:
-            cell8 = depth_frames[t] if t < len(depth_frames) else np.zeros((CELL_H, CELL_W, 3), dtype=np.uint8)
+            cell8 = (
+                depth_frames[t]
+                if t < len(depth_frames)
+                else np.zeros((CELL_H, CELL_W, 3), dtype=np.uint8)
+            )
             cell8 = add_label(cell8, "8. Depth (DA3)")
             frame[r * CELL_H : (r + 1) * CELL_H, c * CELL_W : (c + 1) * CELL_W] = cell8
         else:
@@ -474,10 +507,24 @@ def build_demo(ep, zarr_dir, mask_dir, inpaint_dir, ik_dir, out_dir, depth_dir=N
         else:
             title = np.zeros((CELL_H, CELL_W, 3), dtype=np.uint8)
             cv2.putText(
-                title, "EgoVerse -> LeRobot", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA
+                title,
+                "EgoVerse -> LeRobot",
+                (10, 60),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.55,
+                (255, 255, 255),
+                1,
+                cv2.LINE_AA,
             )
             cv2.putText(
-                title, "H2R Synthesis", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA
+                title,
+                "H2R Synthesis",
+                (10, 90),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.55,
+                (255, 255, 255),
+                1,
+                cv2.LINE_AA,
             )
             cv2.putText(
                 title,
@@ -490,7 +537,14 @@ def build_demo(ep, zarr_dir, mask_dir, inpaint_dir, ik_dir, out_dir, depth_dir=N
                 cv2.LINE_AA,
             )
             cv2.putText(
-                title, "Qwen-RobotManip", (10, 145), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (150, 150, 150), 1, cv2.LINE_AA
+                title,
+                "Qwen-RobotManip",
+                (10, 145),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.45,
+                (150, 150, 150),
+                1,
+                cv2.LINE_AA,
             )
             frame[r * CELL_H : (r + 1) * CELL_H, c * CELL_W : (c + 1) * CELL_W] = title
         writer.write(frame)
@@ -507,9 +561,17 @@ def build_demo(ep, zarr_dir, mask_dir, inpaint_dir, ik_dir, out_dir, depth_dir=N
 def build_arg_parser():
     """Build the command-line argument parser."""
     ap = argparse.ArgumentParser(description="Generate 3x3 split-screen demo videos")
-    ap.add_argument("--zarr_dir", required=True, help="Original EgoVerse Zarr directory, such as bimanual_sample")
+    ap.add_argument(
+        "--zarr_dir",
+        required=True,
+        help="Original EgoVerse Zarr directory, such as bimanual_sample",
+    )
     ap.add_argument("--mask_dir", required=True, help="Step 3 SAM3 mask output directory")
-    ap.add_argument("--inpaint_dir", required=True, help="Step 4 inpainting output directory containing {ep}/bg.mp4")
+    ap.add_argument(
+        "--inpaint_dir",
+        required=True,
+        help="Step 4 inpainting output directory containing {ep}/bg.mp4",
+    )
     ap.add_argument(
         "--ik_dir",
         required=True,
@@ -518,7 +580,7 @@ def build_arg_parser():
     ap.add_argument(
         "--depth_dir",
         default=None,
-        help="Step 5 depth output directory containing {ep}/depth_vis.mp4; enables the demo depth cell",
+        help="Step 5 depth output directory containing {ep}/depth_vis.mp4; enables the demo depth cell",  # noqa: E501
     )
     ap.add_argument("--output_dir", required=True)
     ap.add_argument(

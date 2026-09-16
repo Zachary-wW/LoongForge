@@ -70,14 +70,18 @@ def build_lora_config(training_args, default_targets: Optional[dict[str, Any]]):
         )
 
     cli_modules_to_save = _split_csv(training_args.lora_modules_to_save)
-    modules_to_save = cli_modules_to_save if cli_modules_to_save is not None else defaults.get("modules_to_save")
+    modules_to_save = (
+        cli_modules_to_save if cli_modules_to_save is not None else defaults.get("modules_to_save")
+    )
 
     return peft.LoraConfig(
         r=training_args.lora_r,
         lora_alpha=training_args.lora_alpha,
         lora_dropout=training_args.lora_dropout,
         bias=training_args.lora_bias,
-        target_modules=(target_modules if isinstance(target_modules, str) else list(target_modules)),
+        target_modules=(
+            target_modules if isinstance(target_modules, str) else list(target_modules)
+        ),
         modules_to_save=list(modules_to_save) if modules_to_save else None,
         init_lora_weights=_parse_init_lora_weights(training_args.lora_init),
     )
@@ -97,7 +101,11 @@ def apply_lora(
     adapter_path: Optional[str] = None,
 ) -> nn.Module:
     """Freeze the base model and inject PEFT adapters before parallel wrapping."""
-    if require_base and _requires_pretrained_checkpoint(model) and not training_args.pretrained_checkpoint:
+    if (
+        require_base
+        and _requires_pretrained_checkpoint(model)
+        and not training_args.pretrained_checkpoint
+    ):
         raise ValueError("LoRA fine-tuning requires --pretrained-checkpoint for this model.")
 
     peft = _require_peft()
@@ -136,7 +144,9 @@ def get_adapter_state_dict(
     """Return a canonical PEFT adapter state dict from distributed model state."""
     from peft.utils.save_and_load import get_peft_model_state_dict
 
-    normalized_state = {key.replace("_checkpoint_wrapped_module.", ""): value for key, value in state_dict.items()}
+    normalized_state = {
+        key.replace("_checkpoint_wrapped_module.", ""): value for key, value in state_dict.items()
+    }
     adapter_state = get_peft_model_state_dict(model, state_dict=normalized_state)
     if not adapter_state:
         raise RuntimeError("PEFT produced an empty adapter state dict")
@@ -200,7 +210,9 @@ def load_adapter_into_model(
             f"count={len(mismatched_shapes)} first={list(mismatched_shapes.items())[:5]}"
         )
 
-    injected_state = {key.removeprefix(_PEFT_BASE_MODEL_PREFIX): value for key, value in state_dict.items()}
+    injected_state = {
+        key.removeprefix(_PEFT_BASE_MODEL_PREFIX): value for key, value in state_dict.items()
+    }
     load_result = set_peft_model_state_dict(model, injected_state)
     unexpected = getattr(load_result, "unexpected_keys", [])
     if unexpected:

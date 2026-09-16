@@ -38,7 +38,8 @@ def get_embedding_ranks(pp_ranks: List[int]):
 
 
 @register_model_trainer(
-    model_family=constants.VisionLanguageModelFamilies.names(), training_phase=constants.TrainingPhase.SFT
+    model_family=constants.VisionLanguageModelFamilies.names(),
+    training_phase=constants.TrainingPhase.SFT,
 )
 def default_pretrain_trainer(train_args):
     """build trainer"""

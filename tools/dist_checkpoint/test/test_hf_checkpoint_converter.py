@@ -36,14 +36,20 @@ def test_hf_to_mcore(tp, pp, vpp, pp_ranks, tp_ranks, encoder_tp_size=None):
     vision_patch_convert_file = os.environ.get("VISION_PATCH_CONVERT_FILE", None)
     adapter_convert_file = os.environ.get("ADAPTER_CONVERT_FILE", None)
 
-    c_config = get_yaml_config(config_file, convert_file, for_vlm=(vision_patch_convert_file is not None))
+    c_config = get_yaml_config(
+        config_file, convert_file, for_vlm=(vision_patch_convert_file is not None)
+    )
     c_vision_patch_config = (
-        get_yaml_config(config_file, vision_patch_convert_file, adapter_convert_file=adapter_convert_file)
+        get_yaml_config(
+            config_file, vision_patch_convert_file, adapter_convert_file=adapter_convert_file
+        )
         if vision_patch_convert_file is not None
         else None
     )
 
-    hf_convert = HfCheckpointConverter(parallel_config, c_config, vision_patch_config=c_vision_patch_config)
+    hf_convert = HfCheckpointConverter(
+        parallel_config, c_config, vision_patch_config=c_vision_patch_config
+    )
     m_dict = hf_convert.get_mcore_ckpt(ckpt_path)
     return m_dict
 
@@ -70,14 +76,20 @@ def test_mcore_to_hf(tp, pp, vpp, pp_ranks, tp_ranks, mcore_dict, encoder_tp_siz
     vision_patch_convert_file = os.environ.get("VISION_PATCH_CONVERT_FILE", None)
     adapter_convert_file = os.environ.get("ADAPTER_CONVERT_FILE", None)
 
-    c_config = get_yaml_config(config_file, convert_file, for_vlm=(vision_patch_convert_file is not None))
+    c_config = get_yaml_config(
+        config_file, convert_file, for_vlm=(vision_patch_convert_file is not None)
+    )
     c_vision_patch_config = (
-        get_yaml_config(config_file, vision_patch_convert_file, adapter_convert_file=adapter_convert_file)
+        get_yaml_config(
+            config_file, vision_patch_convert_file, adapter_convert_file=adapter_convert_file
+        )
         if vision_patch_convert_file is not None
         else None
     )
 
-    hf_convert = HfCheckpointConverter(parallel_config, c_config, vision_patch_config=c_vision_patch_config)
+    hf_convert = HfCheckpointConverter(
+        parallel_config, c_config, vision_patch_config=c_vision_patch_config
+    )
     hf_convert.save_hf_ckpt(mcore_dict, ckpt_path)
 
     rank_id = int(os.getenv("RANK", "0"))
@@ -91,7 +103,9 @@ def test_mcore_to_hf(tp, pp, vpp, pp_ranks, tp_ranks, mcore_dict, encoder_tp_siz
         make_hf_sub_checkpoints(ckpt_path)
 
 
-def test_moe_hf_to_mcore(tp, pp, vpp, ep, etp, pp_ranks, tp_ranks, ep_ranks, etp_ranks, encoder_tp_size=None):
+def test_moe_hf_to_mcore(
+    tp, pp, vpp, ep, etp, pp_ranks, tp_ranks, ep_ranks, etp_ranks, encoder_tp_size=None
+):
     parallel_config = ParallelConfig()
     parallel_config.vpp_size = vpp
     parallel_config.vpp_scheduler = None
@@ -114,14 +128,20 @@ def test_moe_hf_to_mcore(tp, pp, vpp, ep, etp, pp_ranks, tp_ranks, ep_ranks, etp
     vision_patch_convert_file = os.environ.get("VISION_PATCH_CONVERT_FILE", None)
     adapter_convert_file = os.environ.get("ADAPTER_CONVERT_FILE", None)
 
-    c_config = get_yaml_config(config_file, convert_file, for_vlm=(vision_patch_convert_file is not None))
+    c_config = get_yaml_config(
+        config_file, convert_file, for_vlm=(vision_patch_convert_file is not None)
+    )
     c_vision_patch_config = (
-        get_yaml_config(config_file, vision_patch_convert_file, adapter_convert_file=adapter_convert_file)
+        get_yaml_config(
+            config_file, vision_patch_convert_file, adapter_convert_file=adapter_convert_file
+        )
         if vision_patch_convert_file is not None
         else None
     )
 
-    hf_convert = HfCheckpointConverter(parallel_config, c_config, vision_patch_config=c_vision_patch_config)
+    hf_convert = HfCheckpointConverter(
+        parallel_config, c_config, vision_patch_config=c_vision_patch_config
+    )
     m_dict = hf_convert.get_mcore_ckpt(ckpt_path)
     return m_dict
 
@@ -151,14 +171,20 @@ def test_moe_mcore_to_hf(
     vision_patch_convert_file = os.environ.get("VISION_PATCH_CONVERT_FILE", None)
     adapter_convert_file = os.environ.get("ADAPTER_CONVERT_FILE", None)
 
-    c_config = get_yaml_config(config_file, convert_file, for_vlm=(vision_patch_convert_file is not None))
+    c_config = get_yaml_config(
+        config_file, convert_file, for_vlm=(vision_patch_convert_file is not None)
+    )
     c_vision_patch_config = (
-        get_yaml_config(config_file, vision_patch_convert_file, adapter_convert_file=adapter_convert_file)
+        get_yaml_config(
+            config_file, vision_patch_convert_file, adapter_convert_file=adapter_convert_file
+        )
         if vision_patch_convert_file is not None
         else None
     )
 
-    hf_convert = HfCheckpointConverter(parallel_config, c_config, vision_patch_config=c_vision_patch_config)
+    hf_convert = HfCheckpointConverter(
+        parallel_config, c_config, vision_patch_config=c_vision_patch_config
+    )
     hf_convert.save_hf_ckpt(mcore_dict, ckpt_path)
 
     rank_id = int(os.getenv("RANK", "0"))
@@ -175,7 +201,11 @@ def test_moe_mcore_to_hf(
 if __name__ == "__main__":
     test_model = os.environ.get("TEST_MODEL")
     tp = int(os.environ.get("TP_SIZE")) if os.environ.get("TP_SIZE") is not None else 1
-    encoder_tp_size = int(os.environ.get("ENCODER_TP_SIZE")) if os.environ.get("ENCODER_TP_SIZE") is not None else 1
+    encoder_tp_size = (
+        int(os.environ.get("ENCODER_TP_SIZE"))
+        if os.environ.get("ENCODER_TP_SIZE") is not None
+        else 1
+    )
     pp = int(os.environ.get("PP_SIZE")) if os.environ.get("PP_SIZE") is not None else 1
     vpp = int(os.environ.get("VPP_SIZE")) if os.environ.get("VPP_SIZE") is not None else None
     pp_ranks = [int(x.strip()) for x in os.environ.get("PP_RANKS").split(",") if x.strip()]
@@ -184,12 +214,16 @@ if __name__ == "__main__":
     etp = int(os.environ.get("ETP_SIZE")) if os.environ.get("ETP_SIZE") is not None else None
     ep_ranks = [
         int(x.strip())
-        for x in (os.environ.get("EP_RANKS") if os.environ.get("EP_RANKS") is not None else "").split(",")
+        for x in (
+            os.environ.get("EP_RANKS") if os.environ.get("EP_RANKS") is not None else ""
+        ).split(",")
         if x.strip()
     ]
     etp_ranks = [
         int(x.strip())
-        for x in (os.environ.get("ETP_RANKS") if os.environ.get("ETP_RANKS") is not None else "").split(",")
+        for x in (
+            os.environ.get("ETP_RANKS") if os.environ.get("ETP_RANKS") is not None else ""
+        ).split(",")
         if x.strip()
     ]
     if test_model == "mimo":
@@ -201,7 +235,9 @@ if __name__ == "__main__":
         m_dict = test_hf_to_mcore(tp, pp, vpp, pp_ranks, tp_ranks)
         for p in m_dict:
             for t in m_dict[p]:
-                print(f"{p=}, {t=}: {m_dict[p][t]['model']['decoder.layers.0.mlp.linear_fc1.weight'].shape}")
+                print(
+                    f"{p=}, {t=}: {m_dict[p][t]['model']['decoder.layers.0.mlp.linear_fc1.weight'].shape}"  # noqa: E501
+                )
     if test_model == "qwen3moe":
         m_dict = test_moe_hf_to_mcore(tp, pp, vpp, ep, etp, pp_ranks, tp_ranks, ep_ranks, etp_ranks)
         for p in m_dict:
@@ -217,10 +253,14 @@ if __name__ == "__main__":
                 print(f"{p=}, {m_dict[p].keys()}")
         test_mcore_to_hf(tp, pp, vpp, pp_ranks, tp_ranks, m_dict, encoder_tp_size)
     if test_model == "qwen3_vl_30b_a3b":
-        m_dict = test_moe_hf_to_mcore(tp, pp, vpp, ep, etp, pp_ranks, tp_ranks, ep_ranks, etp_ranks, encoder_tp_size)
+        m_dict = test_moe_hf_to_mcore(
+            tp, pp, vpp, ep, etp, pp_ranks, tp_ranks, ep_ranks, etp_ranks, encoder_tp_size
+        )
         for p in m_dict:
             print(f"{p=}: {m_dict[p].keys()}")
             for e in m_dict[p]:
                 for t in m_dict[p][e]:
                     print(f"{p=}, {e=}, {t=}")
-        test_moe_mcore_to_hf(tp, pp, vpp, ep, etp, pp_ranks, tp_ranks, ep_ranks, etp_ranks, m_dict, encoder_tp_size)
+        test_moe_mcore_to_hf(
+            tp, pp, vpp, ep, etp, pp_ranks, tp_ranks, ep_ranks, etp_ranks, m_dict, encoder_tp_size
+        )

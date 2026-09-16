@@ -121,7 +121,9 @@ class MMPlugin:
                     image = Image.open(image["path"])
 
             if not isinstance(image, ImageObject):
-                raise ValueError("Expect input is a list of Images, but got {}.".format(type(image)))
+                raise ValueError(
+                    "Expect input is a list of Images, but got {}.".format(type(image))
+                )
 
             results.append(self._preprocess_image(image, **kwargs))
 
@@ -144,9 +146,11 @@ class MMPlugin:
             image_grid_thw: tensor with shape (num_images, 3), where the three numbers are time, width, height
 
         It holds num_patches == torch.prod(image_grid_thw)
-        """
+        """  # noqa: E501
         image_processor: "BaseImageProcessor" = getattr(processor, "image_processor")
-        video_processor: "BaseImageProcessor" = getattr(processor, "video_processor", image_processor)
+        video_processor: "BaseImageProcessor" = getattr(
+            processor, "video_processor", image_processor
+        )
         input_dict = {"images": None}  # default key
         if len(images) != 0:
             images = self._regularize_images(
@@ -164,7 +168,9 @@ class MMPlugin:
                 mm_inputs.update(image_processor(input_dict["images"], return_tensors="pt"))
             if input_dict.get("videos") is not None:
                 mm_inputs.update(video_processor(input_dict["videos"], return_tensors="pt"))
-        elif input_dict.get("images") is not None or input_dict.get("videos") is not None:  # same processor (qwen2-vl)
+        elif (
+            input_dict.get("images") is not None or input_dict.get("videos") is not None
+        ):  # same processor (qwen2-vl)
             mm_inputs.update(image_processor(**input_dict, return_tensors="pt"))
 
         return mm_inputs
@@ -197,16 +203,19 @@ class MMPlugin:
         self._validate_input(images, videos)
         return {}
 
-    def _calculate_timestamps(self, indices: Union[list[int], np.ndarray], video_fps: float, merge_size: int = 2):
+    def _calculate_timestamps(
+        self, indices: Union[list[int], np.ndarray], video_fps: float, merge_size: int = 2
+    ):
         if not isinstance(indices, list):
             indices = indices.tolist()
         if len(indices) % merge_size != 0:
             indices.extend(indices[-1] for _ in range(merge_size - len(indices) % merge_size))
         timestamps = [idx / video_fps for idx in indices]
         # @JJJYmmm frames are merged by self.merge_size, \
-        # so we need to average the timestamps between the first/last frame within the temporal patch
+        # so we need to average the timestamps between the first/last frame within the temporal patch  # noqa: E501
         timestamps = [
-            (timestamps[i] + timestamps[i + merge_size - 1]) / 2 for i in range(0, len(timestamps), merge_size)
+            (timestamps[i] + timestamps[i + merge_size - 1]) / 2
+            for i in range(0, len(timestamps), merge_size)
         ]
         return timestamps
 
@@ -258,7 +267,11 @@ class Qwen2VLPlugin(MMPlugin):
             content = message["content"]
             while Placeholder.IMAGE in content:
                 if num_image_tokens > len(image_grid_thw):
-                    raise ValueError("`len(images)` is less than the number of {} tokens.".format(Placeholder.IMAGE))
+                    raise ValueError(
+                        "`len(images)` is less than the number of {} tokens.".format(
+                            Placeholder.IMAGE
+                        )
+                    )
 
                 content = content.replace(
                     Placeholder.IMAGE,
@@ -271,7 +284,11 @@ class Qwen2VLPlugin(MMPlugin):
 
             while Placeholder.VIDEO in content:
                 if num_video_tokens > len(video_grid_thw):
-                    raise ValueError("`len(videos)` is less than the number of {} tokens.".format(Placeholder.VIDEO))
+                    raise ValueError(
+                        "`len(videos)` is less than the number of {} tokens.".format(
+                            Placeholder.VIDEO
+                        )
+                    )
 
                 content = content.replace(
                     Placeholder.VIDEO,
@@ -285,10 +302,18 @@ class Qwen2VLPlugin(MMPlugin):
             message["content"] = content
 
         if len(images) != num_image_tokens:
-            raise ValueError("The number of images does not match the number of {} tokens".format(Placeholder.IMAGE))
+            raise ValueError(
+                "The number of images does not match the number of {} tokens".format(
+                    Placeholder.IMAGE
+                )
+            )
 
         if len(videos) != num_video_tokens:
-            raise ValueError("The number of videos does not match the number of {} tokens".format(Placeholder.VIDEO))
+            raise ValueError(
+                "The number of videos does not match the number of {} tokens".format(
+                    Placeholder.VIDEO
+                )
+            )
 
         return messages, mm_inputs
 
@@ -350,9 +375,11 @@ class Qwen3VLPlugin(MMPlugin):
             image_grid_thw: tensor with shape (num_images, 3), where the three numbers are time, width, height
 
         It holds num_patches == torch.prod(image_grid_thw)
-        """
+        """  # noqa: E501
         image_processor: "BaseImageProcessor" = getattr(processor, "image_processor")
-        video_processor: "BaseImageProcessor" = getattr(processor, "video_processor", image_processor)
+        video_processor: "BaseImageProcessor" = getattr(
+            processor, "video_processor", image_processor
+        )
         input_dict = {"images": None}  # default key
         if len(images) != 0:
             images = self._regularize_images(
@@ -378,13 +405,21 @@ class Qwen3VLPlugin(MMPlugin):
                     videos_list = videos_data
                     durations = [getattr(v, "duration", None) for v in videos_list]
                 video_metadata = [
-                    {"fps": getattr(processor, "video_fps", 24.0), "duration": duration, "total_num_frames": len(video)}
+                    {
+                        "fps": getattr(processor, "video_fps", 24.0),
+                        "duration": duration,
+                        "total_num_frames": len(video),
+                    }
                     for video, duration in zip(videos_list, durations)
                 ]
                 mm_inputs.update(
-                    video_processor(input_dict["videos"], video_metadata=video_metadata, return_metadata=True)
+                    video_processor(
+                        input_dict["videos"], video_metadata=video_metadata, return_metadata=True
+                    )
                 )
-        elif input_dict.get("images") is not None or input_dict.get("videos") is not None:  # same processor (qwen2-vl)
+        elif (
+            input_dict.get("images") is not None or input_dict.get("videos") is not None
+        ):  # same processor (qwen2-vl)
             mm_inputs.update(image_processor(**input_dict, return_tensors="pt"))
 
         return mm_inputs
@@ -412,7 +447,11 @@ class Qwen3VLPlugin(MMPlugin):
             content = message["content"]
             while Placeholder.IMAGE in content:
                 if num_image_tokens > len(image_grid_thw):
-                    raise ValueError("`len(images)` is less than the number of {} tokens.".format(Placeholder.IMAGE))
+                    raise ValueError(
+                        "`len(images)` is less than the number of {} tokens.".format(
+                            Placeholder.IMAGE
+                        )
+                    )
 
                 content = content.replace(
                     Placeholder.IMAGE,
@@ -425,7 +464,11 @@ class Qwen3VLPlugin(MMPlugin):
 
             while Placeholder.VIDEO in content:
                 if num_video_tokens > len(video_grid_thw):
-                    raise ValueError("`len(videos)` is less than the number of {} tokens.".format(Placeholder.VIDEO))
+                    raise ValueError(
+                        "`len(videos)` is less than the number of {} tokens.".format(
+                            Placeholder.VIDEO
+                        )
+                    )
 
                 metadata = video_metadata[num_video_tokens]
 
@@ -433,8 +476,8 @@ class Qwen3VLPlugin(MMPlugin):
                     logger.warning_once(
                         "Qwen3VL requires frame timestamps to construct prompts,"
                         "But the `fps` of the input video could not be inferred. "
-                        "Probably `video_metadata` was missing from inputs and you passed pre-sampled frames. "
-                        "Defaulting to `fps=24`. Please provide `video_metadata` for more accurate results."
+                        "Probably `video_metadata` was missing from inputs and you passed pre-sampled frames. "  # noqa: E501
+                        "Defaulting to `fps=24`. Please provide `video_metadata` for more accurate results."  # noqa: E501
                     )
                     metadata.fps = 24 if metadata.fps is None else metadata.fps
                 curr_timestamp = self._calculate_timestamps(
@@ -449,7 +492,9 @@ class Qwen3VLPlugin(MMPlugin):
                 for frame_idx in range(video_grid_thw[num_video_tokens][0]):
                     curr_time = curr_timestamp[frame_idx]
                     video_placeholder += f"<{curr_time:.1f} seconds>"
-                    video_placeholder += "<|vision_start|>" + "<|placeholder|>" * frame_seqlen + "<|vision_end|>"
+                    video_placeholder += (
+                        "<|vision_start|>" + "<|placeholder|>" * frame_seqlen + "<|vision_end|>"
+                    )
 
                 if f"<|vision_start|>{self.video_token}<|vision_end|>" in content:
                     content = content.replace(
@@ -466,10 +511,18 @@ class Qwen3VLPlugin(MMPlugin):
             message["content"] = content
 
         if len(images) != num_image_tokens:
-            raise ValueError("The number of images does not match the number of {} tokens".format(Placeholder.IMAGE))
+            raise ValueError(
+                "The number of images does not match the number of {} tokens".format(
+                    Placeholder.IMAGE
+                )
+            )
 
         if len(videos) != num_video_tokens:
-            raise ValueError("The number of videos does not match the number of {} tokens".format(Placeholder.VIDEO))
+            raise ValueError(
+                "The number of videos does not match the number of {} tokens".format(
+                    Placeholder.VIDEO
+                )
+            )
 
         return messages, mm_inputs
 

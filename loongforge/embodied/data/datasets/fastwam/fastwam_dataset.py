@@ -44,7 +44,9 @@ def _build_fastwam_delta_timestamps(
     return timestamps
 
 
-def fastwam_delta_timestamps(dataset: LeRobotV3Dataset, info: Dict[str, Any], fps: int) -> Dict[str, list]:
+def fastwam_delta_timestamps(
+    dataset: LeRobotV3Dataset, info: Dict[str, Any], fps: int
+) -> Dict[str, list]:
     """``delta_timestamps_fn`` hook: add a multi-frame observation stack per video key.
 
     Runs before ``LeRobotDataset.__init__``. Discovers the video keys from

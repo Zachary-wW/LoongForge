@@ -27,7 +27,7 @@ class DynamicRotaryEmbedding(RotaryEmbedding):
         seq_len_interpolation_factor (float, optional): scale of linearly interpolating RoPE for longer sequences.
         The value must be a float larger than 1.0. Defaults to None
         rotary_base (int, optional): Base period for rotary position embeddings. Defaults to 10000.
-    """
+    """  # noqa: E501
 
     def __init__(
         self,
@@ -68,7 +68,8 @@ class DynamicRotaryEmbedding(RotaryEmbedding):
         """Forward pass of RoPE embedding"""
         if max_seq_len > self.max_position_embeddings:
             base = self.rotary_base * (
-                (self.scaling_factor * max_seq_len / self.max_position_embeddings) - (self.scaling_factor - 1)
+                (self.scaling_factor * max_seq_len / self.max_position_embeddings)
+                - (self.scaling_factor - 1)
             ) ** (self.dim / (self.dim - 2))
             self.inv_freq = 1.0 / (
                 base
@@ -109,7 +110,7 @@ class InternLMModel(BaseGPTModel):
             is 'rope'. Defaults to 10000.
         seq_len_interpolation_factor (Optional[float], optional): scale of linearly interpolating RoPE for longer
             sequences. The value must be a float larger than 1.0. Defaults to None.
-    """
+    """  # noqa: E501
 
     config_class = InternLMConfig
 

@@ -119,7 +119,9 @@ def _encode_simpler_widowx(state_raw: Dict[str, Any]) -> Optional[np.ndarray]:
         if eef.size >= 8:
             rm = tq.quat2mat(eef[3:7])
             rpy = te.mat2euler(rm @ default_rot.T)
-            return np.array([eef[0], eef[1], eef[2], rpy[0], rpy[1], rpy[2], 0.0, eef[7]], dtype=np.float32)
+            return np.array(
+                [eef[0], eef[1], eef[2], rpy[0], rpy[1], rpy[2], 0.0, eef[7]], dtype=np.float32
+            )
 
     base_pose = state_raw.get("base_pose")
     tcp_pose = state_raw.get("tcp_pose")
@@ -147,7 +149,9 @@ def _encode_simpler_widowx(state_raw: Dict[str, Any]) -> Optional[np.ndarray]:
         j = np.asarray(joint, dtype=np.float64).reshape(-1)
         if j.size >= 2:
             _warn_finger_qpos_out_of_limits(j[-2:])
-            closedness = np.mean((WIDOWX_FINGER_QMAX - j[-2:]) / (WIDOWX_FINGER_QMAX - WIDOWX_FINGER_QMIN))
+            closedness = np.mean(
+                (WIDOWX_FINGER_QMAX - j[-2:]) / (WIDOWX_FINGER_QMAX - WIDOWX_FINGER_QMIN)
+            )
             grip = float(1.0 - max(closedness, 0.0))
     return np.array(
         [pos[0], pos[1], pos[2], rpy[0], rpy[1], rpy[2], 0.0, grip],
@@ -191,7 +195,10 @@ class GrootN1d6PayloadBuilder(PayloadBuilder):
             # GrootN1d6Policy.predict_action, not here — see modeling_groot_n1_6.py.
             import cv2
 
-            images = [cv2.resize(np.asarray(img), (256, 256)) if img is not None else img for img in images]
+            images = [
+                cv2.resize(np.asarray(img), (256, 256)) if img is not None else img
+                for img in images
+            ]
         return {
             "images": images,
             "instructions": [str(canonical["instruction"])],

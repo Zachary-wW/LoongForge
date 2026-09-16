@@ -40,7 +40,9 @@ except ImportError:
     SplitAlongDim = None
 
 try:
-    from flashattn_hopper.flash_attn_interface import flash_attn_with_kvcache as flash_attn3_with_kvcache  # noqa: F401
+    from flashattn_hopper.flash_attn_interface import (
+        flash_attn_with_kvcache as flash_attn3_with_kvcache,  # noqa: F401
+    )  # noqa: F401
 
     HAVE_FA3 = True
 except Exception:
@@ -58,7 +60,9 @@ class Qwen3NextSelfAttention(SelfAttention):
         **kwargs: Extra keyword arguments passed to the parent class
     """
 
-    def __init__(self, config: TransformerConfig, submodules: SelfAttentionSubmodules, *args, **kwargs):
+    def __init__(
+        self, config: TransformerConfig, submodules: SelfAttentionSubmodules, *args, **kwargs
+    ):
         super().__init__(config, submodules, *args, **kwargs)
         self.linear_qkv = build_module(
             submodules.linear_qkv,
@@ -134,7 +138,9 @@ class Qwen3NextSelfAttention(SelfAttention):
         """
         # Check if we need to skip RoPE
         # no_rope is 0-indexed array and self.layer_number is 1-indexed
-        no_rope = self.config.no_rope_freq[self.layer_number - 1] if self.config.no_rope_freq else False
+        no_rope = (
+            self.config.no_rope_freq[self.layer_number - 1] if self.config.no_rope_freq else False
+        )
         if no_rope:
             rotary_pos_emb = None
 
@@ -168,7 +174,11 @@ class Qwen3NextSelfAttention(SelfAttention):
         # Adjust key, value, and rotary_pos_emb for inference
         # ===================================================
 
-        in_decode_mode = inference_context is not None and inference_context.is_decode_only() and not self.training
+        in_decode_mode = (
+            inference_context is not None
+            and inference_context.is_decode_only()
+            and not self.training
+        )
 
         # This branch only runs in the decode phase of flash decoding and returns after the linear
         # projection. This conditional is not used in the prefill phase or non-flash-decoding cases.
@@ -176,7 +186,9 @@ class Qwen3NextSelfAttention(SelfAttention):
         if in_decode_mode and self.config.flash_decode:
             assert self.layer_number in inference_context.key_value_memory_dict
             assert inference_context.sequence_len_offset is not None
-            inference_key_memory, inference_value_memory = inference_context.key_value_memory_dict[self.layer_number]
+            inference_key_memory, inference_value_memory = inference_context.key_value_memory_dict[
+                self.layer_number
+            ]
             output = self.flash_decode(
                 sequence_len_offset=sequence_len_offset,
                 query_layer=query,
@@ -193,18 +205,24 @@ class Qwen3NextSelfAttention(SelfAttention):
             output, bias = self.linear_proj(context_layer)
             return output, bias
 
-        if in_decode_mode and self.config.enable_cuda_graph and inference_context.is_static_batching():
+        if (
+            in_decode_mode
+            and self.config.enable_cuda_graph
+            and inference_context.is_static_batching()
+        ):
             raise ValueError("CUDA graphs must use flash decode with static batching!")
 
-        query, key, value, rotary_pos_emb, attn_mask_type, block_table = self._adjust_key_value_for_inference(
-            inference_context,
-            query,
-            key,
-            value,
-            rotary_pos_emb,
-            rotary_pos_cos,
-            rotary_pos_sin,
-            sequence_len_offset,
+        query, key, value, rotary_pos_emb, attn_mask_type, block_table = (
+            self._adjust_key_value_for_inference(
+                inference_context,
+                query,
+                key,
+                value,
+                rotary_pos_emb,
+                rotary_pos_cos,
+                rotary_pos_sin,
+                sequence_len_offset,
+            )
         )
 
         if packed_seq_params is not None:
@@ -293,7 +311,9 @@ class Qwen3NextSelfAttention(SelfAttention):
                 # Dynamic batching attention kernel.
                 q, k, v = (query, key, value)
                 cu_query_lengths, max_seqlen_q = inference_context.cu_query_lengths()
-                cu_kv_lengths, kv_lengths, kv_lengths_decode_only, max_seqlen_k = inference_context.cu_kv_lengths()
+                cu_kv_lengths, kv_lengths, kv_lengths_decode_only, max_seqlen_k = (
+                    inference_context.cu_kv_lengths()
+                )
 
                 core_attn_out = self.flash_decode_and_prefill(
                     q,
@@ -337,7 +357,12 @@ class Qwen3NextSelfAttention(SelfAttention):
         new_tensor_shape = mixed_qgkv.size()[:-1] + (
             self.num_query_groups_per_partition,
             (
-                (self.num_attention_heads_per_partition // self.num_query_groups_per_partition * 2 + 2)
+                (
+                    self.num_attention_heads_per_partition
+                    // self.num_query_groups_per_partition
+                    * 2
+                    + 2
+                )
                 * self.hidden_size_per_attention_head
             ),
         )
@@ -362,7 +387,9 @@ class Qwen3NextSelfAttention(SelfAttention):
             # --> [sq, b, ng, np/ng * hn], [sq, b, ng, hn], [sq, b, ng, hn]
             (query_gate, key, value) = torch.split(mixed_qgkv, split_arg_list, dim=3)
 
-        query_gate = query_gate.reshape(query_gate.size(0), query_gate.size(1), -1, self.hidden_size_per_attention_head)
+        query_gate = query_gate.reshape(
+            query_gate.size(0), query_gate.size(1), -1, self.hidden_size_per_attention_head
+        )
         query = query_gate[:, :, ::2]
         gate = query_gate[:, :, 1::2]
 

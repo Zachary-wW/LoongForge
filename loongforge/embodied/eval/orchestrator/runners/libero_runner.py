@@ -38,7 +38,11 @@ from loongforge.embodied.eval.orchestrator.config import (
     build_rpc_payload,
 )
 from loongforge.embodied.eval.orchestrator.runners import _common
-from loongforge.embodied.eval.orchestrator.runners._common import StepTimeoutError, alarm_timeout, avg as _avg
+from loongforge.embodied.eval.orchestrator.runners._common import (
+    StepTimeoutError,
+    alarm_timeout,
+    avg as _avg,
+)
 from loongforge.embodied.eval.payload_builders import PayloadBuilder
 from loongforge.embodied.eval.protocol import PROTOCOL_VERSION
 from loongforge.embodied.eval.transport import PolicyClient
@@ -69,7 +73,9 @@ def _get_libero_env(task, resolution: int, seed: int):
     from libero.libero import get_libero_path
     from libero.libero.envs import OffScreenRenderEnv
 
-    task_bddl_file = pathlib.Path(get_libero_path("bddl_files")) / task.problem_folder / task.bddl_file
+    task_bddl_file = (
+        pathlib.Path(get_libero_path("bddl_files")) / task.problem_folder / task.bddl_file
+    )
     env = OffScreenRenderEnv(
         bddl_file_name=task_bddl_file,
         camera_heights=resolution,
@@ -85,24 +91,46 @@ def _extract_primary_frame(obs: Dict[str, Any]) -> np.ndarray:
 
 
 def _save_replay(
-    frames: List[np.ndarray], output_dir: str, task_suite: str, task_id: int, episode_idx: int, success: bool
+    frames: List[np.ndarray],
+    output_dir: str,
+    task_suite: str,
+    task_id: int,
+    episode_idx: int,
+    success: bool,
 ) -> Optional[str]:
     """Run _save_replay."""
     if not frames:
         return None
     status = "success" if success else "fail"
-    artifact_dir = pathlib.Path(output_dir) / "artifacts" / task_suite / f"task{task_id}" / f"episode{episode_idx}"
+    artifact_dir = (
+        pathlib.Path(output_dir)
+        / "artifacts"
+        / task_suite
+        / f"task{task_id}"
+        / f"episode{episode_idx}"
+    )
     return _common.write_replay_gif(frames, artifact_dir / f"replay_{status}.gif", duration=0.1)
 
 
 def _save_trace(
-    trace: List[Dict[str, Any]], output_dir: str, task_suite: str, task_id: int, episode_idx: int, success: bool
+    trace: List[Dict[str, Any]],
+    output_dir: str,
+    task_suite: str,
+    task_id: int,
+    episode_idx: int,
+    success: bool,
 ) -> Optional[str]:
     """Run _save_trace."""
     if not trace:
         return None
     status = "success" if success else "fail"
-    artifact_dir = pathlib.Path(output_dir) / "artifacts" / task_suite / f"task{task_id}" / f"episode{episode_idx}"
+    artifact_dir = (
+        pathlib.Path(output_dir)
+        / "artifacts"
+        / task_suite
+        / f"task{task_id}"
+        / f"episode{episode_idx}"
+    )
     return _common.write_trace_json(trace, artifact_dir / f"trace_{status}.json")
 
 
@@ -262,7 +290,9 @@ def run_episode(
                     replay_frames.append(_extract_primary_frame(obs))
 
                 if raw_step < args.num_steps_wait:
-                    obs, reward, done, info = _env_step(env, LIBERO_DUMMY_ACTION, args.per_step_timeout_sec)
+                    obs, reward, done, info = _env_step(
+                        env, LIBERO_DUMMY_ACTION, args.per_step_timeout_sec
+                    )
                     continue
 
                 # OSC absolute vs delta: see _resolve_libero_use_delta().
@@ -302,7 +332,9 @@ def run_episode(
                             ctx,
                             # Closed-loop-within-chunk models (PayloadBuilder capability)
                             # must be called every env step; others keep the chunk cache.
-                            disable_action_cache=bool(getattr(payload_builder, "disable_action_cache", False)),
+                            disable_action_cache=bool(
+                                getattr(payload_builder, "disable_action_cache", False)
+                            ),
                         )
                     )
                 e2e_latency_ms = (time.perf_counter() - request_start) * 1000.0
@@ -349,7 +381,9 @@ def run_episode(
     except Exception as exc:
         failure_reason = _classify_exception(exc)
         replay_path = (
-            _save_replay(replay_frames, args.output_dir, task_suite_name, task_id, episode_idx, False)
+            _save_replay(
+                replay_frames, args.output_dir, task_suite_name, task_id, episode_idx, False
+            )
             if args.save_replay
             else None
         )
@@ -387,7 +421,9 @@ def run_episode(
         else None
     )
     trace_path = (
-        _save_trace(trace, args.output_dir, task_suite_name, task_id, episode_idx, success) if args.save_trace else None
+        _save_trace(trace, args.output_dir, task_suite_name, task_id, episode_idx, success)
+        if args.save_trace
+        else None
     )
 
     return {
@@ -452,7 +488,9 @@ def run_batch(args: argparse.Namespace) -> Dict[str, Any]:
     n_tasks = task_suite.n_tasks if args.max_tasks <= 0 else min(task_suite.n_tasks, args.max_tasks)
     # Optional benchmark.task_ids: explicit task id list (e.g. rerun only
     # low-success tasks); falls back to the first n_tasks tasks.
-    selected_task_ids = [int(t) for t in (getattr(args, "task_ids", None) or [])] or list(range(n_tasks))
+    selected_task_ids = [int(t) for t in (getattr(args, "task_ids", None) or [])] or list(
+        range(n_tasks)
+    )
     adapter = LiberoAdapter(
         suite_name=args.task_suite_name,
         episodes_per_task=args.episodes_per_task,
@@ -511,7 +549,10 @@ def run_batch(args: argparse.Namespace) -> Dict[str, Any]:
                     }:
                         break
                     if attempt < args.max_retries:
-                        if record.get("failure_reason") == "server_unreachable" and server_manager is not None:
+                        if (
+                            record.get("failure_reason") == "server_unreachable"
+                            and server_manager is not None
+                        ):
                             client.close()
                             server_manager.ensure_running()
                             client = PolicyClient(host=args.host, port=args.port)
@@ -524,7 +565,9 @@ def run_batch(args: argparse.Namespace) -> Dict[str, Any]:
 
     all_records = existing_records + new_records
     write_summary_csv(summary_path, all_records)
-    write_suite_summary_csv(suite_summary_path, all_records, min_episodes=args.min_episodes_per_task)
+    write_suite_summary_csv(
+        suite_summary_path, all_records, min_episodes=args.min_episodes_per_task
+    )
     report = None
     if args.generate_report:
         report = write_eval_report(
@@ -562,7 +605,9 @@ def _resolve_libero_use_delta(args: Any, action_decoder_key: str = "") -> bool:
         return False
     if mode in {"delta", "relative", "incremental"}:
         return True
-    raise ValueError(f"Unknown benchmark.control_mode for LIBERO: {mode!r}. Use auto | absolute | delta.")
+    raise ValueError(
+        f"Unknown benchmark.control_mode for LIBERO: {mode!r}. Use auto | absolute | delta."
+    )
 
 
 def build_argparser() -> argparse.ArgumentParser:

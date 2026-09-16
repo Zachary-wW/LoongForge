@@ -12,7 +12,9 @@ from typing import Optional
 import shutil
 
 # Add project root to Python path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+)
 
 import torch
 import torch.distributed as dist
@@ -30,7 +32,9 @@ from tools.convert_checkpoint.utils.utils import make_hf_sub_checkpoints, get_et
 from tools.convert_checkpoint.utils.config_utils import get_yaml_config
 
 
-def _consolidate_pp_checkpoints(save_hf_path: str, pp_size: int, original_hf_path: Optional[str] = None) -> None:
+def _consolidate_pp_checkpoints(
+    save_hf_path: str, pp_size: int, original_hf_path: Optional[str] = None
+) -> None:
     """
     Consolidate checkpoint files from per-PP-rank directories to final checkpoint.
 
@@ -43,7 +47,7 @@ def _consolidate_pp_checkpoints(save_hf_path: str, pp_size: int, original_hf_pat
         save_hf_path: Base checkpoint directory
         pp_size: Number of pipeline stages (for logging, not strictly used by make_hf_sub_checkpoints)
         original_hf_path: Path to original HF checkpoint to copy config/tokenizer files from
-    """
+    """  # noqa: E501
     print_rank_0(f"Starting checkpoint consolidation from {pp_size} PP stages...")
 
     if not os.path.exists(save_hf_path):
@@ -98,7 +102,9 @@ def _consolidate_pp_checkpoints(save_hf_path: str, pp_size: int, original_hf_pat
             print_rank_0(f"Copied {files_copied} additional file(s)")
     else:
         if original_hf_path:
-            print_rank_0(f"Warning: original_hf_path {original_hf_path} does not exist, skipping file copy")
+            print_rank_0(
+                f"Warning: original_hf_path {original_hf_path} does not exist, skipping file copy"
+            )
         else:
             print_rank_0("Note: original_hf_path not provided, skipping additional file copy")
 
@@ -207,11 +213,15 @@ def save_hf_checkpoint_online(
         )
 
     c_config = get_yaml_config(
-        parser.config_file, parser.convert_file, for_vlm=(parser.vision_patch_convert_file is not None)
+        parser.config_file,
+        parser.convert_file,
+        for_vlm=(parser.vision_patch_convert_file is not None),
     )
     c_vision_patch_config = (
         get_yaml_config(
-            parser.config_file, parser.vision_patch_convert_file, adapter_convert_file=parser.adapter_convert_file
+            parser.config_file,
+            parser.vision_patch_convert_file,
+            adapter_convert_file=parser.adapter_convert_file,
         )
         if parser.vision_patch_convert_file is not None
         else None
@@ -238,13 +248,15 @@ def save_hf_checkpoint_online(
         for vpp_idx, sd in enumerate(model_state_dict):
             print_rank_0(f"Gathering state_dict for VPP stage {vpp_idx}...")
             gathered_state_dicts.append(tp_gather.gather_state_dicts(sd))
-        all_ckpt_empty = all(len(inner_dict) == 0 for outer_list in gathered_state_dicts for inner_dict in outer_list)
+        all_ckpt_empty = all(
+            len(inner_dict) == 0 for outer_list in gathered_state_dicts for inner_dict in outer_list
+        )
 
     if torch.cuda.is_available():
         peak_mem_gb = torch.cuda.max_memory_allocated() / (1024**3)
         mem_after = torch.cuda.memory_allocated() / (1024**3)
         print_rank_0(
-            f"State_dicts gathered within TP group. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → "
+            f"State_dicts gathered within TP group. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → "  # noqa: E501
             f"After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
         )
 
@@ -297,7 +309,9 @@ def save_hf_checkpoint_online(
                     ep_shards = {}
                     ep_ids = []
                     for tp_idx, state_dict in enumerate(gathered_state_dicts):
-                        ep_id = ((ep_rank * etp_size) // tp_size * tp_size // etp_size) + tp_to_ep[tp_idx]
+                        ep_id = ((ep_rank * etp_size) // tp_size * tp_size // etp_size) + tp_to_ep[
+                            tp_idx
+                        ]
                         if ep_id not in ep_ids:
                             ep_ids.append(ep_id)
                         if ep_id not in ep_shards:
@@ -331,9 +345,11 @@ def save_hf_checkpoint_online(
 
             # Transpose: from [vpp_stage][tp_rank] to [tp_rank][vpp_stage]
             num_tp = len(gathered_state_dicts[0])
-            transposed = [[gathered_state_dicts[v][t] for v in range(num_vpp_stages)] for t in range(num_tp)]
+            transposed = [
+                [gathered_state_dicts[v][t] for v in range(num_vpp_stages)] for t in range(num_tp)
+            ]
 
-            # For dense models: {pp_rank: {tp_idx: {"model0": ..., "model1": ..., "checkpoint_version": 3.0}}}
+            # For dense models: {pp_rank: {tp_idx: {"model0": ..., "model1": ..., "checkpoint_version": 3.0}}}  # noqa: E501
             # For MoE models:   {pp_rank: {ep_rank: {tp_idx: {"model0": ..., ...}}}}
             if ep_rank is None:
                 # Dense model: flat tp_shards under pp_rank
@@ -359,7 +375,9 @@ def save_hf_checkpoint_online(
                     ep_shards = {}
                     ep_ids = []
                     for tp_idx, vpp_state_dicts in enumerate(transposed):
-                        ep_id = ((ep_rank * etp_size) // tp_size * tp_size // etp_size) + tp_to_ep[tp_idx]
+                        ep_id = ((ep_rank * etp_size) // tp_size * tp_size // etp_size) + tp_to_ep[
+                            tp_idx
+                        ]
                         if ep_id not in ep_ids:
                             ep_ids.append(ep_id)
                         if ep_id not in ep_shards:
@@ -390,13 +408,15 @@ def save_hf_checkpoint_online(
             parallel_config.ep_ranks = [ep_rank]
 
         # Create HF converter
-        hf_converter = HfCheckpointConverter(parallel_config, c_config, vision_patch_config=c_vision_patch_config)
+        hf_converter = HfCheckpointConverter(
+            parallel_config, c_config, vision_patch_config=c_vision_patch_config
+        )
 
         if torch.cuda.is_available():
             peak_mem_gb = torch.cuda.max_memory_allocated() / (1024**3)
             mem_after = torch.cuda.memory_allocated() / (1024**3)
             print_rank_0(
-                f"Mcore_dict prepared. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → "
+                f"Mcore_dict prepared. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → "  # noqa: E501
                 f"After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
             )
 
@@ -415,7 +435,7 @@ def save_hf_checkpoint_online(
                 peak_mem_gb = torch.cuda.max_memory_allocated() / (1024**3)
                 mem_after = torch.cuda.memory_allocated() / (1024**3)
                 print_rank_0(
-                    f"HF checkpoint saved successfully. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → "
+                    f"HF checkpoint saved successfully. Memory: Before={mem_before:.2f}GB → Peak={peak_mem_gb:.2f}GB → "  # noqa: E501
                     f"After={mem_after:.2f}GB, Change={mem_after - mem_before:+.2f}GB"
                 )
         except Exception as e:

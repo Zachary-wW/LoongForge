@@ -35,7 +35,9 @@ class FastWAMJoint(FastWAM):
         if not isinstance(video_dit_config, dict):
             raise ValueError("`video_dit_config` must be provided as dict for FastWAMJoint.")
         if bool(video_dit_config.get("action_conditioned", False)):
-            raise ValueError("FastWAMJoint requires `video_dit_config['action_conditioned']=false`.")
+            raise ValueError(
+                "FastWAMJoint requires `video_dit_config['action_conditioned']=false`."
+            )
         return super().from_wan22_pretrained(**kwargs)
 
     @torch.no_grad()
@@ -127,35 +129,49 @@ class FastWAMJoint(FastWAM):
         if input_image.ndim == 3:
             input_image = input_image.unsqueeze(0)
         if input_image.ndim != 4 or input_image.shape[0] != 1 or input_image.shape[1] != 3:
-            raise ValueError(f"`input_image` must have shape [1,3,H,W] or [3,H,W], got {tuple(input_image.shape)}")
+            raise ValueError(
+                f"`input_image` must have shape [1,3,H,W] or [3,H,W], got {tuple(input_image.shape)}"  # noqa: E501
+            )
         _, _, height, width = input_image.shape
-        checked_h, checked_w, checked_t = self._check_resize_height_width(height, width, num_video_frames)
+        checked_h, checked_w, checked_t = self._check_resize_height_width(
+            height, width, num_video_frames
+        )
         if (checked_h, checked_w) != (height, width):
             raise ValueError(
-                f"`input_image` must be resized before infer, expected multiples of 16 but got HxW=({height},{width})"
+                f"`input_image` must be resized before infer, expected multiples of 16 but got HxW=({height},{width})"  # noqa: E501
             )
         if checked_t != num_video_frames:
             raise ValueError(f"`num_video_frames` must satisfy T % 4 == 1, got {num_video_frames}")
 
         if proprio is not None:
             if self.proprio_dim is None:
-                raise ValueError("`proprio` was provided but `proprio_dim=None` so `proprio_encoder` is disabled.")
+                raise ValueError(
+                    "`proprio` was provided but `proprio_dim=None` so `proprio_encoder` is disabled."  # noqa: E501
+                )
             if proprio.ndim == 1:
                 proprio = proprio.unsqueeze(0)
             elif proprio.ndim == 2 and proprio.shape[0] == 1:
                 pass
             else:
-                raise ValueError(f"`proprio` must be [D] or [1,D], got shape {tuple(proprio.shape)}")
+                raise ValueError(
+                    f"`proprio` must be [D] or [1,D], got shape {tuple(proprio.shape)}"
+                )
             if proprio.shape[1] != self.proprio_dim:
-                raise ValueError(f"`proprio` last dim must be {self.proprio_dim}, got {proprio.shape[1]}")
+                raise ValueError(
+                    f"`proprio` last dim must be {self.proprio_dim}, got {proprio.shape[1]}"
+                )
             proprio = proprio.to(device=self.device, dtype=self.torch_dtype)
 
         latent_t = (num_video_frames - 1) // self.vae.temporal_downsample_factor + 1
         latent_h = height // self.vae.upsampling_factor
         latent_w = width // self.vae.upsampling_factor
 
-        video_generator = None if seed is None else torch.Generator(device=rand_device).manual_seed(seed)
-        action_generator = None if seed is None else torch.Generator(device=rand_device).manual_seed(seed)
+        video_generator = (
+            None if seed is None else torch.Generator(device=rand_device).manual_seed(seed)
+        )
+        action_generator = (
+            None if seed is None else torch.Generator(device=rand_device).manual_seed(seed)
+        )
         latents_video = torch.randn(
             (1, self.vae.model.z_dim, latent_t, latent_h, latent_w),
             generator=video_generator,
@@ -170,7 +186,9 @@ class FastWAMJoint(FastWAM):
         ).to(device=self.device, dtype=self.torch_dtype)
 
         input_image = input_image.to(device=self.device, dtype=self.torch_dtype)
-        first_frame_latents = self._encode_input_image_latents_tensor(input_image=input_image, tiled=tiled)
+        first_frame_latents = self._encode_input_image_latents_tensor(
+            input_image=input_image, tiled=tiled
+        )
         latents_video[:, :, 0:1] = first_frame_latents.clone()
         fuse_flag = bool(getattr(self.video_expert, "fuse_vae_embedding_in_latents", False))
 
@@ -204,17 +222,21 @@ class FastWAMJoint(FastWAM):
                 proprio=proprio,
             )
 
-        infer_timesteps_video, infer_deltas_video = self.infer_video_scheduler.build_inference_schedule(
-            num_inference_steps=num_inference_steps,
-            device=self.device,
-            dtype=latents_video.dtype,
-            shift_override=sigma_shift,
+        infer_timesteps_video, infer_deltas_video = (
+            self.infer_video_scheduler.build_inference_schedule(
+                num_inference_steps=num_inference_steps,
+                device=self.device,
+                dtype=latents_video.dtype,
+                shift_override=sigma_shift,
+            )
         )
-        infer_timesteps_action, infer_deltas_action = self.infer_action_scheduler.build_inference_schedule(
-            num_inference_steps=num_inference_steps,
-            device=self.device,
-            dtype=latents_action.dtype,
-            shift_override=sigma_shift,
+        infer_timesteps_action, infer_deltas_action = (
+            self.infer_action_scheduler.build_inference_schedule(
+                num_inference_steps=num_inference_steps,
+                device=self.device,
+                dtype=latents_action.dtype,
+                shift_override=sigma_shift,
+            )
         )
         for step_t_video, step_delta_video, step_t_action, step_delta_action in zip(
             infer_timesteps_video,
@@ -222,8 +244,12 @@ class FastWAMJoint(FastWAM):
             infer_timesteps_action,
             infer_deltas_action,
         ):
-            timestep_video = step_t_video.unsqueeze(0).to(dtype=latents_video.dtype, device=self.device)
-            timestep_action = step_t_action.unsqueeze(0).to(dtype=latents_action.dtype, device=self.device)
+            timestep_video = step_t_video.unsqueeze(0).to(
+                dtype=latents_video.dtype, device=self.device
+            )
+            timestep_action = step_t_action.unsqueeze(0).to(
+                dtype=latents_action.dtype, device=self.device
+            )
 
             pred_video_posi, pred_action_posi = self._predict_joint_noise(
                 latents_video=latents_video,
@@ -236,8 +262,12 @@ class FastWAMJoint(FastWAM):
                 gt_action=None,
             )
 
-            latents_video = self.infer_video_scheduler.step(pred_video_posi, step_delta_video, latents_video)
-            latents_action = self.infer_action_scheduler.step(pred_action_posi, step_delta_action, latents_action)
+            latents_video = self.infer_video_scheduler.step(
+                pred_video_posi, step_delta_video, latents_video
+            )
+            latents_action = self.infer_action_scheduler.step(
+                pred_action_posi, step_delta_action, latents_action
+            )
             latents_video[:, :, 0:1] = first_frame_latents.clone()
 
         return {"action": latents_action[0].detach().to(device="cpu", dtype=torch.float32)}

@@ -362,7 +362,8 @@ ROBOT_SPECS: dict[str, RobotSpec] = {
         reach=1.420,
         gripper_max=0.079,
         gripper_model_path_override=str(
-            Path(__file__).resolve().parents[1] / "models/sawyer_gripper/sawyer_electric_gripper.xml"
+            Path(__file__).resolve().parents[1]
+            / "models/sawyer_gripper/sawyer_electric_gripper.xml"
         ),
         gripper_attach_body="right_l6",
         gripper_mode="sawyer_electric",
@@ -416,7 +417,9 @@ ROBOT_SPECS: dict[str, RobotSpec] = {
         model_dir="",
         xml_name="",
         model_path_override=str(Path(__file__).resolve().parents[1] / "models/jaco/jaco_arm.xml"),
-        gripper_model_path_override=str(Path(__file__).resolve().parents[1] / "models/jaco/jaco_hand.xml"),
+        gripper_model_path_override=str(
+            Path(__file__).resolve().parents[1] / "models/jaco/jaco_hand.xml"
+        ),
         base_body="b_base",
         arm_joints=tuple(f"joint_{i}" for i in range(1, 7)),
         finger_joints=("grip_finger_1", "grip_finger_2", "grip_finger_3"),
@@ -514,7 +517,8 @@ ROBOT_SPECS: dict[str, RobotSpec] = {
         model_dir="",
         xml_name="",
         model_path_override=str(
-            Path(__file__).resolve().parents[1] / "models/SO-ARM100/Simulation/SO101/so101_new_calib.xml"
+            Path(__file__).resolve().parents[1]
+            / "models/SO-ARM100/Simulation/SO101/so101_new_calib.xml"
         ),
         base_body="base",
         arm_joints=("shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll"),
@@ -551,7 +555,15 @@ ROBOT_SPECS: dict[str, RobotSpec] = {
         base_max_target_distance=0.53,
         scene_support_surface=True,
         gripper_mode="so101",
-        visual_keywords=("base", "shoulder", "upper_arm", "lower_arm", "wrist", "gripper", "moving_jaw"),
+        visual_keywords=(
+            "base",
+            "shoulder",
+            "upper_arm",
+            "lower_arm",
+            "wrist",
+            "gripper",
+            "moving_jaw",
+        ),
         visual_hide_keywords=(),
     ),
 }
@@ -581,7 +593,9 @@ def get_robot_spec(name: str) -> RobotSpec:
             "Set EGO2ROBOT_MENAGERIE_DIR to a populated mujoco_menagerie cache."
         )
     if spec.gripper_model_path is not None and not spec.gripper_model_path.is_file():
-        raise FileNotFoundError(f"gripper model for {key!r} was not found: {spec.gripper_model_path}.")
+        raise FileNotFoundError(
+            f"gripper model for {key!r} was not found: {spec.gripper_model_path}."
+        )
     return spec
 
 
@@ -593,7 +607,9 @@ def _expand_mjcf_includes(root, source_dir):
             if not include_path.is_absolute():
                 include_path = source_dir / include_path
             if not include_path.is_file():
-                raise FileNotFoundError(f"MJCF include {include.get('file')!r} was not found relative to {source_dir}")
+                raise FileNotFoundError(
+                    f"MJCF include {include.get('file')!r} was not found relative to {source_dir}"
+                )
             included_root = ET.parse(include_path).getroot()
             _expand_mjcf_includes(included_root, include_path.parent)
             insert_at = list(parent).index(include)
@@ -624,7 +640,9 @@ def _make_aloha_single_model(spec: RobotSpec) -> Path:
     if worldbody is None:
         raise ValueError(f"ALOHA model has no worldbody: {source}")
 
-    left_base = next((body for body in worldbody.findall("body") if body.get("name") == "left/base_link"), None)
+    left_base = next(
+        (body for body in worldbody.findall("body") if body.get("name") == "left/base_link"), None
+    )
     if left_base is None:
         raise ValueError("ALOHA model has no left/base_link body")
     left_base.set("pos", "0 0 0")
@@ -735,9 +753,13 @@ def _make_composed_model(spec: RobotSpec) -> Path:
 
     if not spec.gripper_attach_body:
         raise ValueError(f"robot {spec.name!r} has a gripper but no attach body")
-    target = next((e for e in arm_root.iter("body") if e.get("name") == spec.gripper_attach_body), None)
+    target = next(
+        (e for e in arm_root.iter("body") if e.get("name") == spec.gripper_attach_body), None
+    )
     if target is None:
-        raise ValueError(f"cannot find gripper attach body {spec.gripper_attach_body!r} in {spec.model_path}")
+        raise ValueError(
+            f"cannot find gripper attach body {spec.gripper_attach_body!r} in {spec.model_path}"
+        )
     mount_name = name_map.get(spec.gripper_mount_body, f"grip_{spec.gripper_mount_body}")
     mount = next((e for e in grip_root.iter("body") if e.get("name") == mount_name), None)
     if mount is None:

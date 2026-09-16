@@ -90,13 +90,19 @@ def _dreamzero_perf_int(performance_options, name: str, default: int = 0) -> int
 
 def _dreamzero_attention_kwargs(performance_options=None) -> dict[str, object]:
     return {
-        "flash_attention_dense": _dreamzero_perf_bool(performance_options, "flash_attention_dense", False),
-        "flash_attention_dense_min_q": _dreamzero_perf_int(performance_options, "flash_attention_dense_min_q", 0),
+        "flash_attention_dense": _dreamzero_perf_bool(
+            performance_options, "flash_attention_dense", False
+        ),
+        "flash_attention_dense_min_q": _dreamzero_perf_int(
+            performance_options, "flash_attention_dense_min_q", 0
+        ),
         "flash_attention_dense_policy": _dreamzero_perf_str(
             performance_options, "flash_attention_dense_policy", "legacy_min_q"
         ),
         "cache_fa_lens": _dreamzero_perf_bool(performance_options, "cache_fa_lens", False),
-        "cache_fa_lens_clone": _dreamzero_perf_bool(performance_options, "cache_fa_lens_clone", False),
+        "cache_fa_lens_clone": _dreamzero_perf_bool(
+            performance_options, "cache_fa_lens_clone", False
+        ),
     }
 
 
@@ -172,12 +178,12 @@ def _dreamzero_make_qk_rmsnorm(dim: int, eps: float, performance_options=None) -
         except Exception as exc:
             _dreamzero_log_once(
                 "qk_rmsnorm_te_import_fail",
-                f"[dreamzero-rmsnorm] failed to import TransformerEngine RMSNorm; fall back to WanRMSNorm: {exc}",
+                f"[dreamzero-rmsnorm] failed to import TransformerEngine RMSNorm; fall back to WanRMSNorm: {exc}",  # noqa: E501
             )
             return WanRMSNorm(dim, eps=eps)
         _dreamzero_log_once(
             "qk_rmsnorm_te",
-            "[dreamzero-rmsnorm] qk_rmsnorm_impl=te, use TransformerEngine RMSNorm for self-attn q/k norms",
+            "[dreamzero-rmsnorm] qk_rmsnorm_impl=te, use TransformerEngine RMSNorm for self-attn q/k norms",  # noqa: E501
         )
         return te.RMSNorm(dim, eps=eps, params_dtype=torch.float32)
     _dreamzero_log_once(
@@ -221,7 +227,11 @@ def _dreamzero_compile_attn_parts(performance_options=None) -> set[str]:
     ).strip()
     if not raw or raw.lower() in {"all", "*"}:
         return set(_DREAMZERO_ATTN_DEFAULT_COMPILE_PARTS)
-    parts = {part.strip() for part in raw.replace(";", ",").split(",") if part.strip() in _DREAMZERO_ATTN_COMPILE_PARTS}
+    parts = {
+        part.strip()
+        for part in raw.replace(";", ",").split(",")
+        if part.strip() in _DREAMZERO_ATTN_COMPILE_PARTS
+    }
     return parts or set(_DREAMZERO_ATTN_DEFAULT_COMPILE_PARTS)
 
 
@@ -284,13 +294,17 @@ def _dreamzero_compile_callable(
         return fn
     _dreamzero_log_once(
         label,
-        f"[dreamzero-compile] wrapped {label} mode={kwargs.get('mode', 'default')} options={kwargs.get('options', {})}",
+        f"[dreamzero-compile] wrapped {label} mode={kwargs.get('mode', 'default')} options={kwargs.get('options', {})}",  # noqa: E501
     )
     return compiled
 
 
 def _dreamzero_get_block_norm_modulate_impl(dim: int, eps: float, performance_options=None):
-    impl_name = _dreamzero_perf_str(performance_options, "block_norm_modulate_impl", "compile").strip().lower()
+    impl_name = (
+        _dreamzero_perf_str(performance_options, "block_norm_modulate_impl", "compile")
+        .strip()
+        .lower()
+    )
     triton_warps = _dreamzero_perf_int(performance_options, "block_norm_modulate_triton_warps", 8)
     key = (int(dim), float(eps), impl_name, triton_warps)
     if key in _DREAMZERO_BLOCK_NORM_MODULATE_IMPL_CACHE:
@@ -319,7 +333,7 @@ def _dreamzero_get_block_norm_modulate_impl(dim: int, eps: float, performance_op
             impl = _triton_norm_modulate
             _dreamzero_log_once(
                 "triton_block_norm_modulate",
-                f"[dreamzero-triton] wrapped block norm+modulate dim={dim} eps={eps} num_warps={triton_warps}",
+                f"[dreamzero-triton] wrapped block norm+modulate dim={dim} eps={eps} num_warps={triton_warps}",  # noqa: E501
             )
             _DREAMZERO_BLOCK_NORM_MODULATE_IMPL_CACHE[key] = impl
             return impl
@@ -532,10 +546,12 @@ def causal_rope_action_apply_polar(
     if action_register_length is not None:
         assert action_register_length == (num_action_per_block + num_state_per_block)
         freqs_action = freqs_action[
-            action_state_index * num_action_per_block : (action_state_index + 1) * num_action_per_block
+            action_state_index * num_action_per_block : (action_state_index + 1)
+            * num_action_per_block
         ]
         freqs_state = freqs_state[
-            action_state_index * num_state_per_block : (action_state_index + 1) * num_state_per_block
+            action_state_index * num_state_per_block : (action_state_index + 1)
+            * num_state_per_block
         ]
         freqs_1d = torch.cat([freqs_action, freqs_state], dim=0).view(action_register_length, 1, -1)
         freqs = torch.cat([freqs, freqs_1d], dim=0)
@@ -576,7 +592,9 @@ class CausalWanSelfAttention(nn.Module):
         self.num_frame_per_block = num_frame_per_block
         self.qk_norm = qk_norm
         self.eps = eps
-        self.max_attention_size = 21 * frame_seqlen if local_attn_size == -1 else local_attn_size * frame_seqlen
+        self.max_attention_size = (
+            21 * frame_seqlen if local_attn_size == -1 else local_attn_size * frame_seqlen
+        )
         self.frame_seqlen = frame_seqlen
         self.num_action_per_block = num_action_per_block
         self.num_state_per_block = num_state_per_block
@@ -632,7 +650,7 @@ class CausalWanSelfAttention(nn.Module):
         enabled_parts = _dreamzero_compile_attn_parts(self._dreamzero_performance_options)
         _dreamzero_log_once(
             "compile_attn_parts",
-            f"[dreamzero-compile] causal attention compile parts={sorted(enabled_parts) if enabled_parts else []}",
+            f"[dreamzero-compile] causal attention compile parts={sorted(enabled_parts) if enabled_parts else []}",  # noqa: E501
         )
         for part, name in _DREAMZERO_ATTN_COMPILE_PARTS.items():
             if part not in enabled_parts:
@@ -760,7 +778,7 @@ class CausalWanSelfAttention(nn.Module):
             "compile_attn_warmup",
             "[dreamzero-compile] attention processor warmup enabled "
             f"frames={frames_list} blocks="
-            f"{sorted(_dreamzero_compile_attn_warmup_blocks(total_blocks, self._dreamzero_performance_options))} "
+            f"{sorted(_dreamzero_compile_attn_warmup_blocks(total_blocks, self._dreamzero_performance_options))} "  # noqa: E501
             f"parts={sorted(enabled_parts)} batch={batch} "
             f"backward={warmup_backward}; "
             "opt-in warmup",
@@ -955,7 +973,9 @@ class CausalWanSelfAttention(nn.Module):
 
             # Attend to previous and current image blocks
             if self.local_attn_size != -1:
-                image_kv_start = max(image_blocks_start, block_end - self.local_attn_size * frame_seqlen)
+                image_kv_start = max(
+                    image_blocks_start, block_end - self.local_attn_size * frame_seqlen
+                )
             else:
                 image_kv_start = image_blocks_start
             mask[block_start:block_end, image_kv_start:block_end] = True
@@ -979,9 +999,13 @@ class CausalWanSelfAttention(nn.Module):
             mask[action_block_start:action_block_end, first_image_start:first_image_end] = True
 
             # Attend to previous and current image blocks
-            image_block_end = image_blocks_start + (block_idx + 1) * num_frame_per_block * frame_seqlen
+            image_block_end = (
+                image_blocks_start + (block_idx + 1) * num_frame_per_block * frame_seqlen
+            )
             if self.local_attn_size != -1:
-                image_kv_start = max(image_blocks_start, image_block_end - self.local_attn_size * frame_seqlen)
+                image_kv_start = max(
+                    image_blocks_start, image_block_end - self.local_attn_size * frame_seqlen
+                )
             else:
                 image_kv_start = image_blocks_start
             mask[action_block_start:action_block_end, image_kv_start:image_block_end] = True
@@ -1037,7 +1061,7 @@ class CausalWanSelfAttention(nn.Module):
 
         Returns:
             Attention output [B, L, num_heads, head_dim]
-        """
+        """  # noqa: E501
         b, total_len, n, d = q.shape
 
         # Check if we have action/state tokens
@@ -1134,8 +1158,8 @@ class CausalWanSelfAttention(nn.Module):
                     f"Image blocks: [{image_blocks_start}:{image_blocks_end}] "
                     f"(len={image_blocks_len}, num_blocks={num_image_blocks})"
                 ),
-                f"Action tokens: [{action_start}:{action_end}] (len={action_len}, num_blocks={num_action_blocks})",
-                f"State tokens: [{state_start}:{state_end}] (len={state_len}, num_blocks={num_state_blocks})",
+                f"Action tokens: [{action_start}:{action_end}] (len={action_len}, num_blocks={num_action_blocks})",  # noqa: E501
+                f"State tokens: [{state_start}:{state_end}] (len={state_len}, num_blocks={num_state_blocks})",  # noqa: E501
                 f"Local attention size: {self.local_attn_size}",
                 "-" * 80,
             ]
@@ -1154,7 +1178,9 @@ class CausalWanSelfAttention(nn.Module):
                 lines.append(f"Attention mask (downsampled by {downsample}x):")
                 lines.append("Rows=Query tokens, Cols=Key tokens (1=can attend, .=cannot attend)")
                 for i in range(0, total_len, downsample):
-                    row = "".join(["1" if mask[i, j] else "." for j in range(0, total_len, downsample)])
+                    row = "".join(
+                        ["1" if mask[i, j] else "." for j in range(0, total_len, downsample)]
+                    )
                     lines.append(f"{i:4d}: {row}")
             logger.info("%s", "\n".join(lines))
 
@@ -1187,23 +1213,34 @@ class CausalWanSelfAttention(nn.Module):
 
         # Pre-compute all block indices for image blocks
         image_block_starts = [
-            image_blocks_start + i * num_frame_per_block * frame_seqlen for i in range(num_image_blocks)
+            image_blocks_start + i * num_frame_per_block * frame_seqlen
+            for i in range(num_image_blocks)
         ]
         image_block_ends = [
-            image_blocks_start + (i + 1) * num_frame_per_block * frame_seqlen for i in range(num_image_blocks)
+            image_blocks_start + (i + 1) * num_frame_per_block * frame_seqlen
+            for i in range(num_image_blocks)
         ]
         if self.local_attn_size != -1:
             image_kv_starts = [
-                max(image_blocks_start, end - self.local_attn_size * frame_seqlen) for end in image_block_ends
+                max(image_blocks_start, end - self.local_attn_size * frame_seqlen)
+                for end in image_block_ends
             ]
         else:
             image_kv_starts = [image_blocks_start] * num_image_blocks
 
         # Pre-compute action and state block indices
-        action_block_starts = [action_start + i * num_action_per_block for i in range(num_action_blocks)]
-        action_block_ends = [action_start + (i + 1) * num_action_per_block for i in range(num_action_blocks)]
-        state_block_starts = [state_start + i * num_state_per_block for i in range(num_state_blocks)]
-        state_block_ends = [state_start + (i + 1) * num_state_per_block for i in range(num_state_blocks)]
+        action_block_starts = [
+            action_start + i * num_action_per_block for i in range(num_action_blocks)
+        ]
+        action_block_ends = [
+            action_start + (i + 1) * num_action_per_block for i in range(num_action_blocks)
+        ]
+        state_block_starts = [
+            state_start + i * num_state_per_block for i in range(num_state_blocks)
+        ]
+        state_block_ends = [
+            state_start + (i + 1) * num_state_per_block for i in range(num_state_blocks)
+        ]
 
         # Process each image block
         for block_idx in range(num_image_blocks):
@@ -1235,7 +1272,9 @@ class CausalWanSelfAttention(nn.Module):
                 dim=1,
             )
 
-            output[:, block_start:block_end] = self.attn(q[:, block_start:block_end], k_context, v_context)
+            output[:, block_start:block_end] = self.attn(
+                q[:, block_start:block_end], k_context, v_context
+            )
 
         # Process each action block
         for block_idx in range(num_action_blocks):
@@ -1247,7 +1286,9 @@ class CausalWanSelfAttention(nn.Module):
 
             # Determine image context range
             if self.local_attn_size != -1:
-                image_kv_start = max(image_blocks_start, image_block_end - self.local_attn_size * frame_seqlen)
+                image_kv_start = max(
+                    image_blocks_start, image_block_end - self.local_attn_size * frame_seqlen
+                )
             else:
                 image_kv_start = image_blocks_start
 
@@ -1289,7 +1330,12 @@ class CausalWanSelfAttention(nn.Module):
         return output
 
     def _process_clean_image_only(
-        self, clean_image_q, clean_image_k, clean_image_v, clean_frames, out: torch.Tensor | None = None
+        self,
+        clean_image_q,
+        clean_image_k,
+        clean_image_v,
+        clean_frames,
+        out: torch.Tensor | None = None,
     ):
         """Process clean image blocks with causal attention pattern - OPTIMIZED
 
@@ -1334,7 +1380,9 @@ class CausalWanSelfAttention(nn.Module):
 
         return output
 
-    def _process_clean_image_blocks(self, clean_image_q, clean_image_k, clean_image_v, clean_frames):
+    def _process_clean_image_blocks(
+        self, clean_image_q, clean_image_k, clean_image_v, clean_frames
+    ):
         """Process clean image blocks after the first frame.
 
         This keeps the small first-frame self-attention eager while allowing the
@@ -1344,7 +1392,9 @@ class CausalWanSelfAttention(nn.Module):
         num_blocks = (clean_frames - 1) // self.num_frame_per_block
 
         if num_blocks == 0:
-            return clean_image_q[:, self.frame_seqlen :].new_empty(clean_image_q.shape[0], 0, *clean_image_q.shape[2:])
+            return clean_image_q[:, self.frame_seqlen :].new_empty(
+                clean_image_q.shape[0], 0, *clean_image_q.shape[2:]
+            )
 
         # OPTIMIZATION: Process all blocks together with causal masking
         # For global attention (no local_attn_size), we can process all blocks in one call
@@ -1372,7 +1422,9 @@ class CausalWanSelfAttention(nn.Module):
             q_block = clean_image_q[:, block_start:block_end]
 
             # Context: first frame + recent blocks within local_attn_size
-            image_kv_start = max(self.frame_seqlen, block_end - self.local_attn_size * self.frame_seqlen)
+            image_kv_start = max(
+                self.frame_seqlen, block_end - self.local_attn_size * self.frame_seqlen
+            )
             k_context = torch.cat(
                 [
                     clean_image_k[:, : self.frame_seqlen],  # First frame
@@ -1389,11 +1441,15 @@ class CausalWanSelfAttention(nn.Module):
             )
 
             block_output = self.attn(q_block, k_context, v_context)
-            output[:, block_start - self.frame_seqlen : block_end - self.frame_seqlen] = block_output
+            output[:, block_start - self.frame_seqlen : block_end - self.frame_seqlen] = (
+                block_output
+            )
 
         return output
 
-    def _process_state_blocks(self, state_q, state_k, state_v, state_horizon, out: torch.Tensor | None = None):
+    def _process_state_blocks(
+        self, state_q, state_k, state_v, state_horizon, out: torch.Tensor | None = None
+    ):
         """Process state blocks: self-attention only - OPTIMIZED
 
         OPTIMIZATION: State blocks only do self-attention within each block.
@@ -1466,7 +1522,7 @@ class CausalWanSelfAttention(nn.Module):
         Block i: attends to action[i] + state[i] + first_clean_frame + clean_blocks[0:i] + current_noisy_block
 
         OPTIMIZATION: Pre-allocate output, pre-compute indices, reduce memory allocations
-        """
+        """  # noqa: E501
         block_size = self.frame_seqlen * self.num_frame_per_block
         num_blocks = (half_frames - 1) // self.num_frame_per_block
 
@@ -1486,7 +1542,9 @@ class CausalWanSelfAttention(nn.Module):
 
         # Pre-compute all block indices to reduce loop overhead
         noisy_block_starts = [self.frame_seqlen + i * block_size for i in range(num_blocks)]
-        noisy_block_ends = [min(start + block_size, noisy_image_q.shape[1]) for start in noisy_block_starts]
+        noisy_block_ends = [
+            min(start + block_size, noisy_image_q.shape[1]) for start in noisy_block_starts
+        ]
         clean_context_ends = [self.frame_seqlen + i * block_size for i in range(num_blocks)]
         action_block_starts = [i * self.num_action_per_block for i in range(num_blocks)]
         action_block_ends = [start + self.num_action_per_block for start in action_block_starts]
@@ -1505,7 +1563,7 @@ class CausalWanSelfAttention(nn.Module):
 
             q_block = noisy_image_q[:, noisy_start:noisy_end]
 
-            # Build context: first_clean_frame + clean_blocks[0:i] + current_noisy_block + action[i] + state[i]
+            # Build context: first_clean_frame + clean_blocks[0:i] + current_noisy_block + action[i] + state[i]  # noqa: E501
             k_clean_slice = clean_image_k[:, :clean_end]
             k_noisy_slice = noisy_image_k[:, noisy_start:noisy_end]
             k_action_slice = noisy_action_k[:, action_start:action_end]
@@ -1559,7 +1617,7 @@ class CausalWanSelfAttention(nn.Module):
         Action block i: attends to first_clean_frame + clean_blocks[0:i] + noisy_image[i] + action[i] + state[i]
 
         OPTIMIZATION: Pre-allocate output, pre-compute indices, reduce memory allocations
-        """
+        """  # noqa: E501
         num_blocks = (half_frames - 1) // self.num_frame_per_block
 
         if num_blocks == 0:
@@ -1572,13 +1630,16 @@ class CausalWanSelfAttention(nn.Module):
         action_block_starts = [i * self.num_action_per_block for i in range(num_blocks)]
         action_block_ends = [start + self.num_action_per_block for start in action_block_starts]
         clean_context_ends = [
-            self.frame_seqlen + i * self.frame_seqlen * self.num_frame_per_block for i in range(num_blocks)
+            self.frame_seqlen + i * self.frame_seqlen * self.num_frame_per_block
+            for i in range(num_blocks)
         ]
         noisy_image_block_starts = [
-            self.frame_seqlen + i * self.frame_seqlen * self.num_frame_per_block for i in range(num_blocks)
+            self.frame_seqlen + i * self.frame_seqlen * self.num_frame_per_block
+            for i in range(num_blocks)
         ]
         noisy_image_block_ends = [
-            start + self.frame_seqlen * self.num_frame_per_block for start in noisy_image_block_starts
+            start + self.frame_seqlen * self.num_frame_per_block
+            for start in noisy_image_block_starts
         ]
         state_block_starts = [i * self.num_state_per_block for i in range(num_blocks)]
         state_block_ends = [start + self.num_state_per_block for start in state_block_starts]
@@ -1595,7 +1656,7 @@ class CausalWanSelfAttention(nn.Module):
 
             q_block = noisy_action_q[:, action_start:action_end]
 
-            # Build context: first_clean_frame + clean_blocks[0:i] + noisy_image[i] + action[i] + state[i]
+            # Build context: first_clean_frame + clean_blocks[0:i] + noisy_image[i] + action[i] + state[i]  # noqa: E501
             k_clean_slice = clean_image_k[:, :clean_end]
             k_noisy_slice = noisy_image_k[:, noisy_img_start:noisy_img_end]
             k_action_slice = noisy_action_k[:, action_start:action_end]
@@ -1655,20 +1716,20 @@ class CausalWanSelfAttention(nn.Module):
         )
         if use_context_parallel and kv_cache is not None:
             raise NotImplementedError(
-                "DreamZero context parallelism currently supports training paths only (kv_cache must be None)."
+                "DreamZero context parallelism currently supports training paths only (kv_cache must be None)."  # noqa: E501
             )
         if use_context_parallel:
             if n % cp_size != 0:
                 raise ValueError(
-                    f"DreamZero Ulysses requires num_heads ({n}) divisible by context_parallel_size ({cp_size})"
+                    f"DreamZero Ulysses requires num_heads ({n}) divisible by context_parallel_size ({cp_size})"  # noqa: E501
                 )
             if s % cp_size != 0:
                 raise ValueError(
-                    f"DreamZero Ulysses requires sequence length ({s}) divisible by context_parallel_size ({cp_size})"
+                    f"DreamZero Ulysses requires sequence length ({s}) divisible by context_parallel_size ({cp_size})"  # noqa: E501
                 )
             _dreamzero_log_once(
                 "context_parallel_attn",
-                f"[dreamzero-cp] enabled Ulysses self-attn all-to-all (context_parallel_size={cp_size})",
+                f"[dreamzero-cp] enabled Ulysses self-attn all-to-all (context_parallel_size={cp_size})",  # noqa: E501
             )
             q = sequence_to_head_parallel(q, cp_group)
             k = sequence_to_head_parallel(k, cp_group)
@@ -1757,7 +1818,9 @@ class CausalWanSelfAttention(nn.Module):
                 roped_query = torch.cat(roped_query, dim=1)
                 roped_key = torch.cat(roped_key, dim=1)
                 # Calculate sequence dimensions
-                half_seq_len = (s - (action_register_length if action_register_length is not None else 0)) // 2
+                half_seq_len = (
+                    s - (action_register_length if action_register_length is not None else 0)
+                ) // 2
 
                 if action_register_length is not None:
                     # Teacher forcing structure:
@@ -1776,7 +1839,9 @@ class CausalWanSelfAttention(nn.Module):
                     action_horizon = num_image_blocks * self.num_action_per_block
                     state_horizon = num_image_blocks * self.num_state_per_block
 
-                    expected_roped_len = half_seq_len + noisy_image_seq_len + action_horizon + state_horizon
+                    expected_roped_len = (
+                        half_seq_len + noisy_image_seq_len + action_horizon + state_horizon
+                    )
                     actual_roped_len = roped_query.shape[1]
 
                     # Block layout must match actual register length.
@@ -1786,9 +1851,9 @@ class CausalWanSelfAttention(nn.Module):
                             "Sequence length does not match block layout. "
                             "For 5B use 320x176 (e.g. data=dreamzero/droid_relative_wan22 or "
                             "image_resolution_width=320, image_resolution_height=176). "
-                            f"Got noisy_frames={noisy_frames}, num_image_blocks={num_image_blocks}, "
+                            f"Got noisy_frames={noisy_frames}, num_image_blocks={num_image_blocks}, "  # noqa: E501
                             f"action_register_length={action_register_length}. "
-                            "Ensure (noisy_frames - 1) // num_frame_per_block >= 1 and register length equals "
+                            "Ensure (noisy_frames - 1) // num_frame_per_block >= 1 and register length equals "  # noqa: E501
                             "num_blocks * (num_action_per_block + num_state_per_block)."
                         )
 
@@ -1799,21 +1864,36 @@ class CausalWanSelfAttention(nn.Module):
                     clean_image_v = v[:, :clean_image_seq_len]
 
                     # Noisy: [image tokens][action tokens][state tokens]
-                    noisy_image_q = roped_query[:, half_seq_len : half_seq_len + noisy_image_seq_len]
-                    noisy_action_q = roped_query[
-                        :, half_seq_len + noisy_image_seq_len : half_seq_len + noisy_image_seq_len + action_horizon
+                    noisy_image_q = roped_query[
+                        :, half_seq_len : half_seq_len + noisy_image_seq_len
                     ]
-                    noisy_state_q = roped_query[:, half_seq_len + noisy_image_seq_len + action_horizon :]
+                    noisy_action_q = roped_query[
+                        :,
+                        half_seq_len + noisy_image_seq_len : half_seq_len
+                        + noisy_image_seq_len
+                        + action_horizon,
+                    ]
+                    noisy_state_q = roped_query[
+                        :, half_seq_len + noisy_image_seq_len + action_horizon :
+                    ]
 
                     noisy_image_k = roped_key[:, half_seq_len : half_seq_len + noisy_image_seq_len]
                     noisy_action_k = roped_key[
-                        :, half_seq_len + noisy_image_seq_len : half_seq_len + noisy_image_seq_len + action_horizon
+                        :,
+                        half_seq_len + noisy_image_seq_len : half_seq_len
+                        + noisy_image_seq_len
+                        + action_horizon,
                     ]
-                    noisy_state_k = roped_key[:, half_seq_len + noisy_image_seq_len + action_horizon :]
+                    noisy_state_k = roped_key[
+                        :, half_seq_len + noisy_image_seq_len + action_horizon :
+                    ]
 
                     noisy_image_v = v[:, half_seq_len : half_seq_len + noisy_image_seq_len]
                     noisy_action_v = v[
-                        :, half_seq_len + noisy_image_seq_len : half_seq_len + noisy_image_seq_len + action_horizon
+                        :,
+                        half_seq_len + noisy_image_seq_len : half_seq_len
+                        + noisy_image_seq_len
+                        + action_horizon,
                     ]
                     noisy_state_v = v[:, half_seq_len + noisy_image_seq_len + action_horizon :]
 
@@ -1865,7 +1945,13 @@ class CausalWanSelfAttention(nn.Module):
 
                     # Concatenate all outputs in order: clean_img, noisy_img, noisy_act, noisy_state
                     x = torch.cat(
-                        [clean_image_outputs, noisy_image_outputs, noisy_action_outputs, noisy_state_outputs], dim=1
+                        [
+                            clean_image_outputs,
+                            noisy_image_outputs,
+                            noisy_action_outputs,
+                            noisy_state_outputs,
+                        ],
+                        dim=1,
                     )
                 else:
                     # No action/state tokens, fall back to simple image-only teacher forcing
@@ -1921,7 +2007,9 @@ class CausalWanSelfAttention(nn.Module):
 
                 # Calculate dynamic action and state horizons
                 if action_register_length is not None:
-                    chunk_size = action_register_length // (self.num_action_per_block + self.num_state_per_block)
+                    chunk_size = action_register_length // (
+                        self.num_action_per_block + self.num_state_per_block
+                    )
                     action_horizon = chunk_size * self.num_action_per_block
                     state_horizon = chunk_size * self.num_state_per_block
                 else:
@@ -1938,8 +2026,12 @@ class CausalWanSelfAttention(nn.Module):
                     self.num_frame_per_block,
                     action_horizon=action_horizon,
                     state_horizon=state_horizon,
-                    num_action_per_block=self.num_action_per_block if action_register_length else None,
-                    num_state_per_block=self.num_state_per_block if action_register_length else None,
+                    num_action_per_block=self.num_action_per_block
+                    if action_register_length
+                    else None,
+                    num_state_per_block=self.num_state_per_block
+                    if action_register_length
+                    else None,
                     visualize_mask=visualize,
                 )
 
@@ -1998,7 +2090,7 @@ class CausalWanSelfAttention(nn.Module):
             new_k = torch.cat([updated_k, roped_key], dim=1)
             new_v = torch.cat([updated_v, v], dim=1)
 
-            # We may need to truncate the KV cache if it's size is larger than the max attention size.
+            # We may need to truncate the KV cache if it's size is larger than the max attention size.  # noqa: E501
             new_k = new_k[:, -self.max_attention_size :]
             new_v = new_v[:, -self.max_attention_size :]
 
@@ -2090,8 +2182,12 @@ class CausalWanAttentionBlock(nn.Module):
             performance_options=performance_options,
             context_parallel_size=context_parallel_size,
         )
-        self.norm3 = WanLayerNorm(dim, eps, elementwise_affine=True) if cross_attn_norm else nn.Identity()
-        self.cross_attn = WAN_CROSSATTENTION_CLASSES[cross_attn_type](dim, num_heads, (-1, -1), qk_norm, eps)
+        self.norm3 = (
+            WanLayerNorm(dim, eps, elementwise_affine=True) if cross_attn_norm else nn.Identity()
+        )
+        self.cross_attn = WAN_CROSSATTENTION_CLASSES[cross_attn_type](
+            dim, num_heads, (-1, -1), qk_norm, eps
+        )
         self._cross_attn_impl = self.cross_attn.forward
         if _dreamzero_perf_bool(performance_options, "compile_causal_cross_attention", False):
             self._cross_attn_impl = _dreamzero_compile_callable(
@@ -2105,7 +2201,9 @@ class CausalWanAttentionBlock(nn.Module):
                 ),
             )
         self.norm2 = WanLayerNorm(dim, eps)
-        self.ffn = nn.Sequential(nn.Linear(dim, ffn_dim), nn.GELU(approximate="tanh"), nn.Linear(ffn_dim, dim))
+        self.ffn = nn.Sequential(
+            nn.Linear(dim, ffn_dim), nn.GELU(approximate="tanh"), nn.Linear(ffn_dim, dim)
+        )
         self._ffn_impl = self._ffn_forward
 
         # modulation
@@ -2147,7 +2245,7 @@ class CausalWanAttentionBlock(nn.Module):
         """
         e = (self.modulation.unsqueeze(1) + e).chunk(6, dim=2)
 
-        # Align modulation sequence length to x so mul/add broadcast (e.g. when F != L under compile)
+        # Align modulation sequence length to x so mul/add broadcast (e.g. when F != L under compile)  # noqa: E501
         L = x.shape[1]
         aligned = []
         for part in e:
@@ -2333,7 +2431,7 @@ class CausalWanModel(ModelMixin, ConfigMixin):
                 Enable cross-attention normalization
             eps (`float`, *optional*, defaults to 1e-6):
                 Epsilon value for normalization layers
-        """
+        """  # noqa: E501
 
         super().__init__()
 
@@ -2351,7 +2449,9 @@ class CausalWanModel(ModelMixin, ConfigMixin):
         self.out_dim = out_dim
         self.num_heads = num_heads
         self.num_layers = num_layers
-        self.local_attn_size = max_chunk_size * num_frame_per_block + 1 if max_chunk_size != -1 else -1
+        self.local_attn_size = (
+            max_chunk_size * num_frame_per_block + 1 if max_chunk_size != -1 else -1
+        )
         self.qk_norm = qk_norm
         self.cross_attn_norm = cross_attn_norm
         self.eps = eps
@@ -2392,9 +2492,13 @@ class CausalWanModel(ModelMixin, ConfigMixin):
 
         # embeddings
         self.patch_embedding = nn.Conv3d(in_dim, dim, kernel_size=patch_size, stride=patch_size)
-        self.text_embedding = nn.Sequential(nn.Linear(text_dim, dim), nn.GELU(approximate="tanh"), nn.Linear(dim, dim))
+        self.text_embedding = nn.Sequential(
+            nn.Linear(text_dim, dim), nn.GELU(approximate="tanh"), nn.Linear(dim, dim)
+        )
 
-        self.time_embedding = nn.Sequential(nn.Linear(freq_dim, dim), nn.SiLU(), nn.Linear(dim, dim))
+        self.time_embedding = nn.Sequential(
+            nn.Linear(freq_dim, dim), nn.SiLU(), nn.Linear(dim, dim)
+        )
         self.time_projection = nn.Sequential(nn.SiLU(), nn.Linear(dim, dim * 6))
 
         # blocks
@@ -2477,7 +2581,7 @@ class CausalWanModel(ModelMixin, ConfigMixin):
         - num_action_blocks = action_horizon // num_action_per_block
         - num_state_blocks = state_horizon // num_state_per_block
         - num_image_blocks = num_action_blocks + 1 = num_state_blocks + 1
-        """
+        """  # noqa: E501
         # Calculate block structure
         num_image_blocks = (num_frames - 1) // num_frame_per_block
         num_action_blocks = action_horizon // num_action_per_block
@@ -2487,7 +2591,9 @@ class CausalWanModel(ModelMixin, ConfigMixin):
         assert num_image_blocks == num_action_blocks, (
             f"image_blocks mismatch: {num_image_blocks} != {num_action_blocks}"
         )
-        assert num_image_blocks == num_state_blocks, f"image_blocks mismatch: {num_image_blocks} != {num_state_blocks}"
+        assert num_image_blocks == num_state_blocks, (
+            f"image_blocks mismatch: {num_image_blocks} != {num_state_blocks}"
+        )
 
         # Token ranges
         first_image_len = frame_seqlen  # First image (conditioning)
@@ -2499,7 +2605,15 @@ class CausalWanModel(ModelMixin, ConfigMixin):
         # Padding to multiple of 128
         # padded_length = math.ceil(total_length / 128) * 128 - total_length
         padded_length = (
-            math.ceil((local_attn_size * frame_seqlen + (local_attn_size - 1) + 32 * (local_attn_size - 1)) / 128) * 128
+            math.ceil(
+                (
+                    local_attn_size * frame_seqlen
+                    + (local_attn_size - 1)
+                    + 32 * (local_attn_size - 1)
+                )
+                / 128
+            )
+            * 128
             - total_length
         )
         total_padded_length = total_length + padded_length
@@ -2577,9 +2691,15 @@ class CausalWanModel(ModelMixin, ConfigMixin):
             # Action query
             # Action to image block: can attend to current and all previous image blocks
             action_to_image = q_is_action & kv_is_image_block & (kv_block <= q_block)
-            action_to_action = q_is_action & kv_is_action & (kv_block == q_block)  # Action to action: only same block
-            action_to_state = q_is_action & kv_is_state & (kv_block == q_block)  # Action to state: only same block
-            action_to_first = q_is_action & kv_is_first_image  # Action to first image: always allowed
+            action_to_action = (
+                q_is_action & kv_is_action & (kv_block == q_block)
+            )  # Action to action: only same block
+            action_to_state = (
+                q_is_action & kv_is_state & (kv_block == q_block)
+            )  # Action to state: only same block
+            action_to_first = (
+                q_is_action & kv_is_first_image
+            )  # Action to first image: always allowed
 
             action_mask = action_to_image | action_to_action | action_to_state | action_to_first
 
@@ -2621,19 +2741,31 @@ class CausalWanModel(ModelMixin, ConfigMixin):
         # padded_length = math.ceil(total_length / 128) * 128 - total_length
 
         clean_ends = num_frames * frame_seqlen
-        # for clean context frames, we can construct their flex attention mask based on a [start, end] interval
+        # for clean context frames, we can construct their flex attention mask based on a [start, end] interval  # noqa: E501
         context_ends = torch.zeros(total_length + padded_length, device=device, dtype=torch.long)
         # for noisy frames, we need two intervals to construct the flex attention mask
         # [context_start, context_end] [noisy_start, noisy_end]
-        noise_context_starts = torch.zeros(total_length + padded_length, device=device, dtype=torch.long)
-        noise_context_ends = torch.zeros(total_length + padded_length, device=device, dtype=torch.long)
-        noise_noise_starts = torch.zeros(total_length + padded_length, device=device, dtype=torch.long)
-        noise_noise_ends = torch.zeros(total_length + padded_length, device=device, dtype=torch.long)
+        noise_context_starts = torch.zeros(
+            total_length + padded_length, device=device, dtype=torch.long
+        )
+        noise_context_ends = torch.zeros(
+            total_length + padded_length, device=device, dtype=torch.long
+        )
+        noise_noise_starts = torch.zeros(
+            total_length + padded_length, device=device, dtype=torch.long
+        )
+        noise_noise_ends = torch.zeros(
+            total_length + padded_length, device=device, dtype=torch.long
+        )
 
-        # Block-wise causal mask will attend to all elements that are before the end of the current chunk
+        # Block-wise causal mask will attend to all elements that are before the end of the current chunk  # noqa: E501
         attention_block_size = frame_seqlen * num_frame_per_block
         frame_indices = torch.arange(
-            start=0, end=num_frames * frame_seqlen, step=attention_block_size, device=device, dtype=torch.long
+            start=0,
+            end=num_frames * frame_seqlen,
+            step=attention_block_size,
+            device=device,
+            dtype=torch.long,
         )
 
         # attention for clean context frames
@@ -2641,12 +2773,18 @@ class CausalWanModel(ModelMixin, ConfigMixin):
             context_ends[start : start + attention_block_size] = start + attention_block_size
 
         noisy_image_start_list = torch.arange(
-            num_frames * frame_seqlen, total_length, step=attention_block_size, device=device, dtype=torch.long
+            num_frames * frame_seqlen,
+            total_length,
+            step=attention_block_size,
+            device=device,
+            dtype=torch.long,
         )
         noisy_image_end_list = noisy_image_start_list + attention_block_size
 
         # attention for noisy frames
-        for block_index, (start, end) in enumerate(zip(noisy_image_start_list, noisy_image_end_list)):
+        for block_index, (start, end) in enumerate(
+            zip(noisy_image_start_list, noisy_image_end_list)
+        ):
             # attend to noisy tokens within the same block
             noise_noise_starts[start:end] = start
             noise_noise_ends[start:end] = end
@@ -2703,21 +2841,27 @@ class CausalWanModel(ModelMixin, ConfigMixin):
         # special handling for the first frame
         ends[:frame_seqlen] = frame_seqlen
 
-        # Block-wise causal mask will attend to all elements that are before the end of the current chunk
+        # Block-wise causal mask will attend to all elements that are before the end of the current chunk  # noqa: E501
         frame_indices = torch.arange(
-            start=frame_seqlen, end=total_length, step=frame_seqlen * num_frame_per_block, device=device
+            start=frame_seqlen,
+            end=total_length,
+            step=frame_seqlen * num_frame_per_block,
+            device=device,
         )
 
         for idx, tmp in enumerate(frame_indices):
-            ends[tmp : tmp + frame_seqlen * num_frame_per_block] = tmp + frame_seqlen * num_frame_per_block
+            ends[tmp : tmp + frame_seqlen * num_frame_per_block] = (
+                tmp + frame_seqlen * num_frame_per_block
+            )
 
         def attention_mask(b, h, q_idx, kv_idx):
             if local_attn_size == -1:
                 return (kv_idx < ends[q_idx]) | (q_idx == kv_idx)
             else:
-                return ((kv_idx < ends[q_idx]) & (kv_idx >= (ends[q_idx] - local_attn_size * frame_seqlen))) | (
-                    q_idx == kv_idx
-                )
+                return (
+                    (kv_idx < ends[q_idx])
+                    & (kv_idx >= (ends[q_idx] - local_attn_size * frame_seqlen))
+                ) | (q_idx == kv_idx)
 
         block_mask = create_block_mask(
             attention_mask,
@@ -2768,7 +2912,7 @@ class CausalWanModel(ModelMixin, ConfigMixin):
             action_length = 0
             action_register_length = None
 
-        # time embeddings: expand to exactly seq_len so e matches x (5B: frame_seqlen=50, 1 frame -> 50 tokens)
+        # time embeddings: expand to exactly seq_len so e matches x (5B: frame_seqlen=50, 1 frame -> 50 tokens)  # noqa: E501
         if F <= seq_len:
             repeat = (seq_len + F - 1) // F
             timestep = timestep.repeat_interleave(repeat, dim=1)[:, :seq_len]
@@ -2783,7 +2927,9 @@ class CausalWanModel(ModelMixin, ConfigMixin):
             timestep_state = timestep_action[:, ::stride]
             timestep = torch.cat([timestep, timestep_action, timestep_state], dim=1)
 
-        e = self.time_embedding(sinusoidal_embedding_1d(self.freq_dim, timestep.flatten()).type_as(x))
+        e = self.time_embedding(
+            sinusoidal_embedding_1d(self.freq_dim, timestep.flatten()).type_as(x)
+        )
         e = e.unflatten(dim=0, sizes=(B, -1))
         e0 = self.time_projection(e)
         e0 = e0.unflatten(dim=2, sizes=(6, self.dim))
@@ -2952,7 +3098,7 @@ class CausalWanModel(ModelMixin, ConfigMixin):
             assert clip_feature is not None and y is not None
         assert context.shape[1] == self.text_len
 
-        # Concat [x; y] only when pretrained that way (14B). 5B uses latent only, first-frame via CLIP.
+        # Concat [x; y] only when pretrained that way (14B). 5B uses latent only, first-frame via CLIP.  # noqa: E501
         if y is not None and self.concat_first_frame_latent:
             x = torch.cat([x, y.to(dtype=x.dtype)], dim=1)
 
@@ -3030,7 +3176,7 @@ class CausalWanModel(ModelMixin, ConfigMixin):
         if self.model_type == "i2v":
             assert clip_feature is not None and y is not None
 
-        # Concat [x; y] only when pretrained that way (14B). 5B uses latent only, first-frame via CLIP.
+        # Concat [x; y] only when pretrained that way (14B). 5B uses latent only, first-frame via CLIP.  # noqa: E501
         if y is not None and self.concat_first_frame_latent:
             x = torch.cat([x, y.to(dtype=x.dtype)], dim=1)
 
@@ -3076,7 +3222,9 @@ class CausalWanModel(ModelMixin, ConfigMixin):
             timestep_state = timestep_action[:, ::stride]
             timestep = torch.cat([timestep, timestep_action, timestep_state], dim=1)
 
-        e = self.time_embedding(sinusoidal_embedding_1d(self.freq_dim, timestep.flatten()).type_as(x))
+        e = self.time_embedding(
+            sinusoidal_embedding_1d(self.freq_dim, timestep.flatten()).type_as(x)
+        )
         e = e.unflatten(dim=0, sizes=(B, -1))
         e0 = self.time_projection(e)
         e0 = e0.unflatten(dim=2, sizes=(6, self.dim))
@@ -3102,7 +3250,9 @@ class CausalWanModel(ModelMixin, ConfigMixin):
                 aug_t = timestep.new_zeros(timestep_original_shape)
             assert aug_t is not None
 
-            e_clean = self.time_embedding(sinusoidal_embedding_1d(self.freq_dim, aug_t.flatten()).type_as(x))
+            e_clean = self.time_embedding(
+                sinusoidal_embedding_1d(self.freq_dim, aug_t.flatten()).type_as(x)
+            )
             e_clean = e_clean.unflatten(dim=0, sizes=timestep_original_shape)
             e0_clean = self.time_projection(e_clean)
             e0_clean = e0_clean.unflatten(dim=2, sizes=(6, self.dim))
@@ -3128,7 +3278,7 @@ class CausalWanModel(ModelMixin, ConfigMixin):
             cp_size = _dreamzero_context_parallel_world_size(cp_group)
             _dreamzero_log_once(
                 "context_parallel_blocks",
-                f"[dreamzero-cp] split DiT block tokens along sequence dimension (context_parallel_size={cp_size})",
+                f"[dreamzero-cp] split DiT block tokens along sequence dimension (context_parallel_size={cp_size})",  # noqa: E501
             )
             x = split_sequence_forward_gather_backward(x, cp_group, dim=1)
             e0 = split_sequence_forward_gather_backward(e0, cp_group, dim=1)

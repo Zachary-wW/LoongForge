@@ -85,7 +85,9 @@ class KimiK3TransformerLayer(TransformerLayer):
             block_residual = context
         elif layer_idx == 0:
             prefix_sum = hidden_states
-            block_residual = hidden_states.new_empty(*hidden_states.shape[:-1], 0, hidden_states.shape[-1])
+            block_residual = hidden_states.new_empty(
+                *hidden_states.shape[:-1], 0, hidden_states.shape[-1]
+            )
         else:
             if not self.is_stage_entry:
                 raise ValueError("AttnRes snapshot bank is missing")

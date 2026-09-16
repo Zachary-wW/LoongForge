@@ -121,7 +121,9 @@ def apply_chat_training_template(
                             "image_type": "image" if not is_video else "video",
                         }
                     else:
-                        downloaded_path = get_downloadable(image_item["image_url"], save_to_disk=save_to_disk)
+                        downloaded_path = get_downloadable(
+                            image_item["image_url"], save_to_disk=save_to_disk
+                        )
                         if isinstance(downloaded_path, bytes):
                             img = io.BytesIO(downloaded_path)
                             img = Image.open(img)
@@ -164,7 +166,11 @@ def apply_chat_training_template(
                         ## assistant - content
                         if "</think>" in sub_item["text"]:
                             reasoning_content = (
-                                sub_item["text"].split("</think>")[0].rstrip("\n").split("<think>")[-1].lstrip("\n")
+                                sub_item["text"]
+                                .split("</think>")[0]
+                                .rstrip("\n")
+                                .split("<think>")[-1]
+                                .lstrip("\n")
                             )
                             content = sub_item["text"].split("</think>")[-1].lstrip("\n")
                         else:
@@ -206,8 +212,12 @@ def apply_chat_training_template(
                                         "tag": sub_item["tag"],
                                     }
                                 )
-                                new_text_info.append({"text": tool_call["name"], "tag": sub_item["tag"]})
-                                new_text_info.append({"text": '", "arguments": ', "tag": sub_item["tag"]})
+                                new_text_info.append(
+                                    {"text": tool_call["name"], "tag": sub_item["tag"]}
+                                )
+                                new_text_info.append(
+                                    {"text": '", "arguments": ', "tag": sub_item["tag"]}
+                                )
                                 if isinstance(tool_call["arguments"], str):
                                     new_text_info.append(
                                         {
@@ -239,7 +249,9 @@ def apply_chat_training_template(
                             else:
                                 sub_item["text"] = json.dumps(sub_item["text"])
                             # If the previous one is not an image / video
-                            if sub_item_idx - 1 > 0 and not isinstance(item[sub_item_idx - 1], list):
+                            if sub_item_idx - 1 > 0 and not isinstance(
+                                item[sub_item_idx - 1], list
+                            ):
                                 new_text_info.append({"text": "\n<tool_output>\n", "tag": "mask"})
                             new_text_info.append(sub_item)
                             new_text_info.append({"text": "\n</tool_output>\n", "tag": "mask"})
@@ -257,13 +269,19 @@ def apply_chat_training_template(
             if not is_training and item_id == len(all_item_list) - 1:
                 pass
             else:
-                new_text_info.append({"text": sep_token, "tag": "no_mask", "text_type": "special_token"})
+                new_text_info.append(
+                    {"text": sep_token, "tag": "no_mask", "text_type": "special_token"}
+                )
                 if label == 0:
                     new_text_info[-1]["tag"] = "mask"
     video_start_cnt = len([1 for i in new_text_info if i["text"] == video_start_token])
     video_end_cnt = len([1 for i in new_text_info if i["text"] == video_end_token])
     image_start_cnt = len([1 for i in new_text_info if i["text"] == image_start_token])
     image_end_cnt = len([1 for i in new_text_info if i["text"] == image_end_token])
-    assert video_start_cnt == video_end_cnt, f"video_start_cnt: {video_start_cnt}, video_end_cnt: {video_end_cnt}"
-    assert image_start_cnt == image_end_cnt, f"image_start_cnt: {image_start_cnt}, image_end_cnt: {image_end_cnt}"
+    assert video_start_cnt == video_end_cnt, (
+        f"video_start_cnt: {video_start_cnt}, video_end_cnt: {video_end_cnt}"
+    )
+    assert image_start_cnt == image_end_cnt, (
+        f"image_start_cnt: {image_start_cnt}, image_end_cnt: {image_end_cnt}"
+    )
     return {"text_info": new_text_info, "image_info": new_image_info}

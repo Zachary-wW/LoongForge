@@ -13,7 +13,9 @@ from transformers.modeling_utils import SAFE_WEIGHTS_INDEX_NAME
 import json
 
 parser = argparse.ArgumentParser(description="Process some checkpoints.")
-parser.add_argument("--model_name", type=str, required=True, help="Supported model name: [wan2_2_i2v]")
+parser.add_argument(
+    "--model_name", type=str, required=True, help="Supported model name: [wan2_2_i2v]"
+)
 parser.add_argument(
     "--load_path",
     type=str,
@@ -167,9 +169,13 @@ for i in range(num_layers):
     new_state_dict["blocks." + str(i) + ".self_attn.v.bias"] = v_bias
 
     # Convert to o
-    linear_proj_weight = mcore_dict["decoder.layers." + str(i) + ".self_attention.linear_proj.weight"]
+    linear_proj_weight = mcore_dict[
+        "decoder.layers." + str(i) + ".self_attention.linear_proj.weight"
+    ]
     linear_proj_bias = mcore_dict["decoder.layers." + str(i) + ".self_attention.linear_proj.bias"]
-    linear_proj_weight = rearrange(linear_proj_weight, "(N R D) H -> (R N D) H", R=1, N=40, D=128, H=5120)
+    linear_proj_weight = rearrange(
+        linear_proj_weight, "(N R D) H -> (R N D) H", R=1, N=40, D=128, H=5120
+    )
     linear_proj_bias = rearrange(linear_proj_bias, "(N R D H) -> (R N D H)", R=1, N=40, D=128, H=1)
     new_state_dict["blocks." + str(i) + ".self_attn.o.weight"] = linear_proj_weight
     new_state_dict["blocks." + str(i) + ".self_attn.o.bias"] = linear_proj_bias
@@ -196,17 +202,29 @@ for i in range(num_layers):
     new_state_dict["blocks." + str(i) + ".cross_attn.v.bias"] = v_bias
 
     if model_name == "wan2_1_i2v":
-        cross_k_img_weight = mcore_dict["decoder.layers." + str(i) + ".cross_attn.linear_k_img.weight"]
-        cross_k_img_weight = rearrange(cross_k_img_weight, "(N R D) H -> (R N D) H", R=1, N=40, D=128, H=5120)
+        cross_k_img_weight = mcore_dict[
+            "decoder.layers." + str(i) + ".cross_attn.linear_k_img.weight"
+        ]
+        cross_k_img_weight = rearrange(
+            cross_k_img_weight, "(N R D) H -> (R N D) H", R=1, N=40, D=128, H=5120
+        )
         cross_k_img_bias = mcore_dict["decoder.layers." + str(i) + ".cross_attn.linear_k_img.bias"]
-        cross_k_img_bias = rearrange(cross_k_img_bias, "(N R D H) -> (R N D H)", R=1, N=40, D=128, H=1)
+        cross_k_img_bias = rearrange(
+            cross_k_img_bias, "(N R D H) -> (R N D H)", R=1, N=40, D=128, H=1
+        )
         new_state_dict["blocks." + str(i) + ".cross_attn.k_img.weight"] = cross_k_img_weight
         new_state_dict["blocks." + str(i) + ".cross_attn.k_img.bias"] = cross_k_img_bias
 
-        cross_v_img_weight = mcore_dict["decoder.layers." + str(i) + ".cross_attn.linear_v_img.weight"]
-        cross_v_img_weight = rearrange(cross_v_img_weight, "(N R D) H -> (R N D) H", R=1, N=40, D=128, H=5120)
+        cross_v_img_weight = mcore_dict[
+            "decoder.layers." + str(i) + ".cross_attn.linear_v_img.weight"
+        ]
+        cross_v_img_weight = rearrange(
+            cross_v_img_weight, "(N R D) H -> (R N D) H", R=1, N=40, D=128, H=5120
+        )
         cross_v_img_bias = mcore_dict["decoder.layers." + str(i) + ".cross_attn.linear_v_img.bias"]
-        cross_v_img_bias = rearrange(cross_v_img_bias, "(N R D H) -> (R N D H)", R=1, N=40, D=128, H=1)
+        cross_v_img_bias = rearrange(
+            cross_v_img_bias, "(N R D H) -> (R N D H)", R=1, N=40, D=128, H=1
+        )
         new_state_dict["blocks." + str(i) + ".cross_attn.v_img.weight"] = cross_v_img_weight
         new_state_dict["blocks." + str(i) + ".cross_attn.v_img.bias"] = cross_v_img_bias
 

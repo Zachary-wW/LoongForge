@@ -22,7 +22,9 @@ from loongforge.embodied.distributed.ddp_utils import fp8_a2a_comm as mod
 from loongforge.embodied.distributed.ddp_utils.ddp_comm_hook import resolve_comm_hook
 from loongforge.embodied.train.training_args import TrainingArgs
 
-requires_cuda = pytest.mark.skipif(not torch.cuda.is_available(), reason="fp8 a2a kernels require CUDA")
+requires_cuda = pytest.mark.skipif(
+    not torch.cuda.is_available(), reason="fp8 a2a kernels require CUDA"
+)
 
 
 class _FakeBucket:
@@ -197,8 +199,12 @@ def test_plan_fp32_gradients_halve_the_relative_cost():
 # --------------------------------------------------------------------------
 
 
-def _scratch_for(index, identity, numel, budget, world_size=8, block=256, device=torch.device("cpu")):
-    return mod._scratch_for(index, identity, numel, torch.bfloat16, device, world_size, block, budget)
+def _scratch_for(
+    index, identity, numel, budget, world_size=8, block=256, device=torch.device("cpu")
+):
+    return mod._scratch_for(
+        index, identity, numel, torch.bfloat16, device, world_size, block, budget
+    )
 
 
 def test_zero_budget_degrades_every_bucket():
@@ -362,7 +368,9 @@ def _run_two_rank_equivalence(rank, world_size, init_file):
     import torch.distributed as dist
 
     torch.cuda.set_device(rank)
-    dist.init_process_group("nccl", init_method=f"file://{init_file}", rank=rank, world_size=world_size)
+    dist.init_process_group(
+        "nccl", init_method=f"file://{init_file}", rank=rank, world_size=world_size
+    )
     try:
         device = torch.device("cuda", rank)
         numel = 1 << 20
@@ -383,7 +391,9 @@ def _run_two_rank_equivalence(rank, world_size, init_file):
         rel = (quantized.float() - reference).norm() / reference.norm()
         assert float(rel) < 0.08, f"rank={rank} rel_l2={float(rel)}"
         # A layout bug decorrelates the result instead of merely adding noise.
-        cos = torch.nn.functional.cosine_similarity(quantized.float().unsqueeze(0), reference.unsqueeze(0))
+        cos = torch.nn.functional.cosine_similarity(
+            quantized.float().unsqueeze(0), reference.unsqueeze(0)
+        )
         assert float(cos) > 0.995, f"rank={rank} cosine={float(cos)}"
 
         # The small-bucket fallback must stay bit-comparable to stock DDP.

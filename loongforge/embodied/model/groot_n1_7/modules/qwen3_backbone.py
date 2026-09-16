@@ -342,7 +342,9 @@ def _patch_qwen3vl_output_projection_dtypes(model: torch.nn.Module) -> int:
         patched += 1
 
     if patched:
-        logger.info("Patched %d Qwen3-VL output projection(s) to preserve fp32 residual dtype.", patched)
+        logger.info(
+            "Patched %d Qwen3-VL output projection(s) to preserve fp32 residual dtype.", patched
+        )
     return patched
 
 
@@ -452,7 +454,9 @@ def _patch_qwen3vl_cuda_graph_vision_metadata() -> bool:
     model_cls = getattr(qwen_mod, "Qwen3VLModel", None)
     if visual_cls is None or attention_cls is None or text_cls is None or model_cls is None:
         return False
-    if visual_cls.fast_pos_embed_interpolate.__dict__.get("_loongforge_cuda_graph_metadata_compat", False):
+    if visual_cls.fast_pos_embed_interpolate.__dict__.get(
+        "_loongforge_cuda_graph_metadata_compat", False
+    ):
         return False
 
     original_fast_pos_embed_interpolate = visual_cls.fast_pos_embed_interpolate
@@ -472,11 +476,15 @@ def _patch_qwen3vl_cuda_graph_vision_metadata() -> bool:
         pos_embeds = self.pos_embed(metadata.interpolation_indices)
         pos_embeds = pos_embeds * metadata.interpolation_weights[:, :, None]
         patch_pos_embeds = pos_embeds[0] + pos_embeds[1] + pos_embeds[2] + pos_embeds[3]
-        patch_pos_embeds = patch_pos_embeds.split([height * width for _, height, width in metadata.grid_signature])
+        patch_pos_embeds = patch_pos_embeds.split(
+            [height * width for _, height, width in metadata.grid_signature]
+        )
 
         merge_size = self.config.spatial_merge_size
         permuted = []
-        for pos_embed, (num_frames, height, width) in zip(patch_pos_embeds, metadata.grid_signature):
+        for pos_embed, (num_frames, height, width) in zip(
+            patch_pos_embeds, metadata.grid_signature
+        ):
             pos_embed = pos_embed.repeat(num_frames, 1)
             pos_embed = (
                 pos_embed.view(
@@ -554,11 +562,16 @@ def _patch_qwen3vl_cuda_graph_vision_metadata() -> bool:
                 **kwargs,
             )
         if not qwen_mod.is_flash_attention_requested(self.config):
-            raise RuntimeError("Cached Qwen3-VL vision metadata currently requires flash attention.")
+            raise RuntimeError(
+                "Cached Qwen3-VL vision metadata currently requires flash attention."
+            )
 
         sequence_length = hidden_states.shape[0]
         query_states, key_states, value_states = (
-            self.qkv(hidden_states).reshape(sequence_length, 3, self.num_heads, -1).permute(1, 0, 2, 3).unbind(0)
+            self.qkv(hidden_states)
+            .reshape(sequence_length, 3, self.num_heads, -1)
+            .permute(1, 0, 2, 3)
+            .unbind(0)
         )
         cos, sin = position_embeddings
         query_states, key_states = qwen_mod.apply_rotary_pos_emb_vision(
@@ -624,7 +637,9 @@ def _patch_qwen3vl_cuda_graph_vision_metadata() -> bool:
     ):
         by_pointer = self.__dict__.get("_loongforge_cuda_graph_image_tokens_by_pointer")
         expected_image_tokens = (
-            None if by_pointer is None or input_ids is None else by_pointer.get(input_ids.data_ptr())
+            None
+            if by_pointer is None or input_ids is None
+            else by_pointer.get(input_ids.data_ptr())
         )
         if expected_image_tokens is None:
             return original_get_placeholder_mask(
@@ -686,7 +701,9 @@ def _patch_qwen3vl_cuda_graph_vision_metadata() -> bool:
         cache_position=None,
         **kwargs,
     ):
-        masks_by_pointer = self.__dict__.get("_loongforge_cuda_graph_visual_pos_masks_by_pointer", {})
+        masks_by_pointer = self.__dict__.get(
+            "_loongforge_cuda_graph_visual_pos_masks_by_pointer", {}
+        )
         visual_pos_mask = None if input_ids is None else masks_by_pointer.get(input_ids.data_ptr())
         visual_indices = getattr(
             self.language_model,
@@ -776,9 +793,11 @@ def _patch_qwen3vl_cuda_graph_vision_metadata() -> bool:
 def _qwen3vl_grid_signature(grid_thw: torch.Tensor) -> tuple[tuple[int, int, int], ...]:
     if grid_thw.ndim != 2 or grid_thw.shape[1] != 3:
         raise RuntimeError(
-            f"Qwen3-VL CUDA graph requires image_grid_thw with shape [N, 3], got {tuple(grid_thw.shape)}."
+            f"Qwen3-VL CUDA graph requires image_grid_thw with shape [N, 3], got {tuple(grid_thw.shape)}."  # noqa: E501
         )
-    return tuple((int(row[0]), int(row[1]), int(row[2])) for row in grid_thw.detach().cpu().tolist())
+    return tuple(
+        (int(row[0]), int(row[1]), int(row[2])) for row in grid_thw.detach().cpu().tolist()
+    )
 
 
 def _cpu_tensor_content_key(tensor: torch.Tensor):
@@ -804,7 +823,7 @@ def _build_qwen3vl_vision_graph_metadata(
     for num_frames, height, width in grid_signature:
         if min(num_frames, height, width) <= 0:
             raise RuntimeError(
-                f"Qwen3-VL CUDA graph requires positive image grid dimensions, got {(num_frames, height, width)}."
+                f"Qwen3-VL CUDA graph requires positive image grid dimensions, got {(num_frames, height, width)}."  # noqa: E501
             )
         if height % merge_size or width % merge_size:
             raise RuntimeError(
@@ -856,7 +875,9 @@ def _build_qwen3vl_vision_graph_metadata(
 
     device = visual.pos_embed.weight.device
     dtype = visual.pos_embed.weight.dtype
-    vision_lengths = [height * width for num_frames, height, width in grid_signature for _ in range(num_frames)]
+    vision_lengths = [
+        height * width for num_frames, height, width in grid_signature for _ in range(num_frames)
+    ]
     cu_seqlens = torch.tensor(
         [0, *torch.tensor(vision_lengths, dtype=torch.int64).cumsum(0).tolist()],
         dtype=torch.int32,
@@ -879,7 +900,8 @@ def _build_qwen3vl_vision_graph_metadata(
         max_seqlen=max(vision_lengths),
         max_hw=max(max(height, width) for _, height, width in grid_signature),
         image_split_sizes=tuple(
-            num_frames * height * width // merge_size**2 for num_frames, height, width in grid_signature
+            num_frames * height * width // merge_size**2
+            for num_frames, height, width in grid_signature
         ),
     )
 
@@ -889,7 +911,9 @@ def _is_gated_repo_error(exc: BaseException) -> bool:
     for _ in range(10):
         if current is None:
             break
-        if isinstance(current, GatedRepoError) or any(marker in str(current).lower() for marker in _GATED_MARKERS):
+        if isinstance(current, GatedRepoError) or any(
+            marker in str(current).lower() for marker in _GATED_MARKERS
+        ):
             return True
         current = current.__cause__ or current.__context__
     return False
@@ -1150,7 +1174,9 @@ class Qwen3Backbone(torch.nn.Module):
             logger.info("Enabled reduction-order-compatible Qwen3-VL text RMSNorm fusion.")
         if _patch_qwen3_vl_fused_text_silu_mul():
             logger.info("Enabled dtype-rounding-compatible Qwen3-VL text MLP pointwise fusion.")
-        self._supports_mm_token_type_ids = _forward_has_explicit_arg(self.model, "mm_token_type_ids")
+        self._supports_mm_token_type_ids = _forward_has_explicit_arg(
+            self.model, "mm_token_type_ids"
+        )
 
         # needed since we don't use these layers. Also saves compute
         while len(self.language_model.layers) > select_layer:
@@ -1160,7 +1186,9 @@ class Qwen3Backbone(torch.nn.Module):
         if self._uses_transformers_5_compat:
             # Transformers 5.x packages the post-norm tensor as the final hidden
             # state, so capture the configured decoder block output explicitly.
-            self.language_model.layers[-1].register_forward_hook(self._capture_selected_layer_features)
+            self.language_model.layers[-1].register_forward_hook(
+                self._capture_selected_layer_features
+            )
 
         self.select_layer = select_layer
         self.set_trainable_parameters(tune_llm, tune_visual, tune_top_llm_layers)
@@ -1173,7 +1201,9 @@ class Qwen3Backbone(torch.nn.Module):
 
         self._skip_lm_head_enabled = True
         if self._skip_lm_head_enabled and _patch_qwen3vl_skip_unused_lm_head():
-            logger.info("Patched Qwen3-VL top-level forward to skip unused lm_head logits in GR00T training.")
+            logger.info(
+                "Patched Qwen3-VL top-level forward to skip unused lm_head logits in GR00T training."  # noqa: E501
+            )
         self._reset_rotary_inv_freq()
         self._apply_vision_patch_embed_channels_last()
 
@@ -1314,7 +1344,10 @@ class Qwen3Backbone(torch.nn.Module):
         inv_freq, _attention_scaling = recompute_text_rotary_inv_freq(rotary, text_config, device)
         changed = _assign_inv_freq(rotary, "inv_freq", inv_freq, persistent=False)
         if "original_inv_freq" in rotary.__dict__:
-            changed = _assign_inv_freq(rotary, "original_inv_freq", inv_freq.clone(), persistent=False) or changed
+            changed = (
+                _assign_inv_freq(rotary, "original_inv_freq", inv_freq.clone(), persistent=False)
+                or changed
+            )
         return changed
 
     def prepare_input(self, batch: dict) -> BatchFeature:
@@ -1404,12 +1437,16 @@ class Qwen3Backbone(torch.nn.Module):
         if signature is None:
             signature = _qwen3vl_grid_signature(image_grid_thw)
         visual = self.visual
-        by_signature = visual.__dict__.setdefault("_loongforge_cuda_graph_vision_metadata_by_signature", {})
+        by_signature = visual.__dict__.setdefault(
+            "_loongforge_cuda_graph_vision_metadata_by_signature", {}
+        )
         metadata = by_signature.get(signature)
         if metadata is None:
             metadata = _build_qwen3vl_vision_graph_metadata(visual, signature)
             by_signature[signature] = metadata
-        by_pointer = visual.__dict__.setdefault("_loongforge_cuda_graph_vision_metadata_by_pointer", {})
+        by_pointer = visual.__dict__.setdefault(
+            "_loongforge_cuda_graph_vision_metadata_by_pointer", {}
+        )
         by_pointer[image_grid_thw.data_ptr()] = metadata
         return metadata
 
@@ -1427,14 +1464,18 @@ class Qwen3Backbone(torch.nn.Module):
                     None,
                 )
                 if actual_image_tokens is None:
-                    actual_image_tokens = int((input_ids == self.model.config.image_token_id).sum().item())
+                    actual_image_tokens = int(
+                        (input_ids == self.model.config.image_token_id).sum().item()
+                    )
                 if actual_image_tokens != metadata.image_token_count:
                     raise RuntimeError(
                         "Qwen3-VL image token count does not match cached vision features: "
                         f"tokens={actual_image_tokens}, features={metadata.image_token_count}."
                     )
                 qwen_model = _unwrap_qwen_backbone(self.model)
-                tokens_by_pointer = qwen_model.__dict__.setdefault("_loongforge_cuda_graph_image_tokens_by_pointer", {})
+                tokens_by_pointer = qwen_model.__dict__.setdefault(
+                    "_loongforge_cuda_graph_image_tokens_by_pointer", {}
+                )
                 tokens_by_pointer[input_ids.data_ptr()] = actual_image_tokens
                 visual_indices = getattr(batch, "_loongforge_host_visual_indices", None)
                 visual_index_signature = getattr(
@@ -1458,7 +1499,9 @@ class Qwen3Backbone(torch.nn.Module):
                 if cached_visual_indices is None:
                     cached_visual_indices = visual_indices
                     visual_index_cache[visual_index_signature] = cached_visual_indices
-                self.language_model._loongforge_cuda_graph_visual_token_indices = cached_visual_indices
+                self.language_model._loongforge_cuda_graph_visual_token_indices = (
+                    cached_visual_indices
+                )
                 visual_masks_by_pointer = qwen_model.__dict__.setdefault(
                     "_loongforge_cuda_graph_visual_pos_masks_by_pointer", {}
                 )
@@ -1478,7 +1521,9 @@ class Qwen3Backbone(torch.nn.Module):
                 )
                 if mask_is_all_valid is None:
                     mask_is_all_valid = bool(attention_mask.bool().all().item())
-                mask_by_pointer = self.__dict__.setdefault("_loongforge_cuda_graph_attention_mask_all_by_pointer", {})
+                mask_by_pointer = self.__dict__.setdefault(
+                    "_loongforge_cuda_graph_attention_mask_all_by_pointer", {}
+                )
                 mask_by_pointer[attention_mask.data_ptr()] = mask_is_all_valid
 
     def validate_cuda_graph_batch(self, expected_batch, actual_batch) -> None:
@@ -1517,7 +1562,9 @@ class Qwen3Backbone(torch.nn.Module):
                 vl_input[optional_key] = source_input[optional_key]
         if self._supports_mm_token_type_ids:
             if "position_ids" not in vl_input and "mm_token_type_ids" not in vl_input:
-                mm_token_type_ids = _build_mm_token_type_ids(self.model.config, vl_input["input_ids"])
+                mm_token_type_ids = _build_mm_token_type_ids(
+                    self.model.config, vl_input["input_ids"]
+                )
                 position_ids = _build_qwen3vl_compat_position_ids(
                     self.model,
                     vl_input["input_ids"],
@@ -1538,7 +1585,9 @@ class Qwen3Backbone(torch.nn.Module):
         if cache_position is None:
             sequence_length = int(vl_input["input_ids"].shape[-1])
             cache_key = (vl_input["input_ids"].device, sequence_length)
-            cache_position = self.__dict__.setdefault("_loongforge_cache_positions", {}).get(cache_key)
+            cache_position = self.__dict__.setdefault("_loongforge_cache_positions", {}).get(
+                cache_key
+            )
             if cache_position is None:
                 cache_position = torch.arange(
                     sequence_length,
@@ -1547,7 +1596,9 @@ class Qwen3Backbone(torch.nn.Module):
                 )
                 self.__dict__["_loongforge_cache_positions"][cache_key] = cache_position
             vl_input["cache_position"] = cache_position
-        mask_by_pointer = self.__dict__.get("_loongforge_cuda_graph_attention_mask_all_by_pointer", {})
+        mask_by_pointer = self.__dict__.get(
+            "_loongforge_cuda_graph_attention_mask_all_by_pointer", {}
+        )
         if mask_by_pointer.get(attention_mask.data_ptr(), False):
             model_input = dict(vl_input)
             model_input["attention_mask"] = None

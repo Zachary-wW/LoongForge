@@ -70,7 +70,9 @@ def build_sft_dataset(args):
 
     print(f">>> Saved preprocessed dataset to {args.output_path} with total samples: {num_samples}")
     for i, split in enumerate(Split):
-        print(f">>> {split.name} samples: {len(dataset_dict[split.name]) if split.name in dataset_dict else 0}")
+        print(
+            f">>> {split.name} samples: {len(dataset_dict[split.name]) if split.name in dataset_dict else 0}"  # noqa: E501
+        )
 
     print(f"NOTE: Please run sft with `--data-path {args.output_path}` and `--is-tokenized-data`")
 
@@ -83,7 +85,10 @@ def _add_arguments(parser: argparse.ArgumentParser):
     group.add_argument("--seq-length", type=int, default=None, help="max sequence length")
 
     group.add_argument(
-        "--output-path", type=str, required=True, help="Output directory where the processed dataset will be saved"
+        "--output-path",
+        type=str,
+        required=True,
+        help="Output directory where the processed dataset will be saved",
     )
 
     group.add_argument(
@@ -140,7 +145,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
         "--additional-special-tokens",
         type=str,
         default=None,
-        help="Additional special tokens to add to the tokenizer. Use commas to separate multiple tokens",
+        help="Additional special tokens to add to the tokenizer. Use commas to separate multiple tokens",  # noqa: E501
     )
 
     group = parser.add_argument_group(title="extra-sft")
@@ -164,7 +169,7 @@ def _add_arguments(parser: argparse.ArgumentParser):
         "--sft-dataset-config",
         type=str,
         default=None,
-        help="A json file that contains the dataset configuration.default: configs/dataset_config.jsoin",
+        help="A json file that contains the dataset configuration.default: configs/dataset_config.jsoin",  # noqa: E501
     )
 
     group.add_argument(
@@ -174,7 +179,11 @@ def _add_arguments(parser: argparse.ArgumentParser):
         help="the dataset name should be defined in the dataset config file (--sft-dataset-config)",
     )
 
-    group.add_argument("--packing-sft-data", action="store_true", help="Whether to pack multiple sft data into one.")
+    group.add_argument(
+        "--packing-sft-data",
+        action="store_true",
+        help="Whether to pack multiple sft data into one.",
+    )
 
     group.add_argument(
         "--packing-buffer-size",
@@ -193,7 +202,11 @@ def _add_arguments(parser: argparse.ArgumentParser):
 
     group.add_argument("--image-resolution", type=int, help="Resolution of image inputs")
 
-    group.add_argument("--train-on-prompt", action="store_true", help="Whether compute loss on prompt. Default: False")
+    group.add_argument(
+        "--train-on-prompt",
+        action="store_true",
+        help="Whether compute loss on prompt. Default: False",
+    )
 
     group.add_argument(
         "--history-mask-loss",
@@ -201,7 +214,9 @@ def _add_arguments(parser: argparse.ArgumentParser):
         help="Only compute loss on last turn response, instead of full history. Default: False",
     )
 
-    group.add_argument("--eod-mask-loss", action="store_true", help="Mask loss for the end of document tokens.")
+    group.add_argument(
+        "--eod-mask-loss", action="store_true", help="Mask loss for the end of document tokens."
+    )
 
     group.add_argument(
         "--enable-discard-sample",
@@ -210,7 +225,9 @@ def _add_arguments(parser: argparse.ArgumentParser):
     )
 
     group = parser.add_argument_group(title="preprocess-runtime")
-    group.add_argument("--workers", type=int, required=True, help="Number of worker processes to launch.")
+    group.add_argument(
+        "--workers", type=int, required=True, help="Number of worker processes to launch."
+    )
     return parser
 
 
@@ -232,7 +249,9 @@ def parse_args():
 
     if args.sft_dataset_config is None:
         args.sft_dataset_config = get_default_sft_dataset_config()
-        assert args.sft_dataset_config is not None, "No default sft dataset config found, please specify one"
+        assert args.sft_dataset_config is not None, (
+            "No default sft dataset config found, please specify one"
+        )
 
     assert args.chat_template is not None, "chat_template not specified"
     template = ChatTemplate.from_name(args.chat_template)
@@ -249,7 +268,9 @@ def parse_args():
         print(f"Enable to pack multiple sft data with max length {args.seq_length} ...")
 
     if args.train_on_prompt and args.history_mask_loss:
-        raise ValueError("--train-on-prompt and --history-mask-loss cannot both be True at the same time")
+        raise ValueError(
+            "--train-on-prompt and --history-mask-loss cannot both be True at the same time"
+        )
 
     return args
 

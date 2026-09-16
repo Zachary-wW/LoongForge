@@ -80,7 +80,7 @@ class MoT(nn.Module):
         self._all_true_ctx_mask: Dict[tuple, bool] = {}
         if mot_checkpoint_mixed_attn:
             logger.info(
-                "Using gradient checkpointing for mixture attention. This will save memory but use more computation."
+                "Using gradient checkpointing for mixture attention. This will save memory but use more computation."  # noqa: E501
             )
 
         first_expert = self.mixtures[self.expert_order[0]]
@@ -92,19 +92,25 @@ class MoT(nn.Module):
             expert = self.mixtures[name]
             if len(expert.blocks) != self.num_layers:
                 raise ValueError(
-                    f"All experts must have same number of layers; got {self.num_layers} and {len(expert.blocks)}"
+                    f"All experts must have same number of layers; got {self.num_layers} and {len(expert.blocks)}"  # noqa: E501
                 )
             if expert.num_heads != self.num_heads:
-                raise ValueError(f"All experts must have same num_heads; got {self.num_heads} and {expert.num_heads}")
+                raise ValueError(
+                    f"All experts must have same num_heads; got {self.num_heads} and {expert.num_heads}"  # noqa: E501
+                )
             if expert.attn_head_dim != self.attn_head_dim:
                 raise ValueError(
-                    f"All experts must have same attn_head_dim; got {self.attn_head_dim} and {expert.attn_head_dim}"
+                    f"All experts must have same attn_head_dim; got {self.attn_head_dim} and {expert.attn_head_dim}"  # noqa: E501
                 )
 
-        logger.info(f"Initialized MoT with experts: {self.expert_order}, num_layers={self.num_layers}")
+        logger.info(
+            f"Initialized MoT with experts: {self.expert_order}, num_layers={self.num_layers}"
+        )
         for name in self.expert_order:
             expert = self.mixtures[name]
-            logger.info(f"  Expert '{name}': num_params={sum(p.numel() for p in expert.parameters()) / 1e9:.2f} B")
+            logger.info(
+                f"  Expert '{name}': num_params={sum(p.numel() for p in expert.parameters()) / 1e9:.2f} B"  # noqa: E501
+            )
 
         if compile_mot_blocks != "none":
             # The two units around mixed attention are the compilable part of a layer:
@@ -118,7 +124,9 @@ class MoT(nn.Module):
                     self._build_expert_attention_io, dynamic=compile_dynamic
                 )
             if compile_mot_blocks in ("post", "both"):
-                self._apply_expert_post_block = torch.compile(self._apply_expert_post_block, dynamic=compile_dynamic)
+                self._apply_expert_post_block = torch.compile(
+                    self._apply_expert_post_block, dynamic=compile_dynamic
+                )
             logger.info(
                 "[compile] torch.compile on MoT blocks=%s (dynamic=%s)",
                 compile_mot_blocks,
@@ -132,9 +140,11 @@ class MoT(nn.Module):
         chunk_dim = 2 if has_seq else 1
 
         base_mod = block.modulation.to(dtype=t_mod.dtype, device=t_mod.device)
-        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = (base_mod + t_mod).chunk(6, dim=chunk_dim)
+        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = (base_mod + t_mod).chunk(
+            6, dim=chunk_dim
+        )
         if has_seq:
-            # means t_mod has separate modulation for each token, otherwise same modulation for all tokens in the block
+            # means t_mod has separate modulation for each token, otherwise same modulation for all tokens in the block  # noqa: E501
             shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = (
                 shift_msa.squeeze(2),
                 scale_msa.squeeze(2),
@@ -234,7 +244,9 @@ class MoT(nn.Module):
             gate_mlp: Gating tensor for MLP residual branch.
             use_gradient_checkpointing: Whether this expert enables checkpointing.
         """
-        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = self._split_modulation(block, t_mod)
+        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = self._split_modulation(
+            block, t_mod
+        )
         attn_input = _norm_modulate(block.norm1, x, shift_msa, scale_msa)
 
         q = block.self_attn.norm_q(block.self_attn.q(attn_input))
@@ -358,9 +370,13 @@ class MoT(nn.Module):
         if "video" not in self.mixtures:
             raise ValueError("MoT requires `video` expert for `prefill_video_cache`.")
         if video_attention_mask.ndim != 2:
-            raise ValueError(f"`video_attention_mask` must be 2D [S,S], got shape {tuple(video_attention_mask.shape)}")
+            raise ValueError(
+                f"`video_attention_mask` must be 2D [S,S], got shape {tuple(video_attention_mask.shape)}"  # noqa: E501
+            )
         if video_attention_mask.shape[0] != video_attention_mask.shape[1]:
-            raise ValueError(f"`video_attention_mask` must be square, got shape {tuple(video_attention_mask.shape)}")
+            raise ValueError(
+                f"`video_attention_mask` must be square, got shape {tuple(video_attention_mask.shape)}"  # noqa: E501
+            )
         if video_attention_mask.shape[0] != video_tokens.shape[1]:
             raise ValueError(
                 "`video_attention_mask` seq length mismatch: "
@@ -441,11 +457,17 @@ class MoT(nn.Module):
         if "action" not in self.mixtures:
             raise ValueError("MoT requires `action` expert for `forward_action_with_video_cache`.")
         if len(video_kv_cache) != self.num_layers:
-            raise ValueError(f"`video_kv_cache` must contain {self.num_layers} layers, got {len(video_kv_cache)}.")
+            raise ValueError(
+                f"`video_kv_cache` must contain {self.num_layers} layers, got {len(video_kv_cache)}."  # noqa: E501
+            )
         if attention_mask.ndim != 2:
-            raise ValueError(f"`attention_mask` must be 2D [S,S], got shape {tuple(attention_mask.shape)}")
+            raise ValueError(
+                f"`attention_mask` must be 2D [S,S], got shape {tuple(attention_mask.shape)}"
+            )
         if attention_mask.shape[0] != attention_mask.shape[1]:
-            raise ValueError(f"`attention_mask` must be square, got shape {tuple(attention_mask.shape)}")
+            raise ValueError(
+                f"`attention_mask` must be square, got shape {tuple(attention_mask.shape)}"
+            )
 
         action_seq_len = int(action_tokens.shape[1])
         total_seq_len = int(video_seq_len) + action_seq_len
@@ -486,7 +508,9 @@ class MoT(nn.Module):
             k_video = layer_cache["k"]
             v_video = layer_cache["v"]
             if k_video.shape[1] != video_seq_len or v_video.shape[1] != video_seq_len:
-                raise ValueError(f"`video_kv_cache[{layer_idx}]` seq len mismatch, expected {video_seq_len}.")
+                raise ValueError(
+                    f"`video_kv_cache[{layer_idx}]` seq len mismatch, expected {video_seq_len}."
+                )
 
             # Mixed attention: action queries attend to cached video K/V plus current action K/V.
             k_cat = torch.cat([k_video, k_action], dim=1)
@@ -562,9 +586,13 @@ class MoT(nn.Module):
             raise ValueError(f"Missing expert t_mod for {missing}")
 
         if attention_mask.ndim != 2:
-            raise ValueError(f"`attention_mask` must be 2D [S, S], got shape {tuple(attention_mask.shape)}")
+            raise ValueError(
+                f"`attention_mask` must be 2D [S, S], got shape {tuple(attention_mask.shape)}"
+            )
         if attention_mask.shape[0] != attention_mask.shape[1]:
-            raise ValueError(f"`attention_mask` must be square, got shape {tuple(attention_mask.shape)}")
+            raise ValueError(
+                f"`attention_mask` must be square, got shape {tuple(attention_mask.shape)}"
+            )
 
         tokens_all = {k: v for k, v in embeds_all.items()}
 
@@ -625,10 +653,12 @@ class MoT(nn.Module):
             total_seq = q_cat.shape[1]
             if attention_mask.shape[0] != total_seq:
                 raise ValueError(
-                    f"Attention mask seq length mismatch: mask={attention_mask.shape[0]} vs tokens={total_seq}"
+                    f"Attention mask seq length mismatch: mask={attention_mask.shape[0]} vs tokens={total_seq}"  # noqa: E501
                 )
 
-            mixed = self._mixed_attention(q_cat=q_cat, k_cat=k_cat, v_cat=v_cat, attention_mask=attention_mask)
+            mixed = self._mixed_attention(
+                q_cat=q_cat, k_cat=k_cat, v_cat=v_cat, attention_mask=attention_mask
+            )
 
             start = 0
             for name, seq_len in zip(self.expert_order, seq_lens):

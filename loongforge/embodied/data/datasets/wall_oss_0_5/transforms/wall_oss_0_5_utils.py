@@ -98,7 +98,9 @@ def get_task_instruction(
             "distribute_zh": 0.25,
         }
     )
-    priority_order = OrderedDict(priority_order) if priority_order is not None else default_priority_order
+    priority_order = (
+        OrderedDict(priority_order) if priority_order is not None else default_priority_order
+    )
     got_instruction = False
     task_instruction = ""
     for key, prob in priority_order.items():
@@ -191,13 +193,18 @@ def get_wallx_normal_text(
         camera_name_mapping = camera_name_mapping or {}
         for _, cam_name in cam_mapping.items():
             view_name = camera_name_mapping.get(cam_name, cam_name)
-            user_request += f" {view_name}: {vision_start_symbol}{image_pad_symbol}{vision_end_symbol}"
+            user_request += (
+                f" {view_name}: {vision_start_symbol}{image_pad_symbol}{vision_end_symbol}"
+            )
     user_request += "\nInstruction:"
 
     frame_instruction_info, _ = get_frame_instruction(instruction_info, frame_idx=frame_idx)
     generate_subtask = False
     priority_keys = ["subtask_generation", "distribute"]
-    if bool(set(frame_instruction_info.keys()) & set(priority_keys)) and random.random() < generate_subtask_ratio:
+    if (
+        bool(set(frame_instruction_info.keys()) & set(priority_keys))
+        and random.random() < generate_subtask_ratio
+    ):
         instruction = frame_instruction_info.get("instruction", "")
         text_prompt = "\nPredict the next action in language.\n"
         user_message = f"{user_request} {instruction}{text_prompt}{role_end_symbol}\n"
@@ -210,11 +217,11 @@ def get_wallx_normal_text(
         generate_subtask = True
     else:
         instruction = get_task_instruction(frame_instruction_info, priority_order=priority_order)
-        text_prompt = f"\nPredict the next action in robot action.\nProprioception: {propri_symbol}\n"
-        user_message = f"{user_request} {instruction}{text_prompt}{role_end_symbol}\n"
-        assistant_output = (
-            f"{role_start_symbol}assistant\n{action_fast_symbol}{role_end_symbol}\n{action_symbol * action_chunk_size}"
+        text_prompt = (
+            f"\nPredict the next action in robot action.\nProprioception: {propri_symbol}\n"
         )
+        user_message = f"{user_request} {instruction}{text_prompt}{role_end_symbol}\n"
+        assistant_output = f"{role_start_symbol}assistant\n{action_fast_symbol}{role_end_symbol}\n{action_symbol * action_chunk_size}"  # noqa: E501
 
     return prologue + user_message + assistant_output, generate_subtask
 
@@ -265,7 +272,9 @@ def preprocesser_call(
         text = [text]
 
     if norm_state is not None:
-        norm_state = norm_state.cpu().numpy() if isinstance(norm_state, torch.Tensor) else norm_state
+        norm_state = (
+            norm_state.cpu().numpy() if isinstance(norm_state, torch.Tensor) else norm_state
+        )
         discretized = np.digitize(norm_state, bins=np.linspace(-1, 1, state_bins + 1)[:-1]) - 1
         discretized = discretized[:, 0, :]
         if agent_pos_mask is not None:
@@ -287,7 +296,9 @@ def preprocesser_call(
         for i in range(len(text)):
             while "<|image_pad|>" in text[i]:
                 if index >= len(image_grid_thw):
-                    logger.warning("More image placeholders than images; leaving extra placeholders unchanged")
+                    logger.warning(
+                        "More image placeholders than images; leaving extra placeholders unchanged"
+                    )
                     break
                 token_count = image_grid_thw[index].prod() // merge_length
                 text[i] = text[i].replace("<|image_pad|>", "<|placeholder|>" * token_count, 1)

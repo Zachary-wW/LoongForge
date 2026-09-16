@@ -115,7 +115,9 @@ class _Select(torch.autograd.Function):
 
 def get_select_ids(cp_rank: int, cp_size: int):
     """Get select ids for each gpu."""
-    return torch.tensor([cp_rank, (2 * cp_size - cp_rank - 1)], device="cpu", pin_memory=True).cuda(non_blocking=True)
+    return torch.tensor([cp_rank, (2 * cp_size - cp_rank - 1)], device="cpu", pin_memory=True).cuda(
+        non_blocking=True
+    )
 
 
 def get_inputs_on_this_cp_rank(val: Tensor, packed_seq_params=None):
@@ -150,7 +152,9 @@ def get_pos_emb_on_this_cp_rank(pos_emb: Tensor, seq_dim: int, packed_seq_params
         cp_rank = mpu.get_context_parallel_rank()
 
         cu_seqlens = packed_seq_params.cu_seqlens_q
-        seq_idx_val = tex.thd_get_partitioned_indices(cu_seqlens, pos_emb.shape[seq_dim], cp_size, cp_rank)
+        seq_idx_val = tex.thd_get_partitioned_indices(
+            cu_seqlens, pos_emb.shape[seq_dim], cp_size, cp_rank
+        )
         pos_emb = pos_emb.index_select(seq_dim, seq_idx_val)
 
         return pos_emb
@@ -168,8 +172,12 @@ def get_batch_on_this_cp_rank(batch: Dict):
 
         assert labels is not None and loss_mask is not None, "labels and loss_mask must in batch"
 
-        labels = get_inputs_on_this_cp_rank(labels.transpose(0, 1), packed_seq_params).transpose(0, 1)
-        loss_mask = get_inputs_on_this_cp_rank(loss_mask.transpose(0, 1), packed_seq_params).transpose(0, 1)
+        labels = get_inputs_on_this_cp_rank(labels.transpose(0, 1), packed_seq_params).transpose(
+            0, 1
+        )
+        loss_mask = get_inputs_on_this_cp_rank(
+            loss_mask.transpose(0, 1), packed_seq_params
+        ).transpose(0, 1)
 
         batch["labels"] = labels
         batch["loss_mask"] = loss_mask

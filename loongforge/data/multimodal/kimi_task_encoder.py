@@ -70,7 +70,10 @@ class KimiTaskEncoder(VLMTaskEncoder):
 
         # Get merge_kernel_size from processor config, default to [2, 2]
         merge_kernel_size = 2  # default
-        if hasattr(self.processor, "media_processor") and self.processor.media_processor is not None:
+        if (
+            hasattr(self.processor, "media_processor")
+            and self.processor.media_processor is not None
+        ):
             media_proc_cfg = getattr(self.processor.media_processor, "media_proc_cfg", {})
             if isinstance(media_proc_cfg, dict):
                 merge_kernel_size = media_proc_cfg.get("merge_kernel_size", 2)
@@ -133,7 +136,7 @@ class KimiTaskEncoder(VLMTaskEncoder):
                     visual_tokens += self._compute_image_tokens_from_grid_thw(thw)
             if visual_tokens > self.args.seq_length:
                 logging.warning(
-                    "discard sample %s: visual tokens %s > seq_length %s (video_grid_thw=%s, image_grid_thw=%s)",
+                    "discard sample %s: visual tokens %s > seq_length %s (video_grid_thw=%s, image_grid_thw=%s)",  # noqa: E501
                     sample.__key__,
                     visual_tokens,
                     self.args.seq_length,
@@ -425,7 +428,9 @@ class KimiTaskEncoder(VLMTaskEncoder):
 
     def encode_captioning(self, sample: CaptioningSample) -> BaseTaskSample:
         """Encode a captioning sample for a Kimi multimodal model."""
-        assert self.args.training_phase == constants.TrainingPhase.PRETRAIN, "Only support PRETRAIN phase"
+        assert self.args.training_phase == constants.TrainingPhase.PRETRAIN, (
+            "Only support PRETRAIN phase"
+        )
 
         # Format: <|media_begin|>image<|media_content|><|media_pad|><|media_end|>{caption}<eos>
         text = IMAGE_TOKEN_WITH_TAGS + sample.caption + self.tokenizer.tokenizer.eos_token
@@ -488,7 +493,9 @@ class KimiTaskEncoder(VLMTaskEncoder):
             total_len=len(input_ids),
         )
 
-    def process_sft_qa(self, messages: list, system: str, raw_video: list, raw_image: list, tools=None):
+    def process_sft_qa(
+        self, messages: list, system: str, raw_video: list, raw_image: list, tools=None
+    ):
         """Process multi-turn conversation data for Kimi SFT.
 
         Args:
@@ -531,7 +538,9 @@ class KimiTaskEncoder(VLMTaskEncoder):
 
         if raw_video is not None and "video_grid_thw" in mm_inputs:
             video_grid_thw = mm_inputs["video_grid_thw"]
-            pixel_values_videos = [mm_inputs.get("pixel_values_videos", mm_inputs.get("pixel_values"))]
+            pixel_values_videos = [
+                mm_inputs.get("pixel_values_videos", mm_inputs.get("pixel_values"))
+            ]
         if raw_image is not None and "image_grid_thw" in mm_inputs:
             image_grid_thw = mm_inputs["image_grid_thw"]
             pixel_values_images = [mm_inputs["pixel_values"]]
@@ -666,7 +675,9 @@ class KimiTaskEncoder(VLMTaskEncoder):
         and returns ``None``).
         """
         if self.args.training_phase != constants.TrainingPhase.SFT:
-            raise NotImplementedError(f"encode_chat_mix only supports SFT, got {self.args.training_phase}")
+            raise NotImplementedError(
+                f"encode_chat_mix only supports SFT, got {self.args.training_phase}"
+            )
 
         (
             input_ids,

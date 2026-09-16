@@ -104,7 +104,9 @@ def estimate_scene_support_surface(scene_depth, head_seq, K, targets_p_world, re
     if n_frames == 0 or len(targets) == 0:
         return None
 
-    frame_ids = np.unique(np.linspace(0, n_frames - 1, min(n_frames, SUPPORT_SURFACE_MAX_FRAMES), dtype=int))
+    frame_ids = np.unique(
+        np.linspace(0, n_frames - 1, min(n_frames, SUPPORT_SURFACE_MAX_FRAMES), dtype=int)
+    )
     h, w = depth.shape[1:]
     rows = np.arange(0, h, SUPPORT_SURFACE_PIXEL_STRIDE, dtype=int)
     cols = np.arange(0, w, SUPPORT_SURFACE_PIXEL_STRIDE, dtype=int)
@@ -177,7 +179,9 @@ def estimate_scene_support_surface(scene_depth, head_seq, K, targets_p_world, re
         if abs(normal[2]) < min_vertical_component:
             continue
         plane_d = -float(normal @ sample[0])
-        plane_z_at_targets = -(normal[0] * target_xy[0] + normal[1] * target_xy[1] + plane_d) / normal[2]
+        plane_z_at_targets = (
+            -(normal[0] * target_xy[0] + normal[1] * target_xy[1] + plane_d) / normal[2]
+        )
         plane_down = down_sign * plane_z_at_targets
         if plane_down < down_lo or plane_down > down_hi:
             continue
@@ -220,7 +224,9 @@ def estimate_scene_support_surface(scene_depth, head_seq, K, targets_p_world, re
 
     support_points = points[inliers]
     residual = support_points[:, 2] - (
-        support_points[:, 0] * coefficients[0] + support_points[:, 1] * coefficients[1] + coefficients[2]
+        support_points[:, 0] * coefficients[0]
+        + support_points[:, 1] * coefficients[1]
+        + coefficients[2]
     )
     rmse = float(np.sqrt(np.mean(residual**2)))
     centered_xy = support_points[:, :2] - support_points[:, :2].mean(axis=0)
@@ -303,7 +309,11 @@ def _print_progress(label, done, total, started, last_print, force=False, width=
     elapsed = max(now - started, 1e-6)
     rate = done / elapsed
     eta = (total - done) / rate if rate > 0 else float("inf")
-    eta_text = "--:--" if not np.isfinite(eta) else time.strftime("%H:%M:%S", time.gmtime(max(0, int(eta))))
+    eta_text = (
+        "--:--"
+        if not np.isfinite(eta)
+        else time.strftime("%H:%M:%S", time.gmtime(max(0, int(eta))))
+    )
     print(
         f"\r    {label} [{bar}] {done}/{total} {fraction:6.1%} {rate:6.1f}/s ETA {eta_text}",
         end="\n" if force else "",
@@ -355,7 +365,9 @@ def select_base_keyframes(targets_p_world, targets_R_world, max_keyframes=BASE_M
         selected.add(int(np.argmax(targets_p_world[:, axis])))
     if n > 1:
         pos_delta = np.linalg.norm(np.diff(targets_p_world, axis=0), axis=1)
-        rot_delta = np.array([_rotation_angle(targets_R_world[i], targets_R_world[i + 1]) for i in range(n - 1)])
+        rot_delta = np.array(
+            [_rotation_angle(targets_R_world[i], targets_R_world[i + 1]) for i in range(n - 1)]
+        )
         selected.add(int(np.argmax(pos_delta)) + 1)
         selected.add(int(np.argmax(rot_delta)) + 1)
 
@@ -369,8 +381,14 @@ def select_base_keyframes(targets_p_world, targets_R_world, max_keyframes=BASE_M
         pos_scale = max(float(np.ptp(targets_p_world, axis=0).max()), 1e-6)
         scores = []
         for i in remaining:
-            pos_score = np.min(np.linalg.norm(targets_p_world[i] - targets_p_world[chosen], axis=1)) / pos_scale
-            rot_score = np.min([_rotation_angle(targets_R_world[i], targets_R_world[j]) for j in chosen]) / np.pi
+            pos_score = (
+                np.min(np.linalg.norm(targets_p_world[i] - targets_p_world[chosen], axis=1))
+                / pos_scale
+            )
+            rot_score = (
+                np.min([_rotation_angle(targets_R_world[i], targets_R_world[j]) for j in chosen])
+                / np.pi
+            )
             scores.append(pos_score + 0.25 * rot_score)
         selected.add(remaining[int(np.argmax(scores))])
     return np.array(sorted(selected), dtype=int)
@@ -380,7 +398,9 @@ def _base_orientation_candidates(R_nominal):
     for pitch in BASE_PITCH_DEG:
         for yaw in BASE_YAW_DEG:
             for roll in BASE_ROLL_DEG:
-                delta = _rot_z(np.deg2rad(yaw)) @ _rot_y(np.deg2rad(pitch)) @ _rot_x(np.deg2rad(roll))
+                delta = (
+                    _rot_z(np.deg2rad(yaw)) @ _rot_y(np.deg2rad(pitch)) @ _rot_x(np.deg2rad(roll))
+                )
                 yield R_nominal @ delta, (pitch, yaw, roll)
 
 
@@ -519,7 +539,14 @@ def search_base_pose_original(
             successes += int(ok)
         return (successes / len(kf_p), float(np.mean(errors_pos)), float(np.mean(errors_rot)))
 
-    def make_record(base_pos, position_rate, mean_pos_error, feasibility_rate, mean_full_pos_error, mean_rot_error):
+    def make_record(
+        base_pos,
+        position_rate,
+        mean_pos_error,
+        feasibility_rate,
+        mean_full_pos_error,
+        mean_rot_error,
+    ):
         return {
             "base_pos": np.asarray(base_pos, dtype=float).copy(),
             "base_R": np.asarray(R_nominal, dtype=float).copy(),
@@ -530,7 +557,9 @@ def search_base_pose_original(
             "mean_pos_error": mean_full_pos_error,
             "position_mean_pos_error": mean_pos_error,
             "mean_rot_error": mean_rot_error,
-            "reach_ratio": float(np.mean(np.linalg.norm(kf_p - base_pos, axis=1)) / max(float(reach), 1e-6)),
+            "reach_ratio": float(
+                np.mean(np.linalg.norm(kf_p - base_pos, axis=1)) / max(float(reach), 1e-6)
+            ),
             "score": feasibility_rate,
         }
 
@@ -549,7 +578,9 @@ def search_base_pose_original(
                 if position_rate < DLS_POS_FEAS_GATE:
                     continue
                 feasibility, pose_error, rot_error = full_feasibility(base_pos)
-                record = make_record(base_pos, position_rate, position_error, feasibility, pose_error, rot_error)
+                record = make_record(
+                    base_pos, position_rate, position_error, feasibility, pose_error, rot_error
+                )
                 score = (feasibility, position_rate)
                 if best_score is None or score > best_score:
                     best_record, best_score = record, score
@@ -562,7 +593,9 @@ def search_base_pose_original(
             base_pos, _ = _snap_base_to_support(base_pos, support_surface)
         position_rate, position_error = position_feasibility(base_pos)
         feasibility, pose_error, rot_error = full_feasibility(base_pos)
-        best_record = make_record(base_pos, position_rate, position_error, feasibility, pose_error, rot_error)
+        best_record = make_record(
+            base_pos, position_rate, position_error, feasibility, pose_error, rot_error
+        )
     return [best_record], idx
 
 
@@ -643,7 +676,9 @@ def search_base_pose(
     lateral = np.array([-fwd[1], fwd[0], 0.0])
     lateral /= max(np.linalg.norm(lateral), 1e-8)
     reach = max(float(reach), 1e-6)
-    max_target_distance = BASE_TRAJ_MAX_REACH * reach if max_target_distance is None else float(max_target_distance)
+    max_target_distance = (
+        BASE_TRAJ_MAX_REACH * reach if max_target_distance is None else float(max_target_distance)
+    )
     if not np.isfinite(max_target_distance) or max_target_distance <= 0.0:
         raise ValueError("max_target_distance must be finite and positive")
     camera_pos = anchor if camera_pos is None else np.asarray(camera_pos, dtype=float)
@@ -652,7 +687,9 @@ def search_base_pose(
         search_mode == "balanced" and not bool(enable_base_orientation_search)
     )
     all_orientations = (
-        [(R_nominal, (0.0, 0.0, 0.0))] if fixed_base_orientation else list(_base_orientation_candidates(R_nominal))
+        [(R_nominal, (0.0, 0.0, 0.0))]
+        if fixed_base_orientation
+        else list(_base_orientation_candidates(R_nominal))
     )
     if search_mode == "slow":
         # The paper grid is still enumerated below.  Its expensive evaluation
@@ -660,11 +697,17 @@ def search_base_pose(
         # would duplicate most of the final work.
         screen_orientations = []
         position_shortlist = None
-        coarse_idx = select_base_keyframes(targets_p_world, targets_R_world, BASE_SLOW_COARSE_KEYFRAMES)
+        coarse_idx = select_base_keyframes(
+            targets_p_world, targets_R_world, BASE_SLOW_COARSE_KEYFRAMES
+        )
         eval_idx = coarse_idx
         eval_max_iter = BASE_SLOW_COARSE_MAX_ITER
     elif search_mode == "balanced":
-        screen_orientations = all_orientations if fixed_base_orientation else _screen_orientation_candidates(R_nominal)
+        screen_orientations = (
+            all_orientations
+            if fixed_base_orientation
+            else _screen_orientation_candidates(R_nominal)
+        )
         position_shortlist = BASE_POSITION_SHORTLIST_BALANCED
         eval_idx = idx
         eval_max_iter = 100
@@ -676,14 +719,20 @@ def search_base_pose(
     use_mink = ik_solver == "mink"
     position_solver = solve_arm_ik_position_only if use_mink else solve_arm_ik_position_only_dls
     pose_solver = solve_arm_ik if use_mink else solve_arm_ik_dls
-    screen_idx = select_base_keyframes(targets_p_world, targets_R_world, BASE_POSITION_SCREEN_KEYFRAMES)
+    screen_idx = select_base_keyframes(
+        targets_p_world, targets_R_world, BASE_POSITION_SCREEN_KEYFRAMES
+    )
     screen_p = targets_p_world[screen_idx]
 
     position_records = []
     forward_offsets = BASE_FORWARD if base_forward_offsets is None else tuple(base_forward_offsets)
     vertical_offsets = (0.0,) if support_surface is not None else BASE_VERTICAL
     screen_total = (
-        len(BASE_LATERAL) * len(forward_offsets) * len(vertical_offsets) * len(screen_orientations) * len(screen_p)
+        len(BASE_LATERAL)
+        * len(forward_offsets)
+        * len(vertical_offsets)
+        * len(screen_orientations)
+        * len(screen_p)
     )
     screen_done = 0
     screen_started = time.perf_counter()
@@ -691,7 +740,12 @@ def search_base_pose(
     for lat in BASE_LATERAL:
         for forward in forward_offsets:
             for vertical in vertical_offsets:
-                base_pos = anchor + lateral * (sign * lat * reach) + fwd * (forward * reach) + up * (vertical * reach)
+                base_pos = (
+                    anchor
+                    + lateral * (sign * lat * reach)
+                    + fwd * (forward * reach)
+                    + up * (vertical * reach)
+                )
                 if support_surface is not None:
                     base_pos, _ = _snap_base_to_support(base_pos, support_surface)
                 camera_dist = float(np.linalg.norm(base_pos - camera_pos))
@@ -738,7 +792,9 @@ def search_base_pose(
                                 screen_last_print,
                             )
                         screen_results.append((successes, float(np.mean(errors))))
-                    best_successes, best_mean_error = max(screen_results, key=lambda x: (x[0], -x[1]))
+                    best_successes, best_mean_error = max(
+                        screen_results, key=lambda x: (x[0], -x[1])
+                    )
                 distances = np.linalg.norm(kf_p - base_pos, axis=1)
                 position_records.append(
                     {
@@ -750,7 +806,12 @@ def search_base_pose(
                 )
     if screen_total:
         _print_progress(
-            "base_search position screen", screen_total, screen_total, screen_started, screen_last_print, force=True
+            "base_search position screen",
+            screen_total,
+            screen_total,
+            screen_started,
+            screen_last_print,
+            force=True,
         )
 
     if not position_records:
@@ -837,7 +898,14 @@ def search_base_pose(
                 "base_search coarse", coarse_done, coarse_total, coarse_started, coarse_last_print
             )
     if coarse_total:
-        _print_progress("base_search coarse", coarse_total, coarse_total, coarse_started, coarse_last_print, force=True)
+        _print_progress(
+            "base_search coarse",
+            coarse_total,
+            coarse_total,
+            coarse_started,
+            coarse_last_print,
+            force=True,
+        )
 
     if search_mode == "slow":
         # Refine only the strongest candidates with the full A.4 keyframe set.
@@ -886,7 +954,12 @@ def search_base_pose(
             )
         if refine_total:
             _print_progress(
-                "base_search refine", refine_total, refine_total, refine_started, refine_last_print, force=True
+                "base_search refine",
+                refine_total,
+                refine_total,
+                refine_started,
+                refine_last_print,
+                force=True,
             )
         records = refined
     records = _sort_base_records(records)
@@ -922,8 +995,18 @@ def _cross_arm_collision_metrics(model, data):
     min_distance = float("inf")
     for i in range(data.ncon):
         contact = data.contact[i]
-        body1 = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, int(model.geom_bodyid[contact.geom1])) or ""
-        body2 = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, int(model.geom_bodyid[contact.geom2])) or ""
+        body1 = (
+            mujoco.mj_id2name(
+                model, mujoco.mjtObj.mjOBJ_BODY, int(model.geom_bodyid[contact.geom1])
+            )
+            or ""
+        )
+        body2 = (
+            mujoco.mj_id2name(
+                model, mujoco.mjtObj.mjOBJ_BODY, int(model.geom_bodyid[contact.geom2])
+            )
+            or ""
+        )
         if not _is_cross_arm_pair(body1, body2):
             continue
         distance = float(contact.dist)
@@ -948,8 +1031,18 @@ def _quality_collision_metrics(model, data):
     cross_penetration = 0.0
     for i in range(data.ncon):
         contact = data.contact[i]
-        body1 = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, int(model.geom_bodyid[contact.geom1])) or ""
-        body2 = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, int(model.geom_bodyid[contact.geom2])) or ""
+        body1 = (
+            mujoco.mj_id2name(
+                model, mujoco.mjtObj.mjOBJ_BODY, int(model.geom_bodyid[contact.geom1])
+            )
+            or ""
+        )
+        body2 = (
+            mujoco.mj_id2name(
+                model, mujoco.mjtObj.mjOBJ_BODY, int(model.geom_bodyid[contact.geom2])
+            )
+            or ""
+        )
         left_pair = body1.startswith("left_") and body2.startswith("left_")
         right_pair = body1.startswith("right_") and body2.startswith("right_")
         distance = float(contact.dist)
@@ -1030,7 +1123,9 @@ def _collision_branch_repair(
         # random restarts are not enough when both wrists target the same
         # small workspace, so sample a deterministic, bounded branch set only
         # for frames that already collide.
-        seeds.extend(random_seed(frame_idx, salt + i) for i in range(BASE_COLLISION_REPAIR_RESTARTS))
+        seeds.extend(
+            random_seed(frame_idx, salt + i) for i in range(BASE_COLLISION_REPAIR_RESTARTS)
+        )
         out = []
         for seed_idx, seed in enumerate(seeds):
             continuity_q = arm_seed(current) if seed_idx == 0 else None
@@ -1055,7 +1150,9 @@ def _collision_branch_repair(
     for t in range(len(qpos_all)):
         data.qpos[:] = qpos_all[t]
         mujoco.mj_forward(dual, data)
-        contacts, current_penetration, current_min_distance = _cross_arm_collision_metrics(dual, data)
+        contacts, current_penetration, current_min_distance = _cross_arm_collision_metrics(
+            dual, data
+        )
         if not contacts:
             continue
         checked += 1
@@ -1065,7 +1162,13 @@ def _collision_branch_repair(
             left_targets_p[t], left_targets_R[t], left_base_pos, left_base_R, left_current, t, 11
         )
         right_options = solve_candidates(
-            right_targets_p[t], right_targets_R[t], right_base_pos, right_base_R, right_current, t, 29
+            right_targets_p[t],
+            right_targets_R[t],
+            right_base_pos,
+            right_base_R,
+            right_current,
+            t,
+            29,
         )
 
         candidates = []
@@ -1098,7 +1201,14 @@ def _collision_branch_repair(
                 )
 
         chosen = min(candidates, key=lambda x: x[:6])
-        current_penalty = (contacts, current_penetration, -current_min_distance, True, float("inf"), float("inf"))
+        current_penalty = (
+            contacts,
+            current_penetration,
+            -current_min_distance,
+            True,
+            float("inf"),
+            float("inf"),
+        )
         if chosen[:6] < current_penalty:
             _, _, _, _, _, _, q_candidate, left, right = chosen
             qpos_all[t] = q_candidate
@@ -1110,7 +1220,9 @@ def _collision_branch_repair(
             repaired += 1
 
     if checked:
-        print(f"    cross-arm collision repair: checked={checked} collision frames, repaired={repaired}")
+        print(
+            f"    cross-arm collision repair: checked={checked} collision frames, repaired={repaired}"  # noqa: E501
+        )
     return repaired
 
 
@@ -1149,7 +1261,11 @@ def _evaluate_base_pair_collisions(
         )
     )
     if len(frame_idx) > BASE_PAIR_COLLISION_MAX_KEYFRAMES:
-        picks = np.linspace(0, len(frame_idx) - 1, BASE_PAIR_COLLISION_MAX_KEYFRAMES).round().astype(int)
+        picks = (
+            np.linspace(0, len(frame_idx) - 1, BASE_PAIR_COLLISION_MAX_KEYFRAMES)
+            .round()
+            .astype(int)
+        )
         frame_idx = frame_idx[picks]
 
     dual = build_dual_model(

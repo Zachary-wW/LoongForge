@@ -839,7 +839,9 @@ class ImageEnhance:
         ] + meta_info["image_info"][0]["image_enhance_augs"]
         return meta_info
 
-    def generate_augment_strategies(self, meta_info, dataset_type, random_seed, operator_types=None):
+    def generate_augment_strategies(
+        self, meta_info, dataset_type, random_seed, operator_types=None
+    ):
         """generate augment strategies"""
         if operator_types is None:
             operator_types = []
@@ -853,16 +855,20 @@ class ImageEnhance:
             operator_types = copy.deepcopy(operator_types)
 
             if "transform" in operator_types:
-                assert dataset_type == "image-text_location-pair", "transform only support image-text_location-pair"
+                assert dataset_type == "image-text_location-pair", (
+                    "transform only support image-text_location-pair"
+                )
                 assert len(meta_info["image_info"]) == 1, (
-                    f"transform only support single image, now we have {len(meta_info['image_info'])} images"
+                    f"transform only support single image, now we have {len(meta_info['image_info'])} images"  # noqa: E501
                 )
 
             transform_augs = None
             for image_info in meta_info["image_info"]:
                 augs = []
                 for operator_type in operator_types:
-                    assert operator_type in self.func_map, f"operator {operator_type} is not supported"
+                    assert operator_type in self.func_map, (
+                        f"operator {operator_type} is not supported"
+                    )
                     if operator_type == "transform":
                         assert transform_augs is None, "one sample can only have one transform_augs"
                         transform_augs = self.func_map[operator_type]()

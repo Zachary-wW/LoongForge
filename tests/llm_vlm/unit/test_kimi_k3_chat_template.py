@@ -20,7 +20,9 @@ def plugin(name: str):
 
 def test_k3_placeholder_carries_the_image_size():
     text = plugin("kimi-k3-hf")._build_image_placeholder(3, (448, 336))
-    assert text == ("<|media_begin|>image 448x336<|media_content|><|media_content|><|media_content|><|media_end|>")
+    assert text == (
+        "<|media_begin|>image 448x336<|media_content|><|media_content|><|media_content|><|media_end|>"  # noqa: E501
+    )
 
 
 def test_k3_placeholder_needs_the_image_size():

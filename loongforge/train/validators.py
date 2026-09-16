@@ -87,7 +87,9 @@ def _validate_extra_model_args(args, config):
         # Collect dataclass field names from the config _target_ class (if resolvable)
         # to allow YAML-only fields through even when not in argparse namespace.
         _config_class_fields = set()
-        _target = config.get("_target_") if hasattr(config, "get") else getattr(config, "_target_", None)
+        _target = (
+            config.get("_target_") if hasattr(config, "get") else getattr(config, "_target_", None)
+        )
         if _target:
             try:
                 import importlib
@@ -114,7 +116,9 @@ def _validate_extra_model_args(args, config):
     if args.model_family == constants.VisionLanguageModelFamilies.QWEN3_VL:
         required = PkgVersion("4.57.1")
         current = get_transformers_version()
-        assert current >= required, f"transformers>={required} required for qwen3-vl, found {current}"
+        assert current >= required, (
+            f"transformers>={required} required for qwen3-vl, found {current}"
+        )
 
     if args.enable_fa_within_mla:
         args.attention_backend = AttnBackend.flash
@@ -135,7 +139,9 @@ def _validate_extra_tokenizer_args(args):
         print_rank_0(f"Configure tokenizer to {args.tokenizer_type}", args.rank)
 
     if args.additional_special_tokens is not None:
-        args.additional_special_tokens = [token.strip() for token in args.additional_special_tokens.split(",")]
+        args.additional_special_tokens = [
+            token.strip() for token in args.additional_special_tokens.split(",")
+        ]
 
 
 def _validate_extra_sft_args(args):
@@ -153,7 +159,9 @@ def _validate_extra_sft_args(args):
         raise ValueError("--chat-template is required when training phase is sft")
 
     if args.train_on_prompt and args.history_mask_loss:
-        raise ValueError("--train-on-prompt and --history-mask-loss cannot both be True at the same time")
+        raise ValueError(
+            "--train-on-prompt and --history-mask-loss cannot both be True at the same time"
+        )
 
     if args.sft_dataset_config is None:
         # set default sft-dataset-config
@@ -161,12 +169,12 @@ def _validate_extra_sft_args(args):
         if default_config is not None:
             args.sft_dataset_config = default_config
             print_rank_0(
-                f"WARNING: --sft-dataset-config is not specified, setup to default config ({default_config})",
+                f"WARNING: --sft-dataset-config is not specified, setup to default config ({default_config})",  # noqa: E501
                 args.rank,
             )
         else:
             raise ValueError(
-                "--sft-dataset-config is not specified, and the default config does not exist, please setup it"
+                "--sft-dataset-config is not specified, and the default config does not exist, please setup it"  # noqa: E501
             )
     if args.sft_data_streaming:
         assert args.sft_sort_batch is None or not args.sft_sort_batch, (
@@ -176,7 +184,7 @@ def _validate_extra_sft_args(args):
     if args.use_fixed_seq_lengths:
         args.variable_seq_lengths = False
     else:
-        # Defaults to True but enforced as fixed-length for specific features (e.g., tp-comm-overlap/ moe allgather)
+        # Defaults to True but enforced as fixed-length for specific features (e.g., tp-comm-overlap/ moe allgather)  # noqa: E501
         args.variable_seq_lengths = True
         if args.tp_comm_overlap:
             # tp_comm_overlap requires fixed-length
@@ -199,7 +207,10 @@ def _validate_extra_sft_args(args):
             )
 
         if args.context_parallel_size > 1:
-            if args.context_parallel_ulysses_degree < args.context_parallel_size and args.cp_comm_type == "allgather":
+            if (
+                args.context_parallel_ulysses_degree < args.context_parallel_size
+                and args.cp_comm_type == "allgather"
+            ):
                 args.cp_comm_type = "p2p"
                 print_rank_0(
                     "WARNING: Setting args.cp_comm_type to p2p since ring attention "
@@ -283,7 +294,7 @@ def _validate_extra_sft_args(args):
         vpp = args.num_virtual_stages_per_pipeline_rank or 1
         if vpp != 1 and attn_dp != expert_dp:
             raise NotImplementedError(
-                f"SFT chunkpipe with virtual pipeline parallelism (vpp={vpp}) is temporarily not supported "
+                f"SFT chunkpipe with virtual pipeline parallelism (vpp={vpp}) is temporarily not supported "  # noqa: E501
                 f"when attn_dp ({attn_dp}) != expert_dp ({expert_dp}). "
                 f"Please set vpp=1, or ensure attn_dp == expert_dp."
             )
@@ -321,12 +332,14 @@ def _validate_extra_training_args(args):
                 "since the scheme relies on S/TP partitioning."
             )
         print_rank_0(
-            "INFO: --use-dsa-sp-first is enabled; All-to-All communication will be eliminated in the DSA fused path.",
+            "INFO: --use-dsa-sp-first is enabled; All-to-All communication will be eliminated in the DSA fused path.",  # noqa: E501
             args.rank,
         )
     if getattr(args, "dsa_indexer_topk_freq", 1) > 1:
         if getattr(args, "experimental_attention_variant", None) != "dsa":
-            raise ValueError("--dsa-indexer-topk-freq > 1 (IndexShare) requires experimental_attention_variant='dsa'.")
+            raise ValueError(
+                "--dsa-indexer-topk-freq > 1 (IndexShare) requires experimental_attention_variant='dsa'."  # noqa: E501
+            )
         if getattr(args, "overlap_moe_expert_parallel_comm", False):
             raise ValueError(
                 "DSA IndexShare is not supported with --overlap-moe-expert-parallel-comm: "
@@ -343,7 +356,7 @@ def _validate_extra_training_args(args):
     if args.num_experts is None and args.moe_token_dispatcher_type in ["allgather", "alltoall_seq"]:
         args.moe_token_dispatcher_type = "alltoall"
         warnings.warn(
-            f"Since num_experts is {args.num_experts}, moe_token_dispatcher_type argument is not applicable. "
+            f"Since num_experts is {args.num_experts}, moe_token_dispatcher_type argument is not applicable. "  # noqa: E501
             f"Setting it to 'alltoall' to pass transformer config validation."
         )
 
@@ -378,24 +391,28 @@ def _validata_extra_parallel_args(args):
             return
 
         assert args.hierarchical_context_parallel_sizes is None, (
-            "ERROR: Cannot specify both hierarchical_context_parallel_sizes and context_parallel_ulysses_degree"
+            "ERROR: Cannot specify both hierarchical_context_parallel_sizes and context_parallel_ulysses_degree"  # noqa: E501
         )
 
         assert (
             args.context_parallel_ulysses_degree <= args.context_parallel_size
             and args.context_parallel_size % args.context_parallel_ulysses_degree == 0
-        ), "ERROR: context_parallel_ulysses_degree must less than context_parallel_size and divisible by it"
+        ), (
+            "ERROR: context_parallel_ulysses_degree must less than context_parallel_size and divisible by it"  # noqa: E501
+        )
 
         # only cp
         if args.context_parallel_ulysses_degree == 1:
             # just use cp
-            assert "a2a" not in args.cp_comm_type, "p2p or allgather are allowed for non-ulysses context parallel"
+            assert "a2a" not in args.cp_comm_type, (
+                "p2p or allgather are allowed for non-ulysses context parallel"
+            )
         # only ulysses
         elif args.context_parallel_ulysses_degree == args.context_parallel_size:
             # just use all2all
             args.cp_comm_type = "a2a"
             print_rank_0(
-                "Setting cp_comm_type to a2a because context_parallel_ulysses_degree equals to context_parallel_size",
+                "Setting cp_comm_type to a2a because context_parallel_ulysses_degree equals to context_parallel_size",  # noqa: E501
                 args.rank,
             )
         else:
@@ -419,15 +436,16 @@ def _validata_extra_parallel_args(args):
 def _validate_legacy_pipeline_args(args):
     """Validate parallel arguments"""
     # Uneven virtual pipeline parallelism
-    assert not (args.custom_pipeline_layers is not None and args.pipeline_model_parallel_layout is not None), (
-        "custom_pipeline_layers and pipeline_model_parallel_layout cannot be set at the same time"
-    )
+    assert not (
+        args.custom_pipeline_layers is not None and args.pipeline_model_parallel_layout is not None
+    ), "custom_pipeline_layers and pipeline_model_parallel_layout cannot be set at the same time"
 
     # convert custom_pipeline_layers to pipeline_model_parallel_layout
     if args.custom_pipeline_layers is not None:
-        assert args.decoder_first_pipeline_num_layers is None and args.decoder_last_pipeline_num_layers is None, (
-            "The layer partition mode conflicts."
-        )
+        assert (
+            args.decoder_first_pipeline_num_layers is None
+            and args.decoder_last_pipeline_num_layers is None
+        ), "The layer partition mode conflicts."
 
         pp_splits = []
         if args.custom_pipeline_layers.find(",") != -1:
@@ -445,7 +463,7 @@ def _validate_legacy_pipeline_args(args):
         if args.num_virtual_stages_per_pipeline_rank is not None:
             assert all(x >= args.num_virtual_stages_per_pipeline_rank for x in pp_splits), (
                 f"when num_virtual_stages_per_pipeline_rank is {args.num_virtual_stages_per_pipeline_rank}, \
-                each element in custom_pipeline_layers must be >= num_virtual_stages_per_pipeline_rank"
+                each element in custom_pipeline_layers must be >= num_virtual_stages_per_pipeline_rank"  # noqa: E501
             )
 
         args.pipeline_model_parallel_layout = convert_custom_pipeline_to_layout(
@@ -464,7 +482,7 @@ def _validate_legacy_pipeline_args(args):
             "custom_virtual_pipeline_layers is only supported when pipeline_model_parallel_size > 1"
         )
         assert args.num_virtual_stages_per_pipeline_rank is not None, (
-            "num_virtual_stages_per_pipeline_rank should be set when custom_virtual_pipeline_layers is set"
+            "num_virtual_stages_per_pipeline_rank should be set when custom_virtual_pipeline_layers is set"  # noqa: E501
         )
         assert args.custom_pipeline_layers is None, (
             "custom_pipeline_layers should not be set when custom_virtual_pipeline_layers is set"
@@ -472,17 +490,20 @@ def _validate_legacy_pipeline_args(args):
 
         custom_vpp_splits = []
         if args.custom_virtual_pipeline_layers.find(",") != -1:
-            custom_vpp_splits = [int(s) for s in args.custom_virtual_pipeline_layers.split(",") if s.strip()]
+            custom_vpp_splits = [
+                int(s) for s in args.custom_virtual_pipeline_layers.split(",") if s.strip()
+            ]
 
         assert sum(custom_vpp_splits) == args.num_layers, (
             f"the sum of --custom-virtual-pipeline-layers must be equal to {args.num_layers}"
         )
 
         assert (
-            len(custom_vpp_splits) == args.pipeline_model_parallel_size * args.num_virtual_stages_per_pipeline_rank
+            len(custom_vpp_splits)
+            == args.pipeline_model_parallel_size * args.num_virtual_stages_per_pipeline_rank
         ), (
             f"the number of elements in --custom-virtual-pipeline-layers must be equal to "
-            f"pipeline size {args.pipeline_model_parallel_size} * num_virtual_stages_per_pipeline_rank "
+            f"pipeline size {args.pipeline_model_parallel_size} * num_virtual_stages_per_pipeline_rank "  # noqa: E501
             f"{args.num_virtual_stages_per_pipeline_rank}"
         )
 
@@ -534,11 +555,15 @@ def _validate_custom_model_args(name, args, defaults={}):
         args.expert_model_parallel_size = 1
 
     if args.num_virtual_stages_per_pipeline_rank is not None:
-        warnings.warn(f"WARNING: Now for {name}, we do not support num_virtual_stages_per_pipeline_rank.")
+        warnings.warn(
+            f"WARNING: Now for {name}, we do not support num_virtual_stages_per_pipeline_rank."
+        )
         args.num_virtual_stages_per_pipeline_rank = None
 
     if args.context_parallel_ulysses_degree is not None:
-        warnings.warn(f"WARNING: Now for {name}, we do not support context_parallel_ulysses_degree.")
+        warnings.warn(
+            f"WARNING: Now for {name}, we do not support context_parallel_ulysses_degree."
+        )
         args.context_parallel_ulysses_degree = 1
 
     if args.context_parallel_size > 1:
@@ -590,10 +615,16 @@ def _validate_custom_model_args(name, args, defaults={}):
 
     # Set args.use_dist_ckpt from args.ckpt_format.
     if args.use_legacy_models:
-        assert args.ckpt_format == "torch", "legacy model format only supports the 'torch' checkpoint format."
+        assert args.ckpt_format == "torch", (
+            "legacy model format only supports the 'torch' checkpoint format."
+        )
     args.use_dist_ckpt = args.ckpt_format != "torch"
 
-    total_model_size = args.tensor_model_parallel_size * args.pipeline_model_parallel_size * args.context_parallel_size
+    total_model_size = (
+        args.tensor_model_parallel_size
+        * args.pipeline_model_parallel_size
+        * args.context_parallel_size
+    )
 
     # Total model size.
     assert args.world_size % total_model_size == 0, (
@@ -601,7 +632,9 @@ def _validate_custom_model_args(name, args, defaults={}):
     )
 
     if args.attention_backend == AttnBackend.local:
-        assert args.spec[0] == "local", "--attention-backend local is only supported with --spec local"
+        assert args.spec[0] == "local", (
+            "--attention-backend local is only supported with --spec local"
+        )
 
     # Pipeline model parallel size.
     args.transformer_pipeline_model_parallel_size = args.pipeline_model_parallel_size
@@ -653,7 +686,7 @@ def _validate_custom_model_args(name, args, defaults={}):
         legacy_default_split_value = "969, 30, 1"
         if args.rank == 0:
             print(
-                "WARNING: Please specify --split when using --data-path. Using legacy default value "
+                "WARNING: Please specify --split when using --data-path. Using legacy default value "  # noqa: E501
                 f'of "{legacy_default_split_value}"'
             )
         args.split = legacy_default_split_value
@@ -663,13 +696,20 @@ def _validate_custom_model_args(name, args, defaults={}):
         # Exactly one of the two has to be None if we use it.
         assert (args.data_path is None) or (args.data_args_path is None)
     use_per_split_data_path = (
-        any(elt is not None for elt in [args.train_data_path, args.valid_data_path, args.test_data_path])
+        any(
+            elt is not None
+            for elt in [args.train_data_path, args.valid_data_path, args.test_data_path]
+        )
         or args.per_split_data_args_path is not None
     )
     if use_per_split_data_path:
         # Exactly one of the two has to be None if we use it.
         assert (
-            any(elt is not None for elt in [args.train_data_path, args.valid_data_path, args.test_data_path]) is False
+            any(
+                elt is not None
+                for elt in [args.train_data_path, args.valid_data_path, args.test_data_path]
+            )
+            is False
             or args.per_split_data_args_path is None
         )
 
@@ -683,15 +723,21 @@ def _validate_custom_model_args(name, args, defaults={}):
     assert args.global_batch_size > 0
 
     # Uneven virtual pipeline parallelism
-    assert args.num_layers_per_virtual_pipeline_stage is None or args.num_virtual_stages_per_pipeline_rank is None, (
+    assert (
+        args.num_layers_per_virtual_pipeline_stage is None
+        or args.num_virtual_stages_per_pipeline_rank is None
+    ), (
         "--num-layers-per-virtual-pipeline-stage and "
         "--num-virtual-stages-per-pipeline-rank cannot be set at the same time"
     )
 
-    if args.num_layers_per_virtual_pipeline_stage is not None or args.num_virtual_stages_per_pipeline_rank is not None:
+    if (
+        args.num_layers_per_virtual_pipeline_stage is not None
+        or args.num_virtual_stages_per_pipeline_rank is not None
+    ):
         if args.overlap_p2p_comm:
             assert args.pipeline_model_parallel_size > 1, (
-                "When interleaved schedule is used, pipeline-model-parallel size should be greater than 1"
+                "When interleaved schedule is used, pipeline-model-parallel size should be greater than 1"  # noqa: E501
             )
         else:
             assert args.pipeline_model_parallel_size > 2, (
@@ -701,8 +747,11 @@ def _validate_custom_model_args(name, args, defaults={}):
             )
 
         if args.num_virtual_stages_per_pipeline_rank is None:
-            assert args.decoder_first_pipeline_num_layers is None and args.decoder_last_pipeline_num_layers is None, (
-                "please use --num-virtual-stages-per-pipeline-rank to specify virtual pipeline parallel "
+            assert (
+                args.decoder_first_pipeline_num_layers is None
+                and args.decoder_last_pipeline_num_layers is None
+            ), (
+                "please use --num-virtual-stages-per-pipeline-rank to specify virtual pipeline parallel "  # noqa: E501
                 "degree when enable uneven pipeline parallelism"
             )
             if args.num_layers is not None:
@@ -719,10 +768,14 @@ def _validate_custom_model_args(name, args, defaults={}):
             assert num_layers % args.transformer_pipeline_model_parallel_size == 0, (
                 "number of layers of the model must be divisible pipeline model parallel size"
             )
-            num_layers_per_pipeline_stage = num_layers // args.transformer_pipeline_model_parallel_size
+            num_layers_per_pipeline_stage = (
+                num_layers // args.transformer_pipeline_model_parallel_size
+            )
 
-            assert num_layers_per_pipeline_stage % args.num_layers_per_virtual_pipeline_stage == 0, (
-                "number of layers per pipeline stage must be divisible number of layers per virtual pipeline stage"
+            assert (
+                num_layers_per_pipeline_stage % args.num_layers_per_virtual_pipeline_stage == 0
+            ), (
+                "number of layers per pipeline stage must be divisible number of layers per virtual pipeline stage"  # noqa: E501
             )
             args.virtual_pipeline_model_parallel_size = (
                 num_layers_per_pipeline_stage // args.num_layers_per_virtual_pipeline_stage
@@ -762,7 +815,9 @@ def _validate_custom_model_args(name, args, defaults={}):
                     "Number of layers should be divisible by the pipeline-model-parallel size"
                 )
     if args.rank == 0:
-        print(f"Number of virtual stages per pipeline stage: {args.virtual_pipeline_model_parallel_size}")
+        print(
+            f"Number of virtual stages per pipeline stage: {args.virtual_pipeline_model_parallel_size}"  # noqa: E501
+        )
 
     if args.data_parallel_sharding_strategy == "optim_grads_params":
         args.overlap_param_gather = True
@@ -772,21 +827,31 @@ def _validate_custom_model_args(name, args, defaults={}):
         args.overlap_grad_reduce = True
 
     if args.overlap_param_gather:
-        assert args.use_distributed_optimizer, "--overlap-param-gather only supported with distributed optimizer"
-        assert args.overlap_grad_reduce, "Must use --overlap-param-gather with --overlap-grad-reduce"
+        assert args.use_distributed_optimizer, (
+            "--overlap-param-gather only supported with distributed optimizer"
+        )
+        assert args.overlap_grad_reduce, (
+            "Must use --overlap-param-gather with --overlap-grad-reduce"
+        )
         assert not args.use_legacy_models, "--overlap-param-gather only supported with MCore models"
 
     if args.use_torch_fsdp2:
         assert is_torch_min_version("2.4.0"), "FSDP2 requires PyTorch >= 2.4.0 with FSDP 2 support."
-        assert args.pipeline_model_parallel_size == 1, "--use-torch-fsdp2 is not supported with pipeline parallelism"
-        assert args.expert_model_parallel_size == 1, "--use-torch-fsdp2 is not supported with expert parallelism"
+        assert args.pipeline_model_parallel_size == 1, (
+            "--use-torch-fsdp2 is not supported with pipeline parallelism"
+        )
+        assert args.expert_model_parallel_size == 1, (
+            "--use-torch-fsdp2 is not supported with expert parallelism"
+        )
         assert not args.use_distributed_optimizer, (
             "--use-torch-fsdp2 is not supported with MCore's distributed optimizer"
         )
         assert not args.gradient_accumulation_fusion, (
             "--use-torch-fsdp2 is not supported with gradient accumulation fusion"
         )
-        assert args.ckpt_format == "torch_dist", "--use-torch-fsdp2 requires --ckpt-format torch_dist"
+        assert args.ckpt_format == "torch_dist", (
+            "--use-torch-fsdp2 requires --ckpt-format torch_dist"
+        )
         assert args.untie_embeddings_and_output_weights, (
             "--use-torch-fsdp2 requires --untie-embeddings-and-output-weights"
         )
@@ -803,10 +868,10 @@ def _validate_custom_model_args(name, args, defaults={}):
             "Must use --overlap-param-gather-with-optimizer-step with --overlap-param-gather"
         )
         assert args.virtual_pipeline_model_parallel_size is not None, (
-            "--overlap-param-gather-with-optimizer-step only supported with interleaved pipeline parallelism"
+            "--overlap-param-gather-with-optimizer-step only supported with interleaved pipeline parallelism"  # noqa: E501
         )
         assert not args.use_dist_ckpt, (
-            "--overlap-param-gather-with-optimizer-step not supported with distributed checkpointing yet"
+            "--overlap-param-gather-with-optimizer-step not supported with distributed checkpointing yet"  # noqa: E501
         )
 
     dtype_map = {
@@ -837,20 +902,22 @@ def _validate_custom_model_args(name, args, defaults={}):
 
         if args.data_parallel_sharding_strategy in ["optim_grads_params", "optim_grads"]:
             warn_rank_0(
-                "Please make sure your TransformerEngine support FSDP + gradient accumulation fusion",
+                "Please make sure your TransformerEngine support FSDP + gradient accumulation fusion",  # noqa: E501
                 args.rank,
             )
 
         if args.data_parallel_sharding_strategy == "optim_grads_params":
             assert args.check_weight_hash_across_dp_replicas_interval is None, (
-                "check_weight_hash_across_dp_replicas_interval is not supported with optim_grads_params"
+                "check_weight_hash_across_dp_replicas_interval is not supported with optim_grads_params"  # noqa: E501
             )
 
         assert os.environ.get("CUDA_DEVICE_MAX_CONNECTIONS") != "1", (
             "FSDP always requires CUDA_DEVICE_MAX_CONNECTIONS value large than one"
         )
 
-        assert args.ckpt_format == "fsdp_dtensor", "Megatron FSDP only supports fsdp_dtensor checkpoint format"
+        assert args.ckpt_format == "fsdp_dtensor", (
+            "Megatron FSDP only supports fsdp_dtensor checkpoint format"
+        )
 
     # Parameters dtype.
     args.params_dtype = torch.float
@@ -873,7 +940,7 @@ def _validate_custom_model_args(name, args, defaults={}):
         # be done in fp32.
         if args.accumulate_allreduce_grads_in_fp32:
             assert args.main_grads_dtype == torch.float32, (
-                "--main-grads-dtype can only be fp32 when --accumulate-allreduce-grads-in-fp32 is set"
+                "--main-grads-dtype can only be fp32 when --accumulate-allreduce-grads-in-fp32 is set"  # noqa: E501
             )
 
         if args.grad_reduce_in_bf16:
@@ -881,7 +948,10 @@ def _validate_custom_model_args(name, args, defaults={}):
         elif not args.accumulate_allreduce_grads_in_fp32 and args.main_grads_dtype == torch.float32:
             args.accumulate_allreduce_grads_in_fp32 = True
             if args.rank == 0:
-                print("accumulate and all-reduce gradients in fp32 for bfloat16 data type.", flush=True)
+                print(
+                    "accumulate and all-reduce gradients in fp32 for bfloat16 data type.",
+                    flush=True,
+                )
 
     if args.rank == 0:
         print("using {} for parameters ...".format(args.params_dtype), flush=True)
@@ -913,9 +983,13 @@ def _validate_custom_model_args(name, args, defaults={}):
         assert args.train_samples is None, "expected iteration-based training"
         assert args.lr_decay_samples is None, "expected iteration-based learning rate decay"
         assert args.lr_warmup_samples == 0, "expected iteration-based learning rate warmup"
-        assert args.rampup_batch_size is None, "expected no batch-size rampup for iteration-based training"
+        assert args.rampup_batch_size is None, (
+            "expected no batch-size rampup for iteration-based training"
+        )
         if args.lr_warmup_fraction is not None:
-            assert args.lr_warmup_iters == 0, "can only specify one of lr-warmup-fraction and lr-warmup-iters"
+            assert args.lr_warmup_iters == 0, (
+                "can only specify one of lr-warmup-fraction and lr-warmup-iters"
+            )
 
     # Sample-based training.
     if args.train_samples:
@@ -925,18 +999,20 @@ def _validate_custom_model_args(name, args, defaults={}):
         assert args.lr_decay_iters is None, "expected sample-based learning rate decay"
         assert args.lr_warmup_iters == 0, "expected sample-based learnig rate warmup"
         if args.lr_warmup_fraction is not None:
-            assert args.lr_warmup_samples == 0, "can only specify one of lr-warmup-fraction and lr-warmup-samples"
+            assert args.lr_warmup_samples == 0, (
+                "can only specify one of lr-warmup-fraction and lr-warmup-samples"
+            )
 
     if args.num_layers is None:
         warnings.warn(
-            "WARNING: For some components, like image projector, num_layers is None, using default value 1"
+            "WARNING: For some components, like image projector, num_layers is None, using default value 1"  # noqa: E501
             "to pass the validation check."
         )
         args.num_layers = 1
 
     if args.hidden_size is None:
         warnings.warn(
-            "WARNING: For some components, like image projector, hidden_size is None, using default value "
+            "WARNING: For some components, like image projector, hidden_size is None, using default value "  # noqa: E501
             "num_attention_heads to pass the validation check."
         )
         args.hidden_size = args.num_attention_heads
@@ -959,7 +1035,7 @@ def _validate_custom_model_args(name, args, defaults={}):
 
     if args.seq_length is not None and args.context_parallel_size > 1:
         assert args.seq_length % (args.context_parallel_size * 2) == 0, (
-            "seq-length should be a multiple of 2 * context-parallel-size if context-parallel-size > 1."
+            "seq-length should be a multiple of 2 * context-parallel-size if context-parallel-size > 1."  # noqa: E501
         )
 
     if args.seq_length is not None:
@@ -984,7 +1060,9 @@ def _validate_custom_model_args(name, args, defaults={}):
     if args.fp16_lm_cross_entropy:
         assert args.fp16, "lm cross entropy in fp16 only support in fp16 mode."
     if args.fp32_residual_connection:
-        assert args.fp16 or args.bf16, "residual connection in fp32 only supported when using fp16 or bf16."
+        assert args.fp16 or args.bf16, (
+            "residual connection in fp32 only supported when using fp16 or bf16."
+        )
 
     if args.weight_decay_incr_style == "constant":
         assert args.start_weight_decay is None
@@ -1014,7 +1092,7 @@ def _validate_custom_model_args(name, args, defaults={}):
     orig_overlap_moe = getattr(args, "overlap_moe_expert_parallel_comm", False)
     if orig_overlap_moe:
         warnings.warn(
-            f"Warning: Now for {name}, we do not support overlap_moe_expert_parallel_comm and delay_wgrad_compute."
+            f"Warning: Now for {name}, we do not support overlap_moe_expert_parallel_comm and delay_wgrad_compute."  # noqa: E501
         )
         args.overlap_moe_expert_parallel_comm = False
         args.delay_wgrad_compute = False
@@ -1024,7 +1102,9 @@ def _validate_custom_model_args(name, args, defaults={}):
     if args.recompute_modules:
         non_a2a_modules = [m for m in args.recompute_modules if not m.startswith("a2a")]
         if len(non_a2a_modules) < len(args.recompute_modules):
-            warnings.warn(f"WARNING: Now for {name} model, a2a_overlap modules are not supported, ignoring them.")
+            warnings.warn(
+                f"WARNING: Now for {name} model, a2a_overlap modules are not supported, ignoring them."  # noqa: E501
+            )
         args.recompute_modules = non_a2a_modules
 
     # When foundation uses selective recompute for MoE a2a overlap,
@@ -1054,7 +1134,9 @@ def _validate_custom_model_args(name, args, defaults={}):
         )
 
     if args.fine_grained_activation_offloading:
-        warnings.warn(f"WARNING: Now for {name} model, fine_grained_activation_offloading is not supported.")
+        warnings.warn(
+            f"WARNING: Now for {name} model, fine_grained_activation_offloading is not supported."
+        )
         args.fine_grained_activation_offloading = False
 
     # disable sequence parallelism when tp=1
@@ -1062,17 +1144,23 @@ def _validate_custom_model_args(name, args, defaults={}):
     # sequence_parallelism is enabled.
     if args.tensor_model_parallel_size == 1:
         if args.sequence_parallel:
-            warnings.warn("Disabling sequence parallelism because tensor model parallelism is disabled")
+            warnings.warn(
+                "Disabling sequence parallelism because tensor model parallelism is disabled"
+            )
         args.sequence_parallel = False
 
     if args.tp_comm_overlap:
         assert args.sequence_parallel, (
-            "Tensor parallel communication/GEMM overlap can happen only when sequence parallelism is enabled"
+            "Tensor parallel communication/GEMM overlap can happen only when sequence parallelism is enabled"  # noqa: E501
         )
 
     # disable async_tensor_model_parallel_allreduce when
     # model parallel memory optimization is enabled
-    if args.tensor_model_parallel_size > 1 or args.context_parallel_size > 1 and get_device_arch_version() < 10:
+    if (
+        args.tensor_model_parallel_size > 1
+        or args.context_parallel_size > 1
+        and get_device_arch_version() < 10
+    ):
         # CUDA_DEVICE_MAX_CONNECTIONS requirement no longer exists since the Blackwell architecture
         if args.use_torch_fsdp2 or getattr(args, "use_custom_fsdp", False):
             fsdp_impl = "Torch-FSDP2" if args.use_torch_fsdp2 else "Custom-FSDP"
@@ -1087,7 +1175,7 @@ def _validate_custom_model_args(name, args, defaults={}):
         print("Skipping CUDA_DEVICE_MAX_CONNECTIONS checks because use megatron preprocess data")
     else:
         if os.environ.get("CUDA_DEVICE_MAX_CONNECTIONS") != "1" and get_device_arch_version() < 10:
-            # CUDA_DEVICE_MAX_CONNECTIONS requirement no longer exists since the Blackwell architecture
+            # CUDA_DEVICE_MAX_CONNECTIONS requirement no longer exists since the Blackwell architecture  # noqa: E501
             if args.sequence_parallel:
                 warnings.warn(
                     "Using sequence parallelism requires setting the environment variable "
@@ -1108,7 +1196,9 @@ def _validate_custom_model_args(name, args, defaults={}):
         args.add_qkv_bias = True
 
     if args.decoupled_lr is not None or args.decoupled_min_lr is not None:
-        assert not args.use_legacy_models, "--decoupled-lr and --decoupled-min-lr is not supported in legacy models."
+        assert not args.use_legacy_models, (
+            "--decoupled-lr and --decoupled-min-lr is not supported in legacy models."
+        )
 
     # Legacy RoPE arguments
     if args.use_rotary_position_embeddings:
@@ -1128,7 +1218,7 @@ def _validate_custom_model_args(name, args, defaults={}):
     # Relative position embeddings arguments
     if args.position_embedding_type == "relative":
         assert args.transformer_impl == "transformer_engine", (
-            "Local transformer implementation currently does not support attention bias-based position embeddings."
+            "Local transformer implementation currently does not support attention bias-based position embeddings."  # noqa: E501
         )
 
     # MoE Spec check
@@ -1146,34 +1236,45 @@ def _validate_custom_model_args(name, args, defaults={}):
 
     # add loongforge for custom pipeline layers check
     if args.custom_pipeline_layers is not None:
-        warnings.warn("Warning: For those non foundation model, custom_pipeline_layers must be None.")
+        warnings.warn(
+            "Warning: For those non foundation model, custom_pipeline_layers must be None."
+        )
         args.custom_pipeline_layers = None
 
     # # add loongforge for custom virtual layers in first pipeline stage check
     # if hasattr(args, 'custom_virtual_layers_first_pipeline') and \
     #         args.custom_virtual_layers_first_pipeline is not None:
-    #     warnings.warn("Warning: For those non foundation model, custom_virtual_layers_first_pipeline must be None.")
+    #     warnings.warn("Warning: For those non foundation model, custom_virtual_layers_first_pipeline must be None.")  # noqa: E501
     #     args.custom_virtual_layers_first_pipeline = None
 
     # add loongforge for custom virtual pipeline layers check
-    if hasattr(args, "custom_virtual_pipeline_layers") and args.custom_virtual_pipeline_layers is not None:
-        warnings.warn("Warning: For those non foundation model, custom_virtual_pipeline_layers must be None.")
+    if (
+        hasattr(args, "custom_virtual_pipeline_layers")
+        and args.custom_virtual_pipeline_layers is not None
+    ):
+        warnings.warn(
+            "Warning: For those non foundation model, custom_virtual_pipeline_layers must be None."
+        )
         args.custom_virtual_pipeline_layers = None
 
     # if args.custom_pipeline_recompute_layers is not None:
-    #     warnings.warn("Warning: For those non foundation model, custom_pipeline_recompute_layers must be None.")
+    #     warnings.warn("Warning: For those non foundation model, custom_pipeline_recompute_layers must be None.")  # noqa: E501
     #     args.custom_pipeline_recompute_layers = None
 
     # Data blend checks
     assert (
-        args.mock_data + bool(args.data_path) + any([args.train_data_path, args.valid_data_path, args.test_data_path])
+        args.mock_data
+        + bool(args.data_path)
+        + any([args.train_data_path, args.valid_data_path, args.test_data_path])
         <= 1
     ), "A single data source must be provided in training mode, else None"
 
     # Deterministic mode
     if args.deterministic_mode:
         assert not args.use_flash_attn, "Flash attention can not be used in deterministic mode."
-        assert not args.cross_entropy_loss_fusion, "Cross Entropy Fusion is currently not deterministic."
+        assert not args.cross_entropy_loss_fusion, (
+            "Cross Entropy Fusion is currently not deterministic."
+        )
 
         all_reduce_choices = ["Tree", "Ring", "CollnetDirect", "CollnetChain", "^NVLS"]
         assert os.getenv("NCCL_ALGO", -1) != -1 and os.getenv("NCCL_ALGO") in all_reduce_choices, (
@@ -1182,7 +1283,7 @@ def _validate_custom_model_args(name, args, defaults={}):
 
         torch.use_deterministic_algorithms(True)
 
-    # Update the printed args to reflect that `apply_query_key_layer_scaling` also controls `attention_softmax_in_fp32`
+    # Update the printed args to reflect that `apply_query_key_layer_scaling` also controls `attention_softmax_in_fp32`  # noqa: E501
     if args.apply_query_key_layer_scaling:
         args.attention_softmax_in_fp32 = True
 
@@ -1207,27 +1308,36 @@ def _validate_custom_model_args(name, args, defaults={}):
             "--ckpt-fully-parallel-save flag is deprecated and has no effect."
             " Use --no-ckpt-fully-parallel-save to disable parallel save."
         )
-    if args.use_dist_ckpt and not args.ckpt_fully_parallel_save and args.use_distributed_optimizer and args.rank == 0:
+    if (
+        args.use_dist_ckpt
+        and not args.ckpt_fully_parallel_save
+        and args.use_distributed_optimizer
+        and args.rank == 0
+    ):
         print(
             "Warning: With non-parallel ckpt save and DistributedOptimizer,"
             " it will be impossible to resume training with different parallelism."
             " Consider removing flag --no-ckpt-fully-parallel-save."
         )
     if args.use_dist_ckpt_deprecated and args.rank == 0:
-        print("--use-dist-ckpt is deprecated and has no effect. Use --ckpt-format to select the checkpoint format.")
+        print(
+            "--use-dist-ckpt is deprecated and has no effect. Use --ckpt-format to select the checkpoint format."  # noqa: E501
+        )
     if args.dist_ckpt_format_deprecated and args.rank == 0:
-        print("--dist-ckpt-format is deprecated and has no effect. Use --ckpt-format to select the checkpoint format.")
+        print(
+            "--dist-ckpt-format is deprecated and has no effect. Use --ckpt-format to select the checkpoint format."  # noqa: E501
+        )
 
     # Inference args
     if args.inference_batch_times_seqlen_threshold > -1:
         assert args.pipeline_model_parallel_size > 1, (
-            "--inference-batch-times-seqlen-threshold requires setting --pipeline-model-parallel-size > 1."
+            "--inference-batch-times-seqlen-threshold requires setting --pipeline-model-parallel-size > 1."  # noqa: E501
         )
 
     # Optimizer CPU offload check
     if args.optimizer_cpu_offload:
         assert args.use_precision_aware_optimizer, (
-            "The optimizer cpu offload must be used in conjunction with `--use-precision-aware-optimizer`, "
+            "The optimizer cpu offload must be used in conjunction with `--use-precision-aware-optimizer`, "  # noqa: E501
             "as the hybrid device optimizer reuses the code path of this flag."
         )
 
@@ -1236,9 +1346,11 @@ def _validate_custom_model_args(name, args, defaults={}):
             "Tried to use local checkpointing without specifying --local-ckpt-dir!"
         )
     if args.replication:
-        assert args.replication_jump is not None, "--replication requires the value of --replication-jump!"
+        assert args.replication_jump is not None, (
+            "--replication requires the value of --replication-jump!"
+        )
         assert args.non_persistent_ckpt_type == "local", (
-            f"--replication requires args.non_persistent_ckpt_type == 'local', but got: {args.non_persistent_ckpt_type}"
+            f"--replication requires args.non_persistent_ckpt_type == 'local', but got: {args.non_persistent_ckpt_type}"  # noqa: E501
         )
     elif args.replication_jump:
         print("Warning: --replication-jump was specified despite not using replication. Ignoring.")

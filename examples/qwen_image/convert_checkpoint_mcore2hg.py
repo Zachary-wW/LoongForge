@@ -113,7 +113,9 @@ def main():
     mcore_dict = load_dcp(args.load_path, iteration=args.iteration)
     hf_dict = {}
     for key, value in mcore_dict.items():
-        hf_dict[mcore_key_to_hf(key)] = value.to(torch.bfloat16) if value.is_floating_point() else value
+        hf_dict[mcore_key_to_hf(key)] = (
+            value.to(torch.bfloat16) if value.is_floating_point() else value
+        )
     print(f"converted {len(hf_dict)} tensors")
 
     save_huggingface_checkpoint(hf_dict, args.save_path)

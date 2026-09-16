@@ -112,7 +112,9 @@ class _MoTConfigBase(object):
         self.qk_norm_for_text = qk_norm_for_text
         self.qk_norm_for_diffusion = qk_norm_for_diffusion
         self.include_visual = include_visual
-        self.text_config_overrides: dict[str, Any] = dict(text_config_overrides) if text_config_overrides else {}
+        self.text_config_overrides: dict[str, Any] = (
+            dict(text_config_overrides) if text_config_overrides else {}
+        )
 
     @property
     def full_config(self) -> Any:
@@ -146,7 +148,7 @@ class _MoTConfigBase(object):
         vision_dict = self.config_dict.get("vision_config")
         if vision_dict is None:
             raise ValueError(
-                "include_visual=True requires a vision_config sub-section in the language-model JSON config."
+                "include_visual=True requires a vision_config sub-section in the language-model JSON config."  # noqa: E501
             )
         if self._vision_config_cls is type(None):
             raise ValueError(f"No _vision_config_cls defined for {self.__class__.__name__}")
@@ -189,7 +191,9 @@ class PackedAttentionMoT(nn.Module):
         super().__init__()
         self.config = config
         self.layer_idx = layer_idx
-        self.head_dim = getattr(config, "head_dim", config.hidden_size // config.num_attention_heads)
+        self.head_dim = getattr(
+            config, "head_dim", config.hidden_size // config.num_attention_heads
+        )
         self.hidden_size = config.hidden_size
         self.num_attention_heads = config.num_attention_heads
         self.num_key_value_heads = config.num_key_value_heads
@@ -200,10 +204,18 @@ class PackedAttentionMoT(nn.Module):
         eps = config.rms_norm_eps
 
         # Understanding pathway projections
-        self.q_proj = nn.Linear(self.hidden_size, self.num_attention_heads * self.head_dim, bias=config.attention_bias)
-        self.k_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
-        self.v_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
-        self.o_proj = nn.Linear(self.num_attention_heads * self.head_dim, self.hidden_size, bias=config.attention_bias)
+        self.q_proj = nn.Linear(
+            self.hidden_size, self.num_attention_heads * self.head_dim, bias=config.attention_bias
+        )
+        self.k_proj = nn.Linear(
+            self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias
+        )
+        self.v_proj = nn.Linear(
+            self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias
+        )
+        self.o_proj = nn.Linear(
+            self.num_attention_heads * self.head_dim, self.hidden_size, bias=config.attention_bias
+        )
 
         # Understanding pathway QK norm
         if qk_norm_for_text:
@@ -348,7 +360,10 @@ def _impl_forward(
     device, dtype = get_device_and_dtype(pack)
     _meta_tensor = torch.tensor([], dtype=dtype, device=device)
     cos, sin = self.rotary_emb(
-        _meta_tensor, position_ids=position_ids.unsqueeze(0) if position_ids.ndim == 1 else position_ids.unsqueeze(1)
+        _meta_tensor,
+        position_ids=position_ids.unsqueeze(0)
+        if position_ids.ndim == 1
+        else position_ids.unsqueeze(1),
     )
     cos = cos.squeeze(0)
     sin = sin.squeeze(0)
@@ -377,7 +392,9 @@ def _impl_forward(
             num_tokens_per_expert = torch.stack(
                 [lbl_metadata.num_tokens_per_expert for lbl_metadata in lbl_metadata_list]
             )
-            num_tokens = torch.stack([lbl_metadata.num_tokens for lbl_metadata in lbl_metadata_list])
+            num_tokens = torch.stack(
+                [lbl_metadata.num_tokens for lbl_metadata in lbl_metadata_list]
+            )
             mean_router_prob_per_expert = torch.stack(
                 [lbl_metadata.mean_router_prob_per_expert for lbl_metadata in lbl_metadata_list]
             )
@@ -432,9 +449,15 @@ class MoTDecoderLayer(nn.Module):
         self.mlp_moe_gen = layer_types.mlp(config)
 
         self.input_layernorm = layer_types.rms_norm(config.hidden_size, eps=config.rms_norm_eps)
-        self.input_layernorm_moe_gen = layer_types.rms_norm(config.hidden_size, eps=config.rms_norm_eps)
-        self.post_attention_layernorm = layer_types.rms_norm(config.hidden_size, eps=config.rms_norm_eps)
-        self.post_attention_layernorm_moe_gen = layer_types.rms_norm(config.hidden_size, eps=config.rms_norm_eps)
+        self.input_layernorm_moe_gen = layer_types.rms_norm(
+            config.hidden_size, eps=config.rms_norm_eps
+        )
+        self.post_attention_layernorm = layer_types.rms_norm(
+            config.hidden_size, eps=config.rms_norm_eps
+        )
+        self.post_attention_layernorm_moe_gen = layer_types.rms_norm(
+            config.hidden_size, eps=config.rms_norm_eps
+        )
 
     def forward(
         self,
@@ -452,7 +475,10 @@ class MoTDecoderLayer(nn.Module):
         )
 
         pack_attn_out = self.self_attn(
-            pack_norm_out, attention_mask, packed_position_embeddings, natten_metadata=natten_metadata
+            pack_norm_out,
+            attention_mask,
+            packed_position_embeddings,
+            natten_metadata=natten_metadata,
         )
         residual_und = get_und_seq(input) + get_und_seq(pack_attn_out)
         residual_gen = get_gen_seq(input) + get_gen_seq(pack_attn_out)
@@ -545,7 +571,9 @@ class Qwen3VLTextForCausalLM(Qwen3VLPreTrainedModel):
             if original_name in state_dict:
                 param.data.copy_(state_dict[original_name].data)
             else:
-                raise ValueError(f"Could not find {original_name} in state_dict for initialization of {name}")
+                raise ValueError(
+                    f"Could not find {original_name} in state_dict for initialization of {name}"
+                )
 
     def get_input_embeddings(self) -> nn.Embedding:
         """Return the token embedding layer."""

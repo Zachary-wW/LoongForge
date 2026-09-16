@@ -17,7 +17,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
-from .results import PathLike, load_jsonl, summarize_records, summarize_suites, validate_episode_floor
+from .results import (
+    PathLike,
+    load_jsonl,
+    summarize_records,
+    summarize_suites,
+    validate_episode_floor,
+)
 
 
 def write_eval_report(
@@ -37,7 +43,9 @@ def write_eval_report(
     suite_rows = summarize_suites(records, min_episodes=min_episodes_per_task)
     floor_violations = validate_episode_floor(records, min_episodes_per_task)
     failure_rows = _failure_summary(records)
-    artifact_rows = _archive_failure_artifacts(records, report_dir / "failure_artifacts", artifact_limit)
+    artifact_rows = _archive_failure_artifacts(
+        records, report_dir / "failure_artifacts", artifact_limit
+    )
     repro_info = _collect_repro_info(results_path)
     resource_snapshot = collect_resource_snapshot()
 
@@ -47,15 +55,21 @@ def write_eval_report(
     resource_snapshot_path = report_dir / "resource_snapshot.json"
     episode_floor_path = report_dir / "episode_floor_violations.json"
 
-    repro_path.write_text(json.dumps(repro_info, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    repro_path.write_text(
+        json.dumps(repro_info, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     failure_manifest_path.write_text(
-        json.dumps(artifact_rows, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        json.dumps(artifact_rows, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
     )
     resource_snapshot_path.write_text(
-        json.dumps(resource_snapshot, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        json.dumps(resource_snapshot, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
     )
     episode_floor_path.write_text(
-        json.dumps(floor_violations, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        json.dumps(floor_violations, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
     )
     report_path.write_text(
         _render_markdown_report(
@@ -148,7 +162,7 @@ def _render_markdown_report(
             "## Per Task",
             "",
             (
-                "| benchmark | task_suite | task_id | n_episodes | successes | success_rate | stderr | "
+                "| benchmark | task_suite | task_id | n_episodes | successes | success_rate | stderr | "  # noqa: E501
                 "ci95_low | ci95_high | avg_steps | avg_inference_latency_ms | avg_e2e_latency_ms |"
             ),
             "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
@@ -357,7 +371,12 @@ def _run_git(repo: Path, args: List[str]) -> Optional[str]:
     """Run _run_git."""
     try:
         proc = subprocess.run(
-            ["git", *args], cwd=str(repo), text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=5
+            ["git", *args],
+            cwd=str(repo),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
         )
     except Exception:
         return None

@@ -78,7 +78,7 @@ def prepare_groot_n1d7_lerobot_dataset(
     action_horizon = _resolve_data_action_horizon(model_cfg, data_cfg)
     if not _has_episode_index(dataset):
         raise TypeError(
-            f"GR00T-N1.7 requires a map-style LeRobot dataset with episode metadata; got {type(dataset).__name__}"
+            f"GR00T-N1.7 requires a map-style LeRobot dataset with episode metadata; got {type(dataset).__name__}"  # noqa: E501
         )
 
     if data_cfg.groot_preprocess_mode == "sharded":
@@ -108,7 +108,7 @@ def prepare_groot_n1d7_lerobot_dataset(
 
 
 def _default_data_cfg():
-    from loongforge.embodied.data.datasets.groot_n1_7.transforms.data_configuration_groot_n1_7 import (
+    from loongforge.embodied.data.datasets.groot_n1_7.transforms.data_configuration_groot_n1_7 import (  # noqa: E501
         GrootN1d7DataConfig,
     )
 
@@ -156,7 +156,11 @@ def _load_groot_n1d7_stats_json(dataset: Any, root: Path) -> None:
         return
     raw = _read_json_if_exists(stats_path)
     dataset._stats = {
-        key: {stat_key: stat_value for stat_key, stat_value in value.items() if not isinstance(stat_value, str)}
+        key: {
+            stat_key: stat_value
+            for stat_key, stat_value in value.items()
+            if not isinstance(stat_value, str)
+        }
         for key, value in raw.items()
         if isinstance(value, dict) and not str(key).startswith("__")
     }
@@ -217,7 +221,7 @@ def _build_isaac_sharded_step_index(
 
     if total_steps <= 0 or not episode_splits:
         raise ValueError(
-            f"No valid GR00T-N1.7 sharded steps; episode lengths may be shorter than action horizon {action_horizon}"
+            f"No valid GR00T-N1.7 sharded steps; episode lengths may be shorter than action horizon {action_horizon}"  # noqa: E501
         )
 
     num_shards = min(int(np.ceil(total_steps / shard_size)), len(episode_splits))
@@ -396,13 +400,17 @@ class _GrootN1d7IsaacIterableDataset(IterableDataset):
                     datapoint = self._transform(datapoint)
                 datapoints.append(datapoint)
         if replays is not None and sample_position != len(replays):
-            raise RuntimeError(f"Shard replay count mismatch: used {sample_position}, got {len(replays)}")
+            raise RuntimeError(
+                f"Shard replay count mismatch: used {sample_position}, got {len(replays)}"
+            )
         return datapoints
 
     def _prepare_shard_replays(self, shard_index: int) -> list[Any] | None:
         if self._transform is None:
             return None
-        replay_count = sum(len(split_step_indices) for _, split_step_indices in self._sharded_episodes[shard_index])
+        replay_count = sum(
+            len(split_step_indices) for _, split_step_indices in self._sharded_episodes[shard_index]
+        )
         return [_prepare_transform_replay(self._transform) for _ in range(replay_count)]
 
     def __getattr__(self, name: str):
@@ -438,7 +446,9 @@ def _prepare_transform_replay(
     replayable = _resolve_replayable_transform(transform)
     prepare_replay = getattr(replayable, "prepare_replay", None)
     if prepare_replay is None:
-        raise RuntimeError(f"Transform {type(replayable).__name__} does not support deterministic replay")
+        raise RuntimeError(
+            f"Transform {type(replayable).__name__} does not support deterministic replay"
+        )
     return prepare_replay(datapoint)
 
 
@@ -450,7 +460,9 @@ def _apply_transform_replay(
     replayable = _resolve_replayable_transform(transform)
     apply_with_replay = getattr(replayable, "apply_with_replay", None)
     if apply_with_replay is None:
-        raise RuntimeError(f"Transform {type(replayable).__name__} does not support deterministic replay")
+        raise RuntimeError(
+            f"Transform {type(replayable).__name__} does not support deterministic replay"
+        )
     return apply_with_replay(datapoint, replay)
 
 

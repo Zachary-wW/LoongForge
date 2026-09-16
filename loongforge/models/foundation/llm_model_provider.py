@@ -30,7 +30,7 @@ def llm_model_provider(
 
     Returns:
         The corresponding LLM model.
-    """
+    """  # noqa: E501
     args = get_args()
 
     config = get_model_config()
@@ -68,7 +68,9 @@ def llm_model_provider(
             if "preserve_high_precision_init_val" in inspect.signature(fp8_model_init).parameters:
                 build_model_context_args["preserve_high_precision_init_val"] = True
         except Exception:
-            raise RuntimeError("--fp8-param-gather requires `fp8_model_init` from TransformerEngine,but not found.")
+            raise RuntimeError(
+                "--fp8-param-gather requires `fp8_model_init` from TransformerEngine,but not found."
+            )
 
     with build_model_context(**build_model_context_args):
         model: BaseMegatronLanguageModule = AutoModel.from_config(

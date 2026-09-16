@@ -48,7 +48,7 @@ from loongforge.embodied.data.datasets.groot_n1_6.transforms.utils import (
 )
 from loongforge.embodied.model.registry import register_model
 
-from loongforge.embodied.data.datasets.groot_n1_6.transforms.eagle3_model.image_augmentations import (
+from loongforge.embodied.data.datasets.groot_n1_6.transforms.eagle3_model.image_augmentations import (  # noqa: E501
     build_image_transformations_albumentations,
 )
 
@@ -60,7 +60,9 @@ from .modules.embodiment_mlp import (
     MultiEmbodimentActionEncoder,
 )
 
-warnings.filterwarnings("ignore", message="torch.get_autocast_gpu_dtype", category=DeprecationWarning)
+warnings.filterwarnings(
+    "ignore", message="torch.get_autocast_gpu_dtype", category=DeprecationWarning
+)
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +99,9 @@ class Gr00tN1d6ActionHead(nn.Module):
             )
             print("Using AlternateVLDiT for diffusion model")
         else:
-            self.model = DiT(**config.diffusion_model_cfg, cross_attention_dim=config.backbone_embedding_dim)
+            self.model = DiT(
+                **config.diffusion_model_cfg, cross_attention_dim=config.backbone_embedding_dim
+            )
             print("Using DiT for diffusion model")
 
         self.state_encoder = CategorySpecificMLP(
@@ -119,7 +123,9 @@ class Gr00tN1d6ActionHead(nn.Module):
             output_dim=self.action_dim,
         )
 
-        self.vlln = nn.LayerNorm(config.backbone_embedding_dim) if config.use_vlln else nn.Identity()
+        self.vlln = (
+            nn.LayerNorm(config.backbone_embedding_dim) if config.use_vlln else nn.Identity()
+        )
 
         if config.add_pos_embed:
             self.position_embedding = nn.Embedding(config.max_seq_len, self.input_embedding_dim)
@@ -128,7 +134,9 @@ class Gr00tN1d6ActionHead(nn.Module):
         # State dropout parameters
         self.state_dropout_prob = config.state_dropout_prob
         self.mask_token = (
-            nn.Parameter(0.02 * torch.randn(1, 1, self.input_embedding_dim)) if self.state_dropout_prob > 0 else None
+            nn.Parameter(0.02 * torch.randn(1, 1, self.input_embedding_dim))
+            if self.state_dropout_prob > 0
+            else None
         )
 
         # State noise parameters
@@ -142,9 +150,13 @@ class Gr00tN1d6ActionHead(nn.Module):
         self._split_actions_shape = None
         self._split_actions_device = None
         self._split_actions_dtype = None
-        self.set_trainable_parameters(config.tune_projector, config.tune_diffusion_model, config.tune_vlln)
+        self.set_trainable_parameters(
+            config.tune_projector, config.tune_diffusion_model, config.tune_vlln
+        )
 
-    def set_trainable_parameters(self, tune_projector: bool, tune_diffusion_model: bool, tune_vlln: bool):
+    def set_trainable_parameters(
+        self, tune_projector: bool, tune_diffusion_model: bool, tune_vlln: bool
+    ):
         """
         Set trainable parameters based on configuration flags.
 
@@ -297,7 +309,9 @@ class Gr00tN1d6ActionHead(nn.Module):
 
         # Convert to tensor if it's a Python int/float
         if not isinstance(embodiment_id, torch.Tensor):
-            embodiment_id = torch.full((batch_size,), embodiment_id, device=device, dtype=torch.long)
+            embodiment_id = torch.full(
+                (batch_size,), embodiment_id, device=device, dtype=torch.long
+            )
         # Ensure embodiment_id is at least 1D [B] for proper indexing
         if embodiment_id.ndim == 0:
             embodiment_id = embodiment_id.unsqueeze(0).expand(batch_size)
@@ -326,7 +340,10 @@ class Gr00tN1d6ActionHead(nn.Module):
 
         # Apply state dropout during training
         if self.state_dropout_prob > 0:
-            do_dropout = torch.rand(state_features.shape[0], device=state_features.device) < self.state_dropout_prob
+            do_dropout = (
+                torch.rand(state_features.shape[0], device=state_features.device)
+                < self.state_dropout_prob
+            )
             do_dropout = do_dropout[:, None, None].to(dtype=state_features.dtype)
             state_features = state_features * (1 - do_dropout) + self.mask_token * do_dropout
 
@@ -401,7 +418,11 @@ class Gr00tN1d6ActionHead(nn.Module):
             # Expand image_mask and backbone_attention_mask if needed
             if image_mask is not None and image_mask.shape[0] == 1 and sa_batch_size > 1:
                 image_mask = image_mask.expand(sa_batch_size, -1)
-            if backbone_attention_mask is not None and backbone_attention_mask.shape[0] == 1 and sa_batch_size > 1:
+            if (
+                backbone_attention_mask is not None
+                and backbone_attention_mask.shape[0] == 1
+                and sa_batch_size > 1
+            ):
                 backbone_attention_mask = backbone_attention_mask.expand(sa_batch_size, -1)
             model_output, _ = self.model(
                 hidden_states=sa_embs,
@@ -438,7 +459,9 @@ class Gr00tN1d6ActionHead(nn.Module):
         if action_mask is None:
             # Create default mask (all valid) matching pred_actions shape
             action_mask = torch.ones_like(pred_actions)
-            logging.warning(f"action_mask missing in action_input, created default mask with shape {action_mask.shape}")
+            logging.warning(
+                f"action_mask missing in action_input, created default mask with shape {action_mask.shape}"  # noqa: E501
+            )
         else:
             # Expand action_mask to match batch size if needed (fixes batch size mismatch)
             if action_mask.shape[0] != pred_actions.shape[0]:
@@ -476,7 +499,11 @@ class Gr00tN1d6ActionHead(nn.Module):
 
 def get_backbone_cls(config: GrootN1d6ModelConfig):
     """Get backbone class based on model name in config."""
-    if "NVEagle" in config.model_name or "nvidia/Eagle" in config.model_name or "eagle" in config.model_name.lower():
+    if (
+        "NVEagle" in config.model_name
+        or "nvidia/Eagle" in config.model_name
+        or "eagle" in config.model_name.lower()
+    ):
         return EagleBackbone
     else:
         raise ValueError(f"Unsupported model name: {config.model_name}")
@@ -506,7 +533,7 @@ class Gr00tN1d6(nn.Module):
 
         Note: During training, transformers parameters are passed from training config.
               During inference (e.g., from_pretrained), defaults are used.
-        """
+        """  # noqa: E501
         super().__init__()
         self.config = config
         if transformers_loading_kwargs is None:
@@ -821,8 +848,12 @@ class Gr00tN1d6(nn.Module):
             return x
 
         # Simple map for dict inputs
-        backbone_inputs_dict = backbone_inputs.data if isinstance(backbone_inputs, BatchFeature) else backbone_inputs
-        action_inputs_dict = action_inputs.data if isinstance(action_inputs, BatchFeature) else action_inputs
+        backbone_inputs_dict = (
+            backbone_inputs.data if isinstance(backbone_inputs, BatchFeature) else backbone_inputs
+        )
+        action_inputs_dict = (
+            action_inputs.data if isinstance(action_inputs, BatchFeature) else action_inputs
+        )
 
         backbone_inputs_dict = {k: to_device_with_dtype(v) for k, v in backbone_inputs_dict.items()}
         action_inputs_dict = {k: to_device_with_dtype(v) for k, v in action_inputs_dict.items()}
@@ -938,7 +969,7 @@ class GrootN1d6Policy(nn.Module):
         """Forward pass through the policy."""
         if not hasattr(batch, "to_model_inputs"):
             raise TypeError(
-                f"GrootN1d6Policy.forward expects a batch with to_model_inputs(), got {type(batch).__name__}"
+                f"GrootN1d6Policy.forward expects a batch with to_model_inputs(), got {type(batch).__name__}"  # noqa: E501
             )
         outputs = self.model(batch.to_model_inputs())
         loss = outputs.get("loss", None)
@@ -979,8 +1010,12 @@ class GrootN1d6Policy(nn.Module):
         self._predict_action_eagle_assets_path = eagle_assets_path
         self._predict_action_statistics = self._coerce_statistics(checkpoint_statistics)
         self._predict_action_processor_cache = {}
-        self._predict_action_default_processor = self._build_state_action_processor(self._predict_action_statistics)
-        self.native_action_dim = self._compute_native_action_dim(self._predict_action_default_processor)
+        self._predict_action_default_processor = self._build_state_action_processor(
+            self._predict_action_statistics
+        )
+        self.native_action_dim = self._compute_native_action_dim(
+            self._predict_action_default_processor
+        )
         self.model.collator = Gr00tN1d6DataCollator(
             model_name=eagle_assets_path,
             vlm_tokenizer_path=eagle_assets_path,
@@ -1086,7 +1121,10 @@ class GrootN1d6Policy(nn.Module):
             dt = 1.0 / float(action_head.num_inference_timesteps)
 
             for step in range(action_head.num_inference_timesteps):
-                timestep = int((step / float(action_head.num_inference_timesteps)) * action_head.num_timestep_buckets)
+                timestep = int(
+                    (step / float(action_head.num_inference_timesteps))
+                    * action_head.num_timestep_buckets
+                )
                 timesteps = torch.full(
                     (batch_size,),
                     timestep,
@@ -1100,7 +1138,9 @@ class GrootN1d6Policy(nn.Module):
                         dtype=torch.long,
                         device=vl_embeds.device,
                     )
-                    action_features = action_features + action_head.position_embedding(pos_ids).unsqueeze(0)
+                    action_features = action_features + action_head.position_embedding(
+                        pos_ids
+                    ).unsqueeze(0)
 
                 state_action_embeds = torch.cat((state_features, action_features), dim=1)
                 if action_head.config.use_alternate_vl_dit:
@@ -1150,7 +1190,9 @@ class GrootN1d6Policy(nn.Module):
                 self.embodiment_tag,
                 state=state_dict,
             )
-            decoded_samples.append(np.concatenate([np.asarray(decoded_dict[key]) for key in self.action_keys], axis=-1))
+            decoded_samples.append(
+                np.concatenate([np.asarray(decoded_dict[key]) for key in self.action_keys], axis=-1)
+            )
         return np.stack(decoded_samples, axis=0)
 
     def _split_action_chunk(
@@ -1204,7 +1246,7 @@ class GrootN1d6Policy(nn.Module):
             state_batch = np.repeat(state_batch, batch_size, axis=0)
         if state_batch.shape[0] != batch_size:
             raise ValueError(
-                f"GR00T-N1.6 state batch size {state_batch.shape[0]} does not match images batch {batch_size}"
+                f"GR00T-N1.6 state batch size {state_batch.shape[0]} does not match images batch {batch_size}"  # noqa: E501
             )
 
         if state_batch.shape[-1] < self.raw_state_dim:
@@ -1245,7 +1287,11 @@ class GrootN1d6Policy(nn.Module):
             if not images:
                 raise ValueError("GR00T-N1.6 predict_action requires at least one image")
             if all(_is_image_like(item) for item in images):
-                if instruction_count is not None and instruction_count == len(images) and len(images) > 1:
+                if (
+                    instruction_count is not None
+                    and instruction_count == len(images)
+                    and len(images) > 1
+                ):
                     samples = [[item] for item in images]
                 else:
                     samples = [list(images)]
@@ -1261,13 +1307,17 @@ class GrootN1d6Policy(nn.Module):
                             raise ValueError("GR00T-N1.6 image samples must not be empty")
                         samples.append(list(sample))
                     else:
-                        raise TypeError(f"Unsupported GR00T-N1.6 image sample type: {type(sample).__name__}")
+                        raise TypeError(
+                            f"Unsupported GR00T-N1.6 image sample type: {type(sample).__name__}"
+                        )
         else:
             raise TypeError(f"Unsupported GR00T-N1.6 images type: {type(images).__name__}")
 
         return [[_to_pil_image(image) for image in sample] for sample in samples]
 
-    def _apply_eval_image_transform(self, image_batch: list[list[Image.Image]]) -> list[list[Image.Image]]:
+    def _apply_eval_image_transform(
+        self, image_batch: list[list[Image.Image]]
+    ) -> list[list[Image.Image]]:
         """Apply the official ``Gr00tN1d6Processor.eval_image_transform`` (deterministic
         letterbox-pad + center-crop) so callers only need to supply the env's native
         camera image, matching ``Gr00tPolicy.get_action`` where the processor performs
@@ -1276,7 +1326,10 @@ class GrootN1d6Policy(nn.Module):
         if transform is None:
             return image_batch
         return [
-            [Image.fromarray(transform(image=np.asarray(image.convert("RGB")))["image"]) for image in sample]
+            [
+                Image.fromarray(transform(image=np.asarray(image.convert("RGB")))["image"])
+                for image in sample
+            ]
             for sample in image_batch
         ]
 
@@ -1289,7 +1342,7 @@ class GrootN1d6Policy(nn.Module):
             instruction_list = instruction_list * batch_size
         if len(instruction_list) != batch_size:
             raise ValueError(
-                f"GR00T-N1.6 instruction batch size {len(instruction_list)} does not match images batch {batch_size}"
+                f"GR00T-N1.6 instruction batch size {len(instruction_list)} does not match images batch {batch_size}"  # noqa: E501
             )
         return instruction_list
 
@@ -1307,25 +1360,31 @@ class GrootN1d6Policy(nn.Module):
         ]
         return {"text": None, "images": pil_images, "conversation": conversation}
 
-    def _get_predict_action_processor(self, dataset_stats: Dict[str, Any] | None) -> StateActionProcessor:
+    def _get_predict_action_processor(
+        self, dataset_stats: Dict[str, Any] | None
+    ) -> StateActionProcessor:
         if dataset_stats is None:
             if self._predict_action_default_processor is None:
                 raise RuntimeError(
                     "GR00T-N1.6 predict_action has not been configured with checkpoint statistics. "
-                    "Call configure_predict_action(...) before predict_action(..., dataset_stats=None)."
+                    "Call configure_predict_action(...) before predict_action(..., dataset_stats=None)."  # noqa: E501
                 )
             return self._predict_action_default_processor
         statistics = self._coerce_statistics(dataset_stats)
         cache_key = json.dumps(statistics, sort_keys=True)
         if cache_key not in self._predict_action_processor_cache:
-            self._predict_action_processor_cache[cache_key] = self._build_state_action_processor(statistics)
+            self._predict_action_processor_cache[cache_key] = self._build_state_action_processor(
+                statistics
+            )
         return self._predict_action_processor_cache[cache_key]
 
     def _coerce_statistics(self, statistics: Dict[str, Any]) -> Dict[str, Any]:
         if self.embodiment_tag in statistics:
             embodiment_stats = statistics[self.embodiment_tag]
             if not {"state", "action"}.issubset(embodiment_stats):
-                raise ValueError(f"Statistics for {self.embodiment_tag!r} must include 'state' and 'action'.")
+                raise ValueError(
+                    f"Statistics for {self.embodiment_tag!r} must include 'state' and 'action'."
+                )
             return {self.embodiment_tag: embodiment_stats}
 
         if "observation.state" in statistics and "action" in statistics:
@@ -1363,7 +1422,9 @@ class GrootN1d6Policy(nn.Module):
         if value.shape[0] == 1 and batch_size > 1:
             return value.expand(batch_size)
         if value.shape[0] != batch_size:
-            raise ValueError(f"embodiment_id batch size {value.shape[0]} does not match {batch_size}")
+            raise ValueError(
+                f"embodiment_id batch size {value.shape[0]} does not match {batch_size}"
+            )
         return value
 
     def _ensure_predict_action_collator(self) -> None:
@@ -1462,7 +1523,7 @@ class GrootN1d6Policy(nn.Module):
 
         missing, unexpected = self.model.load_state_dict(filtered, strict=False)
         logger.info(
-            "Loaded GR00T-N1.6 checkpoint from %s: %d tensors, %d skipped, %d missing, %d unexpected",
+            "Loaded GR00T-N1.6 checkpoint from %s: %d tensors, %d skipped, %d missing, %d unexpected",  # noqa: E501
             path,
             len(filtered),
             len(skipped),
@@ -1470,7 +1531,9 @@ class GrootN1d6Policy(nn.Module):
             len(unexpected),
         )
         if skipped:
-            logger.warning("Skipped %d GR00T-N1.6 tensors; first keys: %s", len(skipped), skipped[:5])
+            logger.warning(
+                "Skipped %d GR00T-N1.6 tensors; first keys: %s", len(skipped), skipped[:5]
+            )
         if remember_path:
             self._pretrained_checkpoint_path = path
             self._reload_pretrained_once_after_precision_cast = True
@@ -1517,7 +1580,9 @@ def _resolve_rope_init_fn(submodule: nn.Module):
         return rope_init_fn
 
     rope_type = getattr(submodule, "rope_type", "default")
-    if rope_type == "default" and callable(getattr(submodule, "compute_default_rope_parameters", None)):
+    if rope_type == "default" and callable(
+        getattr(submodule, "compute_default_rope_parameters", None)
+    ):
         return submodule.compute_default_rope_parameters
 
     try:
@@ -1541,7 +1606,12 @@ def _restore_rotary_buffers_fp32(module: nn.Module) -> None:
         inv_freq = submodule.inv_freq
         config = submodule.config
         rope_init_fn = _resolve_rope_init_fn(submodule)
-        if inv_freq is None or inv_freq.device.type == "meta" or not callable(rope_init_fn) or config is None:
+        if (
+            inv_freq is None
+            or inv_freq.device.type == "meta"
+            or not callable(rope_init_fn)
+            or config is None
+        ):
             continue
 
         new_inv_freq, attention_scaling = rope_init_fn(config, device=inv_freq.device)

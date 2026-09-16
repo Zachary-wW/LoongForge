@@ -55,14 +55,18 @@ def _get_glm_layer_with_te_spec(
         moe_grouped_gemm=moe_grouped_gemm,
     )
 
-    # Default specs for attention module and its submodules, which can be overridden by experimental attention variants.
+    # Default specs for attention module and its submodules, which can be overridden by experimental attention variants.  # noqa: E501
     mla_attention_module = MLASelfAttention
     core_attention = multiacc_modules.DotProductAttention
     linear_q_up_proj = (
-        multiacc_modules.TELayerNormColumnParallelLinear if qk_layernorm else multiacc_modules.TEColumnParallelLinear
+        multiacc_modules.TELayerNormColumnParallelLinear
+        if qk_layernorm
+        else multiacc_modules.TEColumnParallelLinear
     )
     linear_kv_up_proj = (
-        multiacc_modules.TELayerNormColumnParallelLinear if qk_layernorm else multiacc_modules.TEColumnParallelLinear
+        multiacc_modules.TELayerNormColumnParallelLinear
+        if qk_layernorm
+        else multiacc_modules.TEColumnParallelLinear
     )
     q_layernorm = IdentityOp
     kv_layernorm = IdentityOp
@@ -122,7 +126,9 @@ def _get_glm_layer_with_te_spec(
 
         # Currently not support other experimental attention variants.
         else:
-            raise ValueError(f"Invalid experimental attention variant: {experimental_attention_variant}")
+            raise ValueError(
+                f"Invalid experimental attention variant: {experimental_attention_variant}"
+            )
 
     attention = ModuleSpec(
         module=mla_attention_module,
@@ -235,10 +241,18 @@ def get_glm_decoder_block_and_mtp_spec(
     # In FP8 training, replace `linear_q_down_proj` and `linear_kv_down_proj`
     # with TELinear to support tensor parallelism
     if config.fp8 and config.fp8_recipe == Fp8Recipe.blockwise:
-        dense_layer_spec.submodules.self_attention.submodules.linear_q_down_proj = multiacc_modules.TELinear
-        dense_layer_spec.submodules.self_attention.submodules.linear_kv_down_proj = multiacc_modules.TELinear
-        moe_layer_spec.submodules.self_attention.submodules.linear_q_down_proj = multiacc_modules.TELinear
-        moe_layer_spec.submodules.self_attention.submodules.linear_kv_down_proj = multiacc_modules.TELinear
+        dense_layer_spec.submodules.self_attention.submodules.linear_q_down_proj = (
+            multiacc_modules.TELinear
+        )
+        dense_layer_spec.submodules.self_attention.submodules.linear_kv_down_proj = (
+            multiacc_modules.TELinear
+        )
+        moe_layer_spec.submodules.self_attention.submodules.linear_q_down_proj = (
+            multiacc_modules.TELinear
+        )
+        moe_layer_spec.submodules.self_attention.submodules.linear_kv_down_proj = (
+            multiacc_modules.TELinear
+        )
 
     # Parse config.moe_layer_freq to determine the pattern of expert/dense layers.
     # 0 stands for dense layers, 1 stands for expert layers.
@@ -250,7 +264,9 @@ def get_glm_decoder_block_and_mtp_spec(
         config.moe_layer_freq = list(config.moe_layer_freq)
 
     if isinstance(config.moe_layer_freq, int):
-        moe_layer_pattern = [1 if (i % config.moe_layer_freq == 0) else 0 for i in range(config.num_layers)]
+        moe_layer_pattern = [
+            1 if (i % config.moe_layer_freq == 0) else 0 for i in range(config.num_layers)
+        ]
     elif isinstance(config.moe_layer_freq, list):
         moe_layer_pattern = config.moe_layer_freq
         assert len(moe_layer_pattern) == config.num_layers, (
@@ -259,7 +275,9 @@ def get_glm_decoder_block_and_mtp_spec(
             f"current moe layer pattern: {config.moe_layer_freq}"
         )
     else:
-        raise ValueError(f"Invalid moe_layer_freq: {type(config.moe_layer_freq)}, {config.moe_layer_freq}")
+        raise ValueError(
+            f"Invalid moe_layer_freq: {type(config.moe_layer_freq)}, {config.moe_layer_freq}"
+        )
 
     # Create the layer specs for the model.
     layer_specs = []

@@ -82,7 +82,9 @@ def rotate_activation(x: torch.Tensor) -> torch.Tensor:
     Returns:
         Rotated tensor.
     """
-    assert x.dtype == torch.bfloat16, f"rotate_activation only support bf16 input, but got {x.dtype}"
+    assert x.dtype == torch.bfloat16, (
+        f"rotate_activation only support bf16 input, but got {x.dtype}"
+    )
     assert hadamard_transform is not None, "fast_hadamard_transform is not installed."
     hidden_size = x.size(-1)
     return hadamard_transform(x, scale=hidden_size**-0.5)
@@ -132,12 +134,16 @@ class DSAIndexerFused(MegatronModule):
         """
         if not getattr(config, "dsa_indexer_use_sparse_loss", True):
             raise ValueError(
-                "fused DSA only supports dsa_indexer_use_sparse_loss=True; use portable DSA for dense indexer loss"
+                "fused DSA only supports dsa_indexer_use_sparse_loss=True; use portable DSA for dense indexer loss"  # noqa: E501
             )
         super().__init__(config=config)
         self.hidden_size = self.config.hidden_size
         self.qk_pos_emb_head_dim = self.config.qk_pos_emb_head_dim
-        self.q_lora_rank = self.config.q_lora_rank if self.config.q_lora_rank is not None else self.config.hidden_size
+        self.q_lora_rank = (
+            self.config.q_lora_rank
+            if self.config.q_lora_rank is not None
+            else self.config.hidden_size
+        )
 
         self.index_n_heads = self.config.dsa_indexer_n_heads
         self.index_head_dim = self.config.dsa_indexer_head_dim
@@ -146,7 +152,9 @@ class DSAIndexerFused(MegatronModule):
         self.softmax_scale: float = self.index_head_dim**-0.5
 
         if pg_collection is None:
-            pg_collection = ProcessGroupCollection.use_mpu_process_groups(required_pgs=["tp", "cp", "pp"])
+            pg_collection = ProcessGroupCollection.use_mpu_process_groups(
+                required_pgs=["tp", "cp", "pp"]
+            )
         self.pg_collection = pg_collection
 
         # Initialize Position Embedding.
@@ -170,7 +178,9 @@ class DSAIndexerFused(MegatronModule):
                 cp_group=self.pg_collection.cp,
             )
         else:
-            raise ValueError(f'Unsupported RoPE type: {self.config.rope_type}, supported types are "rope" and "yarn"')
+            raise ValueError(
+                f'Unsupported RoPE type: {self.config.rope_type}, supported types are "rope" and "yarn"'  # noqa: E501
+            )
 
         self.linear_wq_b = build_module(
             submodules.linear_wq_b,
@@ -239,7 +249,9 @@ class DSAIndexerFused(MegatronModule):
                 pipeline_world_size - pipeline_rank - 1
             ) * 2 + self.num_chunks_per_seq * self.config.virtual_pipeline_model_parallel_size
         else:
-            self.indexer_key_cache_chunk_size = (pipeline_world_size - pipeline_rank - 1) * 2 + self.num_chunks_per_seq
+            self.indexer_key_cache_chunk_size = (
+                pipeline_world_size - pipeline_rank - 1
+            ) * 2 + self.num_chunks_per_seq
 
         # Initialize cache management data structures
         self.micro_batch_to_cache_chunk_map = {}
@@ -261,7 +273,9 @@ class DSAIndexerFused(MegatronModule):
         """
         # Validate chunkpipe configuration
         if not self.config.enable_chunkpipe:
-            raise RuntimeError("This method is valid only for Chunkpipe, please check config.enable_chunkpipe=True")
+            raise RuntimeError(
+                "This method is valid only for Chunkpipe, please check config.enable_chunkpipe=True"
+            )
 
         # In forward recomputation before backward pass, gradient should be enabled
         if not self.config.chunkpipe_forward:
@@ -290,7 +304,9 @@ class DSAIndexerFused(MegatronModule):
     def clear_chunk_indexer_key_cache(self) -> None:
         """Clear all chunk indexer key cache data and reset cache management state."""
         if not getattr(self.config, "enable_chunkpipe", False):
-            raise RuntimeError("Chunk indexer key cache operations require chunkpipe to be enabled.")
+            raise RuntimeError(
+                "Chunk indexer key cache operations require chunkpipe to be enabled."
+            )
 
         self.empty_chunk_indices = list(range(self.indexer_key_cache_chunk_size))
         self.micro_batch_to_cache_chunk_map.clear()
@@ -302,7 +318,9 @@ class DSAIndexerFused(MegatronModule):
             micro_batch_index: Index of the micro-batch whose cache should be deleted
         """
         if not getattr(self.config, "enable_chunkpipe", False):
-            raise RuntimeError("Chunk indexer key cache operations require chunkpipe to be enabled.")
+            raise RuntimeError(
+                "Chunk indexer key cache operations require chunkpipe to be enabled."
+            )
 
         if micro_batch_index not in self.micro_batch_to_cache_chunk_map:
             return
@@ -358,7 +376,9 @@ class DSAIndexerFused(MegatronModule):
 
         is_forward = self.config.chunkpipe_forward
         current_microbatch = (
-            self.config.chunkpipe_forward_microbatch if is_forward else self.config.chunkpipe_backward_microbatch
+            self.config.chunkpipe_forward_microbatch
+            if is_forward
+            else self.config.chunkpipe_backward_microbatch
         )
 
         chunks_in_current_sequence = current_microbatch % self.num_chunks_per_seq
@@ -387,9 +407,9 @@ class DSAIndexerFused(MegatronModule):
             microbatch_idx = starting_microbatch_idx + chunk_offset
             cache_chunk_idx = self.micro_batch_to_cache_chunk_map[microbatch_idx]
 
-            chunk_indices = torch.arange(self.config.chunksize, device=self.indexer_key_cache.device) + (
-                cache_chunk_idx * self.config.chunksize
-            )
+            chunk_indices = torch.arange(
+                self.config.chunksize, device=self.indexer_key_cache.device
+            ) + (cache_chunk_idx * self.config.chunksize)
 
             cached_key = self.indexer_key_cache[chunk_indices, :, :]
 
@@ -439,13 +459,17 @@ class DSAIndexerFused(MegatronModule):
             # x_pe   [seqlen, *, qk_pos_emb_head_dim]
             # x_nope [seqlen, *, index_head_dim - qk_pos_emb_head_dim]
             x_pe, x_nope = torch.split(
-                x, [self.qk_pos_emb_head_dim, self.index_head_dim - self.qk_pos_emb_head_dim], dim=-1
+                x,
+                [self.qk_pos_emb_head_dim, self.index_head_dim - self.qk_pos_emb_head_dim],
+                dim=-1,
             )
 
             extra_kwargs = dict()
             if is_sp:
                 cu_seqlens, offsets = shard_packed_cu_seqlens_for_sp_rank(
-                    cu_seqlens, sp_rank=self.pg_collection.tp.rank(), sp_world_size=self.pg_collection.tp.size()
+                    cu_seqlens,
+                    sp_rank=self.pg_collection.tp.rank(),
+                    sp_world_size=self.pg_collection.tp.size(),
                 )
                 extra_kwargs["offsets"] = offsets
 
@@ -454,7 +478,9 @@ class DSAIndexerFused(MegatronModule):
             # DeepSeek-V3.2's indexer stores q_pe/k_pe non-interleaved, GLM-5.x stores them
             # interleaved (HF indexer_rope_interleave), so drive it off the DSA config field.
             indexer_rope_config = copy.copy(self.config)
-            indexer_rope_config.multi_latent_attention = getattr(self.config, "dsa_indexer_rope_interleaved", False)
+            indexer_rope_config.multi_latent_attention = getattr(
+                self.config, "dsa_indexer_rope_interleaved", False
+            )
 
             x_pe = apply_rotary_pos_emb(
                 x_pe,
@@ -499,7 +525,9 @@ class DSAIndexerFused(MegatronModule):
         # =========================================
         # Prepare RoPE and seqlen related params
         # =========================================
-        rotary_seq_len = self.rotary_pos_emb.get_rotary_seq_len(None, None, x, self.config, packed_seq_params)
+        rotary_seq_len = self.rotary_pos_emb.get_rotary_seq_len(
+            None, None, x, self.config, packed_seq_params
+        )
 
         # Calculate position embedding offset for chunkpipe
         pos_emb_offset = 0
@@ -515,7 +543,9 @@ class DSAIndexerFused(MegatronModule):
         rotary_pos_sin = None
         packed_seq = packed_seq_params is not None and packed_seq_params.qkv_format == "thd"
         if self.config.rope_type == "rope":
-            rotary_pos_emb = self.rotary_pos_emb(rotary_seq_len, offset=pos_emb_offset, packed_seq=packed_seq)
+            rotary_pos_emb = self.rotary_pos_emb(
+                rotary_seq_len, offset=pos_emb_offset, packed_seq=packed_seq
+            )
             mscale = 1.0
         else:
             if self.config.apply_rope_fusion:
@@ -562,9 +592,13 @@ class DSAIndexerFused(MegatronModule):
                     rotary_pos_sin[offset : offset + q.size(0)],
                 )
             else:
-                q = self._apply_rope(q, rotary_pos_emb[offset : offset + q.size(0)], mscale, cu_seqlens_q)
+                q = self._apply_rope(
+                    q, rotary_pos_emb[offset : offset + q.size(0)], mscale, cu_seqlens_q
+                )
         else:
-            q = self._apply_rope(q, rotary_pos_emb, mscale, cu_seqlens_q, rotary_pos_cos, rotary_pos_sin, is_sp=True)
+            q = self._apply_rope(
+                q, rotary_pos_emb, mscale, cu_seqlens_q, rotary_pos_cos, rotary_pos_sin, is_sp=True
+            )
 
         # =========================================
         # k linear and apply rope to k
@@ -577,11 +611,15 @@ class DSAIndexerFused(MegatronModule):
 
         if packed_seq_params is None:
             k = k.unsqueeze(-2)  # [s, b, 1, d]
-            k = self._apply_rope(k, rotary_pos_emb, mscale, cu_seqlens_kv, rotary_pos_cos, rotary_pos_sin)
+            k = self._apply_rope(
+                k, rotary_pos_emb, mscale, cu_seqlens_kv, rotary_pos_cos, rotary_pos_sin
+            )
             k = k.squeeze(-2)  # [s, b, d]
         else:
             # Cause head and batchsize are both 1, omit the batch squeeze and head unsqueeze
-            k = self._apply_rope(k, rotary_pos_emb, mscale, cu_seqlens_kv, rotary_pos_cos, rotary_pos_sin)  # [s, b, d]
+            k = self._apply_rope(
+                k, rotary_pos_emb, mscale, cu_seqlens_kv, rotary_pos_cos, rotary_pos_sin
+            )  # [s, b, d]
 
         # =========================================
         # Rotate activation
@@ -602,13 +640,17 @@ class DSAIndexerFused(MegatronModule):
                 Hook function to combine gradient of loss of subsequent chunk
                 with respect to that of current chunk's indexer key.
                 """
-                chunks_in_current_sequence = self.config.chunkpipe_backward_microbatch % self.num_chunks_per_seq
+                chunks_in_current_sequence = (
+                    self.config.chunkpipe_backward_microbatch % self.num_chunks_per_seq
+                )
                 if chunks_in_current_sequence == self.num_chunks_per_seq - 1:
                     # Last chunk in sequence, no accumulated gradient to add
                     return grad
                 else:
                     # Add accumulated gradient from subsequent chunks
-                    grad_from_prev_chunk = self.indexer_key_cache_grad.pop(chunks_in_current_sequence)
+                    grad_from_prev_chunk = self.indexer_key_cache_grad.pop(
+                        chunks_in_current_sequence
+                    )
                     return grad + grad_from_prev_chunk
 
             if self.is_enable_grad_chunkpipe():
@@ -735,7 +777,9 @@ class DSAttentionFused(MegatronModule):
             self.layer_number = self.layer_number + self.config.num_layers
         self.pg_collection = pg_collection
         args = get_args()
-        self.use_dsa_sp_first = getattr(args, "use_dsa_sp_first", False) if args is not None else False
+        self.use_dsa_sp_first = (
+            getattr(args, "use_dsa_sp_first", False) if args is not None else False
+        )
 
         # Cross-layer top-k index sharing (IndexShare, GLM-5.2). MTP layers always own an indexer.
         self.index_topk_freq = getattr(self.config, "dsa_indexer_topk_freq", 1)
@@ -744,20 +788,28 @@ class DSAttentionFused(MegatronModule):
         self.skip_topk = (
             self.index_share
             and not is_mtp_layer
-            and is_dsa_skip_topk_layer(self.layer_number, self.index_skip_topk_offset, self.index_topk_freq)
+            and is_dsa_skip_topk_layer(
+                self.layer_number, self.index_skip_topk_offset, self.index_topk_freq
+            )
         )
         self.source_layer = (
-            source_dsa_compute_layer(self.layer_number, self.index_skip_topk_offset, self.index_topk_freq)
+            source_dsa_compute_layer(
+                self.layer_number, self.index_skip_topk_offset, self.index_topk_freq
+            )
             if self.skip_topk
             else self.layer_number
         )
 
         self.indexer = None
         if not self.skip_topk:
-            self.indexer = build_module(submodules.indexer, config=self.config, pg_collection=pg_collection)
+            self.indexer = build_module(
+                submodules.indexer, config=self.config, pg_collection=pg_collection
+            )
 
         if softmax_scale is None:
-            softmax_scale = 1.0 / math.sqrt(k_channels if k_channels is not None else config.kv_channels)
+            softmax_scale = 1.0 / math.sqrt(
+                k_channels if k_channels is not None else config.kv_channels
+            )
         self.softmax_scale = softmax_scale
 
         self.sparse_attention = build_module(
@@ -809,7 +861,11 @@ class DSAttentionFused(MegatronModule):
 
         topk_holder = (
             get_dsa_index_share_topk_holder(
-                packed_seq_params, index_share_carrier, self.skip_topk, self.layer_number, self.source_layer
+                packed_seq_params,
+                index_share_carrier,
+                self.skip_topk,
+                self.layer_number,
+                self.source_layer,
             )
             if self.index_share
             else None
@@ -874,7 +930,9 @@ class DSAttentionFused(MegatronModule):
         if self.config.enable_chunkpipe:
             ck_fwd_mic = self.config.chunkpipe_forward_microbatch % self.config.chunk_num_per_seq
             if not self.config.chunkpipe_forward:
-                ck_fwd_mic = self.config.chunkpipe_backward_microbatch % self.config.chunk_num_per_seq
+                ck_fwd_mic = (
+                    self.config.chunkpipe_backward_microbatch % self.config.chunk_num_per_seq
+                )
             offset += ck_fwd_mic * self.config.chunksize
 
         output, p_out = self.sparse_attention(
@@ -907,7 +965,9 @@ class DSAttentionFused(MegatronModule):
 
             index_attn_probs = torch.softmax(index_scores, dim=-1)  # [seq / TP, topk]
 
-            loss = F.kl_div((index_attn_probs + 1e-10).log(), main_attn_probs + 1e-10, reduction="sum")
+            loss = F.kl_div(
+                (index_attn_probs + 1e-10).log(), main_attn_probs + 1e-10, reduction="sum"
+            )
             if self.use_dsa_sp_first:
                 loss_norm = sq * self.pg_collection.tp.size()
             elif getattr(self.config, "enable_chunkpipe", False):

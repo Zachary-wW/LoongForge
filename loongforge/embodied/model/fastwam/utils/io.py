@@ -40,7 +40,9 @@ class ModelConfig:
     def check_input(self):
         """Validate that enough information is present to resolve the model."""
         if self.path is None and self.model_id is None:
-            raise ValueError("ModelConfig requires either `path` or (`model_id`, `origin_file_pattern`).")
+            raise ValueError(
+                "ModelConfig requires either `path` or (`model_id`, `origin_file_pattern`)."
+            )
 
     def parse_original_file_pattern(self):
         """Return the normalized original file pattern for model lookup."""
@@ -134,7 +136,9 @@ class ModelConfig:
             if self.origin_file_pattern in [None, "", "./"]:
                 self.path = os.path.join(self.local_model_path, self.model_id)
             else:
-                matches = glob.glob(os.path.join(self.local_model_path, self.model_id, self.origin_file_pattern))
+                matches = glob.glob(
+                    os.path.join(self.local_model_path, self.model_id, self.origin_file_pattern)
+                )
                 matches.sort()
                 self.path = matches
         if isinstance(self.path, list) and len(self.path) == 1:
@@ -226,7 +230,9 @@ def _convert_keys_dict_to_single_str(keys_dict, with_shape=True):
     for key, value in keys_dict.items():
         if isinstance(key, str):
             if isinstance(value, dict):
-                keys.append(key + "|" + _convert_keys_dict_to_single_str(value, with_shape=with_shape))
+                keys.append(
+                    key + "|" + _convert_keys_dict_to_single_str(value, with_shape=with_shape)
+                )
             else:
                 if with_shape:
                     shape = "_".join(map(str, list(value)))

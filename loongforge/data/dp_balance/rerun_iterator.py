@@ -35,7 +35,9 @@ class RerunDataIterator(_OrigRerunDataIterator):
         self._iterator = iterable if hasattr(iterable, "__iter__") else iter(iterable)
 
     def __iter__(self) -> "RerunDataIterator":
-        self._iterator = self.iterable if hasattr(self.iterable, "__iter__") else iter(self.iterable)
+        self._iterator = (
+            self.iterable if hasattr(self.iterable, "__iter__") else iter(self.iterable)
+        )
         self.saved_microbatches = []
         self.replaying = False
         self.replay_pos = 0

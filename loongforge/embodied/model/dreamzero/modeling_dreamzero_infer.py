@@ -130,7 +130,9 @@ class DreamZeroInferenceModel:
             "text_negative": negative_tokens.input_ids.to(self._device),
             "text_attention_mask_negative": negative_tokens.attention_mask.to(self._device),
             "state": torch.from_numpy(state)[None, None].to(self._device),
-            "embodiment_id": torch.tensor([self._embodiment_id], dtype=torch.long, device=self._device),
+            "embodiment_id": torch.tensor(
+                [self._embodiment_id], dtype=torch.long, device=self._device
+            ),
         }
         return self.predict_action_chunk(batch)
 

@@ -68,7 +68,7 @@ def validate_runtime(device, backend: str) -> None:
         raise RuntimeError(f"{FLAG} requires a CUDA device; got {context}")
     if resolved != "nccl":
         raise RuntimeError(
-            f"{FLAG} requires the NCCL backend; got {context} (resolved {device.type}:{resolved or 'unknown'})"
+            f"{FLAG} requires the NCCL backend; got {context} (resolved {device.type}:{resolved or 'unknown'})"  # noqa: E501
         )
     if triton is None or tl is None or not hasattr(tl, "float8e4nv"):
         raise RuntimeError(f"{FLAG} requires Triton with the FP8 type tl.float8e4nv; got {context}")
@@ -79,14 +79,20 @@ def validate_runtime(device, backend: str) -> None:
     # fails, which is the late failure this function exists to move forward.
     capability = torch.cuda.get_device_capability(device)
     if capability < (8, 9):
-        raise RuntimeError(f"{FLAG} requires compute capability >= 8.9 for tl.float8e4nv; got {capability} ({context})")
+        raise RuntimeError(
+            f"{FLAG} requires compute capability >= 8.9 for tl.float8e4nv; got {capability} ({context})"  # noqa: E501
+        )
     try:
         target = triton.runtime.driver.active.get_current_target()
         triton_backend = str(target.backend).lower()
     except Exception as exc:
-        raise RuntimeError(f"Unable to initialize Triton's CUDA backend for {FLAG} ({context})") from exc
+        raise RuntimeError(
+            f"Unable to initialize Triton's CUDA backend for {FLAG} ({context})"
+        ) from exc
     if triton_backend != "cuda":
-        raise RuntimeError(f"{FLAG} requires Triton's CUDA backend; got triton_backend={triton_backend!r} ({context})")
+        raise RuntimeError(
+            f"{FLAG} requires Triton's CUDA backend; got triton_backend={triton_backend!r} ({context})"  # noqa: E501
+        )
 
 
 if triton is not None:
@@ -309,7 +315,7 @@ def _scratch_for(index, identity, numel, dtype, device, world_size, block, budge
     _SCRATCH[index] = scratch
     _SCRATCH_BYTES += scratch.bytes()
     logger.info(
-        "fp8_a2a: bucket %d numel=%d S=%d chunk_u8=%d scratch=%.1f MiB (total %.2f GiB over %d buckets)",
+        "fp8_a2a: bucket %d numel=%d S=%d chunk_u8=%d scratch=%.1f MiB (total %.2f GiB over %d buckets)",  # noqa: E501
         index,
         numel,
         scratch.S,
@@ -383,7 +389,9 @@ def dequant_scatter(ag_u8, out, numel, S, chunk_u8, num_chunks, block):
 
 
 def configure(
-    block: int = DEFAULT_BLOCK, min_mib: float = DEFAULT_MIN_MIB, max_scratch_gb: float = DEFAULT_MAX_SCRATCH_GB
+    block: int = DEFAULT_BLOCK,
+    min_mib: float = DEFAULT_MIN_MIB,
+    max_scratch_gb: float = DEFAULT_MAX_SCRATCH_GB,
 ) -> None:
     """Set the hook's tunables. Called once from ``parallel.py`` at install time.
 

@@ -109,12 +109,15 @@ def chunk_kimi_delta_attention(
 
     tensors = (query, key, value, decay, key_beta, value_beta)
     query, key, value, decay, key_beta, value_beta = [
-        tensor.reshape(tensor.shape[0], tensor.shape[1], -1, chunk_size, tensor.shape[-1]) for tensor in tensors
+        tensor.reshape(tensor.shape[0], tensor.shape[1], -1, chunk_size, tensor.shape[-1])
+        for tensor in tensors
     ]
     beta = beta.reshape(beta.shape[0], beta.shape[1], -1, chunk_size)
 
     decay = decay.cumsum(dim=-2)
-    diagonal_mask = torch.triu(torch.ones(chunk_size, chunk_size, dtype=torch.bool, device=query.device), diagonal=0)
+    diagonal_mask = torch.triu(
+        torch.ones(chunk_size, chunk_size, dtype=torch.bool, device=query.device), diagonal=0
+    )
     # Mask the strictly-upper-triangle differences BEFORE the exp: with real
     # weights the per-dim decay approaches lower_bound, so within-chunk cumsum
     # differences reach ~63 * |lower_bound| and exp() overflows to inf. The
@@ -140,22 +143,29 @@ def chunk_kimi_delta_attention(
     attention = attention + torch.eye(chunk_size, dtype=attention.dtype, device=attention.device)
     value = attention @ value_beta
     cumulative_key = attention @ (key_beta * decay.exp())
-    recurrent_state = torch.zeros(batch_size, num_heads, key_dim, value_dim, dtype=value.dtype, device=value.device)
+    recurrent_state = torch.zeros(
+        batch_size, num_heads, key_dim, value_dim, dtype=value.dtype, device=value.device
+    )
     output = torch.zeros_like(value)
-    causal_mask = torch.triu(torch.ones(chunk_size, chunk_size, dtype=torch.bool, device=query.device), diagonal=1)
+    causal_mask = torch.triu(
+        torch.ones(chunk_size, chunk_size, dtype=torch.bool, device=query.device), diagonal=1
+    )
     for index in range(total_length // chunk_size):
         query_chunk = query[:, :, index]
         key_chunk = key[:, :, index]
         value_chunk = value[:, :, index]
         decay_chunk = decay[:, :, index]
         inter = (query_chunk * decay_chunk.exp()) @ recurrent_state
-        intra = (query_chunk.unsqueeze(-2) * key_chunk.unsqueeze(-3) * decay_mask[:, :, index]).sum(-1)
+        intra = (query_chunk.unsqueeze(-2) * key_chunk.unsqueeze(-3) * decay_mask[:, :, index]).sum(
+            -1
+        )
         intra = intra.masked_fill(causal_mask, 0)
         new_value = value_chunk - cumulative_key[:, :, index] @ recurrent_state
         output[:, :, index] = inter + intra @ new_value
         recurrent_state = (
             recurrent_state * decay_chunk[:, :, -1].exp().unsqueeze(-1)
-            + (key_chunk * (decay_chunk[:, :, -1:] - decay_chunk).exp()).transpose(-1, -2) @ new_value
+            + (key_chunk * (decay_chunk[:, :, -1:] - decay_chunk).exp()).transpose(-1, -2)
+            @ new_value
         )
 
     output = output.reshape(batch_size, num_heads, -1, value_dim)[:, :, :sequence_length]
@@ -177,9 +187,15 @@ class Glm5NextTextLinearAttention(nn.Module):
         self.q_proj = nn.Linear(self.hidden_size, self.qkv_dim, bias=False)
         self.k_proj = nn.Linear(self.hidden_size, self.qkv_dim, bias=False)
         self.v_proj = nn.Linear(self.hidden_size, self.qkv_dim, bias=False)
-        self.q_conv1d = nn.Conv1d(self.qkv_dim, self.qkv_dim, self.conv_kernel_size, groups=self.qkv_dim, bias=False)
-        self.k_conv1d = nn.Conv1d(self.qkv_dim, self.qkv_dim, self.conv_kernel_size, groups=self.qkv_dim, bias=False)
-        self.v_conv1d = nn.Conv1d(self.qkv_dim, self.qkv_dim, self.conv_kernel_size, groups=self.qkv_dim, bias=False)
+        self.q_conv1d = nn.Conv1d(
+            self.qkv_dim, self.qkv_dim, self.conv_kernel_size, groups=self.qkv_dim, bias=False
+        )
+        self.k_conv1d = nn.Conv1d(
+            self.qkv_dim, self.qkv_dim, self.conv_kernel_size, groups=self.qkv_dim, bias=False
+        )
+        self.v_conv1d = nn.Conv1d(
+            self.qkv_dim, self.qkv_dim, self.conv_kernel_size, groups=self.qkv_dim, bias=False
+        )
 
         self.f_a_proj = nn.Linear(self.hidden_size, self.head_dim, bias=False)
         self.f_b_proj = nn.Linear(self.head_dim, self.qkv_dim, bias=False)
@@ -191,7 +207,9 @@ class Glm5NextTextLinearAttention(nn.Module):
         self.o_norm = GatedRMSNorm(config, self.head_dim, config.rms_norm_eps)
         self.o_proj = nn.Linear(self.qkv_dim, self.hidden_size, bias=False)
 
-    def _conv(self, projection: nn.Linear, convolution: nn.Conv1d, hidden_states: torch.Tensor) -> torch.Tensor:
+    def _conv(
+        self, projection: nn.Linear, convolution: nn.Conv1d, hidden_states: torch.Tensor
+    ) -> torch.Tensor:
         projected = projection(hidden_states).transpose(1, 2)
         projected = F.conv1d(
             projected.float(),
@@ -249,7 +267,9 @@ class KPoolDSAIndexer(DSAIndexer):
         self.index_kpool_compress_gate = nn.Parameter(torch.zeros(self.head_dim, self.hidden_size))
 
     def _pooled_states(self, packed_states: torch.Tensor):
-        keys, gate_scores, valid_keys = torch.split(packed_states, [self.head_dim, self.head_dim, 1], dim=-1)
+        keys, gate_scores, valid_keys = torch.split(
+            packed_states, [self.head_dim, self.head_dim, 1], dim=-1
+        )
         valid_keys = valid_keys.bool().squeeze(-1)
         batch_size, sequence_length = keys.shape[:2]
         pool_count = (sequence_length + self.index_kpool - 1) // self.index_kpool
@@ -287,7 +307,9 @@ class KPoolDSAIndexer(DSAIndexer):
         query, key, weights = self.forward_before_topk(x, qr, packed_seq_params)
         hidden_states = x
         if self.config.sequence_parallel and self.pg_collection.tp.size() > 1:
-            hidden_states = gather_from_sequence_parallel_region(hidden_states, group=self.pg_collection.tp)
+            hidden_states = gather_from_sequence_parallel_region(
+                hidden_states, group=self.pg_collection.tp
+            )
         query, _ = _cp_reconstruct(query, self.pg_collection.cp, 0)
         key, _ = _cp_reconstruct(key, self.pg_collection.cp, 0)
         weights, _ = _cp_reconstruct(weights, self.pg_collection.cp, 0)
@@ -310,9 +332,13 @@ class KPoolDSAIndexer(DSAIndexer):
         scores = F.relu(scores)
         index_scores = torch.matmul(weights.float().unsqueeze(-2), scores).squeeze(-2)
         pool_end = pool_indices[..., -1].clamp(0, sequence_length - 1)
-        pool_visible = visible.gather(-1, pool_end[:, None, :].expand(batch_size, sequence_length, -1))
+        pool_visible = visible.gather(
+            -1, pool_end[:, None, :].expand(batch_size, sequence_length, -1)
+        )
         valid_candidates = pool_visible & pool_valid[:, None]
-        index_scores = index_scores.masked_fill(~valid_candidates, torch.finfo(index_scores.dtype).min)
+        index_scores = index_scores.masked_fill(
+            ~valid_candidates, torch.finfo(index_scores.dtype).min
+        )
         select_k = min(self.index_topk // self.index_kpool, index_scores.shape[-1])
         selected = index_scores.topk(select_k, dim=-1).indices
         batch_indices = torch.arange(batch_size, device=hidden_states.device)[:, None, None]
@@ -328,14 +354,18 @@ class KPoolDSAIndexer(DSAIndexer):
             first_key = torch.where(
                 valid_keys.any(-1),
                 valid_keys.long().argmax(-1),
-                torch.full((batch_size,), sequence_length, dtype=torch.long, device=hidden_states.device),
+                torch.full(
+                    (batch_size,), sequence_length, dtype=torch.long, device=hidden_states.device
+                ),
             )
             visible_count = visible.long().sum(-1)
             tail_count = visible_count.remainder(self.index_kpool)
             tail_offsets = torch.arange(max_tail, device=hidden_states.device)
             tail_start = first_key[:, None] + visible_count - tail_count
             tail_indices = tail_start[..., None] + tail_offsets
-            tail_valid = (tail_offsets[None, None, :] < tail_count[..., None]) & tail_indices.lt(sequence_length)
+            tail_valid = (tail_offsets[None, None, :] < tail_count[..., None]) & tail_indices.lt(
+                sequence_length
+            )
             tail_visible = visible.gather(-1, tail_indices.clamp(0, sequence_length - 1))
             tail_indices = tail_indices.masked_fill(~(tail_valid & tail_visible), -1)
             topk_indices = torch.cat([topk_indices, tail_indices], dim=-1)
@@ -382,7 +412,11 @@ class KPoolDSAttention(DSAttention):
         if self.skip_topk:
             self.indexer = None
             layer_index = self.layer_number - 1
-            source_index = max(index for index, kind in enumerate(config.indexer_types[:layer_index]) if kind == "full")
+            source_index = max(
+                index
+                for index, kind in enumerate(config.indexer_types[:layer_index])
+                if kind == "full"
+            )
             self.source_layer = source_index + 1
 
     @staticmethod
@@ -429,7 +463,9 @@ class KPoolDSAttention(DSAttention):
         )
         if self.skip_topk:
             if self.source_layer not in holder:
-                raise RuntimeError(f"layer {self.layer_number} requires K-pool indices from layer {self.source_layer}")
+                raise RuntimeError(
+                    f"layer {self.layer_number} requires K-pool indices from layer {self.source_layer}"  # noqa: E501
+                )
             topk = holder[self.source_layer]
         else:
             topk = self.indexer(x, qr, attention_mask, packed_seq_params)

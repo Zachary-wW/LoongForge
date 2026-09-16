@@ -64,7 +64,9 @@ def _wrap_args(*classes):
     )
 
 
-def _validation_args(*, classes=None, dtype=None, compute_dtype="bfloat16", strategy="fsdp", init_on_meta=False):
+def _validation_args(
+    *, classes=None, dtype=None, compute_dtype="bfloat16", strategy="fsdp", init_on_meta=False
+):
     return SimpleNamespace(
         fsdp_ignore_frozen_module_classes=classes,
         fsdp_ignored_frozen_param_dtype=dtype,
@@ -123,9 +125,18 @@ def test_resolve_wrap_runs_skips_unit_with_only_ignored_parameters():
     ("args", "message"),
     [
         (_validation_args(dtype="bf16"), "--fsdp-ignored-frozen-param-dtype requires"),
-        (_validation_args(classes=["FrozenBlock"], strategy="ddp"), "requires --distributed-strategy fsdp"),
-        (_validation_args(classes=["FrozenBlock"], init_on_meta=True), "incompatible with --init-on-meta"),
-        (_validation_args(classes=["FrozenBlock"], dtype="fp32"), "must match the training compute dtype"),
+        (
+            _validation_args(classes=["FrozenBlock"], strategy="ddp"),
+            "requires --distributed-strategy fsdp",
+        ),
+        (
+            _validation_args(classes=["FrozenBlock"], init_on_meta=True),
+            "incompatible with --init-on-meta",
+        ),
+        (
+            _validation_args(classes=["FrozenBlock"], dtype="fp32"),
+            "must match the training compute dtype",
+        ),
     ],
 )
 def test_validate_frozen_ignore_rejects_unsupported_combinations(args, message):

@@ -94,16 +94,22 @@ def gen_time_steps(batch):
                 dtype=torch.long,
             )
 
-    timestep = scheduler.timesteps[timestep_id].to(dtype=latents.dtype, device=latents.device).view(1)
+    timestep = (
+        scheduler.timesteps[timestep_id].to(dtype=latents.dtype, device=latents.device).view(1)
+    )
     if "latents" in batch:
-        noisy_latents = _normalize_latents(batch["latents"]).to(device=latents.device, dtype=latents.dtype)
+        noisy_latents = _normalize_latents(batch["latents"]).to(
+            device=latents.device, dtype=latents.dtype
+        )
     else:
         noisy_latents = scheduler.add_noise(latents, noise, timestep)
     training_target = batch.get("training_target")
     if training_target is None:
         training_target = scheduler.training_target(latents, noise, timestep)
     else:
-        training_target = _normalize_latents(training_target).to(device=latents.device, dtype=latents.dtype)
+        training_target = _normalize_latents(training_target).to(
+            device=latents.device, dtype=latents.dtype
+        )
     if "scale" in batch:
         scale = torch.as_tensor(batch["scale"], device=latents.device, dtype=torch.float32).view(1)
     else:
@@ -126,7 +132,9 @@ def _broadcast_tensor(tensor, src_rank, group):
     torch.distributed.broadcast_object_list(meta, src=src_rank, group=group)
     shape, dtype_name = meta[0]
     if not is_src:
-        tensor = torch.empty(shape, dtype=getattr(torch, dtype_name), device=torch.cuda.current_device())
+        tensor = torch.empty(
+            shape, dtype=getattr(torch, dtype_name), device=torch.cuda.current_device()
+        )
     torch.distributed.broadcast(tensor, src=src_rank, group=group)
     return tensor
 
@@ -181,14 +189,18 @@ def broadcast_qwen_image_batch_on_tp_group(batch):
     batch["prompt_emb_mask"] = _broadcast_optional_tensor(
         batch.get("prompt_emb_mask") if is_src else None, src_rank, group
     )
-    batch["edit_latents"] = _broadcast_edit_latents(batch.get("edit_latents") if is_src else None, src_rank, group)
+    batch["edit_latents"] = _broadcast_edit_latents(
+        batch.get("edit_latents") if is_src else None, src_rank, group
+    )
     return batch
 
 
 def get_batch(data_iterator):
     """Pull the next batch, broadcast across TP, and return the tensors used by ``forward_step``."""
     args = get_args()  # noqa: F841
-    should_broadcast_batch = data_iterator is not None and mpu.get_tensor_model_parallel_world_size() > 1
+    should_broadcast_batch = (
+        data_iterator is not None and mpu.get_tensor_model_parallel_world_size() > 1
+    )
     should_load_data = data_iterator is not None and mpu.get_tensor_model_parallel_rank() == 0
     if data_iterator is not None and not should_load_data:
         data_iterator = None
@@ -211,11 +223,16 @@ def get_batch(data_iterator):
     if batch:
         for key, value in list(batch.items()):
             if isinstance(value, torch.Tensor):
-                target_dtype = batch["latents"].dtype if key not in {"height", "width", "seed"} else None
+                target_dtype = (
+                    batch["latents"].dtype if key not in {"height", "width", "seed"} else None
+                )
                 batch[key] = _move_tensor(value, dtype=target_dtype)
             elif isinstance(value, list):
                 batch[key] = [
-                    _move_tensor(v, dtype=batch["latents"].dtype) if isinstance(v, torch.Tensor) else v for v in value
+                    _move_tensor(v, dtype=batch["latents"].dtype)
+                    if isinstance(v, torch.Tensor)
+                    else v
+                    for v in value
                 ]
 
     if should_broadcast_batch:
@@ -323,7 +340,9 @@ def train_valid_test_datasets_provider(diffusion, train_val_test_num_samples, vp
         rank=parallel_state.get_data_parallel_rank(),
         drop_last=True,
     )
-    dataloader = DataLoader(dataset, batch_size=1, num_workers=args.num_workers, sampler=sampler, pin_memory=True)
+    dataloader = DataLoader(
+        dataset, batch_size=1, num_workers=args.num_workers, sampler=sampler, pin_memory=True
+    )
     print_rank_0(f"> finished creating {args.model_name} datasets ...")
     return iter(dataloader), None, None
 

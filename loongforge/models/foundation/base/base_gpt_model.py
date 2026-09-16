@@ -108,7 +108,9 @@ class BaseGPTModel(BaseMegatronLanguageModule):
         fp16_lm_cross_entropy: bool = False,
         parallel_output: bool = True,
         share_embeddings_and_output_weights: bool = False,
-        position_embedding_type: Literal["learned_absolute", "rope", "mrope", "yarn", "none"] = "learned_absolute",
+        position_embedding_type: Literal[
+            "learned_absolute", "rope", "mrope", "yarn", "none"
+        ] = "learned_absolute",
         language_embedding: Optional[torch.nn.Module] = None,
         rotary_dtype: torch.dtype = torch.float32,
         rotary_emb_func: str = "RotaryEmbedding",
@@ -198,12 +200,16 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                 seq_len_interpolation_factor=seq_len_interpolation_factor,
                 rotary_base=rotary_base,
                 scaling_factor=getattr(self.config, "yarn_rotary_scaling_factor"),
-                original_max_position_embeddings=getattr(self.config, "yarn_original_max_position_embeddings"),
+                original_max_position_embeddings=getattr(
+                    self.config, "yarn_original_max_position_embeddings"
+                ),
                 beta_fast=getattr(self.config, "yarn_beta_fast"),
                 beta_slow=getattr(self.config, "yarn_beta_slow"),
                 mscale=getattr(self.config, "yarn_mscale"),
                 mscale_all_dim=getattr(self.config, "yarn_mscale_all_dim"),
-                correction_range_round_to_int=getattr(self.config, "yarn_correction_range_round_to_int"),
+                correction_range_round_to_int=getattr(
+                    self.config, "yarn_correction_range_round_to_int"
+                ),
                 use_cpu_initialization=self.config.use_cpu_initialization,
             )
         elif self.position_embedding_type == "mrope" and not self.config.multi_latent_attention:
@@ -233,7 +239,9 @@ class BaseGPTModel(BaseMegatronLanguageModule):
         )
 
         if self.mtp_process:
-            self.mtp = MultiTokenPredictionBlock(config=self.config, spec=self.mtp_block_spec, vp_stage=vp_stage)
+            self.mtp = MultiTokenPredictionBlock(
+                config=self.config, spec=self.mtp_block_spec, vp_stage=vp_stage
+            )
 
         # Output
         if self.post_process:
@@ -260,7 +268,8 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                 bias=False,
                 skip_bias_add=False,
                 gather_output=not self.parallel_output,
-                skip_weight_param_allocation=self.pre_process and self.share_embeddings_and_output_weights,
+                skip_weight_param_allocation=self.pre_process
+                and self.share_embeddings_and_output_weights,
                 embedding_activation_buffer=self.embedding_activation_buffer,
                 grad_output_buffer=self.grad_output_buffer,
                 tp_group=self.pg_collection.tp,
@@ -270,7 +279,9 @@ class BaseGPTModel(BaseMegatronLanguageModule):
             self.setup_embeddings_and_output_layer()
 
         if has_config_logger_enabled(self.config):
-            log_config_to_disk(self.config, self.state_dict(), prefix=f"{type(self).__name__}_init_ckpt")
+            log_config_to_disk(
+                self.config, self.state_dict(), prefix=f"{type(self).__name__}_init_ckpt"
+            )
 
         for name, module in self.named_modules():
             if hasattr(module, "finish_init"):
@@ -340,7 +351,8 @@ class BaseGPTModel(BaseMegatronLanguageModule):
 
         if self.position_embedding_type == "rope" and not self.config.multi_latent_attention:
             use_flash_infer_fused_rope = (
-                hasattr(inference_context, "use_flashinfer_fused_rope") and inference_context.use_flashinfer_fused_rope
+                hasattr(inference_context, "use_flashinfer_fused_rope")
+                and inference_context.use_flashinfer_fused_rope
             )
             if in_inference_mode and (self.config.flash_decode or use_flash_infer_fused_rope):
                 assert (not self.config.flash_decode) or inference_context.is_static_batching(), (
@@ -353,7 +365,9 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                         self.rotary_pos_emb.get_cos_sin(inference_context.max_sequence_length),
                     )
                 elif use_flash_infer_fused_rope:
-                    assert not getattr(self, "mtp_process", False), "MTP not tested with flashinfer_fused_rope"
+                    assert not getattr(self, "mtp_process", False), (
+                        "MTP not tested with flashinfer_fused_rope"
+                    )
                     rotary_pos_cos_sin = self.rotary_pos_emb_cache.setdefault(
                         inference_context.max_sequence_length,
                         torch.cat(
@@ -368,7 +382,8 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                 rotary_pos_emb = self.rotary_pos_emb(
                     rotary_seq_len,
                     offset=chunk_offset,
-                    packed_seq=packed_seq_params is not None and packed_seq_params.qkv_format == "thd",
+                    packed_seq=packed_seq_params is not None
+                    and packed_seq_params.qkv_format == "thd",
                 )
         elif self.position_embedding_type == "yarn" and not self.config.multi_latent_attention:
             if self.training or not self.config.flash_decode:
@@ -378,7 +393,7 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                 rotary_pos_emb, _ = self.rotary_pos_emb(rotary_seq_len, offset=chunk_offset)
             else:
                 raise NotImplementedError(
-                    "Flash decoding uses precomputed cos and sin for RoPE, not implemented in YarnRotaryEmbedding yet."
+                    "Flash decoding uses precomputed cos and sin for RoPE, not implemented in YarnRotaryEmbedding yet."  # noqa: E501
                 )
         elif self.position_embedding_type == "mrope" and not self.config.multi_latent_attention:
             if self.training or not self.config.flash_decode:
@@ -393,7 +408,10 @@ class BaseGPTModel(BaseMegatronLanguageModule):
         if (
             in_inference_mode
             and (
-                (self.config.cuda_graph_impl == "local" and self.config.cuda_graph_scope != "full_iteration")
+                (
+                    self.config.cuda_graph_impl == "local"
+                    and self.config.cuda_graph_scope != "full_iteration"
+                )
                 or self.config.flash_decode
             )
             and rotary_pos_cos is not None
@@ -433,7 +451,9 @@ class BaseGPTModel(BaseMegatronLanguageModule):
 
     def preprocess_for_fine_grained_offloading(self):
         """Preprocess for fine-grained activation offloading."""
-        fine_grained_offloading_init_chunk_handler(self.vp_stage, self.config.min_offloaded_tensor_size)
+        fine_grained_offloading_init_chunk_handler(
+            self.vp_stage, self.config.min_offloaded_tensor_size
+        )
         if self.disable_param_offloading:
             for param in self.decoder.parameters():
                 param.offloading_activation = False
@@ -483,14 +503,18 @@ class BaseGPTModel(BaseMegatronLanguageModule):
             packed_seq_params=packed_seq_params,
         )
 
-        (decoder_input, rotary_pos_emb, rotary_pos_cos, rotary_pos_sin, sequence_len_offset) = preproc_output[:5]
+        (decoder_input, rotary_pos_emb, rotary_pos_cos, rotary_pos_sin, sequence_len_offset) = (
+            preproc_output[:5]
+        )
 
         rotary_pos_cos_sin = preproc_output[5] if len(preproc_output) == 6 else None
 
         # Filter out next_batch from extra_block_kwargs before passing to decoder,
         # as decoder does not accept it. It will be used later in _postprocess for MTP.
         decoder_extra_kwargs = {
-            k: v for k, v in (extra_block_kwargs or {}).items() if k not in ("next_batch", "mtp_batch")
+            k: v
+            for k, v in (extra_block_kwargs or {}).items()
+            if k not in ("next_batch", "mtp_batch")
         }
         # Thread input_ids into decoder for hash-based MoE routing (DeepSeek-V4).
         if getattr(self.config, "moe_n_hash_layers", 0) > 0 and input_ids is not None:
@@ -600,12 +624,16 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                 else:
                     # Pretrain chunkpipe still uses next_batch from the iterator path.
                     next_batch = (extra_block_kwargs or {}).pop("next_batch", None)
-                    chunk_idx = self.config.chunkpipe_forward_microbatch % self.config.chunk_num_per_seq
+                    chunk_idx = (
+                        self.config.chunkpipe_forward_microbatch % self.config.chunk_num_per_seq
+                    )
                     group_size = self.config.chunk_num_per_seq
                     is_last_chunk = chunk_idx + 1 >= group_size
                     if next_batch is not None and not is_last_chunk:
                         next_input_ids = next_batch["tokens"]
-                        mtp_input_ids = torch.cat([input_ids, next_input_ids[:, : self.config.mtp_num_layers]], dim=1)
+                        mtp_input_ids = torch.cat(
+                            [input_ids, next_input_ids[:, : self.config.mtp_num_layers]], dim=1
+                        )
 
                         next_pos_ids = next_batch["position_ids"]
                         mtp_position_ids = torch.cat(
@@ -613,11 +641,17 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                         )
 
                         next_labels = next_batch["labels"]
-                        mtp_labels = torch.cat([labels, next_labels[:, : self.config.mtp_num_layers]], dim=1)
+                        mtp_labels = torch.cat(
+                            [labels, next_labels[:, : self.config.mtp_num_layers]], dim=1
+                        )
 
                         if loss_mask is not None:
-                            next_loss_mask = next_batch.get("loss_mask", torch.ones_like(next_labels))
-                            loss_mask = torch.cat([loss_mask, next_loss_mask[:, : self.config.mtp_num_layers]], dim=1)
+                            next_loss_mask = next_batch.get(
+                                "loss_mask", torch.ones_like(next_labels)
+                            )
+                            loss_mask = torch.cat(
+                                [loss_mask, next_loss_mask[:, : self.config.mtp_num_layers]], dim=1
+                            )
 
             hidden_states = self.mtp(
                 input_ids=mtp_input_ids,
@@ -641,10 +675,17 @@ class BaseGPTModel(BaseMegatronLanguageModule):
         if self.config.mtp_num_layers is not None and self.config.mtp_num_layers > 0:
 
             def _fused_output_and_cross_entropy_mtp(
-                hidden_states, output_weight, runtime_gather_output, labels, packed_seq_params, loss_mask
+                hidden_states,
+                output_weight,
+                runtime_gather_output,
+                labels,
+                packed_seq_params,
+                loss_mask,
             ):
                 mtp_labels = labels.clone()
-                hidden_states_list = torch.chunk(hidden_states, 1 + self.config.mtp_num_layers, dim=0)
+                hidden_states_list = torch.chunk(
+                    hidden_states, 1 + self.config.mtp_num_layers, dim=0
+                )
                 hidden_states = hidden_states_list[0]
                 if loss_mask is None:
                     # if loss_mask is not provided, use all ones as loss_mask
@@ -656,7 +697,10 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                 # Treat as contiguous for rolling to avoid leaving trailing k positions
                 # unrolled (which would lose the bridge token between chunk boundaries).
                 roll_packed_seq_params = packed_seq_params
-                if getattr(self.config, "sft_chunkpipe_mode", False) and mtp_labels.size(-1) > self.config.chunksize:
+                if (
+                    getattr(self.config, "sft_chunkpipe_mode", False)
+                    and mtp_labels.size(-1) > self.config.chunksize
+                ):
                     roll_packed_seq_params = None
 
                 for mtp_layer_number in range(self.config.mtp_num_layers):
@@ -679,7 +723,9 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                     # Compute mtp loss without storing logits to save memory.
                     mtp_loss = self.compute_output_layer_and_language_model_loss(
                         hidden_states_list[mtp_layer_number + 1],
-                        labels=mtp_labels[:, : self.config.chunksize] if self.config.enable_chunkpipe else mtp_labels,
+                        labels=mtp_labels[:, : self.config.chunksize]
+                        if self.config.enable_chunkpipe
+                        else mtp_labels,
                         weight=self.shared_embedding_or_output_weight()
                         if self.share_embeddings_and_output_weights
                         else self.output_layer.weight,
@@ -698,13 +744,20 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                         # chunks of the same sequence accumulate to a sequence-level mean.
                         loss_mask_chunk = loss_mask[:, : self.config.chunksize]
                         mtp_loss = loss_mask_chunk * mtp_loss
-                        if getattr(self.config, "sft_chunkpipe_mode", False) and mtp_group_total_tokens is not None:
+                        if (
+                            getattr(self.config, "sft_chunkpipe_mode", False)
+                            and mtp_group_total_tokens is not None
+                        ):
                             num_tokens = mtp_group_total_tokens.to(
                                 device=mtp_loss.device, dtype=mtp_loss.dtype
                             ).reshape(-1)[0]
                         else:
                             # Pretrain chunkpipe keeps the original next-batch normalization.
-                            num_tokens = self.config.chunksize * self.config.chunk_num_per_seq - mtp_layer_number - 1
+                            num_tokens = (
+                                self.config.chunksize * self.config.chunk_num_per_seq
+                                - mtp_layer_number
+                                - 1
+                            )
                     else:
                         mtp_loss = loss_mask * mtp_loss
 
@@ -723,7 +776,8 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                     # Log MTP loss during training; for chunkpipe, only log during
                     # forward recomputation in backward pass (chunkpipe_forward=False)
                     should_log_mtp_loss = (
-                        not getattr(self.config, "enable_chunkpipe", False) or not self.config.chunkpipe_forward
+                        not getattr(self.config, "enable_chunkpipe", False)
+                        or not self.config.chunkpipe_forward
                     )
                     if self.training and should_log_mtp_loss:
                         # TODO(shifangx): remove the use of parallel_state here
@@ -737,13 +791,17 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                                     device=mtp_loss.device, dtype=mtp_loss.dtype
                                 ).reshape(-1)[0]
                             dp_size = parallel_state.get_data_parallel_world_size()
-                            mtp_log_loss = mtp_log_loss * (dp_size * get_num_microbatches() / step_num_groups)
+                            mtp_log_loss = mtp_log_loss * (
+                                dp_size * get_num_microbatches() / step_num_groups
+                            )
 
                         MTPLossLoggingHelper.save_loss_to_tracker(
                             mtp_log_loss,
                             mtp_layer_number,
                             self.config.mtp_num_layers,
-                            avg_group=parallel_state.get_data_parallel_group(with_context_parallel=True),
+                            avg_group=parallel_state.get_data_parallel_group(
+                                with_context_parallel=True
+                            ),
                         )
                     mtp_loss_scaling_factor = (
                         self.config.mtp_loss_scaling_factor
@@ -751,7 +809,9 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                     )
                     mtp_loss_scale = mtp_loss_scaling_factor / self.config.mtp_num_layers
                     if self.config.calculate_per_token_loss:
-                        hidden_states = MTPLossAutoScaler.apply(hidden_states, mtp_loss_scale * mtp_loss)
+                        hidden_states = MTPLossAutoScaler.apply(
+                            hidden_states, mtp_loss_scale * mtp_loss
+                        )
                     else:
                         hidden_states = MTPLossAutoScaler.apply(
                             hidden_states, mtp_loss_scale * mtp_loss / num_tokens_safe
@@ -761,7 +821,12 @@ class BaseGPTModel(BaseMegatronLanguageModule):
 
             if not getattr(self.config, "enable_chunkpipe", False):
                 hidden_states = _fused_output_and_cross_entropy_mtp(
-                    hidden_states, output_weight, runtime_gather_output, mtp_labels, packed_seq_params, loss_mask
+                    hidden_states,
+                    output_weight,
+                    runtime_gather_output,
+                    mtp_labels,
+                    packed_seq_params,
+                    loss_mask,
                 )
             else:
                 hidden_states = tensor_parallel.checkpoint(
@@ -786,14 +851,18 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                     # packed logits across all requests.
                     # TODO(ksanthanam): Make the equivalent change in the `MambaModel` code after
                     # merging in !3722.
-                    hidden_states = gather_from_sequence_parallel_region(hidden_states, group=self.pg_collection.tp)
+                    hidden_states = gather_from_sequence_parallel_region(
+                        hidden_states, group=self.pg_collection.tp
+                    )
                     self.output_layer.sequence_parallel = False
                     sequence_parallel_override = True
 
                 # Reshape [B, 1, H] to [1, B, H] → extract each sample’s true last‐token hidden
                 # state ([B, H]) → unsqueeze back to [1, B, H]
                 # (so that the output layer, which expects S×B×H, receives only the final token)
-                hidden_states = inference_context.last_token_logits(hidden_states.squeeze(1).unsqueeze(0)).unsqueeze(1)
+                hidden_states = inference_context.last_token_logits(
+                    hidden_states.squeeze(1).unsqueeze(0)
+                ).unsqueeze(1)
 
         if has_config_logger_enabled(self.config) or labels is None:
             logits, _ = self.output_layer(
@@ -859,7 +928,10 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                 )
 
             loss = tensor_parallel.checkpoint(
-                _compute_output_layer_and_loss, self.config.distribute_saved_activations, hidden_states, labels
+                _compute_output_layer_and_loss,
+                self.config.distribute_saved_activations,
+                hidden_states,
+                labels,
             )
 
         return loss
@@ -877,7 +949,9 @@ class BaseGPTModel(BaseMegatronLanguageModule):
             # So there will be both embedding layer and output layer in the mtp process stage.
             # In this case, if share_embeddings_and_output_weights is True, the shared weights
             # will be stored in embedding layer, and output layer will not have any weight.
-            assert hasattr(self, "embedding"), "embedding is needed in this pipeline stage, but it is not initialized."
+            assert hasattr(self, "embedding"), (
+                "embedding is needed in this pipeline stage, but it is not initialized."
+            )
             return self.embedding.word_embeddings.weight
         elif self.post_process:
             return self.output_layer.weight
@@ -929,7 +1003,9 @@ class BaseGPTModel(BaseMegatronLanguageModule):
         if self.config.fine_grained_activation_offloading:
             self.preprocess_for_fine_grained_offloading()
 
-        from megatron.core.models.common.model_chunk_schedule_plan import TransformerModelChunkSchedulePlan
+        from megatron.core.models.common.model_chunk_schedule_plan import (
+            TransformerModelChunkSchedulePlan,
+        )
 
         return TransformerModelChunkSchedulePlan(
             self,

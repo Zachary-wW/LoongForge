@@ -85,7 +85,9 @@ def depack_data_for_intern_vl(data: Dict[str, torch.Tensor]) -> List[InternVLDat
 
     if filtered_image_flags:
         filtered_image_flags = torch.stack(filtered_image_flags, dim=0)
-        filtered_pixel_values = torch.stack(filtered_pixel_values, dim=0) if filtered_pixel_values else None
+        filtered_pixel_values = (
+            torch.stack(filtered_pixel_values, dim=0) if filtered_pixel_values else None
+        )
     else:
         filtered_image_flags = None
         filtered_pixel_values = None
@@ -293,7 +295,7 @@ def depack_data_for_vlm(data):
             img_len = int(img_t * img_h * img_w)
 
             assert images.shape[0] >= image_cursor + img_len, (
-                f"Image tokens not enough for sample {i}: need {img_len}, got {images.shape[0] - image_cursor}"
+                f"Image tokens not enough for sample {i}: need {img_len}, got {images.shape[0] - image_cursor}"  # noqa: E501
             )
 
             pixel_values_images = images[image_cursor : image_cursor + img_len]

@@ -285,7 +285,10 @@ def _convert_openai(
         if isinstance(raw_messages, str):
             raw_messages = json.loads(raw_messages)
 
-        messages = [_normalize_openai_chat_message(message, index) for index, message in enumerate(raw_messages or [])]
+        messages = [
+            _normalize_openai_chat_message(message, index)
+            for index, message in enumerate(raw_messages or [])
+        ]
 
         tools = samples[tools_column][i] if tools_column and tools_column in samples else None
         images = samples[images_column][i] if images_column and images_column in samples else []

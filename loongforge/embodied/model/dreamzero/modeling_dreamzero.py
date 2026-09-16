@@ -316,7 +316,7 @@ class DreamZeroPolicy(PreTrainedPolicy):
         if mode in {"fp16", "float16", "half"}:
             return torch.float16
         raise ValueError(
-            "DreamZeroConfig.fsdp_initial_param_rounding_dtype must be one of null/bf16/bfloat16/fp16/float16"
+            "DreamZeroConfig.fsdp_initial_param_rounding_dtype must be one of null/bf16/bfloat16/fp16/float16"  # noqa: E501
         )
 
     @staticmethod
@@ -374,7 +374,9 @@ class DreamZeroPolicy(PreTrainedPolicy):
             cpu_burn,
         )
 
-    def forward(self, batch: dict[str, Tensor], reduction: str = "mean") -> tuple[Tensor, dict[str, Tensor]]:
+    def forward(
+        self, batch: dict[str, Tensor], reduction: str = "mean"
+    ) -> tuple[Tensor, dict[str, Tensor]]:
         """Run a training step.
 
         Args:
@@ -388,7 +390,11 @@ class DreamZeroPolicy(PreTrainedPolicy):
         for logging.
         """
         prepared_batch = self._prepare_action_input(batch)
-        action_input = prepared_batch if isinstance(prepared_batch, BatchFeature) else BatchFeature(data=prepared_batch)
+        action_input = (
+            prepared_batch
+            if isinstance(prepared_batch, BatchFeature)
+            else BatchFeature(data=prepared_batch)
+        )
         # WANPolicyHead expects a backbone_output positional arg; it is not
         # used in forward (DreamZero ActionHead is the entire policy). Pass
         # an empty BatchFeature to keep the abstract interface intact.
@@ -401,7 +407,9 @@ class DreamZeroPolicy(PreTrainedPolicy):
             "action_loss": out["action_loss"].detach(),
         }
         if reduction == "none":  # pragma: no cover - P1
-            raise NotImplementedError("DreamZeroPolicy.forward(reduction='none') is not implemented")
+            raise NotImplementedError(
+                "DreamZeroPolicy.forward(reduction='none') is not implemented"
+            )
         return loss, log_loss_dict
 
     # ------------------------------------------------------------------
@@ -432,7 +440,9 @@ class DreamZeroPolicy(PreTrainedPolicy):
         """
         self.eval()
         prepared = self._prepare_action_input(batch)
-        action_input = prepared if isinstance(prepared, BatchFeature) else BatchFeature(data=prepared)
+        action_input = (
+            prepared if isinstance(prepared, BatchFeature) else BatchFeature(data=prepared)
+        )
         out = self.action_head.lazy_joint_video_action(BatchFeature(data={}), action_input)
         return out["action_pred"]
 
@@ -454,6 +464,8 @@ class DreamZeroPolicy(PreTrainedPolicy):
 
     # Megatron checkpointing.generate_state_dict calls model.state_dict_for_save_checkpoint().
     # Default to torch nn.Module.state_dict() — adequate for non-PP, non-distributed-optim cases.
-    def state_dict_for_save_checkpoint(self, destination=None, prefix: str = "", keep_vars: bool = False):
+    def state_dict_for_save_checkpoint(
+        self, destination=None, prefix: str = "", keep_vars: bool = False
+    ):
         """Return a Megatron-compatible checkpoint state dictionary."""
         return self.state_dict(destination=destination, prefix=prefix, keep_vars=keep_vars)

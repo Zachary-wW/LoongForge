@@ -29,7 +29,7 @@ Usage:
         --output_dir data_output/04_inpaint \
         --mask_dilation 4 --fp16 --ref_stride 10 --neighbor_length 10 \
         --subvideo_length 80 --raft_iter 20 --fps 30
-"""
+"""  # noqa: E501
 
 import argparse
 import json
@@ -223,7 +223,9 @@ def episode_inpaint(
         result_dir = pp_out / "frames"
         frames_out_dir = result_dir / "frames"
         if not frames_out_dir.exists():
-            raise RuntimeError(f"ProPainter chunk [{start}:{end}] output missing at {frames_out_dir}")
+            raise RuntimeError(
+                f"ProPainter chunk [{start}:{end}] output missing at {frames_out_dir}"
+            )
         for t in range(start, end):
             # ProPainter restarts zero-padded frame names for each chunk.
             p = frames_out_dir / f"{t - start:04d}.png"
@@ -279,7 +281,12 @@ def build_arg_parser():
     ap.add_argument("--zarr_dir", required=True)
     ap.add_argument("--mask_dir", required=True)
     ap.add_argument("--output_dir", required=True)
-    ap.add_argument("--episodes", nargs="*", default=None, help="Limit processing to these episode directory names")
+    ap.add_argument(
+        "--episodes",
+        nargs="*",
+        default=None,
+        help="Limit processing to these episode directory names",
+    )
     ap.add_argument(
         "--mask_dilation",
         type=int,
@@ -293,12 +300,24 @@ def build_arg_parser():
         help="Use fp16 during ProPainter inference (Ego2Robot: enabled)",
     )
     ap.add_argument("--ref_stride", type=int, default=10, help="Stride of global reference frames")
-    ap.add_argument("--neighbor_length", type=int, default=10, help="Length of local neighboring frames")
-    ap.add_argument("--subvideo_length", type=int, default=80, help="Length of sub-video for long-video inference")
+    ap.add_argument(
+        "--neighbor_length", type=int, default=10, help="Length of local neighboring frames"
+    )
+    ap.add_argument(
+        "--subvideo_length",
+        type=int,
+        default=80,
+        help="Length of sub-video for long-video inference",
+    )
     ap.add_argument("--raft_iter", type=int, default=20, help="Iterations for RAFT inference")
     ap.add_argument("--fps", type=int, default=30)
     ap.add_argument("--save_frames", action="store_true")
-    ap.add_argument("--max_frames", type=int, default=0, help="Debugging: process only the first N frames; 0 means all")
+    ap.add_argument(
+        "--max_frames",
+        type=int,
+        default=0,
+        help="Debugging: process only the first N frames; 0 means all",
+    )
     return ap
 
 
@@ -309,7 +328,9 @@ def run(args):
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    eps = args.episodes or sorted(d.name for d in mask_dir.iterdir() if d.is_dir() and (d / "masks.npz").exists())
+    eps = args.episodes or sorted(
+        d.name for d in mask_dir.iterdir() if d.is_dir() and (d / "masks.npz").exists()
+    )
     print(f"{len(eps)} episodes -> {output_dir}")
     for i, ep in enumerate(eps):
         print(f"[{i + 1}/{len(eps)}] {ep}")
@@ -329,7 +350,9 @@ def run(args):
                 subvideo_length=args.subvideo_length,
                 raft_iter=args.raft_iter,
             )
-            print(f"  done: {meta['n_frames']}f, mask_area={meta['mean_mask_area']:.3f}, {meta['elapsed_sec']}s")
+            print(
+                f"  done: {meta['n_frames']}f, mask_area={meta['mean_mask_area']:.3f}, {meta['elapsed_sec']}s"  # noqa: E501
+            )
         except Exception as e:
             print(f"  FAILED: {e}")
 

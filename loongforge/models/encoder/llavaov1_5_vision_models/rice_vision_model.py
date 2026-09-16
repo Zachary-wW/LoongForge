@@ -29,7 +29,11 @@ class PatchEmbed(torch.nn.Module):
         self.embed_dim = embed_dim
 
         self.proj = torch.nn.Conv2d(
-            in_channels, embed_dim, kernel_size=(patch_size, patch_size), stride=(patch_size, patch_size), bias=False
+            in_channels,
+            embed_dim,
+            kernel_size=(patch_size, patch_size),
+            stride=(patch_size, patch_size),
+            bias=False,
         )
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
@@ -47,7 +51,11 @@ class RiceViTModel(BaseVisionModel):
     config_class = RiceVisionConfig
 
     def __init__(
-        self, config: RiceVisionConfig, spatial_merge_size: int = 2, vp_stage: Optional[int] = None, **kwargs
+        self,
+        config: RiceVisionConfig,
+        spatial_merge_size: int = 2,
+        vp_stage: Optional[int] = None,
+        **kwargs,
     ) -> None:
         if config.model_spec is None:
             config.model_spec = [

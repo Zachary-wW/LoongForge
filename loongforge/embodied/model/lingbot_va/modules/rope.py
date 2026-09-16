@@ -55,16 +55,30 @@ def _rotary_interleaved_pair_kernel(
     swapped_columns = columns + ((columns + 1) % 2) * 2 - 1
     repeated_columns = columns // 2
 
-    values_q_ptr = values_q + rows[:, None] * stride_values_q_sequence + columns[None, :] * stride_values_q_dim
-    values_k_ptr = values_k + rows[:, None] * stride_values_k_sequence + columns[None, :] * stride_values_k_dim
-    swapped_q_ptr = values_q + rows[:, None] * stride_values_q_sequence + swapped_columns[None, :] * stride_values_q_dim
-    swapped_k_ptr = values_k + rows[:, None] * stride_values_k_sequence + swapped_columns[None, :] * stride_values_k_dim
+    values_q_ptr = (
+        values_q + rows[:, None] * stride_values_q_sequence + columns[None, :] * stride_values_q_dim
+    )
+    values_k_ptr = (
+        values_k + rows[:, None] * stride_values_k_sequence + columns[None, :] * stride_values_k_dim
+    )
+    swapped_q_ptr = (
+        values_q
+        + rows[:, None] * stride_values_q_sequence
+        + swapped_columns[None, :] * stride_values_q_dim
+    )
+    swapped_k_ptr = (
+        values_k
+        + rows[:, None] * stride_values_k_sequence
+        + swapped_columns[None, :] * stride_values_k_dim
+    )
     cos_ptr = cos + rows[:, None] * half_rotary_dim + repeated_columns[None, :]
     sin_ptr = sin + rows[:, None] * half_rotary_dim + repeated_columns[None, :]
 
     row_mask = rows[:, None] < sequence_length
     column_mask = columns[None, :] < rotary_dim
-    rotary_mask = (rows[:, None] < rotary_sequence_length) & (repeated_columns[None, :] < half_rotary_dim)
+    rotary_mask = (rows[:, None] < rotary_sequence_length) & (
+        repeated_columns[None, :] < half_rotary_dim
+    )
     cos_values = tl.load(cos_ptr, mask=rotary_mask, other=1.0)
     sin_values = tl.load(sin_ptr, mask=rotary_mask, other=0.0)
     q0 = tl.load(values_q_ptr, mask=row_mask & column_mask, other=0.0).to(tl.float32)
@@ -101,8 +115,12 @@ def _rotary_interleaved_pair_kernel(
             k0 * cos_values - k1 * sin_values,
             k0 * cos_values + k1 * sin_values,
         )
-    output_q_ptr = output_q + rows[:, None] * stride_output_q_sequence + columns[None, :] * stride_output_q_dim
-    output_k_ptr = output_k + rows[:, None] * stride_output_k_sequence + columns[None, :] * stride_output_k_dim
+    output_q_ptr = (
+        output_q + rows[:, None] * stride_output_q_sequence + columns[None, :] * stride_output_q_dim
+    )
+    output_k_ptr = (
+        output_k + rows[:, None] * stride_output_k_sequence + columns[None, :] * stride_output_k_dim
+    )
     tl.store(output_q_ptr, rotated_q, mask=row_mask & column_mask)
     tl.store(output_k_ptr, rotated_k, mask=row_mask & column_mask)
 
@@ -116,7 +134,9 @@ def _apply_rotary_pair(
     backward: bool = False,
 ):
     if query.shape != key.shape:
-        raise ValueError(f"Fused Q/K RoPE requires identical shapes, got {query.shape} and {key.shape}")
+        raise ValueError(
+            f"Fused Q/K RoPE requires identical shapes, got {query.shape} and {key.shape}"
+        )
     batch, sequence_length, heads, head_dim = query.shape
     rotary_sequence_length = cos.shape[0]
     rotary_dim = cos.shape[1] * 2
@@ -186,7 +206,9 @@ def _rope_components(frequencies: torch.Tensor):
     cos = frequencies.real[0, :, 0].contiguous()
     sin = frequencies.imag[0, :, 0].contiguous()
     if len(_ROPE_COMPONENT_CACHE) >= 64:
-        dead = [cache_key for cache_key, value in _ROPE_COMPONENT_CACHE.items() if value[0]() is None]
+        dead = [
+            cache_key for cache_key, value in _ROPE_COMPONENT_CACHE.items() if value[0]() is None
+        ]
         for cache_key in dead:
             _ROPE_COMPONENT_CACHE.pop(cache_key, None)
         if len(_ROPE_COMPONENT_CACHE) >= 64:
@@ -219,7 +241,9 @@ class _TritonRoPEPair(torch.autograd.Function):
 def apply_triton_rope_pair(query: torch.Tensor, key: torch.Tensor, frequencies: torch.Tensor):
     """Apply identical interleaved RoPE to Q and K in one Triton launch."""
     if query.shape != key.shape:
-        raise ValueError(f"Fused Q/K RoPE requires identical shapes, got {query.shape} and {key.shape}")
+        raise ValueError(
+            f"Fused Q/K RoPE requires identical shapes, got {query.shape} and {key.shape}"
+        )
     if query.device != key.device or query.dtype != key.dtype:
         raise ValueError("Fused Q/K RoPE requires matching device and dtype")
     if frequencies.ndim != 4 or frequencies.shape[0] != 1 or frequencies.shape[2] != 1:

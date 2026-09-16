@@ -108,7 +108,9 @@ class BasePreprocessor:
         dataset=None,
     ) -> "BasePreprocessor":
         """Construct preprocessor from typed configs."""
-        raise NotImplementedError(f"{cls.__name__} must implement from_config(model_cfg, data_cfg, ...) classmethod")
+        raise NotImplementedError(
+            f"{cls.__name__} must implement from_config(model_cfg, data_cfg, ...) classmethod"
+        )
 
     def __call__(self, examples: List[Dict[str, Any]]) -> PreparedBatch:
         """Transform a list of dataset samples into a PreparedBatch."""
@@ -119,7 +121,9 @@ def get_preprocessor(name: str) -> Type[BasePreprocessor]:
     """Look up a registered preprocessor class by name."""
     discover_preprocessors()
     if name not in _PREPROCESSOR_REGISTRY:
-        raise ValueError(f"Unknown preprocessor '{name}'. Available: {list(_PREPROCESSOR_REGISTRY.keys())}")
+        raise ValueError(
+            f"Unknown preprocessor '{name}'. Available: {list(_PREPROCESSOR_REGISTRY.keys())}"
+        )
     return _PREPROCESSOR_REGISTRY[name]
 
 

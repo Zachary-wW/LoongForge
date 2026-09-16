@@ -102,7 +102,7 @@ class AdapterWrapper(nn.Module):
         main_module = nn.Linear(100, 100)
         adapter = nn.Linear(100, 100)
         parallel_adapter = LoRALinear(main_module, adapter)
-    """
+    """  # noqa: E501
 
     def __init__(self, to_wrap: nn.Module, adapter: nn.Module) -> None:
         """Initialize the AdapterWrapper with a main module and adapter.
@@ -122,7 +122,7 @@ class AdapterWrapper(nn.Module):
         self._adapter_enabled = True
 
     def disable_adapter_layers(self) -> None:
-        """Disable the adapter layers, making the forward pass return only the base module output."""
+        """Disable the adapter layers, making the forward pass return only the base module output."""  # noqa: E501
         self._adapter_enabled = False
 
     def base_linear_forward(
@@ -153,7 +153,7 @@ class AdapterWrapper(nn.Module):
             2. return_bias: (out, bias)
             3. return_layernorm_output: ((out, ln_out), None)
             4. both: (out, bias, ln_out)
-        """
+        """  # noqa: E501
         linear_output = self.to_wrap(x, *args, **kwargs)
         assert isinstance(linear_output, tuple), (
             f"{self.to_wrap} should return a tuple but instead returns {linear_output}"
@@ -172,7 +172,10 @@ class AdapterWrapper(nn.Module):
         return linear_output, bias, layernorm_output
 
     def state_dict(
-        self, destination: Optional[Dict[str, Any]] = None, prefix: str = "", keep_vars: bool = False
+        self,
+        destination: Optional[Dict[str, Any]] = None,
+        prefix: str = "",
+        keep_vars: bool = False,
     ) -> Dict[str, Any]:
         """Retrieve the state dictionary of the wrapped module and adapter.
 
@@ -196,7 +199,9 @@ class AdapterWrapper(nn.Module):
         self.to_wrap.state_dict(destination=destination, prefix=prefix, keep_vars=keep_vars)
 
         # Store adapter state dict under the "adapter" prefix in the destination dict
-        self.adapter.state_dict(destination=destination, prefix=f"{prefix}adapter.", keep_vars=keep_vars)
+        self.adapter.state_dict(
+            destination=destination, prefix=f"{prefix}adapter.", keep_vars=keep_vars
+        )
         return destination
 
     def sharded_state_dict(
@@ -219,11 +224,18 @@ class AdapterWrapper(nn.Module):
             The combined sharded state dictionary.
         """
         adapter_sharded_state_dict_kwargs = {}
-        if isinstance(self.adapter, ParallelLinearAdapter) and "in_proj" in self.adapter.base_linear_name:
-            adapter_sharded_state_dict_kwargs["mamba_dim_info"] = _compute_mamba_dim_info(self.to_wrap)
+        if (
+            isinstance(self.adapter, ParallelLinearAdapter)
+            and "in_proj" in self.adapter.base_linear_name
+        ):
+            adapter_sharded_state_dict_kwargs["mamba_dim_info"] = _compute_mamba_dim_info(
+                self.to_wrap
+            )
 
         sharded_state_dict = {}
-        sharded_state_dict.update(self.to_wrap.sharded_state_dict(prefix, sharded_offsets, metadata))
+        sharded_state_dict.update(
+            self.to_wrap.sharded_state_dict(prefix, sharded_offsets, metadata)
+        )
         sharded_state_dict.update(
             self.adapter.sharded_state_dict(
                 f"{prefix}adapter.", sharded_offsets, metadata, **adapter_sharded_state_dict_kwargs

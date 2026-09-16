@@ -3,7 +3,7 @@
 
 """
 Omni Model Provider.Provides model construction interfaces compatible with existing training frameworks.
-"""
+"""  # noqa: E501
 
 from __future__ import annotations
 

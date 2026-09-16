@@ -57,7 +57,15 @@ OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "benchmark_speedup.png")
 # Preferred typefaces, first available wins. The site uses Inter; installing it
 # (or Manrope) locally makes this chart match the web look exactly, otherwise it
 # falls back to matplotlib's bundled DejaVu Sans.
-FONT_CANDIDATES = ["Inter", "Manrope", "Plus Jakarta Sans", "Figtree", "Helvetica Neue", "Arial", "DejaVu Sans"]
+FONT_CANDIDATES = [
+    "Inter",
+    "Manrope",
+    "Plus Jakarta Sans",
+    "Figtree",
+    "Helvetica Neue",
+    "Arial",
+    "DejaVu Sans",
+]
 
 # ─────────────────────────── CONSTANTS ───────────────────────────
 # Layout follows the site stylesheet (assets/css/style.css); the indigo /
@@ -214,7 +222,17 @@ def main():
         bar_x1 = track_x0 + frac * (TRACK_X1 - track_x0)
         c_to = COLOR_BAR_TOP_B if i == best else COLOR_BAR_B
         if i == best:  # soft glow under the highlighted bar
-            _rounded(ax, track_x0 + 6, y0 + 8, bar_x1 - 6, y1 + 8, fc=COLOR_BAR_TOP_B, ec="none", alpha=0.10, zorder=1)
+            _rounded(
+                ax,
+                track_x0 + 6,
+                y0 + 8,
+                bar_x1 - 6,
+                y1 + 8,
+                fc=COLOR_BAR_TOP_B,
+                ec="none",
+                alpha=0.10,
+                zorder=1,
+            )
         _gradient_bar(ax, track_x0, y0, bar_x1, y1, COLOR_BAR_A, c_to)
 
         # Speedup value, right-aligned inside the bar
@@ -253,7 +271,16 @@ def main():
             fontweight="bold",
             color=COLOR_PILL_FG,
         )
-        _rounded(ax, pill_x0, yc - PILL_H / 2, pill_x0 + pill_w, yc + PILL_H / 2, fc=COLOR_PILL_BG, ec="none", zorder=4)
+        _rounded(
+            ax,
+            pill_x0,
+            yc - PILL_H / 2,
+            pill_x0 + pill_w,
+            yc + PILL_H / 2,
+            fc=COLOR_PILL_BG,
+            ec="none",
+            zorder=4,
+        )
 
     # Baseline caption, centred under the track
     ax.text(

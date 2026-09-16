@@ -44,7 +44,7 @@ def resolve_comm_hook(hook: Callable | str, use_logging: bool = False) -> Callab
             hook = _SUPPORTED_COMM_HOOKS[hook]
         except KeyError:
             raise ValueError(
-                f"Unsupported comm hook name {hook!r}, expected one of {sorted(_SUPPORTED_COMM_HOOKS)}."
+                f"Unsupported comm hook name {hook!r}, expected one of {sorted(_SUPPORTED_COMM_HOOKS)}."  # noqa: E501
             ) from None
 
     if not use_logging:
@@ -64,7 +64,9 @@ def resolve_comm_hook(hook: Callable | str, use_logging: bool = False) -> Callab
             )
         fut = hook(process_group, bucket)
         if is_rank_zero():
-            fut.add_done_callback(lambda fut: logger.info("DDP %s done: bucket_index=%d", hook_name, bucket.index()))
+            fut.add_done_callback(
+                lambda fut: logger.info("DDP %s done: bucket_index=%d", hook_name, bucket.index())
+            )
         return fut
 
     return logging_comm_hook

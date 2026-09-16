@@ -18,7 +18,9 @@ class BaseBenchmarkAdapter:
         """Convert benchmark-native observation to Canonical Observation."""
         raise NotImplementedError
 
-    def action_from_canonical(self, canonical_action: Dict[str, Any], context: Dict[str, Any]) -> Any:
+    def action_from_canonical(
+        self, canonical_action: Dict[str, Any], context: Dict[str, Any]
+    ) -> Any:
         """Convert Canonical Action to benchmark-native action."""
         raise NotImplementedError
 

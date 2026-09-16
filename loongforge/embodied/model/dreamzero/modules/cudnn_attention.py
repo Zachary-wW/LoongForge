@@ -70,7 +70,9 @@ class DotProductAttention(torch.nn.Module):
         self.qkv_format = qkv_format
         self.attn_mask_type = attn_mask_type
 
-        self.softmax_scale = 1.0 / math.sqrt(kv_channels if isinstance(kv_channels, int) else kv_channels[0])
+        self.softmax_scale = 1.0 / math.sqrt(
+            kv_channels if isinstance(kv_channels, int) else kv_channels[0]
+        )
         self.attention_dropout = attention_dropout
         self.softmax_type = "vanilla"
         self.window_size = dpa_utils.check_set_window_size(attn_mask_type)
@@ -189,7 +191,7 @@ class FusedAttention(torch.nn.Module):
         attn_mask_type: str = "causal",
         attention_mask: Optional[Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]] = None,
         window_size: Optional[Tuple[int, int]] = None,
-        fused_attention_backend: tex.NVTE_Fused_Attn_Backend = tex.NVTE_Fused_Attn_Backend.NVTE_No_Backend,
+        fused_attention_backend: tex.NVTE_Fused_Attn_Backend = tex.NVTE_Fused_Attn_Backend.NVTE_No_Backend,  # noqa: E501
         core_attention_bias_type: str = "no_bias",
         core_attention_bias: Optional[torch.Tensor] = None,
         fast_zero_fill: bool = True,

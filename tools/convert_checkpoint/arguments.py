@@ -35,7 +35,9 @@ def parse_args(title=None):
     else:
         for group in parser._action_groups:
             if group.title == title:
-                group_dict = {item.dest: getattr(args, item.dest, None) for item in group._group_actions}
+                group_dict = {
+                    item.dest: getattr(args, item.dest, None) for item in group._group_actions
+                }
                 _GLOBAL_ARGS = argparse.Namespace(**group_dict)
                 return _GLOBAL_ARGS
         _GLOBAL_ARGS = argparse.Namespace()
@@ -50,14 +52,20 @@ def _add_checkpoint_args(parser):
     group.add_argument("--load_ckpt_path", type=str, default=None, help="path to load checkpoint")
     group.add_argument("--save_ckpt_path", type=str, default=None, help="path to save checkpoint")
     group.add_argument("--common_config_path", type=str, default=None, help="path to common config")
-    group.add_argument("--megatron_path", type=str, default=None, help="Base directory of Megatron repository")
+    group.add_argument(
+        "--megatron_path", type=str, default=None, help="Base directory of Megatron repository"
+    )
     group.add_argument("--no_load_optim", action="store_true", help="do not convert optimizer")
     group.add_argument("--no_save_optim", action="store_true", help="do not save optimizer")
     group.add_argument("--model_type_custom", type=str, default=None, help="custom model type")
     group.add_argument(
-        "--safetensors", action="store_true", help="Use [safetensors](https://huggingface.co/docs/safetensors)."
+        "--safetensors",
+        action="store_true",
+        help="Use [safetensors](https://huggingface.co/docs/safetensors).",
     )
-    group.add_argument("--convert_to_fp8", action="store_true", help="Convert float16 weights to fp8")
+    group.add_argument(
+        "--convert_to_fp8", action="store_true", help="Convert float16 weights to fp8"
+    )
     group.add_argument(
         "--quant_method",
         type=str,
@@ -93,7 +101,7 @@ def _add_checkpoint_args(parser):
     group.add_argument(
         "--pretrain_as_fp8",
         action="store_true",
-        help="Run pretrain as fp8, only used for hf to mcore when saved checkpoint is bf16 and pretrain as fp8",
+        help="Run pretrain as fp8, only used for hf to mcore when saved checkpoint is bf16 and pretrain as fp8",  # noqa: E501
     )
 
     group.add_argument(
@@ -179,11 +187,13 @@ def _add_checkpoint_args(parser):
         choices=["float32", "bfloat16"],
         help="The transfer dtype when convert from hf fp8 to mcore fp8",
     )
-    group.add_argument("--distributed_convert", action="store_true", help="Convert checkpoint in distributed mode")
+    group.add_argument(
+        "--distributed_convert", action="store_true", help="Convert checkpoint in distributed mode"
+    )
 
     group.add_argument("--config_file", type=str, help="Config file for model configuration.")
     group.add_argument("--convert_file", type=str, help="Convert file for checkpoint conversion.")
-    # group.add_argument('--config_name', type=str, help="Config file name for model configuration.")
+    # group.add_argument('--config_name', type=str, help="Config file name for model configuration.")  # noqa: E501
     # group.add_argument(
     #     '--module', type=str, default="language", help="Module type, default: language",
     #     choices=["language", "vit"]
@@ -197,13 +207,22 @@ def _add_checkpoint_args(parser):
         "This MTP implementation sequentially predict additional tokens "
         "by using D sequential modules to predict D additional tokens.",
     )
-    group.add_argument("--load_lora_ckpt_path", type=str, default=None, help="path to load lora checkpoint")
+    group.add_argument(
+        "--load_lora_ckpt_path", type=str, default=None, help="path to load lora checkpoint"
+    )
     group.add_argument("--lora_alpha", type=int, help="Lora alpha for LoRA fine tuning.")
     group.add_argument("--lora_dim", type=int, help="Lora dim for LoRA fine tuning.")
-    group.add_argument("--adapter_convert_file", type=str, default=None, help="Convert file for adapter.")
-    group.add_argument("--vision_patch_convert_file", type=str, default=None, help="Convert file for vision_patch.")
     group.add_argument(
-        "--encoder_tensor_model_parallel_size", type=int, default=None, help="Tensor parallel size for encoder."
+        "--adapter_convert_file", type=str, default=None, help="Convert file for adapter."
+    )
+    group.add_argument(
+        "--vision_patch_convert_file", type=str, default=None, help="Convert file for vision_patch."
+    )
+    group.add_argument(
+        "--encoder_tensor_model_parallel_size",
+        type=int,
+        default=None,
+        help="Tensor parallel size for encoder.",
     )
     group.add_argument(
         "--enable-full-hetero-dp",
@@ -222,7 +241,12 @@ def _add_checkpoint_args(parser):
 def _add_common_args(parser):
     group = parser.add_argument_group(title="common")
 
-    group.add_argument("--torch_dtype", type=str, choices=["float16", "float32", "bfloat16"], help="target torch dtype")
+    group.add_argument(
+        "--torch_dtype",
+        type=str,
+        choices=["float16", "float32", "bfloat16"],
+        help="target torch dtype",
+    )
     group.add_argument("--vocab_size", type=int, default=None, help="vocab size")
     group.add_argument(
         "--vpp-scheduler",
@@ -277,16 +301,30 @@ def _add_megatron_args(parser):
 
     Returns:
         None, void: No return value, directly modify the passed ArgumentParser object.
-    """
+    """  # noqa: E501
     group = parser.add_argument_group(title="megatron")
 
-    group.add_argument("--use_distributed_optimizer", action="store_true", help="use distributed optimizer")
-    group.add_argument("--tensor_model_parallel_size", type=int, default=1, help="target tensor model parallel size")
     group.add_argument(
-        "--pipeline_model_parallel_size", type=int, default=1, help="target pipeline model parallel size"
+        "--use_distributed_optimizer", action="store_true", help="use distributed optimizer"
     )
-    group.add_argument("--data_parallel_size", type=int, default=1, help="target data parallel size")
-    group.add_argument("--expert_parallel_size", type=int, default=None, help="target expert parallel size")
+    group.add_argument(
+        "--tensor_model_parallel_size",
+        type=int,
+        default=1,
+        help="target tensor model parallel size",
+    )
+    group.add_argument(
+        "--pipeline_model_parallel_size",
+        type=int,
+        default=1,
+        help="target pipeline model parallel size",
+    )
+    group.add_argument(
+        "--data_parallel_size", type=int, default=1, help="target data parallel size"
+    )
+    group.add_argument(
+        "--expert_parallel_size", type=int, default=None, help="target expert parallel size"
+    )
     group.add_argument(
         "--expert_tensor_parallel_size",
         type=int,
@@ -302,7 +340,9 @@ def _add_megatron_args(parser):
         "This value must be greater than the initial size of the tokenizer"
         ", needs to be divisible by TP size and `make-vocab-size-divisible-by`.",
     )
-    group.add_argument("--add_embedding_padding", type=bool, default=True, help="Whether to add embedding padding.")
+    group.add_argument(
+        "--add_embedding_padding", type=bool, default=True, help="Whether to add embedding padding."
+    )
     group.add_argument(
         "--make_vocab_size_divisible_by",
         type=int,
@@ -345,9 +385,18 @@ def _add_megatron_args(parser):
         help="Which Transformer implementation to use when load or save mcore checkpoint."
         "Only support `transformer_engine` now.",
     )
-    group.add_argument("--num_experts", type=int, default=None, help="Number of Experts in MoE (None means no MoE)")
-    group.add_argument("--checkpoint-format", type=str, default=None, help="hf checkpoint format end with safetensors")
-    group.add_argument("--max_workers", type=int, default=1, help="thread for checkpoint converting")
+    group.add_argument(
+        "--num_experts", type=int, default=None, help="Number of Experts in MoE (None means no MoE)"
+    )
+    group.add_argument(
+        "--checkpoint-format",
+        type=str,
+        default=None,
+        help="hf checkpoint format end with safetensors",
+    )
+    group.add_argument(
+        "--max_workers", type=int, default=1, help="thread for checkpoint converting"
+    )
     group.add_argument(
         "--no-te",
         "--input-layernorm-not-in-attn",
@@ -355,18 +404,37 @@ def _add_megatron_args(parser):
         help="SelfAttn does not contain input_layernorm in mcore.",
     )
     group.add_argument("--moe-grouped-gemm", action="store_true", help="use grouped gemm in moe")
-    group.add_argument("--resume-convert", action="store_true", help="resume checkpoint converting when failed")
-    group.add_argument("--cache-path", type=str, default=None, help="cache path used during conversion")
-    group.add_argument("--layer-for-test", type=str, default=None, help="get specific layer from checkpoint for test")
-    group.add_argument("--num-experts-for-test", type=int, default=None, help="Number of Experts in MoE for test")
     group.add_argument(
-        "--sub-num-layers-for-save", type=int, default=None, help="number of layers for saving each time"
+        "--resume-convert", action="store_true", help="resume checkpoint converting when failed"
     )
     group.add_argument(
-        "--save-sub-checkpoint-by-pp", action="store_true", help="save sub checkpoints by pipeline parallel"
+        "--cache-path", type=str, default=None, help="cache path used during conversion"
     )
     group.add_argument(
-        "--sub_file_tag", type=int, default=None, help="sub file index when saving huggingface checkpoint"
+        "--layer-for-test",
+        type=str,
+        default=None,
+        help="get specific layer from checkpoint for test",
+    )
+    group.add_argument(
+        "--num-experts-for-test", type=int, default=None, help="Number of Experts in MoE for test"
+    )
+    group.add_argument(
+        "--sub-num-layers-for-save",
+        type=int,
+        default=None,
+        help="number of layers for saving each time",
+    )
+    group.add_argument(
+        "--save-sub-checkpoint-by-pp",
+        action="store_true",
+        help="save sub checkpoints by pipeline parallel",
+    )
+    group.add_argument(
+        "--sub_file_tag",
+        type=int,
+        default=None,
+        help="sub file index when saving huggingface checkpoint",
     )
 
 

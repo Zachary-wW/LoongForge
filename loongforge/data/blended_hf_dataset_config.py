@@ -55,11 +55,17 @@ class BlendedHuggingFaceDatasetConfig(BlendedMegatronDatasetConfig):
                         f"dataset_per_split must be provided for {split.name} split"
                     )
 
-                    assert len(self.blend_per_split[split.value][0]) == len(self.dataset_per_split[split.value]), (
-                        f"dataset_per_split must contain {len(self.blend_per_split[split.value][0])} "
+                    assert len(self.blend_per_split[split.value][0]) == len(
+                        self.dataset_per_split[split.value]
+                    ), (
+                        f"dataset_per_split must contain {len(self.blend_per_split[split.value][0])} "  # noqa: E501
                         f"datasets for {split.name} split"
                     )
         else:
             assert self.split is not None, "split must be provided in absence of blend_per_split"
-            assert self.dataset is not None, "dataset must be provided in absence of blend_per_split"
-            assert len(self.dataset) == len(self.blend[0]), f"dataset must contain {len(self.blend[0])} blends"
+            assert self.dataset is not None, (
+                "dataset must be provided in absence of blend_per_split"
+            )
+            assert len(self.dataset) == len(self.blend[0]), (
+                f"dataset must contain {len(self.blend[0])} blends"
+            )

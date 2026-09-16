@@ -193,14 +193,18 @@ def test_reuse_flat_input_avoids_persistent_shard_buffer():
         block=4,
     )
     flat = torch.arange(8, dtype=torch.bfloat16)
-    shard_input, reused = delta_mod._get_shard_input(state, [flat[:3], flat[3:]], [3, 5], torch.device("cpu"))
+    shard_input, reused = delta_mod._get_shard_input(
+        state, [flat[:3], flat[3:]], [3, 5], torch.device("cpu")
+    )
     assert reused is True
     assert state.shard_buffer is None
     assert shard_input.data_ptr() == flat.data_ptr()
 
 
 def test_param_major_metadata():
-    metadata = delta_mod._build_param_major_block_metadata((3, 5), world_size=2, block=4, device=torch.device("cpu"))
+    metadata = delta_mod._build_param_major_block_metadata(
+        (3, 5), world_size=2, block=4, device=torch.device("cpu")
+    )
     assert metadata.tolist() == [[0, 0, 3], [3, 6, 5], [7, 10, 5]]
 
 
@@ -222,7 +226,9 @@ def test_direct_param_prime_preserves_layout_async_work_and_scratch():
         calls.append(("gather", output_tensor, input_tensor, group, async_op))
         shard_numel = input_tensor.numel()
         for rank in range(2):
-            output_tensor.narrow(0, rank * shard_numel, shard_numel).copy_(input_tensor + rank * 100)
+            output_tensor.narrow(0, rank * shard_numel, shard_numel).copy_(
+                input_tensor + rank * 100
+            )
         return _FakeWork(index)
 
     shard_input = torch.tensor([10, 11, 12, 20, 21, 22, 23, 24], dtype=torch.bfloat16)
@@ -289,7 +295,8 @@ def test_aliased_group_state_owns_fsdp_outputs_and_skips_free(monkeypatch):
             10,
         ]
         assert all(
-            p.all_gather_outputs[0].untyped_storage().data_ptr() == state.reference.untyped_storage().data_ptr()
+            p.all_gather_outputs[0].untyped_storage().data_ptr()
+            == state.reference.untyped_storage().data_ptr()
             for p in params
         )
         calls = []
@@ -385,7 +392,9 @@ def test_install_and_uninstall_patches_foreach_all_gather():
         )
         assert _collectives.foreach_all_gather is delta_mod._delta_foreach_all_gather
         assert _param_group.foreach_all_gather is delta_mod._delta_foreach_all_gather
-        assert _collectives.foreach_all_gather_copy_out is delta_mod._delta_foreach_all_gather_copy_out
+        assert (
+            _collectives.foreach_all_gather_copy_out is delta_mod._delta_foreach_all_gather_copy_out
+        )
         assert _fsdp_param.FSDPParam.free_unsharded_param is delta_mod._delta_free_unsharded_param
         assert _fsdp_param.FSDPParam.init_unsharded_param is delta_mod._delta_init_unsharded_param
         delta_mod.install_delta_fp8_allgather(block=128, prime_steps=2, reprime_interval=4)
@@ -453,7 +462,9 @@ def test_error_feedback_does_not_drift():
         error = y.to(torch.float32) - exact.to(torch.float32)
         worst_rms = max(worst_rms, float(error.norm() / exact.to(torch.float32).norm()))
     exact = master.to(torch.bfloat16)
-    final_rms = float((y.to(torch.float32) - exact.to(torch.float32)).norm() / exact.to(torch.float32).norm())
+    final_rms = float(
+        (y.to(torch.float32) - exact.to(torch.float32)).norm() / exact.to(torch.float32).norm()
+    )
     assert torch.isfinite(y).all()
     assert worst_rms < 1.0e-4
     assert final_rms < 1.0e-4
@@ -549,7 +560,10 @@ def _run_aliased_fsdp_training(rank, world_size, init_file):
                     output = fsdp_param.all_gather_outputs[0]
                     unsharded = fsdp_param._unsharded_param
                     local_unsharded = getattr(unsharded, "_local_tensor", unsharded)
-                    assert local_unsharded.untyped_storage().data_ptr() == output.untyped_storage().data_ptr()
+                    assert (
+                        local_unsharded.untyped_storage().data_ptr()
+                        == output.untyped_storage().data_ptr()
+                    )
                     assert local_unsharded.storage_offset() == output.storage_offset()
             loss = (prediction - target).float().square().mean()
             assert torch.isfinite(loss)

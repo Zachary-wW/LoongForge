@@ -36,7 +36,11 @@ def convert_megatron_transformer_config_args(megatron_args, config_class=None):
     """convert megatron args to transformer config"""
     # Config class.
     if config_class is None:
-        config_class = TransformerConfig if not megatron_args["multi_latent_attention"] else MLATransformerConfig
+        config_class = (
+            TransformerConfig
+            if not megatron_args["multi_latent_attention"]
+            else MLATransformerConfig
+        )
 
     transformer_config_args = {}
     for k, v in megatron_args.items():
@@ -50,12 +54,18 @@ def convert_megatron_transformer_config_args(megatron_args, config_class=None):
     transformer_config_args["batch_p2p_comm"] = not megatron_args["overlap_p2p_comm"]
     transformer_config_args["num_moe_experts"] = megatron_args["num_experts"]
     transformer_config_args["rotary_interleaved"] = megatron_args["rotary_interleaved"]
-    transformer_config_args["num_layers_in_first_pipeline_stage"] = megatron_args["decoder_first_pipeline_num_layers"]
-    transformer_config_args["num_layers_in_last_pipeline_stage"] = megatron_args["decoder_last_pipeline_num_layers"]
+    transformer_config_args["num_layers_in_first_pipeline_stage"] = megatron_args[
+        "decoder_first_pipeline_num_layers"
+    ]
+    transformer_config_args["num_layers_in_last_pipeline_stage"] = megatron_args[
+        "decoder_last_pipeline_num_layers"
+    ]
     transformer_config_args["fp8_param"] = megatron_args["fp8_param_gather"]
 
     if "activation_func_fp8_input_store" in megatron_args:
-        transformer_config_args["activation_func_fp8_input_store"] = megatron_args["activation_func_fp8_input_store"]
+        transformer_config_args["activation_func_fp8_input_store"] = megatron_args[
+            "activation_func_fp8_input_store"
+        ]
 
     if megatron_args["swiglu"]:
         transformer_config_args["activation_func"] = F.silu
@@ -110,7 +120,10 @@ def build_model_config(args, config):
         model_config = config.model
 
     # assert hasattr(config.model, "model_type"), "model_type is required in model config"
-    vision_custom_names = {*constants.VisionLanguageModelFamilies.names(), *constants.CustomModelFamilies.names()}
+    vision_custom_names = {
+        *constants.VisionLanguageModelFamilies.names(),
+        *constants.CustomModelFamilies.names(),
+    }
     if model_type in vision_custom_names:
         # get the global args dict which contains all model component args
         global_args_dict = get_args_dict()
@@ -134,10 +147,12 @@ def build_model_config(args, config):
             else:
                 model_cfgs[name] = config_values
         model_cfgs = VLMModelConfig(**model_cfgs)
-    elif model_type in (set(constants.LanguageModelFamilies.names()) | set(constants.CustomModelFamilies.names())):
+    elif model_type in (
+        set(constants.LanguageModelFamilies.names()) | set(constants.CustomModelFamilies.names())
+    ):
         if "_target_" not in model_config:
             raise ValueError(
-                "Model config missing '_target_' field.\nThis field is required for llm or custom model types.\n"
+                "Model config missing '_target_' field.\nThis field is required for llm or custom model types.\n"  # noqa: E501
             )
         args_dict = deepcopy(vars(args))
         merged = deepcopy(args_dict)

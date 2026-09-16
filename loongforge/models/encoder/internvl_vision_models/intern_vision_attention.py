@@ -97,19 +97,27 @@ class InternViTRMSNorm(MegatronModule):
         rank = get_tensor_model_parallel_rank()
 
         num_attention_heads_per_partition = divide(self.config.num_attention_heads, world_size)
-        valid_ranks = (self.config.original_num_attention_heads - 1) // num_attention_heads_per_partition
+        valid_ranks = (
+            self.config.original_num_attention_heads - 1
+        ) // num_attention_heads_per_partition
 
-        residual_heads = self.config.original_num_attention_heads % num_attention_heads_per_partition
+        residual_heads = (
+            self.config.original_num_attention_heads % num_attention_heads_per_partition
+        )
         if residual_heads == 0:
             residual_heads = num_attention_heads_per_partition
         max_dim = max_dim * residual_heads
 
         if rank < valid_ranks:  # Ranks without any dummy attention heads.
             var = input_.sum(-1, keepdim=True)
-        elif rank == valid_ranks:  # The only rank which may contain 'residual_heads' dummy attention heads.
+        elif (
+            rank == valid_ranks
+        ):  # The only rank which may contain 'residual_heads' dummy attention heads.
             var = input_[..., :max_dim].sum(-1, keepdim=True)
         else:
-            var = input_.sum(-1, keepdim=True) * 0.0  # All heads in these ranks are dummy heads: Zero-out.
+            var = (
+                input_.sum(-1, keepdim=True) * 0.0
+            )  # All heads in these ranks are dummy heads: Zero-out.
 
         tensor_list = [torch.empty_like(var) for _ in range(world_size)]
         tensor_list[rank] = var
@@ -125,7 +133,9 @@ class InternViTRMSNorm(MegatronModule):
         # are tensor-parallel so must be converted to sharded tensors
         if "q_layernorm" in prefix or "k_layernorm" in prefix:
             state_dict = self.state_dict(prefix="", keep_vars=True)
-            return make_sharded_tensors_for_checkpoint(state_dict, prefix, {"weight": 0}, sharded_offsets)
+            return make_sharded_tensors_for_checkpoint(
+                state_dict, prefix, {"weight": 0}, sharded_offsets
+            )
         else:
             return super().sharded_state_dict(prefix, sharded_offsets, metadata)
 
@@ -224,14 +234,14 @@ class InternSelfAttention(Attention):
         ]
 
         if SplitAlongDim is not None:
-            # [sq, b, ng, (np/ng + 2) * hn] --> [sq, b, ng, np/ng * hn], [sq, b, ng, hn], [sq, b, ng, hn]
+            # [sq, b, ng, (np/ng + 2) * hn] --> [sq, b, ng, np/ng * hn], [sq, b, ng, hn], [sq, b, ng, hn]  # noqa: E501
             (query, key, value) = SplitAlongDim(
                 mixed_qkv,
                 3,
                 split_arg_list,
             )
         else:
-            # [sq, b, ng, (np/ng + 2) * hn] --> [sq, b, ng, np/ng * hn], [sq, b, ng, hn], [sq, b, ng, hn]
+            # [sq, b, ng, (np/ng + 2) * hn] --> [sq, b, ng, np/ng * hn], [sq, b, ng, hn], [sq, b, ng, hn]  # noqa: E501
             (query, key, value) = torch.split(
                 mixed_qkv,
                 split_arg_list,
@@ -292,10 +302,16 @@ class InternSelfAttention(Attention):
 
         # This branch only runs in the decode phase of flash decoding and returns after the linear
         # projection. This conditional is not used in the prefill phase or non-flash-decoding cases.
-        if self.config.flash_decode and inference_params is not None and inference_params.decode_mode:
+        if (
+            self.config.flash_decode
+            and inference_params is not None
+            and inference_params.decode_mode
+        ):
             assert self.layer_number in inference_params.key_value_memory_dict
             assert inference_params.sequence_len_offset is not None
-            inference_key_memory, inference_value_memory = inference_params.key_value_memory_dict[self.layer_number]
+            inference_key_memory, inference_value_memory = inference_params.key_value_memory_dict[
+                self.layer_number
+            ]
             output = self.flash_decoding(
                 sequence_len_offset=sequence_len_offset,
                 query_layer=query,
@@ -346,7 +362,9 @@ class InternSelfAttention(Attention):
                 cu_seqlens_q = cu_seqlens_kv = None
 
             assert self.apply_rotary_fn is not None, "apply_rotary_fn must be defined"
-            query = self.apply_rotary_fn(query, q_pos_emb, config=self.config, cu_seqlens=cu_seqlens_q)
+            query = self.apply_rotary_fn(
+                query, q_pos_emb, config=self.config, cu_seqlens=cu_seqlens_q
+            )
             key = self.apply_rotary_fn(key, k_pos_emb, config=self.config, cu_seqlens=cu_seqlens_kv)
 
             # TODO, can apply positional embedding to value_layer so it has
@@ -413,9 +431,13 @@ class InternViTTEDotProductAttention(TEDotProductAttention):
 
         world_size = get_tensor_model_parallel_world_size()
         num_attention_heads_per_partition = divide(self.config.num_attention_heads, world_size)
-        valid_ranks = (self.config.original_num_attention_heads - 1) // num_attention_heads_per_partition
+        valid_ranks = (
+            self.config.original_num_attention_heads - 1
+        ) // num_attention_heads_per_partition
         max_dim = hidden_dim // num_attention_heads_per_partition
-        residual_heads = self.config.original_num_attention_heads % num_attention_heads_per_partition
+        residual_heads = (
+            self.config.original_num_attention_heads % num_attention_heads_per_partition
+        )
         if residual_heads == 0:
             residual_heads = num_attention_heads_per_partition
         max_dim = max_dim * residual_heads

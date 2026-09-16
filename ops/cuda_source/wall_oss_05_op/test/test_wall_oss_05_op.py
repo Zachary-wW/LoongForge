@@ -17,7 +17,9 @@ import time
 import pytest
 import torch
 
-pytestmark = pytest.mark.skipif(not torch.cuda.is_available(), reason="wall_oss_0_5 tests require CUDA")
+pytestmark = pytest.mark.skipif(
+    not torch.cuda.is_available(), reason="wall_oss_0_5 tests require CUDA"
+)
 
 
 @pytest.fixture(scope="module")
@@ -28,7 +30,9 @@ def ext():
     try:
         return load()
     except ImportError:
-        pytest.fail("CUDA extension is not built; run `pip install --no-build-isolation -e .` first")
+        pytest.fail(
+            "CUDA extension is not built; run `pip install --no-build-isolation -e .` first"
+        )
 
 
 @pytest.fixture(scope="module")
@@ -104,8 +108,12 @@ def test_rope_forward_and_backward(ext, interleave):
     dq = torch.empty_like(q)
     dk = torch.empty_like(k)
     ext.rope_bwd(grad_q, grad_k, dq, dk, cos, sin, interleave)
-    torch.testing.assert_close(dq, _rope_reference(grad_q, cos, -sin, interleave), rtol=1e-5, atol=1e-5)
-    torch.testing.assert_close(dk, _rope_reference(grad_k, cos, -sin, interleave), rtol=1e-5, atol=1e-5)
+    torch.testing.assert_close(
+        dq, _rope_reference(grad_q, cos, -sin, interleave), rtol=1e-5, atol=1e-5
+    )
+    torch.testing.assert_close(
+        dk, _rope_reference(grad_k, cos, -sin, interleave), rtol=1e-5, atol=1e-5
+    )
 
 
 def test_m_rope_gqa(ext):
@@ -122,10 +130,12 @@ def test_m_rope_gqa(ext):
     ext.m_rope(q, k, q_out, k_out, cos, sin, first, second)
 
     cos_half = torch.cat(
-        (cos[0, ..., :first], cos[1, ..., first : first + second], cos[2, ..., first + second :]), dim=-1
+        (cos[0, ..., :first], cos[1, ..., first : first + second], cos[2, ..., first + second :]),
+        dim=-1,
     )
     sin_half = torch.cat(
-        (sin[0, ..., :first], sin[1, ..., first : first + second], sin[2, ..., first + second :]), dim=-1
+        (sin[0, ..., :first], sin[1, ..., first : first + second], sin[2, ..., first + second :]),
+        dim=-1,
     )
     cos_sel = torch.cat((cos_half, cos_half), dim=-1).unsqueeze(2)
     sin_sel = torch.cat((sin_half, sin_half), dim=-1).unsqueeze(2)
@@ -169,10 +179,14 @@ def test_permute_unpermute_topk(ext):
     sorted_indices = torch.empty(max_items, device="cuda", dtype=torch.int32)
     row_id = torch.arange(max_items, device="cuda", dtype=torch.int32)
     sorted_row_id = torch.empty_like(row_id)
-    temp = torch.empty(ext.cub_sort_pair_get_storage_bytes(max_items), device="cuda", dtype=torch.int8)
+    temp = torch.empty(
+        ext.cub_sort_pair_get_storage_bytes(max_items), device="cuda", dtype=torch.int8
+    )
     output = torch.empty((max_items, tokens.shape[1]), device="cuda", dtype=tokens.dtype)
     row_map = torch.empty(max_items, device="cuda", dtype=torch.int32)
-    ext.permute(tokens, indices, sorted_indices, row_id, sorted_row_id, temp, output, row_map, 0, max_items)
+    ext.permute(
+        tokens, indices, sorted_indices, row_id, sorted_row_id, temp, output, row_map, 0, max_items
+    )
     expected_order = torch.argsort(indices.reshape(-1), stable=True)
     expected = tokens.index_select(0, expected_order // 2)
     torch.testing.assert_close(output, expected)
@@ -442,7 +456,9 @@ def test_bench_rope_cuda_vs_pytorch(ext):
     t_pt = _bench(pt_fn)
     print(f"\n[RoPE bench] CUDA={t_cuda:.1f}µs  PyTorch={t_pt:.1f}µs  speedup={t_pt / t_cuda:.2f}x")
     # CUDA kernel must be at least as fast as pure PyTorch
-    assert t_cuda <= t_pt * 2.0, f"CUDA ({t_cuda:.1f}µs) unexpectedly slow vs PyTorch ({t_pt:.1f}µs)"
+    assert t_cuda <= t_pt * 2.0, (
+        f"CUDA ({t_cuda:.1f}µs) unexpectedly slow vs PyTorch ({t_pt:.1f}µs)"
+    )
 
 
 def test_bench_rmsnorm_exact_vs_pytorch(ext_exact):
@@ -465,8 +481,12 @@ def test_bench_rmsnorm_exact_vs_pytorch(ext_exact):
 
     t_cuda = _bench(cuda_fn)
     t_pt = _bench(pt_fn)
-    print(f"\n[RMSNorm bench] CUDA={t_cuda:.1f}µs  PyTorch={t_pt:.1f}µs  speedup={t_pt / t_cuda:.2f}x")
-    assert t_cuda <= t_pt * 3.0, f"CUDA ({t_cuda:.1f}µs) unexpectedly slow vs PyTorch ({t_pt:.1f}µs)"
+    print(
+        f"\n[RMSNorm bench] CUDA={t_cuda:.1f}µs  PyTorch={t_pt:.1f}µs  speedup={t_pt / t_cuda:.2f}x"
+    )
+    assert t_cuda <= t_pt * 3.0, (
+        f"CUDA ({t_cuda:.1f}µs) unexpectedly slow vs PyTorch ({t_pt:.1f}µs)"
+    )
 
 
 def test_bench_permute_cuda_vs_pytorch(ext):
@@ -481,12 +501,25 @@ def test_bench_permute_cuda_vs_pytorch(ext):
     sorted_indices = torch.empty(max_items, device="cuda", dtype=torch.int32)
     row_id = torch.arange(max_items, device="cuda", dtype=torch.int32)
     sorted_row_id = torch.empty_like(row_id)
-    temp = torch.empty(ext.cub_sort_pair_get_storage_bytes(max_items), device="cuda", dtype=torch.int8)
+    temp = torch.empty(
+        ext.cub_sort_pair_get_storage_bytes(max_items), device="cuda", dtype=torch.int8
+    )
     output = torch.empty((max_items, D), device="cuda", dtype=tokens.dtype)
     row_map = torch.empty(max_items, device="cuda", dtype=torch.int32)
 
     def cuda_fn():
-        ext.permute(tokens, indices, sorted_indices, row_id, sorted_row_id, temp, output, row_map, 0, max_items)
+        ext.permute(
+            tokens,
+            indices,
+            sorted_indices,
+            row_id,
+            sorted_row_id,
+            temp,
+            output,
+            row_map,
+            0,
+            max_items,
+        )
 
     perm_op = PermuteOp.__new__(PermuteOp)
 
@@ -495,7 +528,9 @@ def test_bench_permute_cuda_vs_pytorch(ext):
 
     t_cuda = _bench(cuda_fn)
     t_pt = _bench(pt_fn)
-    print(f"\n[Permute bench] CUDA={t_cuda:.1f}µs  PyTorch={t_pt:.1f}µs  speedup={t_pt / t_cuda:.2f}x")
+    print(
+        f"\n[Permute bench] CUDA={t_cuda:.1f}µs  PyTorch={t_pt:.1f}µs  speedup={t_pt / t_cuda:.2f}x"
+    )
     # Just report; CUB radix sort vs torch.argsort may vary
 
 

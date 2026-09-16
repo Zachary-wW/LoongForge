@@ -232,7 +232,9 @@ class EmbodimentTag(Enum):
     The Unitree G1 dataset with full body and height command and navigate command.
     """
 
-    UNITREE_G1_FULL_BODY_WITH_WAIST_HEIGHT_NAV_CMD = "unitree_g1_full_body_with_waist_height_nav_cmd"
+    UNITREE_G1_FULL_BODY_WITH_WAIST_HEIGHT_NAV_CMD = (
+        "unitree_g1_full_body_with_waist_height_nav_cmd"
+    )
     """
     The Unitree G1 dataset with full body and waist and height command and navigate command.
     """
@@ -242,12 +244,14 @@ class EmbodimentTag(Enum):
     )
     """
     The Unitree G1 dataset with full body and waist and height command and navigate command and task progress.
-    """
+    """  # noqa: E501
 
-    UNITREE_G1_FULL_BODY_WITH_HEIGHT_NAV_CMD_IN_SIM = "unitree_g1_full_body_with_height_nav_cmd_in_sim"
+    UNITREE_G1_FULL_BODY_WITH_HEIGHT_NAV_CMD_IN_SIM = (
+        "unitree_g1_full_body_with_height_nav_cmd_in_sim"
+    )
     """
     The Unitree G1 dataset with full body and height command and navigate command in sim, data is collected with 50Hz.
-    """
+    """  # noqa: E501
 
     G1_FIX_LOWER_RIGHT_HAND = "g1_fix_lower_right_hand"
     """
@@ -259,7 +263,9 @@ class EmbodimentTag(Enum):
     The GR1 robot with reward information for oflfine RL.
     """
 
-    UNITREE_G1_FULL_BODY_WITH_HEIGHT_NAV_CMD_OAK_STEREO = "unitree_g1_full_body_with_height_nav_cmd_oak_stereo"
+    UNITREE_G1_FULL_BODY_WITH_HEIGHT_NAV_CMD_OAK_STEREO = (
+        "unitree_g1_full_body_with_height_nav_cmd_oak_stereo"
+    )
     """
     The Unitree G1 dataset with full body and height command and navigate command and oak stereo.
     """
@@ -286,10 +292,10 @@ class EmbodimentTag(Enum):
 
     # ------------- Deprecated G1 Embodiments -------------
     # below are deprecated G1 embodiments. Why deprecated?
-    # 1. The neck wasn't locked. So the the camera angles differe slightly between episodes and robots
+    # 1. The neck wasn't locked. So the the camera angles differe slightly between episodes and robots  # noqa: E501
     # 2. Video modality was called `rs_view`. It is now called `ego_view`
     # TODO: In future if we want to unify these embodiment tags, we can do so by renaming
-    # video.rs_view -> video.ego_view. After that we can remove the below deprecated embodiment tags.
+    # video.rs_view -> video.ego_view. After that we can remove the below deprecated embodiment tags.  # noqa: E501
     DEPRECATED_UNITREE_G1_UPPER_BODY = "deprecated_unitree_g1_upper_body"
     """
     The Unitree G1 dataset.
@@ -305,17 +311,23 @@ class EmbodimentTag(Enum):
     The Unitree G1 dataset with full body and height command.
     """
 
-    DEPRECATED_UNITREE_G1_FULL_BODY_WITH_HEIGHT_AND_EEF = "deprecated_unitree_g1_full_body_with_height_and_eef"
+    DEPRECATED_UNITREE_G1_FULL_BODY_WITH_HEIGHT_AND_EEF = (
+        "deprecated_unitree_g1_full_body_with_height_and_eef"
+    )
     """
     The Unitree G1 dataset with full body and height command and eef command.
     """
 
-    DEPRECATED_UNITREE_G1_FULL_BODY_WITH_HEIGHT_EEF_NAV_CMD = "deprecated_unitree_g1_full_body_with_height_eef_nav_cmd"
+    DEPRECATED_UNITREE_G1_FULL_BODY_WITH_HEIGHT_EEF_NAV_CMD = (
+        "deprecated_unitree_g1_full_body_with_height_eef_nav_cmd"
+    )
     """
     The Unitree G1 dataset with full body and height command and eef command and navigate command.
     """
 
-    DEPRECATED_UNITREE_G1_FULL_BODY_WITH_HEIGHT_NAV_CMD = "deprecated_unitree_g1_full_body_with_height_nav_cmd"
+    DEPRECATED_UNITREE_G1_FULL_BODY_WITH_HEIGHT_NAV_CMD = (
+        "deprecated_unitree_g1_full_body_with_height_nav_cmd"
+    )
     """
     The Unitree G1 dataset with full body and height command and navigate command.
     """

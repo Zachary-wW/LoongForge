@@ -458,7 +458,11 @@ def _resolve_video_modality_keys(
         is_visual = dtype in {"image", "video"} or str(feature_type).upper().endswith("VISUAL")
         if not is_visual:
             continue
-        keys.append(key.split("observation.images.", 1)[-1] if key.startswith("observation.images.") else key)
+        keys.append(
+            key.split("observation.images.", 1)[-1]
+            if key.startswith("observation.images.")
+            else key
+        )
     if keys:
         return keys
     if fallback_config is not None and "video" in fallback_config:
@@ -505,7 +509,9 @@ def _resolve_action_configs(
 ) -> list[ActionConfig]:
     if fallback_config is not None and "action" in fallback_config:
         fallback_action = fallback_config["action"]
-        if fallback_action.action_configs is not None and len(fallback_action.action_configs) == len(action_keys):
+        if fallback_action.action_configs is not None and len(
+            fallback_action.action_configs
+        ) == len(action_keys):
             return list(fallback_action.action_configs)
     return [
         ActionConfig(
@@ -529,7 +535,10 @@ def _resolve_video_key_mapping(
         return {key: key for key in config_video_keys}
     if len(config_video_keys) != len(dataset_video_keys):
         return {}
-    return {dataset_key: config_key for config_key, dataset_key in zip(config_video_keys, dataset_video_keys)}
+    return {
+        dataset_key: config_key
+        for config_key, dataset_key in zip(config_video_keys, dataset_video_keys)
+    }
 
 
 def _resolve_embodiment_id(policy_cfg: GrootN1d7Config, data_cfg: Any) -> int:
@@ -553,7 +562,9 @@ def _build_runtime_processor_stats(
     modality_config: dict[str, ModalityConfig],
 ) -> Optional[dict[str, Any]]:
     dataset_stats_local = {
-        key: value for key, value in dict(dataset_stats or {}).items() if not str(key).startswith("__")
+        key: value
+        for key, value in dict(dataset_stats or {}).items()
+        if not str(key).startswith("__")
     }
     if not dataset_stats_local:
         return None
@@ -598,7 +609,9 @@ class GrootN1d7FeatureTransform(BaseTransform):
         self.image_augmentation_seed = int(training_args.seed) if training_args is not None else 42
         self._replay_image_shape = _resolve_replay_image_shape(dataset)
 
-        runtime_semantics = _resolve_runtime_semantics(model_cfg, self.data_cfg, dataset_stats, dataset)
+        runtime_semantics = _resolve_runtime_semantics(
+            model_cfg, self.data_cfg, dataset_stats, dataset
+        )
         self.modality_configs = {self.embodiment_tag: runtime_semantics.modality_config}
         self._video_key_mapping = runtime_semantics.video_key_mapping
         self.modality_meta = runtime_semantics.modality_meta
@@ -631,7 +644,9 @@ class GrootN1d7FeatureTransform(BaseTransform):
         image_replay = None
         if self.training:
             if not self.use_albumentations:
-                raise RuntimeError("Deterministic shard prefetch requires replayable Albumentations transforms")
+                raise RuntimeError(
+                    "Deterministic shard prefetch requires replayable Albumentations transforms"
+                )
             image_transform = self.train_image_transform
             sample_replay_for_shape = getattr(
                 image_transform,
@@ -639,9 +654,13 @@ class GrootN1d7FeatureTransform(BaseTransform):
                 None,
             )
             if sample_replay_for_shape is None:
-                raise RuntimeError("The configured image transform cannot sample a deterministic replay")
+                raise RuntimeError(
+                    "The configured image transform cannot sample a deterministic replay"
+                )
             if getattr(image_transform, "mask_transforms", []):
-                raise RuntimeError("Deterministic shard prefetch does not support random mask transforms")
+                raise RuntimeError(
+                    "Deterministic shard prefetch does not support random mask transforms"
+                )
 
             image_shape = self._replay_image_shape
             if data is not None:
@@ -653,7 +672,9 @@ class GrootN1d7FeatureTransform(BaseTransform):
                     raise ValueError("GR00T-N1.7 image sequence is empty")
                 image_shape = first_frames[0].shape[:2]
             if image_shape is None:
-                raise RuntimeError("Cannot prepare deterministic image replay without image geometry")
+                raise RuntimeError(
+                    "Cannot prepare deterministic image replay without image geometry"
+                )
             image_replay = sample_replay_for_shape(image_shape)
 
         return {
@@ -726,14 +747,18 @@ class GrootN1d7FeatureTransform(BaseTransform):
         else:
             drop_state = bool(replay["drop_state"])
         if drop_state:
-            normalized_states = {key: np.zeros_like(value) for key, value in normalized_states.items()}
+            normalized_states = {
+                key: np.zeros_like(value) for key, value in normalized_states.items()
+            }
 
         result: Dict[str, Any] = {"state": self._pack_state(normalized_states)}
         if normalized_actions:
             action, action_mask = self._pack_action(normalized_actions)
             result["action"] = action
             result["action_mask"] = action_mask
-            result["action_is_pad"] = self._build_action_is_pad(data.get("action_is_pad"), action_mask)
+            result["action_is_pad"] = self._build_action_is_pad(
+                data.get("action_is_pad"), action_mask
+            )
 
         language = _normalize_text(data.get("task", ""))
         if self.formalize_language:
@@ -907,9 +932,13 @@ class GrootN1d7FeatureTransform(BaseTransform):
                 temporal_stacked_images[view] = torch.stack(transformed_images)
         else:
             if masks is not None:
-                raise ValueError("GR00T-N1.7 mask transforms require albumentations image transforms")
+                raise ValueError(
+                    "GR00T-N1.7 mask transforms require albumentations image transforms"
+                )
             for view in image_keys:
-                temporal_stacked_images[view] = torch.stack([image_transform(img) for img in images[view]])
+                temporal_stacked_images[view] = torch.stack(
+                    [image_transform(img) for img in images[view]]
+                )
 
         stacked = torch.stack([temporal_stacked_images[view] for view in image_keys], dim=1)
         stacked_images = stacked.flatten(0, 1).numpy()
@@ -1060,7 +1089,9 @@ def convert_lerobot_stats_to_groot_n1d7_format(
     return statistics
 
 
-def get_groot_n1d7_statistics(dataset_stats: Dict[str, Any], embodiment_tag: str = "libero_sim") -> dict:
+def get_groot_n1d7_statistics(
+    dataset_stats: Dict[str, Any], embodiment_tag: str = "libero_sim"
+) -> dict:
     """Backward-compatible alias for GR00T-N1.7 statistics conversion."""
     return convert_lerobot_stats_to_groot_n1d7_format(dataset_stats, embodiment_tag)
 
@@ -1118,7 +1149,9 @@ def _ensure_new_embodiment_group_stats(
     return merged
 
 
-def _compute_dataset_feature_stats(root: Path, feature_keys: list[str]) -> dict[str, dict[str, list]]:
+def _compute_dataset_feature_stats(
+    root: Path, feature_keys: list[str]
+) -> dict[str, dict[str, list]]:
     import pandas as pd
 
     parquet_files = sorted((root / "data").glob("*/*.parquet"))

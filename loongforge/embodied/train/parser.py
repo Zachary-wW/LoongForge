@@ -50,7 +50,7 @@ def parse_train_args():
         config_path = training_dc.config_file
         if not training_dc.model_name:
             raise ValueError(
-                "--model-name is required to select ModelConfig/DataConfig classes even when --config-file is provided."
+                "--model-name is required to select ModelConfig/DataConfig classes even when --config-file is provided."  # noqa: E501
             )
     elif training_dc.model_name:
         config_path = get_config_path(training_dc.model_name)

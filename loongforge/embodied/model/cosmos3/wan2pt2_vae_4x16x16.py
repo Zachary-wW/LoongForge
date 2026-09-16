@@ -28,7 +28,9 @@ if dist.is_available():
     from torch.distributed.distributed_c10d import _get_default_group
     from torch.distributed.utils import _sync_module_states, _verify_param_shape_across_processes
 
-from loongforge.embodied.data.datasets.cosmos3.transforms.cosmos3_action_transform import VIDEO_RES_SIZE_INFO
+from loongforge.embodied.data.datasets.cosmos3.transforms.cosmos3_action_transform import (
+    VIDEO_RES_SIZE_INFO,
+)
 
 
 # For sequential decoding, CACHE_T is the number of frames to cache.
@@ -75,7 +77,7 @@ def sync_model_states(
         >>>     model.load_state_dict(network_bound_weights_download_fn(s3_weights_path))
         >>> dist.barrir()
         >>> sync_model_states(model) # sync rank0 weights to other ranks
-    """
+    """  # noqa: E501
     if not dist.is_available() or not dist.is_initialized():
         return
     if process_group is None:
@@ -268,7 +270,10 @@ class RMSNorm(nn.Module):
 
     def forward(self, x):
         """forward."""
-        return F.normalize(x, dim=(1 if self.channel_first else -1)) * self.scale * self.gamma + self.bias
+        return (
+            F.normalize(x, dim=(1 if self.channel_first else -1)) * self.scale * self.gamma
+            + self.bias
+        )
 
 
 class Upsample(nn.Upsample):
@@ -310,9 +315,13 @@ class Resample(nn.Module):
             )
             self.time_conv = CausalConv3d(dim, dim * 2, (3, 1, 1), padding=(1, 0, 0))
         elif mode == "downsample2d":
-            self.resample = nn.Sequential(nn.ZeroPad2d((0, 1, 0, 1)), nn.Conv2d(dim, dim, 3, stride=(2, 2)))
+            self.resample = nn.Sequential(
+                nn.ZeroPad2d((0, 1, 0, 1)), nn.Conv2d(dim, dim, 3, stride=(2, 2))
+            )
         elif mode == "downsample3d":
-            self.resample = nn.Sequential(nn.ZeroPad2d((0, 1, 0, 1)), nn.Conv2d(dim, dim, 3, stride=(2, 2)))
+            self.resample = nn.Sequential(
+                nn.ZeroPad2d((0, 1, 0, 1)), nn.Conv2d(dim, dim, 3, stride=(2, 2))
+            )
             self.time_conv = CausalConv3d(dim, dim, (3, 1, 1), stride=(2, 1, 1), padding=(0, 0, 0))
         else:
             self.resample = nn.Identity()
@@ -326,8 +335,10 @@ class Resample(nn.Module):
             if feat_cache is not None:
                 idx = feat_idx[0]
                 if feat_cache[idx] is None:
-                    # First frame: skip time_conv, seed cache with zeros so the next call sees a real tensor
-                    feat_cache[idx] = torch.zeros(b, c, CACHE_T, h, w, device=x.device, dtype=x.dtype)  # [B,C,2,H,W]
+                    # First frame: skip time_conv, seed cache with zeros so the next call sees a real tensor  # noqa: E501
+                    feat_cache[idx] = torch.zeros(
+                        b, c, CACHE_T, h, w, device=x.device, dtype=x.dtype
+                    )  # [B,C,2,H,W]
                     feat_idx[0] += 1
                 else:
                     cache_x = _contiguous_clone(x[:, :, -CACHE_T:, :, :])  # [B,C,<=2,H,W]
@@ -354,8 +365,8 @@ class Resample(nn.Module):
             # Important for torch.compile: when we're *not* doing streaming/cache-based inference
             # (feat_cache is None), we still need to apply the temporal downsample conv.
             if feat_cache is None:
-                # `time_conv` has kernel (3,1,1), stride 2 in time, and no internal temporal padding.
-                # In the streaming path, we effectively provide left temporal context via cached frames.
+                # `time_conv` has kernel (3,1,1), stride 2 in time, and no internal temporal padding.  # noqa: E501
+                # In the streaming path, we effectively provide left temporal context via cached frames.  # noqa: E501
                 # For the non-streaming path, pad 2 frames on the left so:
                 # - the conv is always valid (T>=3)
                 # - the output temporal length matches the shortcut path's ceil(T/2) behavior
@@ -380,7 +391,9 @@ class Resample(nn.Module):
                     feat_idx[0] += 1
                 else:
                     cache_x = _contiguous_clone(x[:, :, -1:, :, :])  # [B,C,1,H_out,W_out]
-                    x_cat = torch.cat([feat_cache[idx][:, :, -1:, :, :], x], 2)  # [B,C,T+1,H_out,W_out]
+                    x_cat = torch.cat(
+                        [feat_cache[idx][:, :, -1:, :, :], x], 2
+                    )  # [B,C,T+1,H_out,W_out]
                     t_cat = x_cat.shape[2]
                     if t_cat < 3:
                         x_cat = F.pad(x_cat, (0, 0, 0, 0, 3 - t_cat, 0))  # [B,C,3,H_out,W_out]
@@ -449,7 +462,13 @@ class AttentionBlock(nn.Module):
         x = rearrange(x, "b c t h w -> (b t) c h w")  # [B*T,C,H,W]
         x = self.norm(x)  # [B*T,C,H,W]
         # compute query, key, value
-        q, k, v = self.to_qkv(x).reshape(b * t, 1, c * 3, -1).permute(0, 1, 3, 2).contiguous().chunk(3, dim=-1)
+        q, k, v = (
+            self.to_qkv(x)
+            .reshape(b * t, 1, c * 3, -1)
+            .permute(0, 1, 3, 2)
+            .contiguous()
+            .chunk(3, dim=-1)
+        )
         # q,k,v: [B*T,1,H*W,C]
 
         # apply attention
@@ -466,7 +485,9 @@ class AttentionBlock(nn.Module):
         return x + identity  # [B,C,T,H,W]
 
 
-def patchify(x, patch_size):  # x: [B,C,H,W] or [B,C,T,H,W] -> [B,C*p^2,H//p,W//p] or [B,C*p^2,T,H//p,W//p]
+def patchify(
+    x, patch_size
+):  # x: [B,C,H,W] or [B,C,T,H,W] -> [B,C*p^2,H//p,W//p] or [B,C*p^2,T,H//p,W//p]
     """patchify."""
     if patch_size == 1:
         return x
@@ -484,7 +505,9 @@ def patchify(x, patch_size):  # x: [B,C,H,W] or [B,C,T,H,W] -> [B,C*p^2,H//p,W//
             x = x.permute(0, 1, 6, 4, 2, 3, 5).contiguous()  # [B,C,2,2,T,H//2,W//2]
             return x.view(b, c * 4, f, h // 2, w // 2)  # [B,C*4,T,H//2,W//2]
     if x.dim() == 4:
-        x = rearrange(x, "b c (h q) (w r) -> b (c r q) h w", q=patch_size, r=patch_size)  # [B,C*p^2,H//p,W//p]
+        x = rearrange(
+            x, "b c (h q) (w r) -> b (c r q) h w", q=patch_size, r=patch_size
+        )  # [B,C*p^2,H//p,W//p]
     elif x.dim() == 5:
         x = rearrange(
             x,
@@ -498,13 +521,17 @@ def patchify(x, patch_size):  # x: [B,C,H,W] or [B,C,T,H,W] -> [B,C*p^2,H//p,W//
     return x
 
 
-def unpatchify(x, patch_size):  # x: [B,C*p^2,H,W] or [B,C*p^2,T,H,W] -> [B,C,H*p,W*p] or [B,C,T,H*p,W*p]
+def unpatchify(
+    x, patch_size
+):  # x: [B,C*p^2,H,W] or [B,C*p^2,T,H,W] -> [B,C,H*p,W*p] or [B,C,T,H*p,W*p]
     """unpatchify."""
     if patch_size == 1:
         return x
 
     if x.dim() == 4:
-        x = rearrange(x, "b (c r q) h w -> b c (h q) (w r)", q=patch_size, r=patch_size)  # [B,C,H*p,W*p]
+        x = rearrange(
+            x, "b (c r q) h w -> b c (h q) (w r)", q=patch_size, r=patch_size
+        )  # [B,C,H*p,W*p]
     elif x.dim() == 5:
         x = rearrange(
             x,
@@ -598,7 +625,9 @@ class DupUp3D(nn.Module):
 
     def forward(
         self, x: torch.Tensor, first_chunk=False
-    ) -> torch.Tensor:  # x: [B,in_channels,T,H,W] -> [B,out_channels,T*factor_t,H*factor_s,W*factor_s]
+    ) -> (
+        torch.Tensor
+    ):  # x: [B,in_channels,T,H,W] -> [B,out_channels,T*factor_t,H*factor_s,W*factor_s]
         """forward."""
         x = x.repeat_interleave(self.repeats, dim=1)  # [B,in_channels*repeats,T,H,W]
         x = x.view(
@@ -872,12 +901,16 @@ class Decoder3d(nn.Module):
             CausalConv3d(out_dim, 12, 3, padding=1),
         )
 
-    def forward(self, x, feat_cache=None, first_chunk=False):  # x: [B,z_dim,T,H,W] -> [B,12,T*4,H*8,W*8]
+    def forward(
+        self, x, feat_cache=None, first_chunk=False
+    ):  # x: [B,z_dim,T,H,W] -> [B,12,T*4,H*8,W*8]
         """forward."""
         feat_idx = [0]
 
         if feat_cache is not None:
-            x = _update_cache_and_apply(x, self.conv1, feat_cache, feat_idx)  # [B,dim*dim_mult[-1],T,H,W]
+            x = _update_cache_and_apply(
+                x, self.conv1, feat_cache, feat_idx
+            )  # [B,dim*dim_mult[-1],T,H,W]
         else:
             x = self.conv1(x)  # [B,dim*dim_mult[-1],T,H,W]
 
@@ -984,14 +1017,18 @@ class WanVAEModule(nn.Module):
         x_recon = self.decode(mu, scale, clear_decoder_cache=True)
         return x_recon, mu
 
-    def _normalize_latent(self, z: torch.Tensor, scale: tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
+    def _normalize_latent(
+        self, z: torch.Tensor, scale: tuple[torch.Tensor, torch.Tensor]
+    ) -> torch.Tensor:
         """Normalize the latent."""
         assert len(scale) == 2, "scale must be a tuple with two tensors"
         s0 = scale[0].view(1, self.z_dim, 1, 1, 1)
         s1 = scale[1].view(1, self.z_dim, 1, 1, 1)
         return (z - s0) * s1  # [B,z_dim,T,H,W]
 
-    def _denormalize_latent(self, z: torch.Tensor, scale: tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
+    def _denormalize_latent(
+        self, z: torch.Tensor, scale: tuple[torch.Tensor, torch.Tensor]
+    ) -> torch.Tensor:
         """Invert the normalization applied by _encode_features_to_mu."""
         assert len(scale) == 2, "scale must be a tuple with two tensors"
         s0 = scale[0].view(1, self.z_dim, 1, 1, 1)
@@ -1084,7 +1121,7 @@ class WanVAEModule(nn.Module):
 
         assert T == 1 or (T - 1) % 4 == 0, (
             f"Input temporal length must be 4n+1 (got {T}). "
-            "Use pad_video_batch to pad before encoding, check wan2pt2_vae_4x16x16_test on how to use it."
+            "Use pad_video_batch to pad before encoding, check wan2pt2_vae_4x16x16_test on how to use it."  # noqa: E501
         )
 
         # The 4x temporal compression maps T pixel frames → ceil-like latent frames.
@@ -1102,7 +1139,10 @@ class WanVAEModule(nn.Module):
             # Pad T to ``1 + k * temporal_window`` so that after removing the 1-frame
             # prime, the remaining frames divide evenly into ``temporal_window``-sized chunks.
             T = 1 + ((T - 1 + temporal_window - 1) // temporal_window) * temporal_window
-            print(f"rank{torch.cuda.current_device()} T{T} temporal_window {temporal_window}", flush=True)
+            print(
+                f"rank{torch.cuda.current_device()} T{T} temporal_window {temporal_window}",
+                flush=True,
+            )
             x = F.pad(x, (0, 0, 0, 0, 0, T - x.shape[2]))
 
         # One cache slot per CausalConv3d layer in the encoder, initially all None.
@@ -1527,7 +1567,7 @@ class Wan2pt2VAEInterface:
         use_streaming_encode: bool = False,
         # Granularity of the encoding chunks. Larger values result in higher TensorCore utilization,
         # and lower values result in lower memory usage. To optimize for speed and memory usage,
-        # use a dictionary of chunk frames, one for each resolution. If a single integer is provided,
+        # use a dictionary of chunk frames, one for each resolution. If a single integer is provided,  # noqa: E501
         # it will be used for all resolutions.
         encode_chunk_frames: int | Mapping[str, int] = 4,
         # Exact frame durations that get encoded without padding. Useful for short-clip datasets
@@ -1560,7 +1600,9 @@ class Wan2pt2VAEInterface:
             encode_chunk_frames = {"256": 68, "480": 24, "720": 12}
         assert isinstance(encode_chunk_frames, Mapping)
 
-        assert all(c % 4 == 0 for c in encode_chunk_frames.values()), "encode_chunk_frames must be a multiple of 4"
+        assert all(c % 4 == 0 for c in encode_chunk_frames.values()), (
+            "encode_chunk_frames must be a multiple of 4"
+        )
 
         self.chunk_duration = chunk_duration
 
@@ -1740,7 +1782,7 @@ class Wan2pt2VAEInterface:
                 return pkg_path
             except Exception as e:
                 log.warning(
-                    f"Rank {rank}: AOT compile failed for cache_t={cache_t} {t_chunk}f {H_patch}x{W_patch}: {e}",
+                    f"Rank {rank}: AOT compile failed for cache_t={cache_t} {t_chunk}f {H_patch}x{W_patch}: {e}",  # noqa: E501
                     rank0_only=False,
                 )
                 return None
@@ -1775,7 +1817,7 @@ class Wan2pt2VAEInterface:
 
         my_variant_keys = [v for i, v in enumerate(all_variant_keys) if i % world_size == rank]
         log.info(
-            f"Rank {rank}: assigned {len(my_variant_keys)}/{len(all_variant_keys)} variants (world_size={world_size})",
+            f"Rank {rank}: assigned {len(my_variant_keys)}/{len(all_variant_keys)} variants (world_size={world_size})",  # noqa: E501
             rank0_only=False,
         )
 

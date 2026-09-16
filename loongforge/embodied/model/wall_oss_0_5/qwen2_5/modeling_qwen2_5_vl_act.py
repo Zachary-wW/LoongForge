@@ -46,7 +46,10 @@ from transformers.modeling_attn_mask_utils import (
     AttentionMaskConverter,
 )
 from torchdiffeq import odeint
-from loongforge.embodied.model.wall_oss_0_5.core.vla_mixin import ActionGenerationMixin, ActionModelMixMin
+from loongforge.embodied.model.wall_oss_0_5.core.vla_mixin import (
+    ActionGenerationMixin,
+    ActionModelMixMin,
+)
 from loongforge.embodied.model.wall_oss_0_5.core.action.normalizer import (
     normalize_actions_q99,
     unnormalize_actions_q99,
@@ -127,13 +130,17 @@ class Qwen25VLDecoderLayerWithMoE(nn.Module, ActionModelMixMin):
 
         if config.use_sliding_window and config._attn_implementation != "flash_attention_2":
             logger.warning_once(
-                f"Sliding Window Attention is enabled but not implemented for `{config._attn_implementation}`; "
+                f"Sliding Window Attention is enabled but not implemented for `{config._attn_implementation}`; "  # noqa: E501
                 "unexpected results may be encountered."
             )
         if config.attention_moe:
-            self.self_attn = JOINT_QWEN_ATTENTION_CLASSES[config._attn_implementation](config, layer_idx)
+            self.self_attn = JOINT_QWEN_ATTENTION_CLASSES[config._attn_implementation](
+                config, layer_idx
+            )
         else:
-            self.self_attn = QWEN2_5_VL_ATTENTION_CLASSES[config._attn_implementation](config, layer_idx)
+            self.self_attn = QWEN2_5_VL_ATTENTION_CLASSES[config._attn_implementation](
+                config, layer_idx
+            )
 
         if config.use_adarms:
             adarms_cond_dims = [None, config.adarms_cond_dim]
@@ -164,7 +171,9 @@ class Qwen25VLDecoderLayerWithMoE(nn.Module, ActionModelMixMin):
             self.input_layernorm, self.post_attention_layernorm = None, None
         else:
             self.input_layernorm = Qwen2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-            self.post_attention_layernorm = Qwen2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+            self.post_attention_layernorm = Qwen2RMSNorm(
+                config.hidden_size, eps=config.rms_norm_eps
+            )
             self.input_layernorms, self.post_attention_layernorms = None, None
 
         if config.mlp_moe:
@@ -190,7 +199,9 @@ class Qwen25VLDecoderLayerWithMoE(nn.Module, ActionModelMixMin):
         output_attentions: Optional[bool] = False,
         use_cache: Optional[bool] = False,
         cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
+        position_embeddings: Optional[
+            Tuple[torch.Tensor, torch.Tensor]
+        ] = None,  # necessary, but kept here for BC
         # for vla
         token_types: Optional[torch.LongTensor] = None,
         start_indices: Optional[torch.Tensor] = None,
@@ -221,7 +232,7 @@ class Qwen25VLDecoderLayerWithMoE(nn.Module, ActionModelMixMin):
             kwargs (`dict`, *optional*):
                 Arbitrary kwargs to be ignored, used for FSDP and other methods that injects code
                 into the model
-        """
+        """  # noqa: E501
 
         residual = hidden_states
         hidden_states, gate, gate_mask = self._apply_norm_moe(
@@ -265,7 +276,9 @@ class Qwen25VLDecoderLayerWithMoE(nn.Module, ActionModelMixMin):
                 position_embeddings=position_embeddings,
             )
 
-        hidden_states = self._gated_residual(residual, hidden_states, gate, start_indices, end_indices)
+        hidden_states = self._gated_residual(
+            residual, hidden_states, gate, start_indices, end_indices
+        )
 
         # Fully Connected
         residual = hidden_states
@@ -283,7 +296,9 @@ class Qwen25VLDecoderLayerWithMoE(nn.Module, ActionModelMixMin):
 
         hidden_states = self._apply_mlp_moe(hidden_states, token_types, start_indices, end_indices)
 
-        hidden_states = self._gated_residual(residual, hidden_states, gate, start_indices, end_indices)
+        hidden_states = self._gated_residual(
+            residual, hidden_states, gate, start_indices, end_indices
+        )
 
         outputs = (hidden_states,)
 
@@ -356,7 +371,9 @@ class Qwen25VLMoEModel(Qwen25VLPreTrainedModel, ActionModelMixMin):
         moe_token_types: Optional[torch.LongTensor] = None,  # new parameter
         start_indices: Optional[torch.Tensor] = None,
         end_indices: Optional[torch.Tensor] = None,
-        positional_masks: Optional[dict] = None,  # stores token position masks needed by each category
+        positional_masks: Optional[
+            dict
+        ] = None,  # stores token position masks needed by each category
         use_cache: Optional[bool] = None,
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
@@ -366,9 +383,13 @@ class Qwen25VLMoEModel(Qwen25VLPreTrainedModel, ActionModelMixMin):
         **kwargs,
     ) -> Union[Tuple, BaseModelOutputWithPast]:
         """Run the forward pass."""
-        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        output_attentions = (
+            output_attentions if output_attentions is not None else self.config.output_attentions
+        )
         output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+            output_hidden_states
+            if output_hidden_states is not None
+            else self.config.output_hidden_states
         )
         use_cache = use_cache if use_cache is not None else self.config.use_cache
 
@@ -384,7 +405,7 @@ class Qwen25VLMoEModel(Qwen25VLPreTrainedModel, ActionModelMixMin):
         if self.gradient_checkpointing and self.training:
             if use_cache:
                 logger.warning_once(
-                    "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
+                    "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."  # noqa: E501
                 )
                 use_cache = False
 
@@ -396,7 +417,9 @@ class Qwen25VLMoEModel(Qwen25VLPreTrainedModel, ActionModelMixMin):
             inputs_embeds = self.embed_tokens(input_ids)
 
         if cache_position is None:
-            past_seen_tokens = past_key_values.get_seq_length() if past_key_values is not None else 0
+            past_seen_tokens = (
+                past_key_values.get_seq_length() if past_key_values is not None else 0
+            )
             cache_position = torch.arange(
                 past_seen_tokens,
                 past_seen_tokens + inputs_embeds.shape[1],
@@ -423,8 +446,13 @@ class Qwen25VLMoEModel(Qwen25VLPreTrainedModel, ActionModelMixMin):
 
         hidden_states = inputs_embeds
 
-        if self.config._attn_implementation != "flash_attention_2" and self.config.attention_moe is True:
-            position_ids = self._update_position_ids(position_ids, moe_token_types, positional_masks)
+        if (
+            self.config._attn_implementation != "flash_attention_2"
+            and self.config.attention_moe is True
+        ):
+            position_ids = self._update_position_ids(
+                position_ids, moe_token_types, positional_masks
+            )
 
         # create position embeddings to be shared across the decoder layers
         position_embeddings = self.rotary_emb(hidden_states, position_ids)
@@ -436,7 +464,7 @@ class Qwen25VLMoEModel(Qwen25VLPreTrainedModel, ActionModelMixMin):
                 sin[..., :mrope_half_dim].float().contiguous(),
             )
 
-        # When mot_opt is enabled, permute tokens from different experts first; shape becomes [Tokens, HiddenSize]
+        # When mot_opt is enabled, permute tokens from different experts first; shape becomes [Tokens, HiddenSize]  # noqa: E501
         orig_shape = hidden_states.shape
         moe_token_types = moe_token_types.contiguous()
         if self.config.mot_opt:
@@ -463,7 +491,9 @@ class Qwen25VLMoEModel(Qwen25VLPreTrainedModel, ActionModelMixMin):
 
         for decoder_layer in self.layers:
             if output_hidden_states:
-                assert self.config.mot_opt is False, "When using mot_opt, output_hidden_states is not supported yet."
+                assert self.config.mot_opt is False, (
+                    "When using mot_opt, output_hidden_states is not supported yet."
+                )
                 all_hidden_states += (hidden_states,)
 
             if self.gradient_checkpointing and self.training:
@@ -526,7 +556,9 @@ class Qwen25VLMoEModel(Qwen25VLPreTrainedModel, ActionModelMixMin):
 
         # add hidden states from the last decoder layer
         if output_hidden_states:
-            assert self.config.mot_opt is False, "When using mot_opt, output_hidden_states is not supported yet."
+            assert self.config.mot_opt is False, (
+                "When using mot_opt, output_hidden_states is not supported yet."
+            )
             all_hidden_states += (hidden_states,)
 
         next_cache = next_decoder_cache if use_cache else None
@@ -536,7 +568,11 @@ class Qwen25VLMoEModel(Qwen25VLPreTrainedModel, ActionModelMixMin):
             hidden_states = hidden_states.view(orig_shape)
 
         if not return_dict:
-            return tuple(v for v in [hidden_states, next_cache, all_hidden_states, all_self_attns] if v is not None)
+            return tuple(
+                v
+                for v in [hidden_states, next_cache, all_hidden_states, all_self_attns]
+                if v is not None
+            )
 
         return BaseModelOutputWithPast(
             last_hidden_state=hidden_states,
@@ -569,14 +605,14 @@ class Qwen25VLMoEModel(Qwen25VLPreTrainedModel, ActionModelMixMin):
                 return attention_mask
             return None
 
-        # For SDPA, when possible, we will rely on its `is_causal` argument instead of its `attn_mask` argument, in
-        # order to dispatch on Flash Attention 2. This feature is not compatible with static cache, as SDPA will fail
+        # For SDPA, when possible, we will rely on its `is_causal` argument instead of its `attn_mask` argument, in  # noqa: E501
+        # order to dispatch on Flash Attention 2. This feature is not compatible with static cache, as SDPA will fail  # noqa: E501
         # to infer the attention mask.
         past_seen_tokens = past_key_values.get_seq_length() if past_key_values is not None else 0
         using_static_cache = isinstance(past_key_values, StaticCache)
         using_sliding_window_cache = isinstance(past_key_values, SlidingWindowCache)
 
-        # When output attentions is True, sdpa implementation's forward method calls the eager implementation's forward
+        # When output attentions is True, sdpa implementation's forward method calls the eager implementation's forward  # noqa: E501
         if (
             self.config._attn_implementation == "sdpa"
             and not (using_static_cache or using_sliding_window_cache)
@@ -641,8 +677,8 @@ class Qwen25VLMoEModel(Qwen25VLPreTrainedModel, ActionModelMixMin):
             and attention_mask.device.type in ["cuda", "xpu"]
             and not output_attentions
         ):
-            # Attend to all tokens in fully masked rows in the causal_mask, for example the relevant first rows when
-            # using left padding. This is required by F.scaled_dot_product_attention memory-efficient attention path.
+            # Attend to all tokens in fully masked rows in the causal_mask, for example the relevant first rows when  # noqa: E501
+            # using left padding. This is required by F.scaled_dot_product_attention memory-efficient attention path.  # noqa: E501
             # Details: https://github.com/pytorch/pytorch/issues/110213
             causal_mask = AttentionMaskConverter._unmask_unattended(causal_mask, min_dtype)
 
@@ -685,9 +721,9 @@ class Qwen25VLMoEModel(Qwen25VLPreTrainedModel, ActionModelMixMin):
                 The model's configuration class
             past_key_values (`Cache`):
                 The cache class that is being used currently to generate
-        """
+        """  # noqa: E501
         if attention_mask is not None and attention_mask.dim() == 4:
-            # In this case we assume that the mask comes already in inverted form and requires no inversion or slicing.
+            # In this case we assume that the mask comes already in inverted form and requires no inversion or slicing.  # noqa: E501
             causal_mask = attention_mask
         else:
             min_dtype = torch.finfo(dtype).min
@@ -697,12 +733,17 @@ class Qwen25VLMoEModel(Qwen25VLPreTrainedModel, ActionModelMixMin):
                 dtype=dtype,
                 device=device,
             )
-            diagonal_attend_mask = torch.arange(target_length, device=device) > cache_position.reshape(-1, 1)
+            diagonal_attend_mask = torch.arange(
+                target_length, device=device
+            ) > cache_position.reshape(-1, 1)
             if config.sliding_window is not None:
-                # if we have sliding window, we should not attend to tokens beyond sliding window length, so we mask
+                # if we have sliding window, we should not attend to tokens beyond sliding window length, so we mask  # noqa: E501
                 # them out also
-                # the check is needed to verify is current checkpoint was trained with sliding window or not
-                if not isinstance(past_key_values, SlidingWindowCache) or sequence_length > target_length:
+                # the check is needed to verify is current checkpoint was trained with sliding window or not  # noqa: E501
+                if (
+                    not isinstance(past_key_values, SlidingWindowCache)
+                    or sequence_length > target_length
+                ):
                     sliding_attend_mask = torch.arange(target_length, device=device) <= (
                         cache_position.reshape(-1, 1) - config.sliding_window
                     )
@@ -714,9 +755,9 @@ class Qwen25VLMoEModel(Qwen25VLPreTrainedModel, ActionModelMixMin):
                 if attention_mask.shape[-1] > target_length:
                     attention_mask = attention_mask[:, :target_length]
                 mask_length = attention_mask.shape[-1]
-                padding_mask = causal_mask[:, :, :, :mask_length] + attention_mask[:, None, None, :].to(
-                    causal_mask.device
-                )
+                padding_mask = causal_mask[:, :, :, :mask_length] + attention_mask[
+                    :, None, None, :
+                ].to(causal_mask.device)
                 padding_mask = padding_mask == 0
                 causal_mask[:, :, :, :mask_length] = causal_mask[:, :, :, :mask_length].masked_fill(
                     padding_mask, min_dtype
@@ -729,7 +770,7 @@ class Qwen25VLMoEForAction(
     ActionGenerationMixin,
     ActionModelMixMin,
 ):
-    # Compatibility with newer transformers versions (5.x):_tied_weights_keys changed from list[str] to dict[str, str]
+    # Compatibility with newer transformers versions (5.x):_tied_weights_keys changed from list[str] to dict[str, str]  # noqa: E501
     # (target -> source mapping).
     # Older versions (4.x) iterate over dict keys, so the behavior is equivalent and compatible.
     """Qwen2 5 VLMoEForAction."""
@@ -752,7 +793,9 @@ class Qwen25VLMoEForAction(
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
         self._skip_unused_lm_head = _env_flag("LOONGFORGE_WALL_SKIP_UNUSED_LM_HEAD", True)
 
-        self.loss_fct = CrossEntropyLoss(reduction="none")  # do not do reduction to compute channel loss
+        self.loss_fct = CrossEntropyLoss(
+            reduction="none"
+        )  # do not do reduction to compute channel loss
 
         self.processor = processor
         self.define_action_token_id()
@@ -786,7 +829,7 @@ class Qwen25VLMoEForAction(
         )
 
     def _post_init_engine(self, config):
-        """Hook called at the end of __init__. Subclasses may override to add engine-specific state."""
+        """Hook called at the end of __init__. Subclasses may override to add engine-specific state."""  # noqa: E501
         pass
 
     def get_input_embeddings(self):
@@ -845,15 +888,21 @@ class Qwen25VLMoEForAction(
         if input_ids is not None:
             batch_size, seq_length = input_ids.shape
 
-        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        output_attentions = (
+            output_attentions if output_attentions is not None else self.config.output_attentions
+        )
         output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+            output_hidden_states
+            if output_hidden_states is not None
+            else self.config.output_hidden_states
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         if start_indices is None or end_indices is None:
             if moe_group_counts is not None:
-                start_indices, end_indices = build_moe_group_indices(moe_group_counts, self.config.num_experts)
+                start_indices, end_indices = build_moe_group_indices(
+                    moe_group_counts, self.config.num_experts
+                )
             else:
                 # Compatibility fallback for callers that bypass the Wall collator.
                 group_size = torch.zeros(self.config.num_experts, dtype=torch.long, device="cpu")
@@ -949,7 +998,7 @@ class Qwen25VLMoEForAction(
                 n_video_features = video_embeds.shape[0]
                 if n_video_tokens != n_video_features:
                     raise ValueError(
-                        f"Video features and video tokens do not match: tokens: {n_video_tokens}, features "
+                        f"Video features and video tokens do not match: tokens: {n_video_tokens}, features "  # noqa: E501
                         f"{n_video_features}"
                     )
 
@@ -1041,7 +1090,9 @@ class Qwen25VLMoEForAction(
 
         return Qwen25VLACausalLMOutputWithPast(
             loss=loss,
-            cross_entropy_loss=(cross_entropy_loss.clone() if cross_entropy_loss is not None else None),
+            cross_entropy_loss=(
+                cross_entropy_loss.clone() if cross_entropy_loss is not None else None
+            ),
             flow_loss=flow_loss,
             logits=logits,
             past_key_values=outputs.past_key_values,
@@ -1101,7 +1152,7 @@ class Qwen25VLMoEForAction(
         action_norm_stats: Optional[dict] = None,
         **kwargs,
     ):
-        # assert self.config._attn_implementation == "sdpa", "generate_flow_action only support sdpa attn
+        # assert self.config._attn_implementation == "sdpa", "generate_flow_action only support sdpa attn  # noqa: E501
         # implementation"
         """Generate flow action."""
         ctx = self._prepare_flow_action_inputs(
@@ -1192,9 +1243,13 @@ class Qwen25VLMoEForAction(
     ):
         """Prepare flow action inputs."""
         batch_size = input_ids.shape[0] if input_ids is not None else inputs_embeds.shape[0]
-        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        output_attentions = (
+            output_attentions if output_attentions is not None else self.config.output_attentions
+        )
         output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+            output_hidden_states
+            if output_hidden_states is not None
+            else self.config.output_hidden_states
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
@@ -1209,7 +1264,7 @@ class Qwen25VLMoEForAction(
                 n_image_features = image_embeds.shape[0]
                 if n_image_tokens != n_image_features:
                     raise ValueError(
-                        f"Image features and image tokens do not match: tokens: {n_image_tokens}, features "
+                        f"Image features and image tokens do not match: tokens: {n_image_tokens}, features "  # noqa: E501
                         f"{n_image_features}"
                     )
 
@@ -1228,7 +1283,7 @@ class Qwen25VLMoEForAction(
                 n_video_features = video_embeds.shape[0]
                 if n_video_tokens != n_video_features:
                     raise ValueError(
-                        f"Video features and video tokens do not match: tokens: {n_video_tokens}, features "
+                        f"Video features and video tokens do not match: tokens: {n_video_tokens}, features "  # noqa: E501
                         f"{n_video_features}"
                     )
 
@@ -1250,9 +1305,9 @@ class Qwen25VLMoEForAction(
                     use_history=proprioception.shape[1] > 1,
                 )
                 proprioception_mask = input_ids == self.action_token_id_set["propri_token_id"]
-                inputs_embeds[proprioception_mask] = proprio_embed.reshape(-1, inputs_embeds.shape[-1]).to(
-                    inputs_embeds.dtype
-                )
+                inputs_embeds[proprioception_mask] = proprio_embed.reshape(
+                    -1, inputs_embeds.shape[-1]
+                ).to(inputs_embeds.dtype)
 
             if attention_mask is not None:
                 attention_mask = attention_mask.to(inputs_embeds.device)
@@ -1282,7 +1337,9 @@ class Qwen25VLMoEForAction(
             else:
                 batch_size, seq_length, _ = inputs_embeds.shape
                 delta = (
-                    (cache_position[0] + self.rope_deltas).to(inputs_embeds.device) if cache_position is not None else 0
+                    (cache_position[0] + self.rope_deltas).to(inputs_embeds.device)
+                    if cache_position is not None
+                    else 0
                 )
                 position_ids = torch.arange(seq_length, device=inputs_embeds.device)
                 position_ids = position_ids.view(1, -1).expand(batch_size, -1)
@@ -1303,9 +1360,9 @@ class Qwen25VLMoEForAction(
             prefix_length = int(prefix_length[0].item())
 
         if start_indices is None or end_indices is None:
-            # Compute start and end positions for each expert token group after permutation; the dataset has no
+            # Compute start and end positions for each expert token group after permutation; the dataset has no  # noqa: E501
             # num_expert metadata, so this is computed here
-            # Cache key: shape + sum is sufficient for stable-state (moe_token_types structure doesn't change)
+            # Cache key: shape + sum is sufficient for stable-state (moe_token_types structure doesn't change)  # noqa: E501
             _moe_key = (moe_token_types.shape, int(moe_token_types.sum().item()))
             _moe_cache = self._infer_stable_cache.get("moe_indices")
             if _moe_cache is None or _moe_cache[0] != _moe_key:
@@ -1340,8 +1397,10 @@ class Qwen25VLMoEForAction(
         dof_mask = dof_mask.to(inputs_embeds.device).to(torch.float32)
 
         if num_inference_timesteps not in self.times_cache:
-            self.times_cache[num_inference_timesteps] = self.action_preprocessor.get_inference_times(
-                num_inference_timesteps, inputs_embeds.device, torch.float32
+            self.times_cache[num_inference_timesteps] = (
+                self.action_preprocessor.get_inference_times(
+                    num_inference_timesteps, inputs_embeds.device, torch.float32
+                )
             )
         times = self.times_cache[num_inference_timesteps]
         time_0 = times[0].unsqueeze(0).repeat(noisy_action.shape[0])
@@ -1353,7 +1412,9 @@ class Qwen25VLMoEForAction(
 
         # Automatically generate padding actions from dof_mask
         if not dof_mask.all():
-            padding_action = torch.zeros((1, dof_mask.shape[-1])).to(dof_mask.device).to(torch.float32)
+            padding_action = (
+                torch.zeros((1, dof_mask.shape[-1])).to(dof_mask.device).to(torch.float32)
+            )
             padding_action = normalize_actions_q99(padding_action, action_norm_stats)
         else:
             padding_action = None
@@ -1476,7 +1537,9 @@ class Qwen25VLMoEForAction(
             if getattr(self.config, "use_x_pred", False):
                 # Align noisy_action (and timestep) to action_pred's shape
                 B, action_horizon, action_dim = noisy_action.shape
-                noisy_action_flat = noisy_action.reshape(-1, action_dim)  # [B * action_horizon, action_dim]
+                noisy_action_flat = noisy_action.reshape(
+                    -1, action_dim
+                )  # [B * action_horizon, action_dim]
                 timestep_expand = timestep.view(-1, 1).repeat_interleave(
                     action_horizon, dim=0
                 )  # [B * action_horizon, 1]
@@ -1490,12 +1553,16 @@ class Qwen25VLMoEForAction(
 
             return v_t
 
-        action_trajectory = odeint(step_with_kvcache, ctx["noisy_action"], ctx["times"][1:], method="euler")
+        action_trajectory = odeint(
+            step_with_kvcache, ctx["noisy_action"], ctx["times"][1:], method="euler"
+        )
 
         attention_maps = None
         if output_attentions and ctx["img_mask"] is not None:
             attention_maps = [torch.stack(map, dim=0) for map in all_attention_maps]
-            attention_maps = torch.stack(attention_maps, dim=0)  # [flow steps, layer depths, action tokens, all tokens]
+            attention_maps = torch.stack(
+                attention_maps, dim=0
+            )  # [flow steps, layer depths, action tokens, all tokens]
             attention_maps = attention_maps.mean(2)
             image_mask_indices = ctx["img_mask"][0].nonzero(as_tuple=True)[0]
             attention_maps = attention_maps[:, :, image_mask_indices]
@@ -1621,7 +1688,9 @@ class Qwen25VLMoEForAction(
         for key, value in merged_weights.items():
             if key.startswith("model.layers") and "mlp." in key and self.config.mlp_moe:
                 layer_num = key.split(".layers.")[1].split(".mlp")[0]
-                new_key = key.replace(f"layers.{layer_num}.mlp.", f"layers.{layer_num}.moe.experts.0.")
+                new_key = key.replace(
+                    f"layers.{layer_num}.mlp.", f"layers.{layer_num}.moe.experts.0."
+                )
                 renamed[new_key] = value
                 continue
 
@@ -1642,7 +1711,9 @@ class Qwen25VLMoEForAction(
                 renamed[key.replace("input_layernorm", "input_layernorms.0")] = value
                 continue
             if self.config.norm_moe and ".post_attention_layernorm." in key:
-                renamed[key.replace("post_attention_layernorm", "post_attention_layernorms.0")] = value
+                renamed[key.replace("post_attention_layernorm", "post_attention_layernorms.0")] = (
+                    value
+                )
                 continue
             if self.config.norm_moe and ".norm." in key:
                 renamed[key.replace("norm", "norms.0")] = value
@@ -1655,7 +1726,9 @@ class Qwen25VLMoEForAction(
         return fused
 
     @staticmethod
-    def fuse_gate_up(fused, prefix, suffix_gate="gate_proj", suffix_up="up_proj", out="gate_up_proj"):
+    def fuse_gate_up(
+        fused, prefix, suffix_gate="gate_proj", suffix_up="up_proj", out="gate_up_proj"
+    ):
         """Fuse gate up."""
         gate_w = fused.get(prefix + f"{suffix_gate}.weight")
         up_w = fused.get(prefix + f"{suffix_up}.weight")
@@ -2002,7 +2075,9 @@ class Qwen25VLMoEForAction(
                     param.data = param.data.float()
 
             action_preprocessor_linear_ids = {
-                id(module) for module in self.action_preprocessor.modules() if isinstance(module, nn.Linear)
+                id(module)
+                for module in self.action_preprocessor.modules()
+                if isinstance(module, nn.Linear)
             }
 
             def hook_boundary(module: nn.Module) -> bool:
@@ -2124,9 +2199,9 @@ class Qwen25VLMoEForAction(
         # nested policy survives. Match-by-FQN mirrors the FSDP1 logic.
         for module_name, module in list(self.named_modules()):
             for child_name, child in list(module.named_children()):
-                if any(k in child_name.lower() for k in ("input_layernorm", "post_attention_layernorm")) or (
-                    "norm" in child_name.lower() and module_name.endswith("model")
-                ):
+                if any(
+                    k in child_name.lower() for k in ("input_layernorm", "post_attention_layernorm")
+                ) or ("norm" in child_name.lower() and module_name.endswith("model")):
                     fully_shard_fp32_leaf_or_container(f"{module_name}.{child_name}", child)
 
         logger.info(

@@ -65,7 +65,7 @@ def model_provider(pre_process=True, post_process=True, vp_stage: int = None):
 
     Returns:
         MCoreModel: The returned model
-    """
+    """  # noqa: E501
     args = get_args()
     assert args.tensor_model_parallel_size == 1, (
         "WAN model only supports TP=1. "
@@ -98,7 +98,7 @@ def gen_time_steps(batch):
         - noisy_latents (torch.Tensor): Latents with noise added, same shape as input.
         - training_target (torch.Tensor): Training target, same shape as input.
 
-    """
+    """  # noqa: E501
     # torch.manual_seed(10086)
     args = get_args()
     if args.model_name in ("wan2-1-i2v", "wan2-2-i2v") or args.model_family in SUPPORTED_MODELS:
@@ -110,7 +110,9 @@ def gen_time_steps(batch):
     min_timestep = args.min_timestep_boundary
     assert max_timestep <= 1 and max_timestep >= 0, "max_timestep should range from 0 to 1"
     assert min_timestep <= 1 and min_timestep >= 0, "min_timestep should range from 0 to 1"
-    assert min_timestep <= max_timestep, f"min_timestep: {min_timestep} should <= max_timestep: {max_timestep}"
+    assert min_timestep <= max_timestep, (
+        f"min_timestep: {min_timestep} should <= max_timestep: {max_timestep}"
+    )
     max_timestep_boundary = int(max_timestep * scheduler.num_train_timesteps)
     min_timestep_boundary = int(min_timestep * scheduler.num_train_timesteps)
 
@@ -190,7 +192,9 @@ def get_batch(data_iterator):
     if use_packing:
         should_load_data = data_iterator is not None
     else:
-        should_broadcast_batch = data_iterator is not None and mpu.get_context_parallel_world_size() > 1
+        should_broadcast_batch = (
+            data_iterator is not None and mpu.get_context_parallel_world_size() > 1
+        )
         cp_src_rank = mpu.get_context_parallel_src_rank()
         should_load_data = data_iterator is not None and torch.distributed.get_rank() == cp_src_rank
         if data_iterator is not None and not should_load_data:
@@ -202,8 +206,13 @@ def get_batch(data_iterator):
         grid_sizes = None
 
         if not use_packing:
-            batch["timestep"], batch["latents"], batch["training_target"], batch["scale"] = gen_time_steps(batch)
-            if args.model_name in ("wan2-1-i2v", "wan2-2-i2v") or args.model_family in SUPPORTED_MODELS:
+            batch["timestep"], batch["latents"], batch["training_target"], batch["scale"] = (
+                gen_time_steps(batch)
+            )
+            if (
+                args.model_name in ("wan2-1-i2v", "wan2-2-i2v")
+                or args.model_family in SUPPORTED_MODELS
+            ):
                 batch.setdefault("prompt_emb", {})["context"] = batch.pop("context")
                 image_emb = batch.setdefault("image_emb", {})
                 if "y" in batch:
@@ -265,7 +274,9 @@ def get_batch(data_iterator):
             noise_raw_list = batch.pop("noise_raw")
             timestep_id = batch.pop("timestep_id")
 
-            timestep = scheduler.timesteps[timestep_id.cpu()].to(dtype=torch.bfloat16, device="cuda")
+            timestep = scheduler.timesteps[timestep_id.cpu()].to(
+                dtype=torch.bfloat16, device="cuda"
+            )
 
             latents_patched_list = []
             target_patched_list = []
@@ -276,7 +287,9 @@ def get_batch(data_iterator):
                 sample_timestep = timestep[sample_index : sample_index + 1]
 
                 noisy_latents_without_y = scheduler.add_noise(input_latents, noise, sample_timestep)
-                training_target_raw = scheduler.training_target(input_latents, noise, sample_timestep)
+                training_target_raw = scheduler.training_target(
+                    input_latents, noise, sample_timestep
+                )
 
                 y_raw = y_raw_list[sample_index]
                 if y_raw is not None:
@@ -369,7 +382,9 @@ def loss_func(training_target, timestep, scale, loss_mask, seq_len_q_padded, seq
         num_samples = scale.shape[0]
 
         if num_samples == 1:
-            loss = (diff * loss_mask.unsqueeze(-1)).sum() / (loss_mask.sum() * diff.shape[-1] + 1e-8)
+            loss = (diff * loss_mask.unsqueeze(-1)).sum() / (
+                loss_mask.sum() * diff.shape[-1] + 1e-8
+            )
             loss = loss * scale[0]
         else:
             offsets = torch.cat(
@@ -466,7 +481,9 @@ def forward_step(diffusion, data_iterator, model):
                 use_gradient_checkpointing=True,
                 use_gradient_checkpointing_offload=False,
             )
-    return noise_pred, partial(loss_func, training_target, timestep, scale, loss_mask, seq_len_q_padded, seq_len_q)
+    return noise_pred, partial(
+        loss_func, training_target, timestep, scale, loss_mask, seq_len_q_padded, seq_len_q
+    )
 
 
 def train_valid_test_datasets_provider(diffusion, train_val_test_num_samples, vp_stage=None):

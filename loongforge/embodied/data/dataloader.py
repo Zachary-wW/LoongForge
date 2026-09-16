@@ -75,7 +75,9 @@ class _TransformedIterableDataset(IterableDataset):
         return getattr(dataset, name)
 
 
-def build_dataloader(model_cfg, data_cfg, training_args, ctx: DistributedContext) -> StatefulDataLoader:
+def build_dataloader(
+    model_cfg, data_cfg, training_args, ctx: DistributedContext
+) -> StatefulDataLoader:
     """Build DataLoader with model-specific preprocessor as collate_fn.
 
     The returned DataLoader yields PreparedBatch objects on CPU. Call
@@ -84,12 +86,16 @@ def build_dataloader(model_cfg, data_cfg, training_args, ctx: DistributedContext
     dataset_format = training_args.dataset_format
     batch_size = training_args.per_device_batch_size
     num_workers = training_args.num_workers
-    mp_context = training_args.dataloader_multiprocessing_context or ("spawn" if num_workers > 0 else None)
+    mp_context = training_args.dataloader_multiprocessing_context or (
+        "spawn" if num_workers > 0 else None
+    )
 
     dataset = _build_dataset(model_cfg, data_cfg, training_args, dataset_format)
     dataset_stats = _get_dataset_stats(dataset)
 
-    transform = build_transforms_from_args(model_cfg, data_cfg, training_args, dataset, dataset_stats)
+    transform = build_transforms_from_args(
+        model_cfg, data_cfg, training_args, dataset, dataset_stats
+    )
     if transform is not None:
         dataset = _apply_transform(dataset, transform)
 
@@ -215,5 +221,5 @@ def _build_dataset(model_cfg, data_cfg, training_args, dataset_format: str):
         return build_dummy_dataset(model_cfg, data_cfg, training_args)
 
     raise ValueError(
-        f"Unknown dataset_format: '{dataset_format}'. Supported: lerobot_datasets, hdf5_datasets, dummy_datasets"
+        f"Unknown dataset_format: '{dataset_format}'. Supported: lerobot_datasets, hdf5_datasets, dummy_datasets"  # noqa: E501
     )

@@ -77,7 +77,11 @@ def outline(font_path, text, size, tracking):
     def replay(pen):
         x = 0.0
         for info, pos in shaped:
-            t = Transform().translate(x + pos.x_offset * scale, -pos.y_offset * scale).scale(scale, -scale)
+            t = (
+                Transform()
+                .translate(x + pos.x_offset * scale, -pos.y_offset * scale)
+                .scale(scale, -scale)
+            )
             glyphs[tt.getGlyphName(info.codepoint)].draw(TransformPen(pen, t))
             x += pos.x_advance * scale + tracking
 
@@ -130,7 +134,7 @@ def banner(theme, font_dir):
     <path d="{wd}"/>
   </g>
 </svg>
-"""
+"""  # noqa: E501
 
 
 def standalone():
@@ -161,7 +165,9 @@ def main():
     )
     ap.add_argument("--out-dir", default=os.path.dirname(os.path.abspath(__file__)))
     ap.add_argument(
-        "--check", action="store_true", help="report whether the files on disk are up to date instead of writing them"
+        "--check",
+        action="store_true",
+        help="report whether the files on disk are up to date instead of writing them",
     )
     args = ap.parse_args()
 

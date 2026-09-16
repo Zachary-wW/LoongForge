@@ -106,7 +106,9 @@ class SimplerEnvAdapter(BaseBenchmarkAdapter):
     ) -> None:
         """Run __init__."""
         if task_name not in TASK_TO_ENV_NAME:
-            raise ValueError(f"Unknown SimplerEnv task {task_name!r}; choose one of {sorted(TASK_TO_ENV_NAME)}")
+            raise ValueError(
+                f"Unknown SimplerEnv task {task_name!r}; choose one of {sorted(TASK_TO_ENV_NAME)}"
+            )
         self.task_name = task_name
         self.env_name = TASK_TO_ENV_NAME[task_name]
         self.robot_setup = robot_setup
@@ -114,7 +116,9 @@ class SimplerEnvAdapter(BaseBenchmarkAdapter):
         self.control_hz = control_hz
         self.max_steps = max_steps
         if rotation_mode not in {"euler", "axis_angle"}:
-            raise ValueError(f"rotation_mode must be 'euler' or 'axis_angle', got {rotation_mode!r}")
+            raise ValueError(
+                f"rotation_mode must be 'euler' or 'axis_angle', got {rotation_mode!r}"
+            )
         self.camera_name = camera_name or _default_camera_name(robot_setup)
         self.action_scale = action_scale
         self.rotation_mode = rotation_mode
@@ -162,8 +166,12 @@ class SimplerEnvAdapter(BaseBenchmarkAdapter):
             },
             "state": state,
             "state_raw": {
-                "base_pose": np.asarray(base_pose, dtype=np.float32) if base_pose is not None else None,
-                "tcp_pose": np.asarray(tcp_pose, dtype=np.float32) if tcp_pose is not None else None,
+                "base_pose": np.asarray(base_pose, dtype=np.float32)
+                if base_pose is not None
+                else None,
+                "tcp_pose": np.asarray(tcp_pose, dtype=np.float32)
+                if tcp_pose is not None
+                else None,
                 "eef_pos": np.asarray(eef_pos, dtype=np.float32) if eef_pos is not None else None,
                 "joint": qpos if qpos.size else None,
             },
@@ -183,12 +191,17 @@ class SimplerEnvAdapter(BaseBenchmarkAdapter):
             },
         }
 
-    def action_from_canonical(self, canonical_action: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> Any:
+    def action_from_canonical(
+        self, canonical_action: Dict[str, Any], context: Optional[Dict[str, Any]] = None
+    ) -> Any:
         """Run action_from_canonical."""
         if "world_vector" in canonical_action:
-            world_vector = np.asarray(canonical_action["world_vector"], dtype=np.float32).reshape(-1)
+            world_vector = np.asarray(canonical_action["world_vector"], dtype=np.float32).reshape(
+                -1
+            )
             rotation_delta = np.asarray(
-                canonical_action.get("rot_axangle", canonical_action.get("rotation_delta")), dtype=np.float32
+                canonical_action.get("rot_axangle", canonical_action.get("rotation_delta")),
+                dtype=np.float32,
             ).reshape(-1)
             gripper_value = canonical_action["gripper"]
         elif "actions" in canonical_action:
@@ -197,15 +210,20 @@ class SimplerEnvAdapter(BaseBenchmarkAdapter):
             rotation_delta = flat[3:6]
             gripper_value = flat[6]
         else:
-            raise ValueError("Canonical action must contain either structured fields or `actions` flat array")
+            raise ValueError(
+                "Canonical action must contain either structured fields or `actions` flat array"
+            )
 
         if world_vector.size != 3 or rotation_delta.size != 3:
-            raise ValueError(f"Invalid SimplerEnv action shape: world={world_vector.shape}, rot={rotation_delta.shape}")
+            raise ValueError(
+                f"Invalid SimplerEnv action shape: world={world_vector.shape}, rot={rotation_delta.shape}"  # noqa: E501
+            )
 
         gripper = self._convert_gripper(gripper_value)
         rotation_axis_angle = self._convert_rotation(rotation_delta)
         return np.concatenate(
-            [world_vector * self.action_scale, rotation_axis_angle * self.action_scale, gripper], axis=0
+            [world_vector * self.action_scale, rotation_axis_angle * self.action_scale, gripper],
+            axis=0,
         ).astype(np.float32)
 
     def _convert_rotation(self, rotation_delta: np.ndarray) -> np.ndarray:

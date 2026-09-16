@@ -80,16 +80,22 @@ def compute_flow_matching_loss(
         if raw_action_dim is not None and raw_action_dim[i] is not None:
             sqerr_i = sqerr_i[:, : raw_action_dim[i]]
         if normalize_by_active:
-            active_count = (noisy_mask_i.sum() * (sqerr_i.numel() // noisy_mask_i.numel())).clamp(min=1)
+            active_count = (noisy_mask_i.sum() * (sqerr_i.numel() // noisy_mask_i.numel())).clamp(
+                min=1
+            )
             per_instance_losses.append((sqerr_i * noisy_mask_i).sum() / active_count)  # []
         else:
             per_instance_losses.append((sqerr_i * noisy_mask_i).mean())  # []
 
         ts_i = timesteps[i, :T_i] if timesteps.dim() > 1 else timesteps[i]  # DF:[T_i]  TF:[1]
         tw_i = rectified_flow.train_time_weight(ts_i)  # DF:[T_i]  TF:[1]
-        tw_i = tw_i.reshape(-1, *([1] * (condition_mask[i].ndim - 1)))  # vision:[T_i,1,1]  action/sound:[T_i,1]
+        tw_i = tw_i.reshape(
+            -1, *([1] * (condition_mask[i].ndim - 1))
+        )  # vision:[T_i,1,1]  action/sound:[T_i,1]
         if normalize_by_active:
-            per_instance_weighted_losses.append((sqerr_i * tw_i * noisy_mask_i).sum() / active_count)
+            per_instance_weighted_losses.append(
+                (sqerr_i * tw_i * noisy_mask_i).sum() / active_count
+            )
         else:
             per_instance_weighted_losses.append((sqerr_i * tw_i * noisy_mask_i).mean())
 

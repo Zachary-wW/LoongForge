@@ -30,7 +30,9 @@ def build_arg_parser():
         help="target dual-arm morphology (default: panda)",
     )
     ap.add_argument("--zarr_dir", required=True)
-    ap.add_argument("--bg_dir", required=True, help="Step 4 inpaint output directory containing {ep}/bg.mp4")
+    ap.add_argument(
+        "--bg_dir", required=True, help="Step 4 inpaint output directory containing {ep}/bg.mp4"
+    )
     ap.add_argument(
         "--state_dir",
         required=True,
@@ -40,7 +42,9 @@ def build_arg_parser():
     ap.add_argument("--fps", type=int, default=30)
     ap.add_argument("--feather", type=int, default=5)
     ap.add_argument(
-        "--scene_depth_dir", default=None, help="Depth step output directory containing {ep}/scene_depth.npz"
+        "--scene_depth_dir",
+        default=None,
+        help="Depth step output directory containing {ep}/scene_depth.npz",
     )
     ap.add_argument("--depth_epsilon", type=float, default=0.02)
     ap.add_argument("--depth_mode", choices=("depth-aware", "alpha"), default="depth-aware")
@@ -59,7 +63,7 @@ def build_arg_parser():
         default="balanced",
         help=(
             "Base Pose Search strategy: balanced is the default multi-orientation "
-            "strategy; fast uses a single-orientation screen; slow uses a more exhaustive strategy; "
+            "strategy; fast uses a single-orientation screen; slow uses a more exhaustive strategy; "  # noqa: E501
             "original restores the hand-anchored fixed-orientation search."
         ),
     )
@@ -76,7 +80,7 @@ def build_arg_parser():
         "--base_pullback",
         type=float,
         default=0.0,
-        help="Move both arm mounts opposite the head viewing direction in meters (disabled by default)",
+        help="Move both arm mounts opposite the head viewing direction in meters (disabled by default)",  # noqa: E501
     )
     ap.add_argument(
         "--fy",
@@ -114,7 +118,10 @@ def build_arg_parser():
         help="Savitzky-Golay window for Eq.1 positions/widths (0 disables smoothing)",
     )
     ap.add_argument(
-        "--target_smooth_polyorder", type=int, default=3, help="Savitzky-Golay polynomial order for retarget targets"
+        "--target_smooth_polyorder",
+        type=int,
+        default=3,
+        help="Savitzky-Golay polynomial order for retarget targets",
     )
     ap.add_argument(
         "--target_orientation_sigma",
@@ -151,7 +158,11 @@ def run(args):
         st = np.load(sf, allow_pickle=True)
         state = st["state"]
         try:
-            depth_path = Path(args.scene_depth_dir) / ep / "scene_depth.npz" if args.scene_depth_dir else None
+            depth_path = (
+                Path(args.scene_depth_dir) / ep / "scene_depth.npz"
+                if args.scene_depth_dir
+                else None
+            )
             res = process_episode(
                 ep,
                 args.zarr_dir,
@@ -167,11 +178,15 @@ def run(args):
                 depth_epsilon=args.depth_epsilon,
                 depth_mode=args.depth_mode,
                 base_search_mode=getattr(args, "base_search_mode", "balanced"),
-                enable_base_orientation_search=getattr(args, "enable_base_orientation_search", False),
+                enable_base_orientation_search=getattr(
+                    args, "enable_base_orientation_search", False
+                ),
                 ik_solver=getattr(args, "ik_solver", "mink"),
                 base_pullback=getattr(args, "base_pullback", 0.0),
                 max_jump_rad=getattr(args, "max_jump_rad", 0.0),
-                mink_continuity_max_step=getattr(args, "mink_continuity_max_step", MINK_CONTINUITY_MAX_STEP),
+                mink_continuity_max_step=getattr(
+                    args, "mink_continuity_max_step", MINK_CONTINUITY_MAX_STEP
+                ),
                 mink_continuity_cost=getattr(args, "mink_continuity_cost", MINK_CONTINUITY_COST),
                 target_smooth_window=getattr(args, "target_smooth_window", 11),
                 target_smooth_polyorder=getattr(args, "target_smooth_polyorder", 3),

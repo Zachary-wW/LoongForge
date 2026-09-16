@@ -12,7 +12,9 @@ import os
 from typing import List, Tuple, Optional
 import torch.distributed as dist
 
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+project_root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 if project_root not in os.sys.path:
     import sys
 
@@ -61,7 +63,9 @@ class TopoSharder:
             RuntimeError: If torch.distributed is not initialized
         """
         if not MEGATRON_AVAILABLE:
-            raise ImportError("megatron.core is not available. Please install Megatron-LM to use TopoSharder.")
+            raise ImportError(
+                "megatron.core is not available. Please install Megatron-LM to use TopoSharder."
+            )
 
         # Initialize model parallel if not already initialized
         if not parallel_state.model_parallel_is_initialized():
@@ -84,8 +88,8 @@ class TopoSharder:
         self.tp_size = parallel_state.get_tensor_model_parallel_world_size()
         self.pp_size = parallel_state.get_pipeline_model_parallel_world_size()
 
-        # Read expert parallel sizes from parallel_config (not from parallel_state to avoid auto-calculated values)
-        # Use the values from parallel_config if explicitly set, otherwise try to read from parallel_state
+        # Read expert parallel sizes from parallel_config (not from parallel_state to avoid auto-calculated values)  # noqa: E501
+        # Use the values from parallel_config if explicitly set, otherwise try to read from parallel_state  # noqa: E501
         if parallel_config.ep_size is not None:
             self.ep_size = parallel_state.get_expert_model_parallel_world_size()
         else:

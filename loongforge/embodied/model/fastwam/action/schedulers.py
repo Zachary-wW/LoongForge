@@ -48,7 +48,9 @@ class WanContinuousFlowMatchScheduler:
         norm_const = float(y_shifted_grid.mean().item())
         return y_min, norm_const
 
-    def sample_training_t(self, batch_size: int, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
+    def sample_training_t(
+        self, batch_size: int, device: torch.device, dtype: torch.dtype
+    ) -> torch.Tensor:
         """Sample shifted continuous training timesteps for a batch."""
         if batch_size <= 0:
             raise ValueError(f"`batch_size` must be positive, got {batch_size}")
@@ -68,7 +70,9 @@ class WanContinuousFlowMatchScheduler:
             return weight.reshape(())
         return weight
 
-    def add_noise(self, original_samples: torch.Tensor, noise: torch.Tensor, timestep: torch.Tensor) -> torch.Tensor:
+    def add_noise(
+        self, original_samples: torch.Tensor, noise: torch.Tensor, timestep: torch.Tensor
+    ) -> torch.Tensor:
         """Blend samples with noise according to the continuous timestep."""
         sigma = (timestep / float(self.num_train_timesteps)).to(
             original_samples.device,
@@ -80,7 +84,9 @@ class WanContinuousFlowMatchScheduler:
         return (1 - sigma) * original_samples + sigma * noise
 
     @staticmethod
-    def training_target(sample: torch.Tensor, noise: torch.Tensor, timestep: torch.Tensor) -> torch.Tensor:
+    def training_target(
+        sample: torch.Tensor, noise: torch.Tensor, timestep: torch.Tensor
+    ) -> torch.Tensor:
         """Return the Flow-Matching velocity target for a noisy sample."""
         del timestep
         return noise - sample
@@ -99,7 +105,9 @@ class WanContinuousFlowMatchScheduler:
         if shift <= 0:
             raise ValueError(f"`shift` must be positive, got {shift}")
 
-        u_steps = torch.linspace(1.0, 0.0, num_inference_steps + 1, device=device, dtype=torch.float32)
+        u_steps = torch.linspace(
+            1.0, 0.0, num_inference_steps + 1, device=device, dtype=torch.float32
+        )
         sigma_steps = self._phi(u_steps, shift)
         timesteps = sigma_steps[:-1] * float(self.num_train_timesteps)
         deltas = sigma_steps[1:] - sigma_steps[:-1]

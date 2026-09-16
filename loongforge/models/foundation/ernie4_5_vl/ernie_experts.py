@@ -122,7 +122,9 @@ class ErnieMLP(MLP):
 
         intermediate_parallel_0, bias_parallel = self.linear_fc1(hidden_states)
         intermediate_parallel_1, bias_parallel_1 = self.linear_fc1_1(hidden_states)
-        assert bias_parallel is None and bias_parallel_1 is None, "bias_parallel is not None in ernie4.5vl"
+        assert bias_parallel is None and bias_parallel_1 is None, (
+            "bias_parallel is not None in ernie4.5vl"
+        )
 
         nvtx_range_pop(suffix="linear_fc1")
         nvtx_range_pop(suffix="linear_fc1_1")
@@ -157,20 +159,28 @@ class ErnieMLP(MLP):
                             self.config.activation_func_clamp_value,
                         )
                     else:
-                        raise ValueError("Only support fusion of swiglu and quick_gelu with per_token_scale in MLP.")
+                        raise ValueError(
+                            "Only support fusion of swiglu and quick_gelu with per_token_scale in MLP."  # noqa: E501
+                        )
                 else:
                     if self.activation_func == F.gelu:
                         if self.config.gated_linear_unit:
-                            intermediate_parallel = bias_geglu_impl(intermediate_parallel, bias_parallel)
+                            intermediate_parallel = bias_geglu_impl(
+                                intermediate_parallel, bias_parallel
+                            )
                         else:
                             assert self.config.add_bias_linear is True
-                            intermediate_parallel = bias_gelu_impl(intermediate_parallel, bias_parallel)
+                            intermediate_parallel = bias_gelu_impl(
+                                intermediate_parallel, bias_parallel
+                            )
                     elif self.activation_func == F.silu and self.config.gated_linear_unit:
                         intermediate_parallel = bias_swiglu_impl(
                             intermediate_parallel,
                             bias_parallel,
                             self.config.activation_func_fp8_input_store,
-                            self.config.cpu_offloading and self.config.cpu_offloading_activations and HAVE_TE,
+                            self.config.cpu_offloading
+                            and self.config.cpu_offloading_activations
+                            and HAVE_TE,
                         )
                     else:
                         raise ValueError("Only support fusion of gelu and swiglu")
@@ -184,7 +194,9 @@ class ErnieMLP(MLP):
                         if (val := self.config.activation_func_clamp_value) is not None:
                             x_glu = x_glu.clamp(min=None, max=val)
                             x_linear = x_linear.clamp(min=-val, max=val)
-                        return self.config.activation_func(x_glu) * (x_linear + self.config.glu_linear_offset)
+                        return self.config.activation_func(x_glu) * (
+                            x_linear + self.config.glu_linear_offset
+                        )
 
                     intermediate_parallel = glu(intermediate_parallel)
                 else:
@@ -242,7 +254,9 @@ class ErnieMLP(MLP):
             if self.config.gated_linear_unit and (name == "linear_fc1" or name == "linear_fc1_1"):
                 for k, v in sub_sd.items():
                     if k in (f"{prefix}{name}.weight", f"{prefix}{name}.bias"):
-                        sub_sd[k] = apply_swiglu_sharded_factory(v, sharded_offsets, singleton_local_shards)
+                        sub_sd[k] = apply_swiglu_sharded_factory(
+                            v, sharded_offsets, singleton_local_shards
+                        )
             sharded_state_dict.update(sub_sd)
         return sharded_state_dict
 
@@ -265,7 +279,9 @@ class SequentialMLP(MegaSequentialMLP):
         submodules: MLPSubmodules,
         pg_collection: Optional[ProcessGroupCollection] = None,
     ):
-        super().__init__(num_local_experts, config=config, submodules=submodules, pg_collection=pg_collection)
+        super().__init__(
+            num_local_experts, config=config, submodules=submodules, pg_collection=pg_collection
+        )
         self.num_local_experts = num_local_experts
         self.local_experts = torch.nn.ModuleList()
         # self.ep_group = pg_collection.ep
@@ -323,7 +339,8 @@ class ErnieSharedExpertMLP(ErnieMLP):
             # Here we set the linear_fc1 to save the original input tensors to avoid the extra
             # memory usage of the quantized tensor.
             shared_experts_recompute = (
-                config.recompute_granularity == "selective" and "shared_experts" in config.recompute_modules
+                config.recompute_granularity == "selective"
+                and "shared_experts" in config.recompute_modules
             )
             if not shared_experts_recompute:
                 try:

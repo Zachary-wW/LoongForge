@@ -180,9 +180,12 @@ class Ernie45VLTokenizer(PreTrainedTokenizer):
             return
         out_vocab_file = os.path.join(
             save_directory,
-            (filename_prefix + "-" if filename_prefix else "") + self.resource_files_names["vocab_file"],
+            (filename_prefix + "-" if filename_prefix else "")
+            + self.resource_files_names["vocab_file"],
         )
-        if os.path.abspath(self.vocab_file) != os.path.abspath(out_vocab_file) and os.path.isfile(self.vocab_file):
+        if os.path.abspath(self.vocab_file) != os.path.abspath(out_vocab_file) and os.path.isfile(
+            self.vocab_file
+        ):
             copyfile(self.vocab_file, out_vocab_file)
         elif not os.path.isfile(self.vocab_file):
             with open(out_vocab_file, "wb") as fi:
@@ -194,7 +197,9 @@ class Ernie45VLTokenizer(PreTrainedTokenizer):
         text, kwargs = self.prepare_for_tokenization(text, **kwargs)
         _no_split_tokens = list(self.added_tokens_encoder.keys())
         if hasattr(self, "do_lower_case") and self.do_lower_case:
-            escaped_special_toks = [re.escape(s_tok) for s_tok in (_no_split_tokens + self.all_special_tokens)]
+            escaped_special_toks = [
+                re.escape(s_tok) for s_tok in (_no_split_tokens + self.all_special_tokens)
+            ]
             pattern = r"(" + r"|".join(escaped_special_toks) + r")|" + r"(.+?)"
             text = re.sub(pattern, lambda m: m.groups()[0] or m.groups()[1].lower(), text)
         no_split_token = set(_no_split_tokens)
@@ -236,9 +241,15 @@ class Ernie45VLTokenizer(PreTrainedTokenizer):
             required_input = encoded_inputs[self.model_input_names[0]]
             if padding_strategy == PaddingStrategy.LONGEST:
                 max_length = len(required_input)
-            if max_length is not None and pad_to_multiple_of is not None and (max_length % pad_to_multiple_of != 0):
+            if (
+                max_length is not None
+                and pad_to_multiple_of is not None
+                and (max_length % pad_to_multiple_of != 0)
+            ):
                 max_length = ((max_length // pad_to_multiple_of) + 1) * pad_to_multiple_of
-            needs_to_be_padded = padding_strategy != PaddingStrategy.DO_NOT_PAD and len(required_input) != max_length
+            needs_to_be_padded = (
+                padding_strategy != PaddingStrategy.DO_NOT_PAD and len(required_input) != max_length
+            )
             if "attention_mask" in encoded_inputs and encoded_inputs["attention_mask"] is not None:
                 attention_mask = encoded_inputs.pop("attention_mask")
                 # Convert list or numpy array to tensor
@@ -247,17 +258,23 @@ class Ernie45VLTokenizer(PreTrainedTokenizer):
                 elif not isinstance(attention_mask, np.ndarray):
                     raise ValueError(f"Unexpected type {type(attention_mask)} of attention_mask")
             else:
-                attention_mask = np.tril(np.ones((len(required_input), len(required_input)), dtype=np.int64))
+                attention_mask = np.tril(
+                    np.ones((len(required_input), len(required_input)), dtype=np.int64)
+                )
                 attention_mask = np.expand_dims(attention_mask, axis=0)
             if needs_to_be_padded:
                 difference = max_length - len(required_input)
                 if self.padding_side == "right":
                     pad_width = (
-                        [(0, difference)] if attention_mask.ndim == 1 else [(0, 0), (0, difference), (0, difference)]
+                        [(0, difference)]
+                        if attention_mask.ndim == 1
+                        else [(0, 0), (0, difference), (0, difference)]
                     )
                 elif self.padding_side == "left":
                     pad_width = (
-                        [(difference, 0)] if attention_mask.ndim == 1 else [(0, 0), (difference, 0), (difference, 0)]
+                        [(difference, 0)]
+                        if attention_mask.ndim == 1
+                        else [(0, 0), (difference, 0), (difference, 0)]
                     )
                 else:
                     raise ValueError("Invalid padding strategy: " + str(self.padding_side))

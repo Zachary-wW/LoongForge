@@ -60,7 +60,7 @@ def insert_manifest_row(conn: sqlite3.Connection, row: Mapping[str, object]) -> 
         INSERT INTO samples
         (sample_id, media_type, token_len, shard, base_key, prompt, caption, media_files_json, raw_json)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
+        """,  # noqa: E501
         (
             row["sample_id"],
             row["media_type"],

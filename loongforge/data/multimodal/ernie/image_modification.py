@@ -89,7 +89,9 @@ class ImageModificationProcessor(ProcessorBase):
         self.sep_token_id = vocab[self.sep_token]
         self.sft_shift_by_one = args.sft_shift_by_one
         self.chat_template = "ernie_vl"
-        self.should_shift_by_one = self.is_training and (self.is_pretraining or self.sft_shift_by_one)
+        self.should_shift_by_one = self.is_training and (
+            self.is_pretraining or self.sft_shift_by_one
+        )
         self.sft_replace_ids = args.sft_replace_ids
         self.sft_image_rescale = args.sft_image_rescale
         self.sft_image_normalize = args.sft_image_normalize
@@ -106,11 +108,13 @@ class ImageModificationProcessor(ProcessorBase):
         video_grid_thw=None,
         attention_mask=None,
     ):
-        """Calculate the 3D rope index based on image and video's temporal, height and width in LLM."""
+        """Calculate the 3D rope index based on image and video's temporal, height and width in LLM."""  # noqa: E501
         mrope_position_deltas = []
         if image_grid_thw is not None or video_grid_thw is not None:
             total_input_ids = input_ids
-            position_ids = np.ones([3, input_ids.shape[0], input_ids.shape[1]], dtype=input_ids.dtype)
+            position_ids = np.ones(
+                [3, input_ids.shape[0], input_ids.shape[1]], dtype=input_ids.dtype
+            )
             image_index, video_index = 0, 0
             for i, input_ids in enumerate(total_input_ids):
                 if attention_mask is not None:
@@ -160,7 +164,9 @@ class ImageModificationProcessor(ProcessorBase):
 
                     st_idx = llm_pos_ids_list[-1].max() + 1 if len(llm_pos_ids_list) > 0 else 0
 
-                    llm_pos_ids_list.append(np.arange(text_len).reshape([1, -1]).repeat(3, axis=0) + st_idx)
+                    llm_pos_ids_list.append(
+                        np.arange(text_len).reshape([1, -1]).repeat(3, axis=0) + st_idx
+                    )
 
                     t_index = np.tile(
                         np.arange(llm_grid_t).reshape([-1, 1]),
@@ -175,13 +181,17 @@ class ImageModificationProcessor(ProcessorBase):
                         ([llm_grid_t, llm_grid_h, 1]),
                     ).flatten()
 
-                    llm_pos_ids_list.append(np.stack([t_index, h_index, w_index]) + text_len + st_idx)
+                    llm_pos_ids_list.append(
+                        np.stack([t_index, h_index, w_index]) + text_len + st_idx
+                    )
                     st = ed + llm_grid_t * llm_grid_h * llm_grid_w
 
                 if st < len(input_tokens):
                     st_idx = llm_pos_ids_list[-1].max() + 1 if len(llm_pos_ids_list) > 0 else 0
                     text_len = len(input_tokens) - st
-                    llm_pos_ids_list.append(np.arange(text_len).reshape([1, -1]).repeat(3, axis=0) + st_idx)
+                    llm_pos_ids_list.append(
+                        np.arange(text_len).reshape([1, -1]).repeat(3, axis=0) + st_idx
+                    )
 
                 llm_positions = np.concatenate(llm_pos_ids_list, axis=1).reshape([3, -1])
                 position_ids[..., i, attention_mask[i] == 1] = llm_positions
@@ -196,7 +206,11 @@ class ImageModificationProcessor(ProcessorBase):
                 max_position_ids = position_ids.max(0, keepdim=False)[0].max(-1, keepdim=True)[0]
                 mrope_position_deltas = max_position_ids + 1 - attention_mask.shape[-1]
             else:
-                position_ids = np.arange(input_ids.shape[1]).reshape([1, 1, -1]).tile([3, input_ids.shape[0], 1])
+                position_ids = (
+                    np.arange(input_ids.shape[1])
+                    .reshape([1, 1, -1])
+                    .tile([3, input_ids.shape[0], 1])
+                )
                 mrope_position_deltas = np.zeros([input_ids.shape[0], 1], dtype=input_ids.dtype)
             return position_ids, mrope_position_deltas
 
@@ -205,24 +219,30 @@ class ImageModificationProcessor(ProcessorBase):
         position_ids_for_rope_3d
         """
         if feature.get("images", None) is None or len(feature["images"]) == 0:
-            position_ids = np.repeat(np.arange(feature["input_ids"].shape[0])[:, np.newaxis], 3, axis=1)
+            position_ids = np.repeat(
+                np.arange(feature["input_ids"].shape[0])[:, np.newaxis], 3, axis=1
+            )
             feature["position_ids"] = position_ids
             return feature
 
         input_ids = copy.deepcopy(feature["input_ids"])
         grid_thw = feature["grid_thw"]
-        token_type_ids = feature["token_type_ids"][:-1] if self.should_shift_by_one else feature["token_type_ids"]
+        token_type_ids = (
+            feature["token_type_ids"][:-1]
+            if self.should_shift_by_one
+            else feature["token_type_ids"]
+        )
         image_type_ids = feature["image_type_ids"]
 
         fake_image_token_id = -10000
         fake_video_token_id = -20000
 
-        input_ids[np.bitwise_and(token_type_ids == IDTYPES_2_ID["image"], input_ids == self.im_patch_id)] = (
-            fake_image_token_id
-        )
-        input_ids[np.bitwise_and(token_type_ids == IDTYPES_2_ID["video"], input_ids == self.im_patch_id)] = (
-            fake_video_token_id
-        )
+        input_ids[
+            np.bitwise_and(token_type_ids == IDTYPES_2_ID["image"], input_ids == self.im_patch_id)
+        ] = fake_image_token_id
+        input_ids[
+            np.bitwise_and(token_type_ids == IDTYPES_2_ID["video"], input_ids == self.im_patch_id)
+        ] = fake_video_token_id
 
         visual_token_indices = np.nonzero(feature["input_ids"] == self.im_patch_id)
         visual_token_indices = np.stack(visual_token_indices, axis=0).flatten()
@@ -236,7 +256,10 @@ class ImageModificationProcessor(ProcessorBase):
         for cur_grid_thw in grid_thw:
             vision_start_indices.append(visual_token_indices[index_of_visual_token_indices])
             index_of_visual_token_indices += (
-                cur_grid_thw[0] * cur_grid_thw[1] * cur_grid_thw[2] // (self.image_preprocess.merge_size**2)
+                cur_grid_thw[0]
+                * cur_grid_thw[1]
+                * cur_grid_thw[2]
+                // (self.image_preprocess.merge_size**2)
             )
             if image_type_ids[index_of_image_type_ids] == IMAGETYPES_2_ID["image"]:
                 image_grid_thw.append(cur_grid_thw)
@@ -299,7 +322,9 @@ class ImageModificationProcessor(ProcessorBase):
                 img = ImageEnhance.apply_effect(img, image_enhance_augs, random_resize_factor)
 
                 imgs.append(img.convert("RGB"))
-                predetermined_grid_thw.append([img_one.get("grid_h", -1), img_one.get("grid_w", -1)])
+                predetermined_grid_thw.append(
+                    [img_one.get("grid_h", -1), img_one.get("grid_w", -1)]
+                )
                 uids.append(img_one.get("video_uid", random.random()))
 
             predetermined_grid_thw = np.array(predetermined_grid_thw)
@@ -326,7 +351,9 @@ class ImageModificationProcessor(ProcessorBase):
                 for uid, group in groupby(zip(uids, imgs), key=lambda x: x[0]):
                     grouped_imgs = [i[1] for i in group]
                     if predetermined_grid_thw is not None:
-                        cur_predetermined_grid_thw = predetermined_grid_thw[cnt : cnt + len(grouped_imgs)]
+                        cur_predetermined_grid_thw = predetermined_grid_thw[
+                            cnt : cnt + len(grouped_imgs)
+                        ]
                     else:
                         cur_predetermined_grid_thw = None
                     cnt += len(grouped_imgs)
@@ -366,11 +393,16 @@ class ImageModificationProcessor(ProcessorBase):
             input_ids = np.array(example.ids, dtype=np.int64)
             token_type_ids = np.array(example.token_type_ids, dtype=np.int64)
             image_type_ids = np.array(example.image_type_ids, dtype=np.int64)
-            image_type_ids[image_type_ids == IMAGETYPES_2_ID["padded_image"]] = IMAGETYPES_2_ID["video"]
+            image_type_ids[image_type_ids == IMAGETYPES_2_ID["padded_image"]] = IMAGETYPES_2_ID[
+                "video"
+            ]
 
             if example.lossmask is not None:
                 labels = np.array(
-                    [self.tokenizer.ignored_index if j == 0 else i for i, j in zip(example.ids, example.lossmask)],
+                    [
+                        self.tokenizer.ignored_index if j == 0 else i
+                        for i, j in zip(example.ids, example.lossmask)
+                    ],
                     dtype=np.int64,
                 )
             else:
@@ -470,10 +502,14 @@ class ImageModificationProcessor(ProcessorBase):
             ret["name"] = "dummy"
             ret["data_type"] = DATATYPE_2_ID["mm"]
             ret["token_type_ids"] = (
-                data["token_type_ids"] if "token_type_ids" in data else data["ds16_tokenwise_type_id"]
+                data["token_type_ids"]
+                if "token_type_ids" in data
+                else data["ds16_tokenwise_type_id"]
             )
             ret["image_type_ids"] = (
-                data["image_type_ids"] if "image_type_ids" in data else data["ds16_imagewise_type_id"]
+                data["image_type_ids"]
+                if "image_type_ids" in data
+                else data["ds16_imagewise_type_id"]
             )
             return ret
 
@@ -483,7 +519,9 @@ class ImageModificationProcessor(ProcessorBase):
 
     def process(self, data, **kwargs):
         """Convert json format data to VisionExample, and then to features"""
-        self.should_shift_by_one = self.is_training and (self.is_pretraining or self.sft_shift_by_one)
+        self.should_shift_by_one = self.is_training and (
+            self.is_pretraining or self.sft_shift_by_one
+        )
         if isinstance(data, dict):
             example = self.json_2_example(data)
         else:

@@ -273,7 +273,11 @@ def fp8_index_k_backward_kernel(h: int, d: int):
         d_k: T.Tensor[(b, n, d), FP32],
         d_k_s: T.Tensor[(b, n), FP32],
     ) -> None:
-        with T.Kernel(b, T.ceildiv(m, blk_m), T.ceildiv(n, blk_n), threads=256) as (i_b, i_m1, i_n1):
+        with T.Kernel(b, T.ceildiv(m, blk_m), T.ceildiv(n, blk_n), threads=256) as (
+            i_b,
+            i_m1,
+            i_n1,
+        ):
             i_n_offset = i_n1 * blk_n
 
             k_smem = T.alloc_shared((blk_n, d), FP8)
@@ -424,7 +428,9 @@ def bf16_index_kernel(h: int, d: int):
                 )
 
                 for i_h, i3_n in T.Parallel(h, blk_n2):
-                    logits[i3_n, i_h] = T.max(logits[i3_n, i_h], 0) * weights_frag[i_h] * softmax_scale
+                    logits[i3_n, i_h] = (
+                        T.max(logits[i3_n, i_h], 0) * weights_frag[i_h] * softmax_scale
+                    )
 
                 logits_sum = T.alloc_fragment(blk_n2, FP32)
                 T.reduce_sum(logits, logits_sum, dim=1)
@@ -434,7 +440,9 @@ def bf16_index_kernel(h: int, d: int):
     return bf16_index_kernel_
 
 
-def bf16_index(q: torch.Tensor, weights: torch.Tensor, k: torch.Tensor, softmax_scale: float = 0.0) -> torch.Tensor:
+def bf16_index(
+    q: torch.Tensor, weights: torch.Tensor, k: torch.Tensor, softmax_scale: float = 0.0
+) -> torch.Tensor:
     """
     Perform index score using BF16 precision.
     """
@@ -466,7 +474,11 @@ def bf16_index_backward_kernel(h: int, d: int):
         d_k: T.Tensor[(b, n, d), FP32],
         d_weights: T.Tensor[(m, b, h), FP32],
     ) -> None:
-        with T.Kernel(b, T.ceildiv(m, blk_m), T.ceildiv(n, blk_n), threads=256) as (i_b, i_m1, i_n1):
+        with T.Kernel(b, T.ceildiv(m, blk_m), T.ceildiv(n, blk_n), threads=256) as (
+            i_b,
+            i_m1,
+            i_n1,
+        ):
             i_n_offset = i_n1 * blk_n
 
             k_smem = T.alloc_shared((blk_n, d), BF16)
@@ -500,10 +512,14 @@ def bf16_index_backward_kernel(h: int, d: int):
                 d_weights_frag = T.alloc_fragment((h, blk_n), FP32)
                 for i_n2, i_h in T.Parallel(blk_n, h):
                     d_logits[i_n2, i_h] = T.if_then_else(
-                        logits[i_n2, i_h] > 0, d_output_frag[i_n2] * weights_frag[i_h] * softmax_scale, 0
+                        logits[i_n2, i_h] > 0,
+                        d_output_frag[i_n2] * weights_frag[i_h] * softmax_scale,
+                        0,
                     )
                     d_weights_frag[i_h, i_n2] = T.if_then_else(
-                        logits[i_n2, i_h] >= 0, d_output_frag[i_n2] * logits[i_n2, i_h] * softmax_scale, 0
+                        logits[i_n2, i_h] >= 0,
+                        d_output_frag[i_n2] * logits[i_n2, i_h] * softmax_scale,
+                        0,
                     )
 
                 d_weights_accum = T.alloc_fragment(h, FP32)
@@ -563,7 +579,9 @@ def bf16_index_backward(
     return d_q, d_k, d_weights
 
 
-def fp8_indexer(q: torch.Tensor, q_s: torch.Tensor, k: torch.Tensor, k_s: torch.Tensor) -> torch.Tensor:
+def fp8_indexer(
+    q: torch.Tensor, q_s: torch.Tensor, k: torch.Tensor, k_s: torch.Tensor
+) -> torch.Tensor:
     """TileLang FP8 indexer forward interface."""
     return fp8_index(q, q_s, k, k_s)
 
@@ -579,7 +597,9 @@ def fp8_indexer_bwd(
     return fp8_index_backward(q, q_s, k, k_s, d_output.contiguous())
 
 
-def ref_fp8_indexer(q: torch.Tensor, q_s: torch.Tensor, k: torch.Tensor, k_s: torch.Tensor) -> torch.Tensor:
+def ref_fp8_indexer(
+    q: torch.Tensor, q_s: torch.Tensor, k: torch.Tensor, k_s: torch.Tensor
+) -> torch.Tensor:
     """Reference FP8 indexer forward interface."""
     index_score, _ = fp8_index_baseline(q.float(), q_s.float(), k.float(), k_s.float())
     return index_score
@@ -722,7 +742,9 @@ class TestArgs(object):
     index_topk: int = 2048
 
 
-def quantize_rowwise_to_fp8(x: torch.Tensor, eps: float = 1e-6) -> Tuple[torch.Tensor, torch.Tensor]:
+def quantize_rowwise_to_fp8(
+    x: torch.Tensor, eps: float = 1e-6
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """Quantize along the last dim and return fp8 tensor with rowwise inverse scale."""
     fp8_max = torch.tensor(448.0, device=x.device, dtype=torch.float32)
     amax = x.float().abs().amax(dim=-1).clamp_min(eps)
@@ -738,11 +760,16 @@ def prepare_test_data(args: TestArgs, batch_size: int, seq_len: int, kv_seq_len:
 
     num_heads = args.index_n_heads
     head_dim = args.index_head_dim
-    q_bf16 = torch.randn(batch_size, seq_len, num_heads, head_dim, device="cuda", dtype=torch.bfloat16)
+    q_bf16 = torch.randn(
+        batch_size, seq_len, num_heads, head_dim, device="cuda", dtype=torch.bfloat16
+    )
     k_bf16 = torch.randn(batch_size, kv_seq_len, head_dim, device="cuda", dtype=torch.bfloat16)
 
     softmax_scale = head_dim**-0.5
-    weights_raw = torch.randn(seq_len, batch_size, num_heads, device="cuda", dtype=torch.float32) * softmax_scale
+    weights_raw = (
+        torch.randn(seq_len, batch_size, num_heads, device="cuda", dtype=torch.float32)
+        * softmax_scale
+    )
 
     q_fp8 = q_bf16.to(torch.float8_e4m3fn)
     k_fp8, k_scale_inv = quantize_rowwise_to_fp8(k_bf16)
@@ -759,7 +786,11 @@ def performance_test(fn: callable, msg: str):
 
 
 def forward_accuracy_test(
-    args: TestArgs, batch_size: int = 1, seq_len: int = 1024, kv_seq_len: int = 2048, relative_tolerance: float = 1e-4
+    args: TestArgs,
+    batch_size: int = 1,
+    seq_len: int = 1024,
+    kv_seq_len: int = 2048,
+    relative_tolerance: float = 1e-4,
 ):
     """Use relative error to verify forward correctness."""
     _, _, _, q_fp8, q_s, k_fp8, k_s = prepare_test_data(args, batch_size, seq_len, kv_seq_len)
@@ -812,7 +843,9 @@ def backward_accuracy_test(
     kv_seq_len: int = 2048,
 ):
     """Verify backward correctness against the FP8 reference implementation."""
-    _, _, weights_raw, q_fp8, q_s, k_fp8, k_s = prepare_test_data(args, batch_size, seq_len, kv_seq_len)
+    _, _, weights_raw, q_fp8, q_s, k_fp8, k_s = prepare_test_data(
+        args, batch_size, seq_len, kv_seq_len
+    )
     d_output = torch.ones(batch_size, seq_len, kv_seq_len, device="cuda", dtype=torch.float32)
 
     ref_d_q, ref_d_q_s, ref_d_k, ref_d_k_s = ref_fp8_indexer_bwd(d_output, q_fp8, q_s, k_fp8, k_s)
@@ -821,7 +854,9 @@ def backward_accuracy_test(
     def print_diff(a, b, msg):
         abs_diff = torch.abs(a - b)
         rel_diff = abs_diff / (torch.abs(b) + 1e-8)
-        print(f"  {msg} max diff: {abs_diff.max().item():.4f}, rel diff: {rel_diff.mean().item() * 100:.4f}%")
+        print(
+            f"  {msg} max diff: {abs_diff.max().item():.4f}, rel diff: {rel_diff.mean().item() * 100:.4f}%"  # noqa: E501
+        )
 
     print("Backward Accuracy Test:")
     print_diff(tl_d_q, ref_d_q, "d_q")

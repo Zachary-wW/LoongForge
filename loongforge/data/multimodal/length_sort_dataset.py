@@ -36,7 +36,11 @@ class LengthPoolSortDataset(SavableDataset[T_sample]):
         self.key_fn = key_fn
         self.ascending = ascending
         self.tail_shuffle = tail_shuffle
-        base_seed = shuffle_seed if shuffle_seed is not None else getattr(worker_config, "global_seed", 1234)
+        base_seed = (
+            shuffle_seed
+            if shuffle_seed is not None
+            else getattr(worker_config, "global_seed", 1234)
+        )
         # Independent RNG, does not pollute global
         self._rng = random.Random(base_seed)
 

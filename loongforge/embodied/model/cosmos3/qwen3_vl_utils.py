@@ -30,7 +30,9 @@ _SYSTEM_PROMPT_TRANSFER = (
     "You are a helpful assistant that generates images or videos following the user's instructions"
     " and control signals (edge maps, blur, depth, or segmentation)."
 )
-_SYSTEM_PROMPT_IMAGE_EDITING = "You are a helpful assistant who will edit images based on the user's instructions."
+_SYSTEM_PROMPT_IMAGE_EDITING = (
+    "You are a helpful assistant who will edit images based on the user's instructions."
+)
 
 
 def tokenize_caption(
@@ -59,7 +61,7 @@ def tokenize_caption(
 
     Returns:
         List of token IDs representing the full chat-formatted caption.
-    """
+    """  # noqa: E501
     conversations = []
     if system_prompt is not None:
         conversations.append({"role": "system", "content": system_prompt})
@@ -89,7 +91,7 @@ def sliding_window_overlay(sliding_window: int) -> Callable:
     """
     This is an overlay depicting a sliding window pattern. Add it on top of a causal mask for a proper sliding
     window mask.
-    """
+    """  # noqa: E501
 
     def inner_mask(batch_idx: int, head_idx: int, q_idx: int, kv_idx: int) -> bool:
         """Check if kv position is within the sliding window."""
@@ -146,7 +148,7 @@ def prepare_padding_mask(
     """
     From the 2D attention mask, prepare the correct padding mask to use by potentially padding it, and slicing
     according to the `kv_offset` if `_slice` is `True`.
-    """
+    """  # noqa: E501
     local_padding_mask = attention_mask
     if attention_mask is not None:
         # Pad it if necessary
@@ -154,7 +156,7 @@ def prepare_padding_mask(
             local_padding_mask = torch.nn.functional.pad(attention_mask, (0, padding_length))
         # For flex, we should not slice them, only use an offset
         if _slice:
-            # Equivalent to: `local_padding_mask = attention_mask[:, kv_offset : kv_offset + kv_length]`,
+            # Equivalent to: `local_padding_mask = attention_mask[:, kv_offset : kv_offset + kv_length]`,  # noqa: E501
             # but without data-dependent slicing (i.e. torch.compile friendly)
             mask_indices = torch.arange(kv_length, device=local_padding_mask.device)
             mask_indices += kv_offset
@@ -176,11 +178,11 @@ def eager_mask(
     Create a 4D float mask of shape `(batch_size, 1, query_length, kv_length)` where a value of 0 indicates that
     the element should take part in the attention computation, and -inf (minimum value for the given `dtype`) that
     it should not.
-    """
+    """  # noqa: E501
     # Potentially pad the 2D mask, and slice it correctly
     padding_mask = prepare_padding_mask(attention_mask, kv_length, kv_offset)
 
-    # Similar to `kv_arange = torch.arange(start=kv_offset, end=kv_offset + kv_length, device=cache_position.device)`
+    # Similar to `kv_arange = torch.arange(start=kv_offset, end=kv_offset + kv_length, device=cache_position.device)`  # noqa: E501
     # but without data-dependent slicing (i.e. torch.compile friendly)
     kv_arange = torch.arange(kv_length, device=cache_position.device)
     kv_arange += kv_offset
@@ -189,7 +191,9 @@ def eager_mask(
     causal_mask = _vmap_for_bhqkv(mask_function, bh_indices=False)(
         None, None, cache_position, kv_arange
     )  # [q_len,kv_length]
-    causal_mask = causal_mask[None, None, :, :].expand(batch_size, -1, -1, -1)  # [B,1,q_len,kv_length]
+    causal_mask = causal_mask[None, None, :, :].expand(
+        batch_size, -1, -1, -1
+    )  # [B,1,q_len,kv_length]
     if padding_mask is not None:
         causal_mask = causal_mask * padding_mask[:, None, None, :]  # [B,1,q_len,kv_length]
 
@@ -264,8 +268,16 @@ def create_causal_mask(
     # For hybrid cache structure, use the full_attention layers
     layer_idx = 0
 
-    early_exit, attention_mask, packed_sequence_mask, kv_length, kv_offset = _preprocess_mask_arguments(
-        config, input_embeds, attention_mask, cache_position, past_key_values, position_ids, layer_idx
+    early_exit, attention_mask, packed_sequence_mask, kv_length, kv_offset = (
+        _preprocess_mask_arguments(
+            config,
+            input_embeds,
+            attention_mask,
+            cache_position,
+            past_key_values,
+            position_ids,
+            layer_idx,
+        )
     )
     if early_exit:
         return attention_mask
@@ -276,7 +288,9 @@ def create_causal_mask(
 
     # Potentially add the padding 2D mask
     if attention_mask is not None:
-        mask_factory_function = and_masks(mask_factory_function, padding_mask_function(attention_mask))
+        mask_factory_function = and_masks(
+            mask_factory_function, padding_mask_function(attention_mask)
+        )
 
     # We now create the mask
     causal_mask = mask_interface(
@@ -301,7 +315,9 @@ def get_rope_index(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Compute Qwen3-VL multimodal RoPE positions and deltas."""
     if video_grid_thw is not None:
-        video_grid_thw = torch.repeat_interleave(video_grid_thw, video_grid_thw[:, 0], dim=0)  # [sum_T,3]
+        video_grid_thw = torch.repeat_interleave(
+            video_grid_thw, video_grid_thw[:, 0], dim=0
+        )  # [sum_T,3]
         video_grid_thw[:, 0] = 1
 
     spatial_merge_size = model.config.vision_config.spatial_merge_size
@@ -324,7 +340,9 @@ def get_rope_index(
         attention_mask = attention_mask.to(total_input_ids.device)  # [B,N]
         for i, sample_input_ids in enumerate(total_input_ids):
             sample_input_ids = sample_input_ids[attention_mask[i] == 1]  # [N_unmasked]
-            vision_start_indices = torch.argwhere(sample_input_ids == vision_start_token_id).squeeze(1)  # [N_media]
+            vision_start_indices = torch.argwhere(
+                sample_input_ids == vision_start_token_id
+            ).squeeze(1)  # [N_media]
             vision_tokens = sample_input_ids[vision_start_indices + 1]  # [N_media]
             image_nums = (vision_tokens == image_token_id).sum()
             video_nums = (vision_tokens == video_token_id).sum()
@@ -357,38 +375,61 @@ def get_rope_index(
                 text_len = ed - st
 
                 st_idx = llm_pos_ids_list[-1].max() + 1 if len(llm_pos_ids_list) > 0 else 0
-                llm_pos_ids_list.append(torch.arange(text_len).view(1, -1).expand(3, -1) + st_idx)  # [3,text_len]
+                llm_pos_ids_list.append(
+                    torch.arange(text_len).view(1, -1).expand(3, -1) + st_idx
+                )  # [3,text_len]
 
-                t_index = torch.arange(llm_grid_t).view(-1, 1).expand(-1, llm_grid_h * llm_grid_w).flatten()  # [T*H*W]
+                t_index = (
+                    torch.arange(llm_grid_t)
+                    .view(-1, 1)
+                    .expand(-1, llm_grid_h * llm_grid_w)
+                    .flatten()
+                )  # [T*H*W]
                 h_index = (
-                    torch.arange(llm_grid_h).view(1, -1, 1).expand(llm_grid_t, -1, llm_grid_w).flatten()
+                    torch.arange(llm_grid_h)
+                    .view(1, -1, 1)
+                    .expand(llm_grid_t, -1, llm_grid_w)
+                    .flatten()
                 )  # [T*H*W]
                 w_index = (
-                    torch.arange(llm_grid_w).view(1, 1, -1).expand(llm_grid_t, llm_grid_h, -1).flatten()
+                    torch.arange(llm_grid_w)
+                    .view(1, 1, -1)
+                    .expand(llm_grid_t, llm_grid_h, -1)
+                    .flatten()
                 )  # [T*H*W]
-                llm_pos_ids_list.append(torch.stack([t_index, h_index, w_index]) + text_len + st_idx)  # [3,T*H*W]
+                llm_pos_ids_list.append(
+                    torch.stack([t_index, h_index, w_index]) + text_len + st_idx
+                )  # [3,T*H*W]
                 st = ed + llm_grid_t * llm_grid_h * llm_grid_w
 
             if st < len(input_tokens):
                 st_idx = llm_pos_ids_list[-1].max() + 1 if len(llm_pos_ids_list) > 0 else 0
                 text_len = len(input_tokens) - st
-                llm_pos_ids_list.append(torch.arange(text_len).view(1, -1).expand(3, -1) + st_idx)  # [3,text_len]
+                llm_pos_ids_list.append(
+                    torch.arange(text_len).view(1, -1).expand(3, -1) + st_idx
+                )  # [3,text_len]
 
             llm_positions = torch.cat(llm_pos_ids_list, dim=1).reshape(3, -1)  # [3,N_unmasked]
             position_ids[..., i, attention_mask[i] == 1] = llm_positions.to(position_ids.device)
             mrope_position_deltas.append(llm_positions.max() + 1 - len(total_input_ids[i]))
-        mrope_position_deltas = torch.tensor(mrope_position_deltas, device=input_ids.device).unsqueeze(1)  # [B,1]
+        mrope_position_deltas = torch.tensor(
+            mrope_position_deltas, device=input_ids.device
+        ).unsqueeze(1)  # [B,1]
         return position_ids, mrope_position_deltas
 
     if attention_mask is not None:
         position_ids = attention_mask.long().cumsum(-1) - 1  # [B,N]
         position_ids.masked_fill_(attention_mask == 0, 1)
-        position_ids = position_ids.unsqueeze(0).expand(3, -1, -1).to(attention_mask.device)  # [3,B,N]
+        position_ids = (
+            position_ids.unsqueeze(0).expand(3, -1, -1).to(attention_mask.device)
+        )  # [3,B,N]
         max_position_ids = position_ids.max(0, keepdim=False)[0].max(-1, keepdim=True)[0]  # [B,1]
         mrope_position_deltas = max_position_ids + 1 - attention_mask.shape[-1]  # [B,1]
     else:
         position_ids = (
-            torch.arange(input_ids.shape[1], device=input_ids.device).view(1, 1, -1).expand(3, input_ids.shape[0], -1)
+            torch.arange(input_ids.shape[1], device=input_ids.device)
+            .view(1, 1, -1)
+            .expand(3, input_ids.shape[0], -1)
         )  # [3,B,N]
         mrope_position_deltas = torch.zeros(
             [input_ids.shape[0], 1],

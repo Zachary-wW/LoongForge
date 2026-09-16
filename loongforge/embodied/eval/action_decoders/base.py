@@ -160,7 +160,9 @@ def build_action_decoder(key: str) -> ActionDecoder:
     _auto_import_decoder_modules()
     factory = ACTION_DECODER_REGISTRY.get(key)
     if factory is None:
-        raise KeyError(f"Unknown action decoder key: {key!r}. Registered: {sorted(ACTION_DECODER_REGISTRY.keys())}")
+        raise KeyError(
+            f"Unknown action decoder key: {key!r}. Registered: {sorted(ACTION_DECODER_REGISTRY.keys())}"  # noqa: E501
+        )
     return factory()
 
 

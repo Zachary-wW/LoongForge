@@ -82,7 +82,7 @@ _LIST_COLUMNS = {_JOINT_ACTION_FEATURE, _JOINT_STATE_FEATURE}
 
 _CONCAT_VIEW_DESCRIPTION = (
     "The top row is from the wrist-mounted camera. "
-    "The bottom row contains two horizontally concatenated third-person perspective views of the scene from opposite "
+    "The bottom row contains two horizontally concatenated third-person perspective views of the scene from opposite "  # noqa: E501
     "sides, with the robot visible."
 )
 
@@ -122,7 +122,7 @@ def _domain_id_from_name(name: str) -> int:
     key = name.lower().strip()
     if key not in _EMBODIMENT_TO_DOMAIN_ID:
         raise KeyError(
-            f"Unknown embodiment type: {name!r}. Available embodiments: {sorted(_EMBODIMENT_TO_DOMAIN_ID.keys())}"
+            f"Unknown embodiment type: {name!r}. Available embodiments: {sorted(_EMBODIMENT_TO_DOMAIN_ID.keys())}"  # noqa: E501
         )
     return _EMBODIMENT_TO_DOMAIN_ID[key]
 
@@ -287,7 +287,7 @@ class DROIDLeRobotDataset(Dataset):
             raise NotImplementedError("DROIDLeRobotDataset only supports action_space='joint_pos'.")
         if not use_state:
             raise NotImplementedError(
-                "DROIDLeRobotDataset only supports use_state=True (matches the canonical Cosmos3 DROID-policy recipe)."
+                "DROIDLeRobotDataset only supports use_state=True (matches the canonical Cosmos3 DROID-policy recipe)."  # noqa: E501
             )
 
         self._root = Path(root)
@@ -355,13 +355,16 @@ class DROIDLeRobotDataset(Dataset):
         self._row_task = np.concatenate(task_parts).astype(np.int64)[order]
         self._row_timestamp = np.concatenate(ts_parts).astype(np.float64)[order]
         self._feat: Dict[str, np.ndarray] = {
-            c: np.concatenate(feature_parts[c], axis=0).astype(np.float32)[order] for c in feature_cols
+            c: np.concatenate(feature_parts[c], axis=0).astype(np.float32)[order]
+            for c in feature_cols
         }
 
         assert np.all(np.diff(self._row_episode) >= 0), (
             "episode_index is not contiguous after sort; cannot build per-episode windows."
         )
-        ep_vals, ep_starts, ep_counts = np.unique(self._row_episode, return_index=True, return_counts=True)
+        ep_vals, ep_starts, ep_counts = np.unique(
+            self._row_episode, return_index=True, return_counts=True
+        )
         self._ep_vals = ep_vals.astype(np.int64)
         self._ep_starts = ep_starts.astype(np.int64)
         # ``chunk_length + 1`` observation frames are required per sample (the
@@ -426,7 +429,9 @@ class DROIDLeRobotDataset(Dataset):
                 "video_stack": stack,
                 "view_split": (int(n), int(m)),
                 "video_rng_state": rng_state,
-                "video_shape": concat_view_shape(int(n), int(stack.shape[1]), int(stack.shape[2]), int(stack.shape[3])),
+                "video_shape": concat_view_shape(
+                    int(n), int(stack.shape[1]), int(stack.shape[2]), int(stack.shape[3])
+                ),
             }
         else:
             # cosmos returns video as [T, 3, H, W] uint8 then permutes to [3, T, H, W].
@@ -470,14 +475,20 @@ class DROIDLeRobotDataset(Dataset):
         match the cosmos convention. No normalization is applied.
         """
         action_rows = observation_rows[1:]
-        joints = np.asarray([r[_JOINT_ACTION_FEATURE] for r in action_rows], dtype=np.float32)  # [chunk, 7]
-        gripper = np.asarray([r[_ACTION_GRIPPER_FEATURE] for r in action_rows], dtype=np.float32).reshape(-1, 1)
+        joints = np.asarray(
+            [r[_JOINT_ACTION_FEATURE] for r in action_rows], dtype=np.float32
+        )  # [chunk, 7]
+        gripper = np.asarray(
+            [r[_ACTION_GRIPPER_FEATURE] for r in action_rows], dtype=np.float32
+        ).reshape(-1, 1)
         gripper = 1.0 - gripper
         action = np.concatenate([joints, gripper], axis=-1)  # [chunk, 8]
 
         init = observation_rows[0]
         init_joint = np.asarray(init[_JOINT_STATE_FEATURE], dtype=np.float32)  # [7]
-        init_gripper = np.asarray([1.0 - float(init[_GRIPPER_STATE_FEATURE])], dtype=np.float32)  # [1]
+        init_gripper = np.asarray(
+            [1.0 - float(init[_GRIPPER_STATE_FEATURE])], dtype=np.float32
+        )  # [1]
         initial_state = np.concatenate([init_joint, init_gripper])[None, :]  # [1, 8]
         action = np.concatenate([initial_state, action], axis=0)  # [chunk + 1, 8]
         return torch.from_numpy(action).float()
@@ -497,7 +508,10 @@ class DROIDLeRobotDataset(Dataset):
         frames_by_view = {
             name: decode_video_frames(
                 self._video_path(episode, video_key),
-                [float(episode.get(f"videos/{video_key}/from_timestamp", 0.0)) + ts for ts in timestamps],
+                [
+                    float(episode.get(f"videos/{video_key}/from_timestamp", 0.0)) + ts
+                    for ts in timestamps
+                ],
                 self._tolerance_s,
                 backend=self._video_backend,
             )
@@ -541,7 +555,9 @@ class DROIDLeRobotDataset(Dataset):
         chunk_idx = int(
             episode.get(
                 f"videos/{video_key}/chunk_index",
-                episode.get(f"videos/{video_key}/episode_chunk", episode.get("data/chunk_index", 0)),
+                episode.get(
+                    f"videos/{video_key}/episode_chunk", episode.get("data/chunk_index", 0)
+                ),
             )
         )
         file_idx = int(

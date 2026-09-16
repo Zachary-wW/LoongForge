@@ -86,7 +86,9 @@ class ActionModelMixMin:
                 # column tail an expert leaves untouched still needs zeroing,
                 # which is far less traffic than filling the whole tensor.
                 full_dim = hidden_states.shape[-1]
-                experts_cover_all_rows = len(end_indices) > 0 and int(end_indices[-1]) == hidden_states.shape[0]
+                experts_cover_all_rows = (
+                    len(end_indices) > 0 and int(end_indices[-1]) == hidden_states.shape[0]
+                )
                 if experts_cover_all_rows:
                     new_hidden_states = torch.empty_like(hidden_states)
                 else:
@@ -118,13 +120,17 @@ class ActionModelMixMin:
 
                         def norm_chunk(t_x, t_cond, expert_norm=expert_norm):
                             """Norm chunk."""
-                            if t_cond is None or (isinstance(t_cond, torch.Tensor) and t_cond.numel() == 0):
+                            if t_cond is None or (
+                                isinstance(t_cond, torch.Tensor) and t_cond.numel() == 0
+                            ):
                                 out, _ = expert_norm(t_x)
                             else:
                                 out, _ = expert_norm(t_x, t_cond)
                             return out
 
-                        cond_for_cp = cond if cond is not None else torch.empty(0, device=input_slice.device)
+                        cond_for_cp = (
+                            cond if cond is not None else torch.empty(0, device=input_slice.device)
+                        )
                         processed = cp.checkpoint(
                             norm_chunk,
                             input_slice,
@@ -181,13 +187,17 @@ class ActionModelMixMin:
 
                         def norm_chunk(t_x, t_cond, expert_norm=expert_norm):
                             """Norm chunk."""
-                            if t_cond is None or (isinstance(t_cond, torch.Tensor) and t_cond.numel() == 0):
+                            if t_cond is None or (
+                                isinstance(t_cond, torch.Tensor) and t_cond.numel() == 0
+                            ):
                                 out, _ = expert_norm(t_x)
                             else:
                                 out, _ = expert_norm(t_x, t_cond)
                             return out
 
-                        cond_for_cp = cond if cond is not None else torch.empty(0, device=input_slice.device)
+                        cond_for_cp = (
+                            cond if cond is not None else torch.empty(0, device=input_slice.device)
+                        )
 
                         processed = cp.checkpoint(
                             norm_chunk,
@@ -265,7 +275,9 @@ class ActionModelMixMin:
         self, input_ids, inputs_embeds, proprioception, dataset_names, agent_pos_mask
     ):
         """Scatter proprioception embeddings."""
-        use_state_string_representation = getattr(self.config, "use_state_string_representation", False)
+        use_state_string_representation = getattr(
+            self.config, "use_state_string_representation", False
+        )
         if proprioception is not None and not use_state_string_representation:
             proprioception = proprioception.to(inputs_embeds.device).to(inputs_embeds.dtype)
             agent_pos_mask = agent_pos_mask.to(inputs_embeds.device).to(inputs_embeds.dtype)
@@ -354,7 +366,9 @@ class ActionGenerationMixin(GenerationMixin):
             if fsdp_version != 1:
                 raise RuntimeError("Only FSDP v1 (fsdp_version=1) is supported.")
 
-            device = getattr(accelerator, "device", torch.device("cuda", torch.cuda.current_device()))
+            device = getattr(
+                accelerator, "device", torch.device("cuda", torch.cuda.current_device())
+            )
             if isinstance(device, torch.device) and device.type == "cuda":
                 if device.index is not None:
                     torch.cuda.set_device(device.index)
@@ -392,7 +406,7 @@ class ActionGenerationMixin(GenerationMixin):
                 Qwen25VLVisionBlock,
             )
 
-            # Step 1: Find top-level ActionProcessor modules and wrap them separately with FSDP (FP32)
+            # Step 1: Find top-level ActionProcessor modules and wrap them separately with FSDP (FP32)  # noqa: E501
             for name, module in list(self.named_modules()):
                 if isinstance(module, nn.Module) and any(
                     k in name.lower()
@@ -403,7 +417,9 @@ class ActionGenerationMixin(GenerationMixin):
                         "action_preprocessor",
                     ]
                 ):
-                    if any(True for _ in module.children()):  # Wrap only leaves to avoid parent-child duplication
+                    if any(
+                        True for _ in module.children()
+                    ):  # Wrap only leaves to avoid parent-child duplication
                         continue
                     if getattr(module, "_fsdp_wrapped", False):
                         continue
@@ -525,12 +541,16 @@ class ActionGenerationMixin(GenerationMixin):
         if dataset_names is not None:
             unique_datasets_name = list(set(dataset_names))
             _device = hidden_states.device
-            _flow_channel_names = [f"{name}_flow" for name in unique_datasets_name if is_action_dataset_name(name)]
+            _flow_channel_names = [
+                f"{name}_flow" for name in unique_datasets_name if is_action_dataset_name(name)
+            ]
             channel_loss_dict = {
-                name: torch.tensor(0.0, device=_device) for name in unique_datasets_name + _flow_channel_names
+                name: torch.tensor(0.0, device=_device)
+                for name in unique_datasets_name + _flow_channel_names
             }
             channel_loss_count_dict = {
-                name: torch.tensor(0, device=_device) for name in unique_datasets_name + _flow_channel_names
+                name: torch.tensor(0, device=_device)
+                for name in unique_datasets_name + _flow_channel_names
             }
         else:
             unique_datasets_name, channel_loss_dict, channel_loss_count_dict = (
@@ -555,7 +575,9 @@ class ActionGenerationMixin(GenerationMixin):
                     # compute channel loss
                     if unique_datasets_name is not None:
                         batch_idx = (
-                            torch.arange(batch_size, device=_lm_loss_mask.device).unsqueeze(1).expand_as(_lm_loss_mask)
+                            torch.arange(batch_size, device=_lm_loss_mask.device)
+                            .unsqueeze(1)
+                            .expand_as(_lm_loss_mask)
                         )
                         loss_batch_idx = batch_idx[_lm_loss_mask]  # [N_loss]
                         for dataset_name_i in unique_datasets_name:
@@ -625,36 +647,50 @@ class ActionGenerationMixin(GenerationMixin):
                 if action_hidden_states is None:
                     action_hidden_states = hidden_states[action_mask].to(torch.float32)
                 else:
-                    action_hidden_states = action_hidden_states.reshape(-1, action_hidden_states.shape[-1]).to(
-                        torch.float32
-                    )
+                    action_hidden_states = action_hidden_states.reshape(
+                        -1, action_hidden_states.shape[-1]
+                    ).to(torch.float32)
                 flow = flow.reshape(-1, flow.shape[-1])
                 _flow_loss = self.action_preprocessor.flow_loss(
                     action_hidden_states, flow, action_chunk, dof_mask, flow_loss_mask
                 )
                 if isinstance(_flow_loss, torch.Tensor):
-                    # Compute the valid-element mask as the intersection of dof_mask and flow_loss_mask
-                    valid_mask = dof_mask.reshape(-1, dof_mask.shape[-1]) if dof_mask is not None else None
+                    # Compute the valid-element mask as the intersection of dof_mask and flow_loss_mask  # noqa: E501
+                    valid_mask = (
+                        dof_mask.reshape(-1, dof_mask.shape[-1]) if dof_mask is not None else None
+                    )
                     if flow_loss_mask is not None:
                         flow_mask_expanded = (
-                            flow_loss_mask.unsqueeze(-1).reshape(-1, 1).expand(-1, _flow_loss.shape[-1])
+                            flow_loss_mask.unsqueeze(-1)
+                            .reshape(-1, 1)
+                            .expand(-1, _flow_loss.shape[-1])
                         )
-                        valid_mask = valid_mask * flow_mask_expanded if valid_mask is not None else flow_mask_expanded
+                        valid_mask = (
+                            valid_mask * flow_mask_expanded
+                            if valid_mask is not None
+                            else flow_mask_expanded
+                        )
                     if valid_mask is not None and not valid_mask.all():
                         flow_loss = _flow_loss.sum() / valid_mask.sum()
                     else:
                         flow_loss = _flow_loss.mean()
                     loss += flow_loss
-                    _flow_loss = _flow_loss.view(dof_mask.shape[0], dof_mask.shape[1], dof_mask.shape[2])
+                    _flow_loss = _flow_loss.view(
+                        dof_mask.shape[0], dof_mask.shape[1], dof_mask.shape[2]
+                    )
 
                     # compute flow channel loss
                     if unique_datasets_name is not None:
                         B, T, D = _flow_loss.shape
-                        action_ds_names = [name for name in dataset_names if is_action_dataset_name(name)]
+                        action_ds_names = [
+                            name for name in dataset_names if is_action_dataset_name(name)
+                        ]
                         if valid_mask is not None:
                             valid_mask_3d = valid_mask.view(B, T, D)
                         else:
-                            valid_mask_3d = torch.ones_like(_flow_loss, dtype=torch.bool, device=_flow_loss.device)
+                            valid_mask_3d = torch.ones_like(
+                                _flow_loss, dtype=torch.bool, device=_flow_loss.device
+                            )
                         for dataset_name_i in unique_datasets_name:
                             ds_mask = torch.tensor(
                                 [name == dataset_name_i for name in action_ds_names],
@@ -667,8 +703,12 @@ class ActionGenerationMixin(GenerationMixin):
                             ds_mask_3d = ds_mask.view(-1, 1, 1).expand(B, T, D)
                             flow_loss_sum = (_flow_loss * ds_mask_3d).sum()
                             flow_count = (valid_mask_3d * ds_mask_3d).sum()
-                            channel_loss_dict[flow_key] = channel_loss_dict[flow_key] + flow_loss_sum
-                            channel_loss_count_dict[flow_key] = channel_loss_count_dict[flow_key] + flow_count
+                            channel_loss_dict[flow_key] = (
+                                channel_loss_dict[flow_key] + flow_loss_sum
+                            )
+                            channel_loss_count_dict[flow_key] = (
+                                channel_loss_count_dict[flow_key] + flow_count
+                            )
 
         return (
             loss,

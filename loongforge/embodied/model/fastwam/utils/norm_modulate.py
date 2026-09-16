@@ -115,8 +115,16 @@ def _norm_modulate_bwd_kernel(
     mask = offsets < n_cols
     base = row * n_cols + offsets
     scale_base = batch_idx * scale_stride_b + seq_idx * scale_stride_l + offsets * scale_stride_d
-    grad_scale_base = batch_idx * grad_scale_stride_b + seq_idx * grad_scale_stride_l + offsets * grad_scale_stride_d
-    grad_shift_base = batch_idx * grad_shift_stride_b + seq_idx * grad_shift_stride_l + offsets * grad_shift_stride_d
+    grad_scale_base = (
+        batch_idx * grad_scale_stride_b
+        + seq_idx * grad_scale_stride_l
+        + offsets * grad_scale_stride_d
+    )
+    grad_shift_base = (
+        batch_idx * grad_shift_stride_b
+        + seq_idx * grad_shift_stride_l
+        + offsets * grad_shift_stride_d
+    )
 
     grad = tl.load(grad_ptr + base, mask=mask, other=0.0).to(tl.float32)
     x = tl.load(x_ptr + base, mask=mask, other=0.0).to(tl.float32)

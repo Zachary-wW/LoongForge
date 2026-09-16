@@ -55,7 +55,9 @@ if "torchaudio" not in sys.modules:
     _stub = types.ModuleType("torchaudio")
     _stub.__version__ = "0.0.0"
     _stub.__spec__ = importlib.machinery.ModuleSpec("torchaudio", None)
-    _stub.load = lambda *a, **kw: (_ for _ in ()).throw(NotImplementedError("torchaudio not available"))
+    _stub.load = lambda *a, **kw: (_ for _ in ()).throw(
+        NotImplementedError("torchaudio not available")
+    )
     sys.modules["torchaudio"] = _stub
 
 import pandas
@@ -236,14 +238,22 @@ def build_parser() -> argparse.ArgumentParser:
     """CLI parser."""
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
-        "--dataset_base_path", type=str, required=True, help="Base directory for image / edit_image paths in metadata."
+        "--dataset_base_path",
+        type=str,
+        required=True,
+        help="Base directory for image / edit_image paths in metadata.",
     )
-    p.add_argument("--dataset_metadata_path", type=str, required=True, help="Metadata file (.json / .jsonl / .csv).")
+    p.add_argument(
+        "--dataset_metadata_path",
+        type=str,
+        required=True,
+        help="Metadata file (.json / .jsonl / .csv).",
+    )
     p.add_argument(
         "--model_root",
         type=str,
         required=True,
-        help="Qwen-Image-Edit-2511 model root (contains transformer/, text_encoder/, vae/, tokenizer/, processor/).",
+        help="Qwen-Image-Edit-2511 model root (contains transformer/, text_encoder/, vae/, tokenizer/, processor/).",  # noqa: E501
     )
     p.add_argument(
         "--tokenizer_id",
@@ -258,16 +268,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="HF model_id for the processor (uses model_root/processor/ by default).",
     )
     p.add_argument(
-        "--output_path", type=str, required=True, help="Output cache directory; each sample is written as <idx>.pth."
+        "--output_path",
+        type=str,
+        required=True,
+        help="Output cache directory; each sample is written as <idx>.pth.",
     )
     p.add_argument(
-        "--max_pixels", type=int, default=1024 * 1024, help="Max pixel budget for the target image (default 1MP)."
+        "--max_pixels",
+        type=int,
+        default=1024 * 1024,
+        help="Max pixel budget for the target image (default 1MP).",
     )
-    p.add_argument("--seed", type=int, default=1234, help="Base seed for deterministic per-sample noise generation.")
     p.add_argument(
-        "--timestep_id", type=int, default=321, help="Fixed timestep index (0..999) for the pre-noised latents."
+        "--seed",
+        type=int,
+        default=1234,
+        help="Base seed for deterministic per-sample noise generation.",
     )
-    p.add_argument("--tiled_vae", action="store_true", help="Enable tiled VAE encoding (for large images at low VRAM).")
+    p.add_argument(
+        "--timestep_id",
+        type=int,
+        default=321,
+        help="Fixed timestep index (0..999) for the pre-noised latents.",
+    )
+    p.add_argument(
+        "--tiled_vae",
+        action="store_true",
+        help="Enable tiled VAE encoding (for large images at low VRAM).",
+    )
     p.add_argument("--torch_dtype", choices=("bf16", "fp16", "fp32"), default="bf16")
     return p
 

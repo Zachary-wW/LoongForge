@@ -27,7 +27,9 @@ def set_training_args(training_args):
 
 def get_training_args():
     """Retrieve the globally stored training args (TrainingArgs)."""
-    assert _EMBODIED_TRAINING_ARGS is not None, "training args not initialized; call parse_train_args() first"
+    assert _EMBODIED_TRAINING_ARGS is not None, (
+        "training args not initialized; call parse_train_args() first"
+    )
     return _EMBODIED_TRAINING_ARGS
 
 
@@ -42,7 +44,9 @@ def set_model_config(model_cfg):
 
 def get_model_config():
     """Retrieve the globally stored model-structure config (ModelConfig)."""
-    assert _EMBODIED_MODEL_CONFIG is not None, "model config not initialized; call parse_train_args() first"
+    assert _EMBODIED_MODEL_CONFIG is not None, (
+        "model config not initialized; call parse_train_args() first"
+    )
     return _EMBODIED_MODEL_CONFIG
 
 
@@ -57,5 +61,7 @@ def set_data_config(data_cfg):
 
 def get_data_config():
     """Retrieve the globally stored data-processing config (DataConfig)."""
-    assert _EMBODIED_DATA_CONFIG is not None, "data config not initialized; call parse_train_args() first"
+    assert _EMBODIED_DATA_CONFIG is not None, (
+        "data config not initialized; call parse_train_args() first"
+    )
     return _EMBODIED_DATA_CONFIG

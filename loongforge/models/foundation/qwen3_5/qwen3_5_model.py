@@ -160,7 +160,9 @@ class Qwen35Model(BaseGPTModel):
         else:
             model_spec = config.model_spec
 
-        transformer_layer_spec, mtp_layer_spec = import_module(model_spec, config, vp_stage=vp_stage)
+        transformer_layer_spec, mtp_layer_spec = import_module(
+            model_spec, config, vp_stage=vp_stage
+        )
 
         rotary_pos_emb = Qwen35RotaryEmbedding(config)
 

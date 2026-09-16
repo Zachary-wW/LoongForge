@@ -84,7 +84,9 @@ def _nearest_frame_indices_from_timestamps(
     right = np.searchsorted(frame_start_seconds, requested, side="left")
     right = np.clip(right, 0, len(frame_start_seconds) - 1)
     left = np.clip(right - 1, 0, len(frame_start_seconds) - 1)
-    use_right = np.abs(frame_start_seconds[right] - requested) < np.abs(requested - frame_start_seconds[left])
+    use_right = np.abs(frame_start_seconds[right] - requested) < np.abs(
+        requested - frame_start_seconds[left]
+    )
     return np.where(use_right, right, left).astype(np.int64, copy=False)
 
 
@@ -194,7 +196,7 @@ def get_frames_by_timestamps(
             timestamps = np.arange(len(timestamps)) / fps
 
         # Get video duration range from first and last frames
-        # This is a robust way to get valid timestamp range without depending on specific metadata attributes
+        # This is a robust way to get valid timestamp range without depending on specific metadata attributes  # noqa: E501
         first_frame = decoder.get_frames_at(indices=[0])
         last_frame = decoder.get_frames_at(indices=[len(decoder) - 1])
         min_pts = float(first_frame.pts_seconds[0])
@@ -218,7 +220,7 @@ def get_frames_by_timestamps(
                 invalid_indices = np.where(invalid_mask)[0]
                 invalid_timestamps = timestamps[invalid_indices]
                 raise ValueError(
-                    f"Try to read invalid timestamps {invalid_timestamps} from video {video_path} (FPS: {fps})"
+                    f"Try to read invalid timestamps {invalid_timestamps} from video {video_path} (FPS: {fps})"  # noqa: E501
                 )
 
             timestamps = closest_timestamps
@@ -258,7 +260,7 @@ def get_frames_by_timestamps(
         reader = torchvision.io.VideoReader(video_path, "video")
 
         # set the first and last requested timestamps
-        # Note: previous timestamps are usually loaded, since we need to access the previous key frame
+        # Note: previous timestamps are usually loaded, since we need to access the previous key frame  # noqa: E501
         first_ts = timestamps[0]
         last_ts = timestamps[-1]
 

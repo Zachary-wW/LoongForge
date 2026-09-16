@@ -34,7 +34,7 @@ class PerfnessCheckTask(BaseTask):
     def __call__(self) -> TaskResut:
         if not self.MODEL_RUNNABLE:
             logger.warn(
-                f"{self.class_name} current model {self.model_name} does not support {self.class_name} task, "
+                f"{self.class_name} current model {self.model_name} does not support {self.class_name} task, "  # noqa: E501
                 f"skipping!!!"
             )
             return TaskResut()
@@ -47,7 +47,9 @@ class PerfnessCheckTask(BaseTask):
                     if training_type_name not in self.input_cmd_args.training_type:
                         continue
                     model_name = self.model_name
-                    logger.info(f"{self.class_name} Model [{model_name}] - [{scenario_name}] Execution Start ...")
+                    logger.info(
+                        f"{self.class_name} Model [{model_name}] - [{scenario_name}] Execution Start ..."  # noqa: E501
+                    )
 
                     # Step2:
                     step2_name = "Step2"
@@ -59,11 +61,15 @@ class PerfnessCheckTask(BaseTask):
                         self.master_addr,
                         f"{self.rank_name}_lock.txt",
                     )
-                    self.wait_async_pod_complete(step2_scenario_lock_file, model_name, f"{scenario_name}_{step2_name}")
+                    self.wait_async_pod_complete(
+                        step2_scenario_lock_file, model_name, f"{scenario_name}_{step2_name}"
+                    )
                     logger.info(
-                        f"{self.class_name} Model [{model_name}] - [{scenario_name}] - [{step2_name}] Completed \n"
+                        f"{self.class_name} Model [{model_name}] - [{scenario_name}] - [{step2_name}] Completed \n"  # noqa: E501
                     )
 
-                    logger.info(f"{self.class_name} Model [{model_name}] - [{scenario_name}] Execution End \n")
+                    logger.info(
+                        f"{self.class_name} Model [{model_name}] - [{scenario_name}] Execution End \n"  # noqa: E501
+                    )
 
         return TaskResut()

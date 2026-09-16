@@ -113,7 +113,7 @@ class Cosmos3VFMNetworkConfig(PretrainedConfig):
         self.temporal_compression_factor_action = temporal_compression_factor_action
         if self.action_gen:
             assert self.vision_gen, (
-                "Action generation requires visual generation! We do NOT support action only training!"
+                "Action generation requires visual generation! We do NOT support action only training!"  # noqa: E501
             )
 
         # sound related parameters
@@ -122,7 +122,7 @@ class Cosmos3VFMNetworkConfig(PretrainedConfig):
         self.sound_latent_fps = sound_latent_fps
         if self.sound_gen:
             assert self.vision_gen, (
-                "Sound generation requires visual generation! We do NOT support sound only training!"
+                "Sound generation requires visual generation! We do NOT support sound only training!"  # noqa: E501
             )
 
         super().__init__(**kwargs)
@@ -139,14 +139,21 @@ class Cosmos3VFMNetwork(PreTrainedModel):
         super().__init__(config)
         self.language_model = language_model
 
-        text_config = config.vlm_config.text_config if hasattr(config.vlm_config, "text_config") else config.vlm_config
+        text_config = (
+            config.vlm_config.text_config
+            if hasattr(config.vlm_config, "text_config")
+            else config.vlm_config
+        )
         self.hidden_size = text_config.hidden_size
         self.num_heads = text_config.num_attention_heads
         self.head_dim = text_config.head_dim
         self.num_hidden_layers = text_config.num_hidden_layers
         self.predict_text_tokens = config.predict_text_tokens
 
-        if config.natten_parameter_list is not None and config.joint_attn_implementation != "three_way":
+        if (
+            config.natten_parameter_list is not None
+            and config.joint_attn_implementation != "three_way"
+        ):
             raise NotImplementedError(
                 f"Sparsity is only supported with 'three_way' attention, "
                 f"but got joint_attn_implementation={config.joint_attn_implementation}, "
@@ -181,19 +188,27 @@ class Cosmos3VFMNetwork(PreTrainedModel):
                 # No additive position embedding - position info is in 3D position IDs for attention
                 self.latent_pos_embed = None
             else:
-                raise ValueError(f"Unknown position_embedding_type: {config.position_embedding_type!r}")
+                raise ValueError(
+                    f"Unknown position_embedding_type: {config.position_embedding_type!r}"
+                )
 
         if config.action_gen:
             self.action_dim = config.action_dim
             self.num_embodiment_domains = config.num_embodiment_domains
-            self.action2llm = DomainAwareLinear(self.action_dim, self.hidden_size, self.num_embodiment_domains)
-            self.llm2action = DomainAwareLinear(self.hidden_size, self.action_dim, self.num_embodiment_domains)
+            self.action2llm = DomainAwareLinear(
+                self.action_dim, self.hidden_size, self.num_embodiment_domains
+            )
+            self.llm2action = DomainAwareLinear(
+                self.hidden_size, self.action_dim, self.num_embodiment_domains
+            )
 
             if config.position_embedding_type == "unified_3d_mrope":
                 # No additive position embedding - position info is in 3D position IDs for attention
                 self.action_pos_embed = None
             else:
-                raise ValueError(f"Unknown position_embedding_type: {config.position_embedding_type!r}")
+                raise ValueError(
+                    f"Unknown position_embedding_type: {config.position_embedding_type!r}"
+                )
 
             self.action_modality_embed = nn.Parameter(torch.zeros(self.hidden_size))
 
@@ -411,13 +426,17 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             if num_patches > 0:
                 end_idx = start_idx + num_patches
                 # Extract patches for this latent
-                latent_patches = packed_mse_preds[start_idx:end_idx]  # [num_patches,patch_latent_dim]
+                latent_patches = packed_mse_preds[
+                    start_idx:end_idx
+                ]  # [num_patches,patch_latent_dim]
                 # Reshape back to [t_n, h_patches, w_patches, p, p, channels]
                 latent_patches = latent_patches.reshape(
                     t_n, h_patches, w_patches, p, p, self.latent_channel
                 )  # [T_n,h_patches,w_patches,p,p,C]
                 # Invert the einsum operation: "thwpqc->cthpwq"
-                latent = torch.einsum("thwpqc->cthpwq", latent_patches)  # [C,T_n,h_patches,p,w_patches,p]
+                latent = torch.einsum(
+                    "thwpqc->cthpwq", latent_patches
+                )  # [C,T_n,h_patches,p,w_patches,p]
                 # Reshape back to [channels, t_n, h_padded, w_padded]
                 latent = latent.reshape(
                     self.latent_channel, t_n, h_patches * p, w_patches * p
@@ -553,7 +572,7 @@ class Cosmos3VFMNetwork(PreTrainedModel):
 
             if t_n > 0:
                 end_idx = start_idx + t_n
-                # packed_sound_preds: [total_noisy_tokens, C] → transpose and fill at noisy positions
+                # packed_sound_preds: [total_noisy_tokens, C] → transpose and fill at noisy positions  # noqa: E501
                 output[:, noisy_frame_indexes] = packed_sound_preds[
                     start_idx:end_idx
                 ].T  # packed_sound_preds[...]: [T_n,C] → .T: [C,T_n]
@@ -573,8 +592,10 @@ class Cosmos3VFMNetwork(PreTrainedModel):
 
         Returns:
             tuple of (packed_sequence, target_dtype) where packed_sequence has text embeddings filled in.
-        """
-        packed_text_embedding = self.language_model.model.embed_tokens(packed_seq.text_ids)  # [N_text,hidden_size]
+        """  # noqa: E501
+        packed_text_embedding = self.language_model.model.embed_tokens(
+            packed_seq.text_ids
+        )  # [N_text,hidden_size]
         packed_sequence = packed_text_embedding.new_zeros(
             size=(packed_seq.sequence_length, self.hidden_size)
         )  # [N_total,hidden_size]
@@ -600,7 +621,7 @@ class Cosmos3VFMNetwork(PreTrainedModel):
 
         Returns:
             Original latent shapes before padding (for unpadding during decode), or None if no vision tokens.
-        """
+        """  # noqa: E501
         if packed_seq.vision is None or packed_seq.vision.tokens is None:
             # No vision tokens in this batch
             return None
@@ -616,7 +637,9 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             vision.tokens, vision.token_shapes
         )  # packed_tokens_vision: [total_vision_patches,patch_latent_dim]
 
-        packed_tokens_vision = self.vae2llm(packed_tokens_vision)  # [total_vision_patches,hidden_size]
+        packed_tokens_vision = self.vae2llm(
+            packed_tokens_vision
+        )  # [total_vision_patches,hidden_size]
 
         # Add absolute position embedding only when NOT using unified 3D mRoPE
         # (3D mRoPE provides positional information via rotary embeddings instead)
@@ -624,7 +647,9 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             latent_token_pos_emb = self.latent_pos_embed(vision.token_shapes, fps=fps).to(
                 target_dtype
             )  # [total_vision_patches,hidden_size]
-            packed_tokens_vision = packed_tokens_vision + latent_token_pos_emb  # [total_vision_patches,hidden_size]
+            packed_tokens_vision = (
+                packed_tokens_vision + latent_token_pos_emb
+            )  # [total_vision_patches,hidden_size]
 
         has_noisy_vision = vision.mse_loss_indexes.numel() > 0
 
@@ -648,7 +673,7 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             )  # [total_vision_patches,hidden_size]
 
         packed_sequence[vision.sequence_indexes] = (
-            packed_tokens_vision  # [total_vision_patches,hidden_size] scattered into [N_total,hidden_size]
+            packed_tokens_vision  # [total_vision_patches,hidden_size] scattered into [N_total,hidden_size]  # noqa: E501
         )
         return original_latent_shapes
 
@@ -680,12 +705,14 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             # given clean vision tokens. We need to execute a dummy forward to maintain
             # computation graph consistency across ranks (FSDP should torch all weights).
             preds_vision = torch.zeros(
-                [1, self.patch_latent_dim], device=last_hidden_state.device, dtype=last_hidden_state.dtype
+                [1, self.patch_latent_dim],
+                device=last_hidden_state.device,
+                dtype=last_hidden_state.dtype,
             )  # [1,patch_latent_dim]
             preds_vision = self.vae2llm(preds_vision)  # [1,hidden_size]
             preds_vision = self.llm2vae(preds_vision)  # [1,patch_latent_dim]
             # Return a list of per-sample zero tensors with correct shapes (e.g. (C, T, H, W)),
-            # so downstream code (_get_velocity, _compute_flow_matching_loss) that iterates over preds_vision
+            # so downstream code (_get_velocity, _compute_flow_matching_loss) that iterates over preds_vision  # noqa: E501
             # gets properly-shaped tensors. Without this, the dummy tensor (1, patch_latent_dim)
             # would cause a size mismatch when concatenating vision+action velocities.
             # When vision is None (no vision in batch), fall back to [preds_vision] purely for
@@ -758,7 +785,7 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             )  # [B_action*T_action,hidden_size]
 
         packed_sequence[action.sequence_indexes] = (
-            packed_tokens_action  # [B_action*T_action,hidden_size] scattered into [N_total,hidden_size]
+            packed_tokens_action  # [B_action*T_action,hidden_size] scattered into [N_total,hidden_size]  # noqa: E501
         )
 
     def _decode_action(
@@ -781,13 +808,15 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             preds_action = torch.zeros(
                 [1, self.action_dim], device=last_hidden_state.device, dtype=last_hidden_state.dtype
             )  # [1,action_dim]
-            dummy_domain_id = torch.zeros([1], device=last_hidden_state.device, dtype=torch.long)  # [1]
-            preds_action = self.action2llm(preds_action, dummy_domain_id) + self.action_modality_embed.view(
-                1, -1
-            )  # [1,hidden_size]
+            dummy_domain_id = torch.zeros(
+                [1], device=last_hidden_state.device, dtype=torch.long
+            )  # [1]
+            preds_action = self.action2llm(
+                preds_action, dummy_domain_id
+            ) + self.action_modality_embed.view(1, -1)  # [1,hidden_size]
             preds_action = self.llm2action(preds_action, dummy_domain_id)  # [1,action_dim]
             # Return a list of per-sample zero tensors with correct shapes (e.g. (T, action_dim)),
-            # so downstream code (_get_velocity, _compute_flow_matching_loss) that iterates over preds_action
+            # so downstream code (_get_velocity, _compute_flow_matching_loss) that iterates over preds_action  # noqa: E501
             # gets properly-shaped tensors. Without this, the dummy tensor (1, action_dim)
             # would cause a size mismatch when concatenating vision+action velocities.
             if action is not None and action.tokens is not None:
@@ -806,7 +835,9 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             assert action.condition_mask is not None
             assert len(action.domain_id) > 0
 
-            action_hidden_states = last_hidden_state[action.mse_loss_indexes]  # [total_noisy_action_tokens,hidden_size]
+            action_hidden_states = last_hidden_state[
+                action.mse_loss_indexes
+            ]  # [total_noisy_action_tokens,hidden_size]
 
             # Build per-token domain IDs for the noisy tokens (same expansion logic as pack_action)
             domain_ids: list[torch.Tensor] = []
@@ -817,7 +848,9 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             preds_action = self.llm2action(
                 action_hidden_states, per_token_domain_id
             )  # [total_noisy_action_tokens,action_dim]
-            preds_action = self.unpack_action(preds_action, action.token_shapes, action.noisy_frame_indexes)
+            preds_action = self.unpack_action(
+                preds_action, action.token_shapes, action.noisy_frame_indexes
+            )
             output_dict.update(preds_action=preds_action)
 
     def _encode_sound(
@@ -834,7 +867,7 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             packed_sequence: The packed sequence tensor to fill sound embeddings into (modified in-place).
             target_dtype: Target dtype for embeddings (typically from text embedding).
             fps_sound: FPS tensor for RoPE modulation. Should be the sound latent rate (e.g., 25 Hz).
-        """
+        """  # noqa: E501
         if packed_seq.sound is None or packed_seq.sound.tokens is None:
             # No sound tokens in this batch
             return
@@ -853,7 +886,7 @@ class Cosmos3VFMNetwork(PreTrainedModel):
 
         # Project sound tokens + modality embedding
 
-        # No additive position embedding is used (unlike legacy video which keeps one for backward compat).
+        # No additive position embedding is used (unlike legacy video which keeps one for backward compat).  # noqa: E501
         packed_tokens_sound = (
             self.sound2llm(packed_tokens_sound) + self.sound_modality_embed
         )  # [total_sound_tokens,hidden_size]
@@ -862,7 +895,9 @@ class Cosmos3VFMNetwork(PreTrainedModel):
         if has_noisy_sound:
             timesteps_sound = sound.timesteps * self.timestep_scale  # [N_noisy_frames_sound]
             with torch.autocast("cuda", enabled=True, dtype=torch.float32):
-                packed_timestep_embeds_sound = self.time_embedder(timesteps_sound)  # [N_noisy_frames_sound,hidden_size]
+                packed_timestep_embeds_sound = self.time_embedder(
+                    timesteps_sound
+                )  # [N_noisy_frames_sound,hidden_size]
             packed_timestep_embeds_sound = packed_timestep_embeds_sound.to(
                 target_dtype
             )  # [N_noisy_frames_sound,hidden_size]
@@ -875,7 +910,7 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             )  # [total_sound_tokens,hidden_size]
 
         packed_sequence[sound.sequence_indexes] = (
-            packed_tokens_sound  # [total_sound_tokens,hidden_size] scattered into [N_total,hidden_size]
+            packed_tokens_sound  # [total_sound_tokens,hidden_size] scattered into [N_total,hidden_size]  # noqa: E501
         )
 
     def _decode_sound(
@@ -954,12 +989,16 @@ class Cosmos3VFMNetwork(PreTrainedModel):
         # This is intentional for proper batch norm / dropout behavior
         # assert self.training, "Cosmos3VFMNetwork only supports training mode"
 
-        packed_sequence, target_dtype = self._encode_text(packed_seq)  # packed_sequence: [N_total,hidden_size]
+        packed_sequence, target_dtype = self._encode_text(
+            packed_seq
+        )  # packed_sequence: [N_total,hidden_size]
 
         # encode vision tokens
         original_latent_shapes: List[Tuple[int, int, int]] | None = None
         if self.config.vision_gen:
-            original_latent_shapes = self._encode_vision(packed_seq, packed_sequence, target_dtype, fps_vision)
+            original_latent_shapes = self._encode_vision(
+                packed_seq, packed_sequence, target_dtype, fps_vision
+            )
 
         # encode action tokens
         if self.config.action_gen:
@@ -973,7 +1012,7 @@ class Cosmos3VFMNetwork(PreTrainedModel):
         assert packed_seq.split_lens is not None
 
         # Get all generation sequence indexes for MoE routing
-        # IMPORTANT: Include ALL latent tokens (video + action + sound), not just generation targets.
+        # IMPORTANT: Include ALL latent tokens (video + action + sound), not just generation targets.  # noqa: E501
         # Condition tokens still need to be routed to diffusion experts; they are excluded from
         # LOSS computation, not from routing.
         all_gen_indexes = []
@@ -981,16 +1020,24 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             assert packed_seq.vision.token_shapes is not None
             assert isinstance(packed_seq.vision.sequence_indexes, torch.Tensor)
             all_gen_indexes.append(packed_seq.vision.sequence_indexes)
-        if packed_seq.action is not None and isinstance(packed_seq.action.sequence_indexes, torch.Tensor):
+        if packed_seq.action is not None and isinstance(
+            packed_seq.action.sequence_indexes, torch.Tensor
+        ):
             all_gen_indexes.append(packed_seq.action.sequence_indexes)
-        if packed_seq.sound is not None and isinstance(packed_seq.sound.sequence_indexes, torch.Tensor):
+        if packed_seq.sound is not None and isinstance(
+            packed_seq.sound.sequence_indexes, torch.Tensor
+        ):
             all_gen_indexes.append(packed_seq.sound.sequence_indexes)
-        vision_sequence_indexes = torch.cat(all_gen_indexes, dim=0) if all_gen_indexes else None  # [N_gen_tokens]
+        vision_sequence_indexes = (
+            torch.cat(all_gen_indexes, dim=0) if all_gen_indexes else None
+        )  # [N_gen_tokens]
 
-        # When temporal causal is enabled the buffer is [action_t0, vision_t0, action_t1, vision_t1, ...].
-        # After torch.cat([vision_indexes, action_indexes]) the interleaved order is lost; sorting restores it.
+        # When temporal causal is enabled the buffer is [action_t0, vision_t0, action_t1, vision_t1, ...].  # noqa: E501
+        # After torch.cat([vision_indexes, action_indexes]) the interleaved order is lost; sorting restores it.  # noqa: E501
         if self.video_temporal_causal:
-            assert packed_seq.sound is None, "Sound generation is not supported with video_temporal_causal=True."
+            assert packed_seq.sound is None, (
+                "Sound generation is not supported with video_temporal_causal=True."
+            )
             if vision_sequence_indexes is not None:
                 vision_sequence_indexes = vision_sequence_indexes.sort().values  # [N_gen_tokens]
 
@@ -1112,15 +1159,21 @@ def _apply_timestep_embeds_to_noisy_tokens(
     for noisy_indexes_i, token_shape_i in zip(noisy_frame_indexes, token_shapes):
         assert noisy_indexes_i.numel() <= token_shape_i[0]
         spatial_numel_i = math.prod(token_shape_i[1:])
-        spatial_indexes_i = torch.arange(spatial_numel_i, device=packed_tokens.device)  # [spatial_numel_i]
+        spatial_indexes_i = torch.arange(
+            spatial_numel_i, device=packed_tokens.device
+        )  # [spatial_numel_i]
         noisy_indexes_i = (
             (noisy_indexes_i * spatial_numel_i).unsqueeze(-1).expand(-1, spatial_numel_i)
         )  # [Tn_i,spatial_numel_i]
-        noisy_indexes_i = noisy_indexes_i.clone() + spatial_indexes_i + start_noisy_index  # [Tn_i,spatial_numel_i]
+        noisy_indexes_i = (
+            noisy_indexes_i.clone() + spatial_indexes_i + start_noisy_index
+        )  # [Tn_i,spatial_numel_i]
         flattened_noisy_frame_indexes.append(noisy_indexes_i.flatten())  # [Tn_i*spatial_numel_i]
         start_noisy_index += math.prod(token_shape_i)
 
-    flattened_noisy_frame_indexes = torch.cat(flattened_noisy_frame_indexes, dim=0)  # [total_noisy_patches]
+    flattened_noisy_frame_indexes = torch.cat(
+        flattened_noisy_frame_indexes, dim=0
+    )  # [total_noisy_patches]
 
     assert packed_tokens.dim() == 2
     assert packed_timestep_embeds.dim() == 2

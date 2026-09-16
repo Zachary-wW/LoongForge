@@ -156,9 +156,15 @@ class VisionAttention(nn.Module):
 class VisionMLP(nn.Module):
     def __init__(self, config: Glm5NextVisionConfig) -> None:
         super().__init__()
-        self.gate_proj = nn.Linear(config.hidden_size, config.intermediate_size, bias=config.attention_bias)
-        self.up_proj = nn.Linear(config.hidden_size, config.intermediate_size, bias=config.attention_bias)
-        self.down_proj = nn.Linear(config.intermediate_size, config.hidden_size, bias=config.attention_bias)
+        self.gate_proj = nn.Linear(
+            config.hidden_size, config.intermediate_size, bias=config.attention_bias
+        )
+        self.up_proj = nn.Linear(
+            config.hidden_size, config.intermediate_size, bias=config.attention_bias
+        )
+        self.down_proj = nn.Linear(
+            config.intermediate_size, config.hidden_size, bias=config.attention_bias
+        )
         self.limit = config.swiglu_limit
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
@@ -181,7 +187,9 @@ class VisionBlock(nn.Module):
         cu_seqlens: torch.Tensor,
         position_embeddings: tuple[torch.Tensor, torch.Tensor],
     ) -> torch.Tensor:
-        hidden_states = hidden_states + self.attn(self.norm1(hidden_states), cu_seqlens, position_embeddings)
+        hidden_states = hidden_states + self.attn(
+            self.norm1(hidden_states), cu_seqlens, position_embeddings
+        )
         return hidden_states + self.mlp(self.norm2(hidden_states))
 
 

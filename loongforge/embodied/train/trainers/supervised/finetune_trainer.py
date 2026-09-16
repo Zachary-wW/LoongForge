@@ -76,7 +76,9 @@ class FinetuneTrainer(BaseTrainer):
         )
 
         autocast_ctx = (
-            nullcontext() if self._cfg_bool("disable_train_autocast", False) else torch.autocast("cuda", dtype=dtype)
+            nullcontext()
+            if self._cfg_bool("disable_train_autocast", False)
+            else torch.autocast("cuda", dtype=dtype)
         )
 
         with self._fp8_forward_ctx(), autocast_ctx:
@@ -105,9 +107,12 @@ class FinetuneTrainer(BaseTrainer):
             self._fwd_param_names = {
                 param.name
                 for param in params
-                if param.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+                if param.kind
+                in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
             }
-            self._fwd_accepts_var_kw = any(param.kind is inspect.Parameter.VAR_KEYWORD for param in params)
+            self._fwd_accepts_var_kw = any(
+                param.kind is inspect.Parameter.VAR_KEYWORD for param in params
+            )
         if self._fwd_accepts_var_kw:
             # **kwargs absorbs whatever is not declared by name.
             return dict(candidates)
@@ -138,7 +143,11 @@ class FinetuneTrainer(BaseTrainer):
         return log_dict
 
     def _backward_loss(
-        self, loss: torch.Tensor, log_loss_dict: Dict[str, torch.Tensor], log_dict: Dict[str, float], grad_accum: int
+        self,
+        loss: torch.Tensor,
+        log_loss_dict: Dict[str, torch.Tensor],
+        log_dict: Dict[str, float],
+        grad_accum: int,
     ) -> None:
         """Scale + spike-guard + backward, accumulating losses into log_dict.
 
@@ -294,7 +303,7 @@ class FinetuneTrainer(BaseTrainer):
         if fmt == "dcp":
             if self.ctx.is_main:
                 logger.info(
-                    "resume: detected DCP checkpoint at %s — deferring weight load until after wrap_model.",
+                    "resume: detected DCP checkpoint at %s — deferring weight load until after wrap_model.",  # noqa: E501
                     path,
                 )
         else:
@@ -321,7 +330,9 @@ class FinetuneTrainer(BaseTrainer):
                     param.requires_grad = False
                 self.logger.log_frozen_module(dot_path)
             except AttributeError:
-                resolved_prefix = ".".join(successfully_traversed) if successfully_traversed else "<root>"
+                resolved_prefix = (
+                    ".".join(successfully_traversed) if successfully_traversed else "<root>"
+                )
                 missing_attr = dot_path.split(".")[len(successfully_traversed)]
                 self.logger.log_freeze_not_found(dot_path, resolved_prefix, missing_attr)
 

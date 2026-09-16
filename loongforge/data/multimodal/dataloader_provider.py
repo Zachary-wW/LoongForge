@@ -139,14 +139,24 @@ def seq_padding_for_cp(
         final_padding_factor = _lcm(final_padding_factor, fp8_padding_factor)
 
     final_padding_needed = (
-        int((cu_seqlens_padded[-1] + final_padding_factor - 1) // final_padding_factor * final_padding_factor)
+        int(
+            (cu_seqlens_padded[-1] + final_padding_factor - 1)
+            // final_padding_factor
+            * final_padding_factor
+        )
         - cu_seqlens_padded[-1]
     )
 
     if final_padding_needed > 0 and valid_tokens:
-        valid_tokens[-1] = F.pad(valid_tokens[-1], (0, final_padding_needed), "constant", pad_token_id)
-        valid_labels[-1] = F.pad(valid_labels[-1], (0, final_padding_needed), "constant", IGNORE_INDEX)
-        valid_attn_mask[-1] = F.pad(valid_attn_mask[-1], (0, final_padding_needed), "constant", True)
+        valid_tokens[-1] = F.pad(
+            valid_tokens[-1], (0, final_padding_needed), "constant", pad_token_id
+        )
+        valid_labels[-1] = F.pad(
+            valid_labels[-1], (0, final_padding_needed), "constant", IGNORE_INDEX
+        )
+        valid_attn_mask[-1] = F.pad(
+            valid_attn_mask[-1], (0, final_padding_needed), "constant", True
+        )
         cu_seqlens_padded[-1] += final_padding_needed
 
     data["tokens"] = torch.cat(valid_tokens, dim=0).unsqueeze(0).to(tokens.dtype)
@@ -178,7 +188,7 @@ class VLMPretrainCollator:
         return PAD_TOKEN_ID if pad_token_id is None else pad_token_id
 
     def collate_energon(self, batch: Dict[str, Any]) -> Dict[str, Any]:
-        """Normalize raw Energon batch tensors, pad for TP/CP configs, then build masks/positions."""
+        """Normalize raw Energon batch tensors, pad for TP/CP configs, then build masks/positions."""  # noqa: E501
         batch = self._ensure_tensor(batch)
         self._pad_sequences(batch)
         args = get_args()
@@ -218,12 +228,18 @@ class VLMPretrainCollator:
         tokens = batch["tokens"]
         seq_len = tokens.shape[-1]
         target_len = seq_len
-        padding_value = self.padding.value if isinstance(self.padding, PaddingStrategy) else self.padding
+        padding_value = (
+            self.padding.value if isinstance(self.padding, PaddingStrategy) else self.padding
+        )
         if padding_value == PaddingStrategy.MAX_LENGTH.value:
             if self.max_length is not None:
                 target_len = self.max_length
         if self.pad_to_multiple_of and self.pad_to_multiple_of > 1:
-            target_len = (target_len + self.pad_to_multiple_of - 1) // self.pad_to_multiple_of * self.pad_to_multiple_of
+            target_len = (
+                (target_len + self.pad_to_multiple_of - 1)
+                // self.pad_to_multiple_of
+                * self.pad_to_multiple_of
+            )
         pad_len = target_len - seq_len
         if pad_len <= 0:
             return
@@ -247,7 +263,7 @@ class VLMPretrainCollator:
         position_ids, _ = get_position_ids_func(batch)
         batch["position_ids"] = position_ids.to(dtype=torch.long)
 
-        # Shift labels left for next-token prediction and build a loss mask aligned to the shifted labels.
+        # Shift labels left for next-token prediction and build a loss mask aligned to the shifted labels.  # noqa: E501
         labels = torch.roll(labels, shifts=-1, dims=1)
         loss_mask = (labels != self.label_pad_token_id).long()
 
@@ -284,7 +300,9 @@ def _energon_read_order_kwargs(args):
     max_samples_per_sequence = getattr(args, "data_max_samples_per_sequence", 0) or 0
     return {
         "shuffle_buffer_size": shuffle_buffer_size if shuffle_buffer_size > 1 else None,
-        "max_samples_per_sequence": (max_samples_per_sequence if max_samples_per_sequence > 0 else None),
+        "max_samples_per_sequence": (
+            max_samples_per_sequence if max_samples_per_sequence > 0 else None
+        ),
     }
 
 
@@ -427,7 +445,9 @@ def get_train_loader(train_ds, collator=None, restore_state=True):
     if version("megatron-energon") < "7.0.0":
         train_dataloader = energon.get_savable_loader(train_ds)
     else:
-        train_dataloader = energon.get_savable_loader(train_ds, watchdog_initial_timeout_seconds=600)
+        train_dataloader = energon.get_savable_loader(
+            train_ds, watchdog_initial_timeout_seconds=600
+        )
 
     if restore_state and args.load is not None:
         if getattr(args, "dataloader_save", None):
@@ -435,7 +455,7 @@ def get_train_loader(train_ds, collator=None, restore_state=True):
             data_save_name = get_checkpoint_name(
                 args.dataloader_save,
                 args.iteration,
-                pipeline_rank=0,  # Only the first pipeline parallel rank stores the dataloader checkpoint.
+                pipeline_rank=0,  # Only the first pipeline parallel rank stores the dataloader checkpoint.  # noqa: E501
                 basename=f"train_dataloader_dprank{dp_rank:03d}.pt",
             )
             if os.path.exists(data_save_name):
@@ -477,7 +497,9 @@ class EnergonDataloader:
                 "constant",
                 self._collator.label_pad_token_id,
             )
-            features["attn_mask"] = F.pad(features["attn_mask"], (0, paded_length), "constant", True)
+            features["attn_mask"] = F.pad(
+                features["attn_mask"], (0, paded_length), "constant", True
+            )
         return features
 
     def __iter__(self):

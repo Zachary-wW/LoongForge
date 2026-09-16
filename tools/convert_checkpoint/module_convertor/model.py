@@ -58,7 +58,9 @@ class Model:
         if platform == "mcore":
             return McoreCheckpoint.check_done_files(save_path, layer_dict, expert_dict=expert_dict)
         if platform == "huggingface":
-            return HuggingFaceCheckpoint.check_done_files(save_path, layer_dict, expert_dict=expert_dict)
+            return HuggingFaceCheckpoint.check_done_files(
+                save_path, layer_dict, expert_dict=expert_dict
+            )
         return False
 
     @staticmethod
@@ -106,8 +108,12 @@ class Model:
         visual_args.hf_dequantize_dtype = getattr(args, "hf_dequantize_dtype", "bfloat16")
         visual_args.hf_quant_config_file = getattr(args, "hf_quant_config_file", None)
         visual_args.hf_official_config_file = getattr(args, "hf_official_config_file", None)
-        visual_args.hf_pack_quantized_from_config = getattr(args, "hf_pack_quantized_from_config", False)
-        visual_args.hf_pack_quantized_target_regex = getattr(args, "hf_pack_quantized_target_regex", None)
+        visual_args.hf_pack_quantized_from_config = getattr(
+            args, "hf_pack_quantized_from_config", False
+        )
+        visual_args.hf_pack_quantized_target_regex = getattr(
+            args, "hf_pack_quantized_target_regex", None
+        )
         visual_args.mtp_num_layers = 0
         visual_args.load_lora_ckpt_path = args.load_lora_ckpt_path
         visual_args.lora_alpha = args.lora_alpha
@@ -118,7 +124,9 @@ class Model:
         visual_args.sub_file_tag = args.sub_file_tag
         return visual_args
 
-    def convert_from_common(self, platform, target_c_config, layer_dict, expert_dict=None, target_c_vision_config=None):
+    def convert_from_common(
+        self, platform, target_c_config, layer_dict, expert_dict=None, target_c_vision_config=None
+    ):
         """
         Convert common checkpoint to the platform checkpoint.
 
@@ -133,13 +141,19 @@ class Model:
         if platform == "mcore":
             (tp, pp, vpp), (ep, etp) = Model.get_pipeline_args(args, self.config)
             m_ckpt = McoreCheckpoint(self.config, args)
-            no_encoder: bool = self.c_vision_patch_config is None or (not args.enable_full_hetero_dp and p > 0)
+            no_encoder: bool = self.c_vision_patch_config is None or (
+                not args.enable_full_hetero_dp and p > 0
+            )
             if no_encoder:
-                m_ckpt.convert_from_common(self.c_ckpt, target_c_config, layer_dict, expert_dict=expert_dict)
+                m_ckpt.convert_from_common(
+                    self.c_ckpt, target_c_config, layer_dict, expert_dict=expert_dict
+                )
             else:
                 visual_model_id = 0 if vpp > 1 else None
                 visual_args = Model.get_visual_args(args)
-                m_vision_ckpt = McoreCheckpoint(self.c_vision_patch_config, visual_args, model_id=visual_model_id)
+                m_vision_ckpt = McoreCheckpoint(
+                    self.c_vision_patch_config, visual_args, model_id=visual_model_id
+                )
                 McoreCheckpoint.convert_from_common_vlm(
                     m_ckpt,
                     m_vision_ckpt,
@@ -184,13 +198,17 @@ class Model:
             if self.c_vision_patch_config is None:
                 return self.config.convert(McoreConfig), None
             else:
-                return self.config.convert(McoreConfig), self.c_vision_patch_config.convert(McoreConfig)
+                return self.config.convert(McoreConfig), self.c_vision_patch_config.convert(
+                    McoreConfig
+                )
 
         if platform == "huggingface":
             if self.c_vision_patch_config is None:
                 return self.config.convert(HuggingFaceConfig), None
             else:
-                return self.config.convert(HuggingFaceConfig), self.c_vision_patch_config.convert(HuggingFaceConfig)
+                return self.config.convert(HuggingFaceConfig), self.c_vision_patch_config.convert(
+                    HuggingFaceConfig
+                )
 
     def convert_to_common(self, args, layer_dict, expert_dict=None):
         """
@@ -198,9 +216,13 @@ class Model:
         """
 
         if not hasattr(args, "common_config_path") or args.common_config_path is None:
-            assert hasattr(args, "model_type_custom"), "model_type_custom or common_config_path is required"
+            assert hasattr(args, "model_type_custom"), (
+                "model_type_custom or common_config_path is required"
+            )
             base_dir = os.path.dirname(os.path.abspath(__file__))
-            args.common_config_path = os.path.join(base_dir, f"config/{args.model_type_custom}.json")
+            args.common_config_path = os.path.join(
+                base_dir, f"config/{args.model_type_custom}.json"
+            )
         else:
             model_type_custom = os.path.splitext(os.path.basename(args.common_config_path))[0]
             setattr(args, "model_type_custom", model_type_custom)
@@ -212,7 +234,11 @@ class Model:
         assert isinstance(self.config, CommonConfig)
 
         cargs = self.config.get_args("common")
-        mtp_num_layers = args.mtp_num_layers if args.mtp_num_layers is not None else cargs.get("mtp_num_layers", 0)
+        mtp_num_layers = (
+            args.mtp_num_layers
+            if args.mtp_num_layers is not None
+            else cargs.get("mtp_num_layers", 0)
+        )
 
         assert len(layer_dict.keys()) == 1, f"layer_dict keys: {layer_dict.keys()}"
         p = list(layer_dict.keys())[0]
@@ -231,14 +257,18 @@ class Model:
                 mtp_num_layers=mtp_num_layers,
             )
             self.c_ckpt = hf_ckpt.convert_to_common(layer_dict, expert_dict=expert_dict)
-            has_encoder: bool = self.c_vision_patch_config is not None and (args.enable_full_hetero_dp or p == 0)
+            has_encoder: bool = self.c_vision_patch_config is not None and (
+                args.enable_full_hetero_dp or p == 0
+            )
             if has_encoder:
                 visual_args = Model.get_visual_args(args)
                 hf_vision_ckpt = HuggingFaceCheckpoint(self.c_vision_patch_config, visual_args)
                 vision_num_layers = self.c_vision_patch_config.get_args("common")["num_layers"]
                 vision_layer_dict = {}
                 vision_layer_dict[0] = list(range(vision_num_layers))
-                hf_vision_ckpt.load(ckpt_path, args.safetensors, self.c_vision_patch_config, vision_layer_dict[0])
+                hf_vision_ckpt.load(
+                    ckpt_path, args.safetensors, self.c_vision_patch_config, vision_layer_dict[0]
+                )
                 self.c_vision_ckpt = hf_vision_ckpt.convert_to_common(vision_layer_dict)
         # load checkpoint
         if platform == "mcore":
@@ -246,12 +276,19 @@ class Model:
             (tp, pp, vpp), (ep, etp) = Model.get_pipeline_args(args, self.config)
             vit_model_id = 0 if args.vit_in_first_virtual_stage_only else None
             m_ckpt = McoreCheckpoint(self.config, args, model_id=vit_model_id)
-            m_ckpt.load(ckpt_path, layer_dict, expert_dict=expert_dict, lora_load_path=args.load_lora_ckpt_path)
+            m_ckpt.load(
+                ckpt_path,
+                layer_dict,
+                expert_dict=expert_dict,
+                lora_load_path=args.load_lora_ckpt_path,
+            )
             self.c_ckpt = m_ckpt.convert_to_common(layer_dict, expert_dict=expert_dict)
             if p == 0 and self.c_vision_patch_config is not None:
                 visual_model_id = 0 if vpp > 1 else None
                 visual_args = Model.get_visual_args(args)
-                m_vision_ckpt = McoreCheckpoint(self.c_vision_patch_config, visual_args, model_id=visual_model_id)
+                m_vision_ckpt = McoreCheckpoint(
+                    self.c_vision_patch_config, visual_args, model_id=visual_model_id
+                )
                 vision_num_layers = self.c_vision_patch_config.get_args("common")["num_layers"]
                 vision_layer_dict = {}
                 vision_layer_dict[0] = list(range(vision_num_layers))
@@ -295,7 +332,7 @@ def main():
             elapsed_seconds = end_epoch - start_epoch
             logging.info(f"CONVERSION_END_TIME={end_time}")
             logging.info(
-                f"CONVERSION_ELAPSED={int(elapsed_seconds)}s ({_format_conversion_elapsed_time(elapsed_seconds)})"
+                f"CONVERSION_ELAPSED={int(elapsed_seconds)}s ({_format_conversion_elapsed_time(elapsed_seconds)})"  # noqa: E501
             )
 
 
@@ -308,11 +345,15 @@ def _convert_checkpoint(args):
         c_vision_patch_config = None
     else:
         c_config = get_yaml_config(
-            args.config_file, args.convert_file, for_vlm=(args.vision_patch_convert_file is not None)
+            args.config_file,
+            args.convert_file,
+            for_vlm=(args.vision_patch_convert_file is not None),
         )
         c_vision_patch_config = (
             get_yaml_config(
-                args.config_file, args.vision_patch_convert_file, adapter_convert_file=args.adapter_convert_file
+                args.config_file,
+                args.vision_patch_convert_file,
+                adapter_convert_file=args.adapter_convert_file,
             )
             if args.vision_patch_convert_file is not None
             else None
@@ -330,7 +371,9 @@ def _convert_checkpoint(args):
     world_size = int(os.getenv("WORLD_SIZE", "1"))
     if utils.LOADED_STATE_DICT is None:
         if etp is not None:
-            assert (ep * pp // world_size) % (tp // etp) == 0, "(ep * pp // world_size) % (tp // etp) must be 0"
+            assert (ep * pp // world_size) % (tp // etp) == 0, (
+                "(ep * pp // world_size) % (tp // etp) must be 0"
+            )
         p_dict = get_pipeline_by_rank_id(rank_id, world_size, pp, ep=ep)
     else:
         p_dict = {}
@@ -341,17 +384,21 @@ def _convert_checkpoint(args):
 
     if args.pipeline_model_parallel_layout is not None:
         assert args.custom_pipeline_layers is None, (
-            "custom_pipeline_layers and pipeline_model_parallel_layout can not be set at the same time"
+            "custom_pipeline_layers and pipeline_model_parallel_layout can not be set at the same time"  # noqa: E501
         )
 
-        args.custom_pipeline_layers = convert_layout_to_custom_pipeline_layers(args.pipeline_model_parallel_layout)
+        args.custom_pipeline_layers = convert_layout_to_custom_pipeline_layers(
+            args.pipeline_model_parallel_layout
+        )
 
         split = [int(x) for x in args.custom_pipeline_layers.split(",") if x.strip()]
         if args.num_virtual_stages_per_pipeline_rank is None:
             assert len(split) % args.pipeline_model_parallel_size == 0, (
                 "len(args.custom_pipeline_layers) must be divisible by pipeline_model_parallel_size"
             )
-            args.num_virtual_stages_per_pipeline_rank = len(split) // args.pipeline_model_parallel_size
+            args.num_virtual_stages_per_pipeline_rank = (
+                len(split) // args.pipeline_model_parallel_size
+            )
 
     cargs = c_config.get_args("common")
     num_experts = cargs.get("num_experts", None)
@@ -368,9 +415,11 @@ def _convert_checkpoint(args):
         if cur_ep_ids is not None:
             expert_local_mapping, expert_ep_mapping, ep_expert_mapping = get_ep_map(num_experts, ep)
 
-        if Model.check_done_files(args.save_platform, args.save_ckpt_path, layer_dict, expert_dict=ep_expert_mapping):
+        if Model.check_done_files(
+            args.save_platform, args.save_ckpt_path, layer_dict, expert_dict=ep_expert_mapping
+        ):
             logging.info(
-                f"{args.save_ckpt_path=}, {layer_dict=}, expert_dict={ep_expert_mapping}. already converted. pass."
+                f"{args.save_ckpt_path=}, {layer_dict=}, expert_dict={ep_expert_mapping}. already converted. pass."  # noqa: E501
             )
             return
         model.convert_to_common(args, layer_dict, expert_dict=ep_expert_mapping)

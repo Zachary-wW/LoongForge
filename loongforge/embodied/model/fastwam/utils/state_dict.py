@@ -130,7 +130,9 @@ def wan_video_dit_from_diffusers(state_dict):
             probe_name = ".".join(name.split(".")[:1] + ["0"] + name.split(".")[2:])
             if probe_name in rename_dict:
                 mapped = rename_dict[probe_name]
-                mapped = ".".join(mapped.split(".")[:1] + [name.split(".")[1]] + mapped.split(".")[2:])
+                mapped = ".".join(
+                    mapped.split(".")[:1] + [name.split(".")[1]] + mapped.split(".")[2:]
+                )
                 converted[mapped] = value
     return converted
 

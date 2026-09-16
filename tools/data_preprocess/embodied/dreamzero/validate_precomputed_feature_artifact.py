@@ -88,7 +88,7 @@ def _validate_tensor_shard_payload(
         tensor = next((payload[key] for key in keys if key in payload), None)
         if tensor is None:
             raise ValueError(
-                f"tensor_shards payload misses {feature_name} for manifest.jsonl line {lineno}; expected one of {keys}"
+                f"tensor_shards payload misses {feature_name} for manifest.jsonl line {lineno}; expected one of {keys}"  # noqa: E501
             )
         shape_key = spec["shape_key"]
         dtype_key = spec["dtype_key"]
@@ -109,8 +109,12 @@ def _validate_tensor_shard_payload(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--manifest", required=True, type=Path, help="Path to artifact manifest.json")
-    parser.add_argument("--cache-dir", type=Path, default=None, help="Override cache tensor directory")
+    parser.add_argument(
+        "--manifest", required=True, type=Path, help="Path to artifact manifest.json"
+    )
+    parser.add_argument(
+        "--cache-dir", type=Path, default=None, help="Override cache tensor directory"
+    )
     parser.add_argument(
         "--expect-use-sample-transform-seed",
         choices=("true", "false", "any"),
@@ -160,10 +164,14 @@ def main() -> int:
     )
     expected_count = artifact.files_meta.get("cache_files_count")
     if expected_count is not None and row_count != int(expected_count):
-        raise ValueError(f"manifest.jsonl row count mismatch: rows={row_count}, manifest={expected_count}")
+        raise ValueError(
+            f"manifest.jsonl row count mismatch: rows={row_count}, manifest={expected_count}"
+        )
     processed = int(artifact.coverage.get("processed", -1))
     if row_count != processed:
-        raise ValueError(f"coverage processed count mismatch: rows={row_count}, processed={processed}")
+        raise ValueError(
+            f"coverage processed count mismatch: rows={row_count}, processed={processed}"
+        )
 
     hash_checked = 0
     for lineno, entry in samples:
@@ -206,7 +214,9 @@ def main() -> int:
         "use_sample_transform_seed": artifact.cache_meta.get("use_sample_transform_seed"),
         "sample_transform_seed": artifact.cache_meta.get("sample_transform_seed"),
     }
-    print("[dreamzero-precomputed-cache-smoke] ok " + " ".join(f"{k}={v}" for k, v in summary.items()))
+    print(
+        "[dreamzero-precomputed-cache-smoke] ok " + " ".join(f"{k}={v}" for k, v in summary.items())
+    )
     return 0
 
 

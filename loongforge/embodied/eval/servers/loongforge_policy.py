@@ -14,7 +14,10 @@ from typing import Any, Dict, Optional
 import numpy as np
 
 from loongforge.embodied.eval.protocol import PROTOCOL_VERSION
-from loongforge.embodied.eval.servers.predict_action_interface import PredictActionModel, call_predict_action
+from loongforge.embodied.eval.servers.predict_action_interface import (
+    PredictActionModel,
+    call_predict_action,
+)
 
 
 @dataclass
@@ -106,7 +109,9 @@ class GenericPredictActionPolicy:
             if chunk_index < chunk.shape[0]:
                 self._chunk_cache[episode_id] = (chunk_index, chunk)
                 return {
-                    "actions": chunk if return_action_chunk else chunk[chunk_index : chunk_index + 1],
+                    "actions": chunk
+                    if return_action_chunk
+                    else chunk[chunk_index : chunk_index + 1],
                     "inference_latency_ms": None,
                     "request_id": self._request_id(episode_id, episode_step),
                 }
@@ -154,7 +159,12 @@ class GenericPredictActionPolicy:
 def __getattr__(name):
     # Lazy re-exports to avoid circular imports between servers/ and factories/.
     if name in ("PI05ModelFactory", "LoongForgePI05Policy"):
-        from loongforge.embodied.eval.factories.pi05_factory import PI05ModelFactory, LoongForgePI05Policy
+        from loongforge.embodied.eval.factories.pi05_factory import (
+            PI05ModelFactory,
+            LoongForgePI05Policy,
+        )
 
-        return {"PI05ModelFactory": PI05ModelFactory, "LoongForgePI05Policy": LoongForgePI05Policy}[name]
+        return {"PI05ModelFactory": PI05ModelFactory, "LoongForgePI05Policy": LoongForgePI05Policy}[
+            name
+        ]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -157,7 +157,7 @@ class Qwen3VLTextConfig(PretrainedConfig):
 
     >>> # Accessing the model configuration
     >>> configuration = model.config
-    ```"""
+    ```"""  # noqa: E501
 
     model_type = "qwen3_vl_text"
     base_config_key = "text_config"
@@ -249,7 +249,7 @@ class Qwen3VLConfig(PretrainedConfig):
 
     >>> # Accessing the model configuration
     >>> configuration = model.config
-    ```"""
+    ```"""  # noqa: E501
 
     model_type = "qwen3_vl"
     sub_configs = {"vision_config": Qwen3VLVisionConfig, "text_config": Qwen3VLTextConfig}

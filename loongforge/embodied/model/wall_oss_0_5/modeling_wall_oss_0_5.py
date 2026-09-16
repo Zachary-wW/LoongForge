@@ -111,10 +111,13 @@ def _load_qwen_pretrained(model: Qwen25VLMoEForAction, path: str | None) -> None
         return
     weights = _load_safetensors_dir(path)
     renamed = model.rename_vlm_weights_for_vla(weights)
-    renamed = {key: value for key, value in renamed.items() if "action_preprocessor.normalizer_" not in key}
+    renamed = {
+        key: value for key, value in renamed.items() if "action_preprocessor.normalizer_" not in key
+    }
     if (
         model.config.model_type == "qwen2_5_vl"
-        and model.model.embed_tokens.weight.shape[0] != renamed["model.embed_tokens.weight"].shape[0]
+        and model.model.embed_tokens.weight.shape[0]
+        != renamed["model.embed_tokens.weight"].shape[0]
     ):
         logger.info(
             "resize_token_embeddings from %d to %d to match Qwen pretrained weights",
@@ -133,9 +136,14 @@ def _load_wall_checkpoint(model: Qwen25VLMoEForAction, path: str | None) -> None
     logger.info("Loading Wall-OSS-0.5 checkpoint: %s", path)
     weights = load_file(path)
     weights = model.convert_to_fused(weights)
-    weights = {key: value for key, value in weights.items() if "action_preprocessor.normalizer_" not in key}
+    weights = {
+        key: value for key, value in weights.items() if "action_preprocessor.normalizer_" not in key
+    }
     embed_key = "model.embed_tokens.weight"
-    if embed_key in weights and model.model.embed_tokens.weight.shape[0] != weights[embed_key].shape[0]:
+    if (
+        embed_key in weights
+        and model.model.embed_tokens.weight.shape[0] != weights[embed_key].shape[0]
+    ):
         logger.info(
             "resize_token_embeddings from %d to %d to match Wall checkpoint",
             model.model.embed_tokens.weight.shape[0],
@@ -181,7 +189,9 @@ class WallOss05Model(nn.Module):
         and the Wall-OSS delta weights are deferred to ``load_pretrained`` so
         this class fits the standard trainer build → _load_pretrained flow.
         """
-        config_path, processor_path, pretrained_path, _ = _resolve_wall_oss_paths_from_training_args()
+        config_path, processor_path, pretrained_path, _ = (
+            _resolve_wall_oss_paths_from_training_args()
+        )
 
         if config_path.endswith(".json"):
             qwen_config = Qwen25VLConfig.from_json_file(config_path)
@@ -319,6 +329,8 @@ class WallOss05Model(nn.Module):
 
     def on_train_begin(self, *, ctx) -> None:
         """Emit operator backend inventory before measured iterations."""
-        from loongforge.embodied.model.wall_oss_0_5.wall_oss_05_fused_ops import log_backend_inventory
+        from loongforge.embodied.model.wall_oss_0_5.wall_oss_05_fused_ops import (
+            log_backend_inventory,
+        )
 
         log_backend_inventory(rank=ctx.rank, world_size=ctx.world_size)

@@ -76,15 +76,27 @@ if triton is not None:
         batch_idx = offsets // (HALF_DIM * NUM_HEADS * SEQ_LEN)
 
         even_idx = pair_idx * 2
-        x_even_off = batch_idx * X_STRIDE_B + seq_idx * X_STRIDE_S + head_idx * X_STRIDE_H + even_idx * X_STRIDE_D
+        x_even_off = (
+            batch_idx * X_STRIDE_B
+            + seq_idx * X_STRIDE_S
+            + head_idx * X_STRIDE_H
+            + even_idx * X_STRIDE_D
+        )
         x_odd_off = x_even_off + X_STRIDE_D
-        y_even_off = batch_idx * Y_STRIDE_B + seq_idx * Y_STRIDE_S + head_idx * Y_STRIDE_H + even_idx * Y_STRIDE_D
+        y_even_off = (
+            batch_idx * Y_STRIDE_B
+            + seq_idx * Y_STRIDE_S
+            + head_idx * Y_STRIDE_H
+            + even_idx * Y_STRIDE_D
+        )
         y_odd_off = y_even_off + Y_STRIDE_D
 
         is_base = seq_idx < BASE_SEQ_LEN
         is_action = (seq_idx >= BASE_SEQ_LEN) & (seq_idx < BASE_SEQ_LEN + ACTION_LEN)
         is_state = (
-            (STATE_LEN > 0) & (seq_idx >= BASE_SEQ_LEN + ACTION_LEN) & (seq_idx < BASE_SEQ_LEN + ACTION_LEN + STATE_LEN)
+            (STATE_LEN > 0)
+            & (seq_idx >= BASE_SEQ_LEN + ACTION_LEN)
+            & (seq_idx < BASE_SEQ_LEN + ACTION_LEN + STATE_LEN)
         )
         action_seq = ACTION_OFFSET + seq_idx - BASE_SEQ_LEN
         state_seq = STATE_OFFSET + seq_idx - BASE_SEQ_LEN - ACTION_LEN
@@ -96,19 +108,35 @@ if triton is not None:
         if USE_FP64:
             freq_r = tl.load(FREQ_R + base_freq_off, mask=mask & is_base, other=1.0).to(tl.float64)
             freq_i = tl.load(FREQ_I + base_freq_off, mask=mask & is_base, other=0.0).to(tl.float64)
-            action_r = tl.load(ACTION_R + action_freq_off, mask=mask & is_action, other=1.0).to(tl.float64)
-            action_i = tl.load(ACTION_I + action_freq_off, mask=mask & is_action, other=0.0).to(tl.float64)
-            state_r = tl.load(STATE_R + state_freq_off, mask=mask & is_state, other=1.0).to(tl.float64)
-            state_i = tl.load(STATE_I + state_freq_off, mask=mask & is_state, other=0.0).to(tl.float64)
+            action_r = tl.load(ACTION_R + action_freq_off, mask=mask & is_action, other=1.0).to(
+                tl.float64
+            )
+            action_i = tl.load(ACTION_I + action_freq_off, mask=mask & is_action, other=0.0).to(
+                tl.float64
+            )
+            state_r = tl.load(STATE_R + state_freq_off, mask=mask & is_state, other=1.0).to(
+                tl.float64
+            )
+            state_i = tl.load(STATE_I + state_freq_off, mask=mask & is_state, other=0.0).to(
+                tl.float64
+            )
             x_even = tl.load(X + x_even_off, mask=mask, other=0.0).to(tl.float64)
             x_odd = tl.load(X + x_odd_off, mask=mask, other=0.0).to(tl.float64)
         else:
             freq_r = tl.load(FREQ_R + base_freq_off, mask=mask & is_base, other=1.0).to(tl.float32)
             freq_i = tl.load(FREQ_I + base_freq_off, mask=mask & is_base, other=0.0).to(tl.float32)
-            action_r = tl.load(ACTION_R + action_freq_off, mask=mask & is_action, other=1.0).to(tl.float32)
-            action_i = tl.load(ACTION_I + action_freq_off, mask=mask & is_action, other=0.0).to(tl.float32)
-            state_r = tl.load(STATE_R + state_freq_off, mask=mask & is_state, other=1.0).to(tl.float32)
-            state_i = tl.load(STATE_I + state_freq_off, mask=mask & is_state, other=0.0).to(tl.float32)
+            action_r = tl.load(ACTION_R + action_freq_off, mask=mask & is_action, other=1.0).to(
+                tl.float32
+            )
+            action_i = tl.load(ACTION_I + action_freq_off, mask=mask & is_action, other=0.0).to(
+                tl.float32
+            )
+            state_r = tl.load(STATE_R + state_freq_off, mask=mask & is_state, other=1.0).to(
+                tl.float32
+            )
+            state_i = tl.load(STATE_I + state_freq_off, mask=mask & is_state, other=0.0).to(
+                tl.float32
+            )
             x_even = tl.load(X + x_even_off, mask=mask, other=0.0).to(tl.float32)
             x_odd = tl.load(X + x_odd_off, mask=mask, other=0.0).to(tl.float32)
         freq_r = tl.where(is_action, action_r, tl.where(is_state, state_r, freq_r))
@@ -186,7 +214,9 @@ class _DreamZeroFusedRoPE(torch.autograd.Function):
             use_fp64,
             BLOCK_SIZE=256,
         )
-        ctx.save_for_backward(freqs_real, freqs_imag, action_real, action_imag, state_real, state_imag)
+        ctx.save_for_backward(
+            freqs_real, freqs_imag, action_real, action_imag, state_real, state_imag
+        )
         ctx.shape = x.shape
         ctx.action_len = action_len
         ctx.state_len = state_len
@@ -544,10 +574,12 @@ def causal_rope_action_apply_polar(
     if action_register_length is not None:
         assert action_register_length == (num_action_per_block + num_state_per_block)
         freqs_action = freqs_action[
-            action_state_index * num_action_per_block : (action_state_index + 1) * num_action_per_block
+            action_state_index * num_action_per_block : (action_state_index + 1)
+            * num_action_per_block
         ]
         freqs_state = freqs_state[
-            action_state_index * num_state_per_block : (action_state_index + 1) * num_state_per_block
+            action_state_index * num_state_per_block : (action_state_index + 1)
+            * num_state_per_block
         ]
         freqs_1d = torch.cat([freqs_action, freqs_state], dim=0).view(action_register_length, 1, -1)
         freqs = torch.cat([freqs, freqs_1d], dim=0)

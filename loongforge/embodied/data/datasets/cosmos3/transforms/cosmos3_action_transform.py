@@ -43,14 +43,62 @@ from loongforge.embodied.data.datasets.transforms.registry import (
 
 # ---------- VIDEO_RES_SIZE_INFO (verbatim from cosmos_framework/data/vfm/utils.py) ----------
 VIDEO_RES_SIZE_INFO: Dict[str, Dict[str, Tuple[int, int]]] = {
-    "256": {"1,1": (256, 256), "4,3": (320, 256), "3,4": (256, 320), "16,9": (320, 192), "9,16": (192, 320)},
-    "480": {"1,1": (640, 640), "4,3": (736, 544), "3,4": (544, 736), "16,9": (832, 480), "9,16": (480, 832)},
-    "704": {"1,1": (960, 960), "4,3": (1088, 832), "3,4": (832, 1088), "16,9": (1280, 704), "9,16": (704, 1280)},
-    "720": {"1,1": (960, 960), "4,3": (1104, 832), "3,4": (832, 1104), "16,9": (1280, 720), "9,16": (720, 1280)},
-    "768": {"1,1": (1024, 1024), "4,3": (1184, 880), "3,4": (880, 1184), "16,9": (1360, 768), "9,16": (768, 1360)},
-    "1080": {"1,1": (1440, 1440), "4,3": (1664, 1248), "3,4": (1248, 1664), "16,9": (1920, 1080), "9,16": (1080, 1920)},
-    "1280": {"1,1": (1712, 1712), "4,3": (1968, 1472), "3,4": (1472, 1968), "16,9": (2272, 1280), "9,16": (1280, 2272)},
-    "2048": {"1,1": (2728, 2728), "4,3": (3160, 2368), "3,4": (2368, 3160), "16,9": (3640, 2048), "9,16": (2048, 3640)},
+    "256": {
+        "1,1": (256, 256),
+        "4,3": (320, 256),
+        "3,4": (256, 320),
+        "16,9": (320, 192),
+        "9,16": (192, 320),
+    },
+    "480": {
+        "1,1": (640, 640),
+        "4,3": (736, 544),
+        "3,4": (544, 736),
+        "16,9": (832, 480),
+        "9,16": (480, 832),
+    },
+    "704": {
+        "1,1": (960, 960),
+        "4,3": (1088, 832),
+        "3,4": (832, 1088),
+        "16,9": (1280, 704),
+        "9,16": (704, 1280),
+    },
+    "720": {
+        "1,1": (960, 960),
+        "4,3": (1104, 832),
+        "3,4": (832, 1104),
+        "16,9": (1280, 720),
+        "9,16": (720, 1280),
+    },
+    "768": {
+        "1,1": (1024, 1024),
+        "4,3": (1184, 880),
+        "3,4": (880, 1184),
+        "16,9": (1360, 768),
+        "9,16": (768, 1360),
+    },
+    "1080": {
+        "1,1": (1440, 1440),
+        "4,3": (1664, 1248),
+        "3,4": (1248, 1664),
+        "16,9": (1920, 1080),
+        "9,16": (1080, 1920),
+    },
+    "1280": {
+        "1,1": (1712, 1712),
+        "4,3": (1968, 1472),
+        "3,4": (1472, 1968),
+        "16,9": (2272, 1280),
+        "9,16": (1280, 2272),
+    },
+    "2048": {
+        "1,1": (2728, 2728),
+        "4,3": (3160, 2368),
+        "3,4": (2368, 3160),
+        "16,9": (3640, 2048),
+        "9,16": (2048, 3640),
+    },
     "gt_2048": {
         "1,1": (5464, 5464),
         "4,3": (6304, 4728),
@@ -65,7 +113,7 @@ VIDEO_RES_SIZE_INFO: Dict[str, Dict[str, Tuple[int, int]]] = {
 _VIEWPOINT_TEMPLATES: Dict[str, str] = {
     "ego_view": "This video is captured from a first-person perspective looking at the scene.",
     "third_person_view": (
-        "This video is captured from a third-person perspective looking towards the agent from the front."
+        "This video is captured from a third-person perspective looking towards the agent from the front."  # noqa: E501
     ),
     "wrist_view": "This video is captured from a wrist-mounted camera.",
     "concat_view": "This video contains concatenated views from multiple camera perspectives.",
@@ -83,7 +131,7 @@ def _find_closest_target_size(h: int, w: int, resolution: str) -> Tuple[int, int
     """
     if resolution not in VIDEO_RES_SIZE_INFO:
         raise ValueError(
-            f"resolution={resolution!r} not in VIDEO_RES_SIZE_INFO; available: {list(VIDEO_RES_SIZE_INFO)}"
+            f"resolution={resolution!r} not in VIDEO_RES_SIZE_INFO; available: {list(VIDEO_RES_SIZE_INFO)}"  # noqa: E501
         )
     candidates = VIDEO_RES_SIZE_INFO[resolution]
     input_ratio = h / w
@@ -133,7 +181,9 @@ def _reflection_pad_to_target(
     * Use edge-pad when padding exceeds spatial dim, else reflection-pad.
     """
     orig_h, orig_w = video.shape[-2:]
-    orig_h_resized, orig_w_resized = _resized_hw(orig_h, orig_w, target_w, target_h, keep_aspect_ratio)
+    orig_h_resized, orig_w_resized = _resized_hw(
+        orig_h, orig_w, target_w, target_h, keep_aspect_ratio
+    )
 
     if orig_h_resized != orig_h or orig_w_resized != orig_w:
         video = transforms_F.resize(
@@ -211,7 +261,9 @@ def _pad_action_to_max_dim(action: torch.Tensor, max_action_dim: int) -> torch.T
         raise ValueError(f"action_dim {cur_dim} exceeds max_action_dim {max_action_dim}")
     if cur_dim == max_action_dim:
         return action
-    pad = torch.zeros(*action.shape[:-1], max_action_dim - cur_dim, dtype=action.dtype, device=action.device)
+    pad = torch.zeros(
+        *action.shape[:-1], max_action_dim - cur_dim, dtype=action.dtype, device=action.device
+    )
     return torch.cat([action, pad], dim=-1)
 
 
@@ -319,11 +371,17 @@ class Cosmos3ActionTransform(BaseTransform):
             # Deferred: same geometry, decided from shapes; pixels are resized and
             # padded by DeferredVideoTail on the model device.
             orig_h_resized, orig_w_resized = _resized_hw(h, w, target_w, target_h)
-        image_size = torch.tensor([target_h, target_w, orig_h_resized, orig_w_resized], dtype=torch.float)
+        image_size = torch.tensor(
+            [target_h, target_w, orig_h_resized, orig_w_resized], dtype=torch.float
+        )
 
         # 3. Caption augmentor chain (cosmos ". " separator semantics).
         # cfg_dropout_rate is forced to 0.0 under deterministic mode at build time.
-        if self.training and self.cfg_dropout_rate > 0.0 and torch.rand(1).item() < self.cfg_dropout_rate:
+        if (
+            self.training
+            and self.cfg_dropout_rate > 0.0
+            and torch.rand(1).item() < self.cfg_dropout_rate
+        ):
             full_caption = ""
         else:
             full_caption = caption
@@ -347,7 +405,9 @@ class Cosmos3ActionTransform(BaseTransform):
             if isinstance(full_caption, str) and full_caption != "":
                 full_caption = _append_with_period_separator(
                     full_caption,
-                    _RESOLUTION_VIDEO_TEMPLATE.format(height=int(image_size[0]), width=int(image_size[1])),
+                    _RESOLUTION_VIDEO_TEMPLATE.format(
+                        height=int(image_size[0]), width=int(image_size[1])
+                    ),
                 )
 
         # 4. Tokenize caption via Qwen3-VL chat template — must match cosmos
@@ -390,7 +450,9 @@ class Cosmos3ActionTransform(BaseTransform):
             **video_fields,
             "action": action_padded,
             "raw_action_dim": raw_action_dim,
-            "domain_id": domain_id.long() if torch.is_tensor(domain_id) else torch.tensor(int(domain_id)),
+            "domain_id": domain_id.long()
+            if torch.is_tensor(domain_id)
+            else torch.tensor(int(domain_id)),
             "fps": float(fps.item() if torch.is_tensor(fps) else fps),
             "idle_frames": idle_frames,
             "image_size": image_size,

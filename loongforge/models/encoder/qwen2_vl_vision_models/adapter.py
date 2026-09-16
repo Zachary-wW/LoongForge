@@ -73,7 +73,9 @@ class Adapter(BaseMegatronModule):
 
     def forward(self, x: torch.Tensor, window_index: torch.LongTensor = None) -> torch.Tensor:
         """Forward pass."""
-        x = self.layernorm(x.view(-1, self.hidden_size) if self.use_postshuffle_norm else x).view(-1, self.hidden_size)
+        x = self.layernorm(x.view(-1, self.hidden_size) if self.use_postshuffle_norm else x).view(
+            -1, self.hidden_size
+        )
         x, _ = self.linear_fc1(x)
         x = self.activation_func(x)
         x, _ = self.linear_fc2(x)

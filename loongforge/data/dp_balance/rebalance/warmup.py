@@ -232,7 +232,9 @@ def set_warmup_groups(data: Union[List[Dict[str, torch.Tensor]], Dict[str, torch
     # Prepare all-gather buffers
     seq_num_list = [torch.zeros_like(seq_num_tensor) for _ in range(dp_size)]
     seq_lenth_sum_list = [torch.zeros_like(total_seq_lenth_sum) for _ in range(dp_size)]
-    seq_lenth_square_sum_list = [torch.zeros_like(total_seq_lenth_square_sum) for _ in range(dp_size)]
+    seq_lenth_square_sum_list = [
+        torch.zeros_like(total_seq_lenth_square_sum) for _ in range(dp_size)
+    ]
 
     # Gather statistics across DP ranks
     dist.all_gather(seq_num_list, seq_num_tensor, group=dp_group)

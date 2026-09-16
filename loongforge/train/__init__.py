@@ -13,4 +13,8 @@ from .diffusion import pretrain_wan
 from .diffusion import pretrain_qwen_image
 
 
-__all__ = ["parse_train_args", "build_model_trainerparse_args_from_config", "parse_args_from_config"]
+__all__ = [
+    "parse_train_args",
+    "build_model_trainerparse_args_from_config",
+    "parse_args_from_config",
+]

@@ -43,7 +43,9 @@ def _load_pi05_pretrained(pi05_pytorch, pretrained_path: str, device=None):
     # Detect whether this checkpoint uses the bare 'model.' wrapper prefix
     # by checking if stripping it produces keys that exist in the model.
     model_sd_keys = set(pi05_pytorch.state_dict().keys())
-    needs_strip = any(k.startswith("model.") and k[len("model.") :] in model_sd_keys for k in raw_sd)
+    needs_strip = any(
+        k.startswith("model.") and k[len("model.") :] in model_sd_keys for k in raw_sd
+    )
     if needs_strip:
         stripped = {}
         for k, v in raw_sd.items():
@@ -63,7 +65,9 @@ def _load_pi05_pretrained(pi05_pytorch, pretrained_path: str, device=None):
             if new_key.startswith("state_proj."):
                 continue
             if new_key in ("paligemma_with_expert.paligemma.lm_head.weight",):
-                fixed["paligemma_with_expert.paligemma.model.language_model.embed_tokens.weight"] = value.clone()
+                fixed[
+                    "paligemma_with_expert.paligemma.model.language_model.embed_tokens.weight"
+                ] = value.clone()
             fixed[new_key] = value
         missing, unexpected = pi05_pytorch.load_state_dict(fixed, strict=True)
         del fixed
@@ -72,7 +76,9 @@ def _load_pi05_pretrained(pi05_pytorch, pretrained_path: str, device=None):
         if unexpected:
             raise RuntimeError(f"Unexpected keys after strip: {unexpected[:5]}")
     else:
-        pi05_pytorch.load_pretrained(pretrained_path, device=str(device) if device is not None else None)
+        pi05_pytorch.load_pretrained(
+            pretrained_path, device=str(device) if device is not None else None
+        )
 
 
 @register_factory("pi05")
@@ -95,9 +101,13 @@ class PI05ModelFactory:
         """
         import torch
 
-        pretrained_path = str(Path(server_args.ckpt_path).expanduser()) if server_args.ckpt_path else ""
+        pretrained_path = (
+            str(Path(server_args.ckpt_path).expanduser()) if server_args.ckpt_path else ""
+        )
         resolved_device = torch.device(
-            server_args.device if torch.cuda.is_available() or not server_args.device.startswith("cuda") else "cpu"
+            server_args.device
+            if torch.cuda.is_available() or not server_args.device.startswith("cuda")
+            else "cpu"
         )
 
         model = build_model(model_cfg)

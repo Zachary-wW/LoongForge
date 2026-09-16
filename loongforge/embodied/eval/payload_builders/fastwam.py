@@ -34,10 +34,14 @@ from loongforge.embodied.eval.payload_builders.registry import register_payload_
 
 # Instruction wrapper used at FastWAM training time (fastwam.datasets.lerobot.
 # robot_video_dataset.DEFAULT_PROMPT); eval must send the same distribution.
-FASTWAM_PROMPT_TEMPLATE = "A video recorded from a robot's point of view executing the following instruction: {task}"
+FASTWAM_PROMPT_TEMPLATE = (
+    "A video recorded from a robot's point of view executing the following instruction: {task}"
+)
 
 
-def _pack_fastwam_images(images_by_cam: Dict[str, Optional[np.ndarray]], state_encoding: str) -> List[np.ndarray]:
+def _pack_fastwam_images(
+    images_by_cam: Dict[str, Optional[np.ndarray]], state_encoding: str
+) -> List[np.ndarray]:
     """Return the view list FastWAM expects for the checkpoint's geometry.
 
     - ``libero_ee8``: ``[agentview, wrist]`` — the model concatenates the two

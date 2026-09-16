@@ -80,7 +80,9 @@ class MiniCPMV46Plugin(MMPlugin):
         if target_sizes.numel() == 0:
             return target_sizes.new_zeros((0, 3))
         if target_sizes.dim() != 2 or target_sizes.shape[-1] != 2:
-            raise ValueError(f"Expected MiniCPM target_sizes with shape [n, 2], got {tuple(target_sizes.shape)}.")
+            raise ValueError(
+                f"Expected MiniCPM target_sizes with shape [n, 2], got {tuple(target_sizes.shape)}."
+            )
         ones = torch.ones(
             (target_sizes.shape[0], 1),
             dtype=target_sizes.dtype,
@@ -123,9 +125,13 @@ class MiniCPMV46Plugin(MMPlugin):
         return self.image_token_divisor
 
     def _image_placeholder(self, token_count: int, image_index: int, *, use_image_id: bool) -> str:
-        placeholder = f"{self.image_start_token}{self.image_token * token_count}{self.image_end_token}"
+        placeholder = (
+            f"{self.image_start_token}{self.image_token * token_count}{self.image_end_token}"
+        )
         if use_image_id:
-            placeholder = f"{self.image_id_start_token}{image_index}{self.image_id_end_token}" + placeholder
+            placeholder = (
+                f"{self.image_id_start_token}{image_index}{self.image_id_end_token}" + placeholder
+            )
         return placeholder
 
     def _build_image_placeholders(
@@ -148,7 +154,9 @@ class MiniCPMV46Plugin(MMPlugin):
         flat_index = 0
         for image_index, patch_count in enumerate(patch_counts):
             if flat_index >= len(image_grid_thw):
-                raise ValueError("MiniCPM image target_sizes are shorter than num_patches_per_image.")
+                raise ValueError(
+                    "MiniCPM image target_sizes are shorter than num_patches_per_image."
+                )
             source_grid = image_grid_thw[flat_index][1:]
             placeholder = self._image_placeholder(
                 self._token_count(source_grid, divisor),
@@ -171,9 +179,15 @@ class MiniCPMV46Plugin(MMPlugin):
 
     @staticmethod
     def _content_item_text(item, image_placeholders, image_index):
-        if item.get("type") == "image" or item.get("image") is not None or item.get("image_url") is not None:
+        if (
+            item.get("type") == "image"
+            or item.get("image") is not None
+            or item.get("image_url") is not None
+        ):
             if image_index >= len(image_placeholders):
-                raise ValueError(f"`len(images)` is less than the number of {Placeholder.IMAGE} tokens.")
+                raise ValueError(
+                    f"`len(images)` is less than the number of {Placeholder.IMAGE} tokens."
+                )
             return image_placeholders[image_index], image_index + 1
         if item.get("type") == "video" or item.get("video") is not None:
             raise ValueError("MiniCPM-V-4.6 video input is not supported.")
@@ -197,7 +211,9 @@ class MiniCPMV46Plugin(MMPlugin):
             "default_use_image_id",
             getattr(image_processor, "use_image_id", True),
         )
-        image_placeholders = self._build_image_placeholders(mm_inputs, processor, use_image_id=use_image_id)
+        image_placeholders = self._build_image_placeholders(
+            mm_inputs, processor, use_image_id=use_image_id
+        )
 
         image_index = 0
         messages = deepcopy(messages)
@@ -207,7 +223,9 @@ class MiniCPMV46Plugin(MMPlugin):
                 image_occurrences = content.count(Placeholder.IMAGE)
                 for _ in range(image_occurrences):
                     if image_index >= len(image_placeholders):
-                        raise ValueError(f"`len(images)` is less than the number of {Placeholder.IMAGE} tokens.")
+                        raise ValueError(
+                            f"`len(images)` is less than the number of {Placeholder.IMAGE} tokens."
+                        )
                     content = content.replace(Placeholder.IMAGE, image_placeholders[image_index], 1)
                     image_index += 1
                 if Placeholder.VIDEO in content:
@@ -217,7 +235,9 @@ class MiniCPMV46Plugin(MMPlugin):
                 for item in content:
                     if not isinstance(item, dict):
                         raise ValueError(f"Unexpected MiniCPM content item type: {type(item)}.")
-                    part, image_index = self._content_item_text(item, image_placeholders, image_index)
+                    part, image_index = self._content_item_text(
+                        item, image_placeholders, image_index
+                    )
                     parts.append(part)
                 content = "\n".join(parts)
             else:
@@ -225,7 +245,9 @@ class MiniCPMV46Plugin(MMPlugin):
             message["content"] = content
 
         if len(images) != image_index:
-            raise ValueError(f"The number of images does not match the number of {Placeholder.IMAGE} tokens.")
+            raise ValueError(
+                f"The number of images does not match the number of {Placeholder.IMAGE} tokens."
+            )
         return messages, mm_inputs
 
     @override

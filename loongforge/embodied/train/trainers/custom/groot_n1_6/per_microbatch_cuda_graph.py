@@ -17,7 +17,9 @@ from typing import Any
 import torch
 import torch.distributed as dist
 
-from loongforge.embodied.data.datasets.groot_n1_6.transforms.groot_collator import GrootN1d6PreparedBatch
+from loongforge.embodied.data.datasets.groot_n1_6.transforms.groot_collator import (
+    GrootN1d6PreparedBatch,
+)
 from loongforge.embodied.distributed.utils import unwrap_model
 
 logger = logging.getLogger(__name__)
@@ -56,7 +58,9 @@ def _copy_into_static(dst: Any, src: Any) -> None:
         return
     if dataclasses.is_dataclass(dst) and dataclasses.is_dataclass(src):
         if dst.__class__ is not src.__class__:
-            raise RuntimeError(f"PreparedBatch type changed: {dst.__class__.__name__} vs {src.__class__.__name__}")
+            raise RuntimeError(
+                f"PreparedBatch type changed: {dst.__class__.__name__} vs {src.__class__.__name__}"
+            )
         for f in dataclasses.fields(dst):
             _copy_into_static(getattr(dst, f.name), getattr(src, f.name))
         return
@@ -88,7 +92,9 @@ def _as_output_dict(result: Any) -> dict[str, torch.Tensor]:
             raise RuntimeError("GR00T train forward returned an empty tuple")
         loss = result[0]
         if not isinstance(loss, torch.Tensor):
-            raise RuntimeError(f"GR00T train forward returned non-tensor loss: {type(loss).__name__}")
+            raise RuntimeError(
+                f"GR00T train forward returned non-tensor loss: {type(loss).__name__}"
+            )
         return {"action_loss": loss}
     if isinstance(result, dict):
         return result
@@ -125,7 +131,9 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
         self._max_grad_sync_bucket_numel = max(int(bucket_mb * 1024 * 1024 / 4), 1)
         self._grad_sync_impl = self.training_args.cuda_graph_grad_sync_impl
         self._grad_sync_dtype = self.training_args.cuda_graph_grad_sync_dtype
-        self._grad_sync_reduce_op = dist.ReduceOp.AVG if hasattr(dist.ReduceOp, "AVG") else dist.ReduceOp.SUM
+        self._grad_sync_reduce_op = (
+            dist.ReduceOp.AVG if hasattr(dist.ReduceOp, "AVG") else dist.ReduceOp.SUM
+        )
         self._grad_sync_needs_div = self._grad_sync_reduce_op == dist.ReduceOp.SUM
         self._sync_params: list[torch.nn.Parameter] | None = None
         self._sync_params_all_present = False
@@ -275,13 +283,17 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
         """
         return local_batch_size
 
-    def _sync_step_output(self, output: dict[str, torch.Tensor]) -> tuple[dict[str, torch.Tensor], float]:
+    def _sync_step_output(
+        self, output: dict[str, torch.Tensor]
+    ) -> tuple[dict[str, torch.Tensor], float]:
         if output is None or "action_loss" not in output:
             raise RuntimeError("GR00T train step did not produce an action_loss output")
 
         return output, float(output["action_loss"].detach())
 
-    def _run_eager_batches(self, batches: list[GrootN1d6PreparedBatch]) -> tuple[dict[str, torch.Tensor], float]:
+    def _run_eager_batches(
+        self, batches: list[GrootN1d6PreparedBatch]
+    ) -> tuple[dict[str, torch.Tensor], float]:
         output = None
         accum_loss = 0.0
         self._set_graph_warmup_flag(True)
@@ -366,7 +378,9 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
         ddp_should_sync = self._prepare_ddp_capture(micro_idx)
         try:
             with self._graph_stream_ctx():
-                with torch.cuda.graph(graph, pool=self._shared_pool, stream=self._get_graph_stream()):
+                with torch.cuda.graph(
+                    graph, pool=self._shared_pool, stream=self._get_graph_stream()
+                ):
                     output = _as_output_dict(self.trainer._train_forward(static_batch))
                     loss = output["action_loss"] / self.grad_accum
                     loss.backward()
@@ -382,8 +396,12 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
         should_sync = micro_idx == self.grad_accum - 1
         ddp_model.require_backward_grad_sync = should_sync
         ddp_model.require_forward_param_sync = should_sync
-        if getattr(ddp_model, "find_unused_parameters", False) and not getattr(ddp_model, "static_graph", False):
-            raise RuntimeError("CUDA graph DDP sync capture requires --no-ddp-find-unused-parameters.")
+        if getattr(ddp_model, "find_unused_parameters", False) and not getattr(
+            ddp_model, "static_graph", False
+        ):
+            raise RuntimeError(
+                "CUDA graph DDP sync capture requires --no-ddp-find-unused-parameters."
+            )
         if self._saved_ddp_logger is None:
             self._saved_ddp_logger = ddp_model.logger
             ddp_model.logger = self._noop_ddp_logger
@@ -400,7 +418,11 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
             self._saved_ddp_logger = None
 
     def _backward(self, loss: torch.Tensor, micro_idx: int) -> None:
-        if self.ctx.is_distributed and micro_idx < self.grad_accum - 1 and hasattr(self.trainer.model, "no_sync"):
+        if (
+            self.ctx.is_distributed
+            and micro_idx < self.grad_accum - 1
+            and hasattr(self.trainer.model, "no_sync")
+        ):
             with self.trainer.model.no_sync():
                 loss.backward()
             return
@@ -408,7 +430,9 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
 
     def _load_static_batches(self, batches: list[GrootN1d6PreparedBatch]) -> None:
         if len(batches) != len(self._static_batches):
-            raise RuntimeError(f"Microbatch count changed: {len(self._static_batches)} -> {len(batches)}")
+            raise RuntimeError(
+                f"Microbatch count changed: {len(self._static_batches)} -> {len(batches)}"
+            )
         for static_batch, batch in zip(self._static_batches, batches):
             _copy_into_static(static_batch, batch)
 
@@ -533,8 +557,12 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
             return
 
         if self._sync_params is None:
-            trainable_params = [param for param in self._raw_model.parameters() if param.requires_grad]
-            self._sync_params_all_present = all(param.grad is not None for param in trainable_params)
+            trainable_params = [
+                param for param in self._raw_model.parameters() if param.requires_grad
+            ]
+            self._sync_params_all_present = all(
+                param.grad is not None for param in trainable_params
+            )
             self._sync_params = (
                 trainable_params
                 if not self._sync_params_all_present
@@ -595,17 +623,24 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
                 dist.all_reduce(flat, op=self._grad_sync_reduce_op)
                 if self._grad_sync_needs_div:
                     flat.div_(self.ctx.world_size)
-                for synced, grad in zip(torch._utils._unflatten_dense_tensors(flat, bucket_to_reduce), bucket):
+                for synced, grad in zip(
+                    torch._utils._unflatten_dense_tensors(flat, bucket_to_reduce), bucket
+                ):
                     grad.copy_(synced)
             if self._captured and self._sync_params_all_present:
                 built_buckets.append(bucket)
-                built_comm_buckets.append(bucket_to_reduce if bucket_to_reduce is not bucket else None)
+                built_comm_buckets.append(
+                    bucket_to_reduce if bucket_to_reduce is not bucket else None
+                )
             bucket = []
             bucket_numel = 0
 
         for idx, param in enumerate(params):
             if param.grad is None:
-                if missing_flags is not None and int(missing_flags[idx].item()) == self.ctx.world_size:
+                if (
+                    missing_flags is not None
+                    and int(missing_flags[idx].item()) == self.ctx.world_size
+                ):
                     continue
                 param.grad = torch.zeros_like(param, memory_format=torch.preserve_format)
                 self._materialized_sync_grad_ids.add(id(param))
@@ -638,7 +673,9 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
         if self._captured and self._sync_params_all_present:
             self._grad_sync_buckets = built_buckets
             self._grad_sync_comm_buckets = (
-                built_comm_buckets if any(comm_bucket is not None for comm_bucket in built_comm_buckets) else None
+                built_comm_buckets
+                if any(comm_bucket is not None for comm_bucket in built_comm_buckets)
+                else None
             )
 
     def _sync_cached_grad_buckets(self) -> None:
@@ -669,7 +706,9 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
                 dist.all_reduce(flat, op=self._grad_sync_reduce_op)
                 if self._grad_sync_needs_div:
                     flat.div_(self.ctx.world_size)
-                for synced, grad in zip(torch._utils._unflatten_dense_tensors(flat, bucket_to_reduce), bucket):
+                for synced, grad in zip(
+                    torch._utils._unflatten_dense_tensors(flat, bucket_to_reduce), bucket
+                ):
                     grad.copy_(synced)
         for work, bucket, target_bucket in pending_coalesced:
             work.wait()
@@ -683,7 +722,10 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
             return bucket
         if all(grad.dtype == torch.bfloat16 for grad in bucket):
             return bucket
-        return [torch.empty_like(grad, dtype=torch.bfloat16, memory_format=torch.preserve_format) for grad in bucket]
+        return [
+            torch.empty_like(grad, dtype=torch.bfloat16, memory_format=torch.preserve_format)
+            for grad in bucket
+        ]
 
     @staticmethod
     def _copy_bucket(dst_bucket: list[torch.Tensor], src_bucket: list[torch.Tensor]) -> None:
@@ -738,7 +780,9 @@ class GrootN1d6PerMicrobatchCudaGraphRunner:
         cpu_batches = self._fetch_prefetched_cpu_batches()
         stream = self._get_copy_stream()
         with torch.cuda.stream(stream):
-            self._prefetched_gpu_batches = [self.trainer._move_batch_to_device(batch) for batch in cpu_batches]
+            self._prefetched_gpu_batches = [
+                self.trainer._move_batch_to_device(batch) for batch in cpu_batches
+            ]
 
     def _get_copy_stream(self) -> torch.cuda.Stream:
         if self._copy_stream is None:

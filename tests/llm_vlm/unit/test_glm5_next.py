@@ -24,7 +24,9 @@ class Glm5NextTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if not dist.is_initialized():
-            dist.init_process_group("gloo", init_method="file:///tmp/glm5_next_unit_pg", rank=0, world_size=1)
+            dist.init_process_group(
+                "gloo", init_method="file:///tmp/glm5_next_unit_pg", rank=0, world_size=1
+            )
         from megatron.core import parallel_state
 
         if not parallel_state.is_initialized():

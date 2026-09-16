@@ -13,7 +13,9 @@ import torch.nn.functional as F
 if __package__:
     from loongforge.models.common.base_model_config import BaseModelMLAConfig
 else:
-    from megatron.core.transformer.transformer_config import MLATransformerConfig as BaseModelMLAConfig
+    from megatron.core.transformer.transformer_config import (
+        MLATransformerConfig as BaseModelMLAConfig,
+    )
 
 
 @dataclass
@@ -170,7 +172,9 @@ class Glm5NextConfig(BaseModelMLAConfig):
         self.num_moe_experts = self.n_routed_experts
         self.moe_ffn_hidden_size = self.moe_intermediate_size
         self.moe_shared_expert_intermediate_size = (
-            self.moe_intermediate_size * self.n_shared_experts if self.n_shared_experts > 0 else None
+            self.moe_intermediate_size * self.n_shared_experts
+            if self.n_shared_experts > 0
+            else None
         )
         self.moe_router_topk = self.num_experts_per_tok
         self.moe_router_num_groups = self.n_group
@@ -194,7 +198,10 @@ class Glm5NextConfig(BaseModelMLAConfig):
         if self.indexer_types is None:
             self.indexer_types = ["full"] * self.num_hidden_layers
         if not (
-            len(self.layer_types) == len(self.mlp_layer_types) == len(self.indexer_types) == self.num_hidden_layers
+            len(self.layer_types)
+            == len(self.mlp_layer_types)
+            == len(self.indexer_types)
+            == self.num_hidden_layers
         ):
             raise ValueError("layer schedules must match num_hidden_layers")
         if self.indexer_types[0] != "full":
@@ -205,7 +212,7 @@ class Glm5NextConfig(BaseModelMLAConfig):
             raise ValueError("index_topk must be divisible by index_kpool")
         if self.n_group > 1 and self.num_experts_per_tok // self.topk_group != 2:
             raise ValueError(
-                "Loong-Megatron group routing is GLM-equivalent only when num_experts_per_tok / topk_group == 2"
+                "Loong-Megatron group routing is GLM-equivalent only when num_experts_per_tok / topk_group == 2"  # noqa: E501
             )
         if not self.norm_topk_prob and self.num_experts_per_tok > 1:
             raise ValueError("Loong-Megatron sigmoid routing normalizes selected top-k weights")

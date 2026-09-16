@@ -92,7 +92,9 @@ def attn_res_aggregate(
     """
     rows = torch.cat((block_residual, prefix_sum.unsqueeze(-2)), dim=-2)
     rows_float = rows.float()
-    normalized = rows_float * torch.rsqrt(rows_float.square().mean(dim=-1, keepdim=True) + score_norm.eps)
+    normalized = rows_float * torch.rsqrt(
+        rows_float.square().mean(dim=-1, keepdim=True) + score_norm.eps
+    )
     score_weight = score_norm.weight.float() * score_proj.weight.squeeze(0).float()
     probabilities = torch.softmax((normalized * score_weight).sum(dim=-1), dim=-1)
     mixed = (probabilities.unsqueeze(-1) * rows_float).sum(dim=-2).to(rows.dtype)
@@ -116,7 +118,9 @@ def _drop_broken_hopper_autotune() -> None:
 
     autotuner = chunk_kda_bwd_kernel_wy_dqkg_fused.fn
     autotuner.configs = [
-        config for config in autotuner.configs if not (config.kwargs["BK"] == 32 and config.num_warps == 4)
+        config
+        for config in autotuner.configs
+        if not (config.kwargs["BK"] == 32 and config.num_warps == 4)
     ]
 
 

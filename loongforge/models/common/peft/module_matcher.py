@@ -58,9 +58,11 @@ class ModuleMatcher:
             Target modules can also contain wildcards. For example, you can specify
                 target_modules=['*.layers.0.*.linear_qkv', '*.layers.1.*.linear_qkv'] to add LoRA to only linear_qkv
                 on the first two layers.
-    """
+    """  # noqa: E501
 
-    target_modules: List[str] = field(default_factory=lambda: ["linear_qkv", "linear_proj", "linear_fc1", "linear_fc2"])
+    target_modules: List[str] = field(
+        default_factory=lambda: ["linear_qkv", "linear_proj", "linear_fc1", "linear_fc2"]
+    )
     exclude_modules: List[str] = field(default_factory=list)
     canonical_mapping: Dict[str, Set] = field(default_factory=lambda: defaultdict(set))
 
@@ -96,7 +98,7 @@ class ModuleMatcher:
         Notes:
         - `exclude_modules` should only be non-empty if neither `canonical_mapping` nor `target_modules` are set.
         - The function asserts that `exclude_modules` is empty when using `canonical_mapping` or `target_modules`.
-        """
+        """  # noqa: E501
 
         full_name = f"{prefix}.{name}" if prefix else name
         if len(self.canonical_mapping or []) > 0:
@@ -106,12 +108,16 @@ class ModuleMatcher:
             2) matches the current `full_name` with wildcard
             match is None if current module name doesn't match the specified targets.
             """
-            assert len(self.exclude_modules) == 0, "exclude_modules should be empty when using canonical_mapping"
+            assert len(self.exclude_modules) == 0, (
+                "exclude_modules should be empty when using canonical_mapping"
+            )
             for pattern in self.canonical_mapping:
                 if name == pattern or wildcard_match(pattern, full_name):
                     return (pattern, full_name)
         elif len(self.target_modules or []) > 0:
-            assert len(self.exclude_modules) == 0, "exclude_modules should be empty when using target_modules"
+            assert len(self.exclude_modules) == 0, (
+                "exclude_modules should be empty when using target_modules"
+            )
             for pattern in self.target_modules:
                 if name == pattern or wildcard_match(pattern, full_name):
                     return (pattern, full_name)

@@ -15,7 +15,9 @@ import torch.distributed as dist
 
 
 def digest_json(value) -> str:
-    return hashlib.sha256(json.dumps(value, ensure_ascii=True, separators=(",", ":")).encode()).hexdigest()
+    return hashlib.sha256(
+        json.dumps(value, ensure_ascii=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 def main() -> None:

@@ -157,9 +157,9 @@ def preprocess(
 
     # VAE encode video -> input_latents [1, C_z, T_l, H//8, W//8]
     pipe.load_models_to_device(["vae"])
-    input_latents = pipe.vae.encode(preprocess_video(frames, device, torch_dtype), device=device, tiled=False).to(
-        dtype=torch_dtype, device=device
-    )
+    input_latents = pipe.vae.encode(
+        preprocess_video(frames, device, torch_dtype), device=device, tiled=False
+    ).to(dtype=torch_dtype, device=device)
 
     # CLIP image encoding for Wan2.1 I2V.
     clip_feature = None
@@ -182,7 +182,9 @@ def preprocess(
         ],
         dim=1,
     )
-    y = pipe.vae.encode([vae_input], device=device, tiled=False)[0].to(dtype=torch_dtype, device=device)
+    y = pipe.vae.encode([vae_input], device=device, tiled=False)[0].to(
+        dtype=torch_dtype, device=device
+    )
     y = torch.cat([msk, y]).unsqueeze(0)  # [1, C_z+4, T_l, H//8, W//8]
 
     return {
@@ -201,22 +203,36 @@ def preprocess(
 def build_parser() -> argparse.ArgumentParser:
     """build parser"""
     p = argparse.ArgumentParser(
-        description="Wan2.2-I2V offline preprocessing: encode dataset samples into .pth cache files."
+        description="Wan2.2-I2V offline preprocessing: encode dataset samples into .pth cache files."  # noqa: E501
     )
     p.add_argument("--dataset_base_path", type=str, required=True)
     p.add_argument(
-        "--dataset_metadata_path", type=str, default=None, help="Path to metadata file (.csv / .json / .jsonl)."
+        "--dataset_metadata_path",
+        type=str,
+        default=None,
+        help="Path to metadata file (.csv / .json / .jsonl).",
     )
     p.add_argument("--height", type=int, default=480)
     p.add_argument("--width", type=int, default=832)
     p.add_argument("--num_frames", type=int, default=49)
     p.add_argument("--max_pixels", type=int, default=1280 * 720)
     p.add_argument(
-        "--model_paths", type=str, required=True, help="Comma-separated local paths to T5 and VAE weight files."
+        "--model_paths",
+        type=str,
+        required=True,
+        help="Comma-separated local paths to T5 and VAE weight files.",
     )
-    p.add_argument("--tokenizer_local_path", type=str, required=True, help="Local directory of the UMT5 tokenizer.")
     p.add_argument(
-        "--output_path", type=str, required=True, help="Output root; per-process subdirs are created automatically."
+        "--tokenizer_local_path",
+        type=str,
+        required=True,
+        help="Local directory of the UMT5 tokenizer.",
+    )
+    p.add_argument(
+        "--output_path",
+        type=str,
+        required=True,
+        help="Output root; per-process subdirs are created automatically.",
     )
     p.add_argument("--max_timestep_boundary", type=float, default=1.0)
     p.add_argument("--min_timestep_boundary", type=float, default=0.0)

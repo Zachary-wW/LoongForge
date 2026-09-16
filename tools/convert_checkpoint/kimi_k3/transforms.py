@@ -36,14 +36,24 @@ def normalize_kimi_k3_state_dict(state_dict: dict, c_config) -> None:
 
     for key, value in list(state_dict.items()):
         if num_experts > 0 and key.endswith(".block_sparse_moe.gate.weight"):
-            if not isinstance(value, torch.Tensor) or value.ndim != 2 or value.shape[0] < num_experts:
-                shape = tuple(value.shape) if isinstance(value, torch.Tensor) else type(value).__name__
+            if (
+                not isinstance(value, torch.Tensor)
+                or value.ndim != 2
+                or value.shape[0] < num_experts
+            ):
+                shape = (
+                    tuple(value.shape) if isinstance(value, torch.Tensor) else type(value).__name__
+                )
                 raise ValueError(f"Invalid K3 router-weight shape for {key}: {shape}")
             if value.shape[0] > num_experts:
                 state_dict[key] = value[:num_experts].contiguous()
             continue
         if num_experts > 0 and key.endswith(".block_sparse_moe.gate.e_score_correction_bias"):
-            if not isinstance(value, torch.Tensor) or value.ndim != 1 or value.numel() < num_experts:
+            if (
+                not isinstance(value, torch.Tensor)
+                or value.ndim != 1
+                or value.numel() < num_experts
+            ):
                 raise ValueError(f"Invalid K3 expert-bias shape for {key}: {tuple(value.shape)}")
             if value.numel() > num_experts:
                 state_dict[key] = value[:num_experts].contiguous()

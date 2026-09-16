@@ -36,6 +36,8 @@ class HuggingFaceDataset(ABC):
         # TODO: add unique identifiers for dataset description?
 
     @abstractmethod
-    def split(self, split: Optional[List[Tuple[float, float]]]) -> List[Optional[Union["Dataset", "IterableDataset"]]]:
+    def split(
+        self, split: Optional[List[Tuple[float, float]]]
+    ) -> List[Optional[Union["Dataset", "IterableDataset"]]]:
         """split dataset"""
         raise NotImplementedError

@@ -20,7 +20,7 @@ Two sources (the execution layer prefers JSONL, falling back to the stdout log w
 Unified output record format (aligned with the baseline JSON):
    {"iteration": 1, "elapsed_time_ms": 15098.4, "throughput": 0.53,
     "learning_rate": 5e-08, "action_loss": 0.4337, "grad_norm": 4.1888}
-"""
+"""  # noqa: E501
 
 import json
 import re
@@ -59,7 +59,7 @@ def parse_log(log_file):
 
     When the same iteration appears multiple times, the last one is kept (consistent with parse_jsonl behavior;
     the more complete record appended by a resume rerun overrides an earlier partial write).
-    """
+    """  # noqa: E501
     records = {}
     with open(log_file, "r", encoding="utf-8", errors="replace") as f:
         for line in f:
@@ -102,8 +102,12 @@ def parse_jsonl(jsonl_file):
             if isinstance(raw.get("step_time"), (int, float)):
                 record["elapsed_time_ms"] = raw["step_time"] * 1000.0
             for key, value in raw.items():
-                # Exclude bool (in Python bool is a subclass of int, and float(True)=1.0 would pollute the metrics)
-                if key in _JSONL_SKIP or not isinstance(value, (int, float)) or isinstance(value, bool):
+                # Exclude bool (in Python bool is a subclass of int, and float(True)=1.0 would pollute the metrics)  # noqa: E501
+                if (
+                    key in _JSONL_SKIP
+                    or not isinstance(value, (int, float))
+                    or isinstance(value, bool)
+                ):
                     continue
                 record[_JSONL_KEY_MAP.get(key, key)] = float(value)
             records[record["iteration"]] = record

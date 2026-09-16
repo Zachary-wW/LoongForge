@@ -55,7 +55,9 @@ def parse_reshard_after_forward(value: str):
     try:
         int_value = int(value)
     except ValueError as exc:
-        raise argparse.ArgumentTypeError("expected one of: true, false, none, or an integer greater than 1") from exc
+        raise argparse.ArgumentTypeError(
+            "expected one of: true, false, none, or an integer greater than 1"
+        ) from exc
     if int_value <= 1:
         raise argparse.ArgumentTypeError("integer reshard_after_forward must be greater than 1")
     return int_value
@@ -236,7 +238,9 @@ class _BasicTrainingArgs:
     )
     seed: int = field(
         default=3047,
-        metadata={"help": "Global RNG seed for Python/NumPy/PyTorch and data shuffling (reproducibility)."},
+        metadata={
+            "help": "Global RNG seed for Python/NumPy/PyTorch and data shuffling (reproducibility)."
+        },
     )
     set_seed_by_rank: bool = field(
         default=False,
@@ -252,7 +256,9 @@ class _BasicTrainingArgs:
     )
     disable_tf32: bool = field(
         default=False,
-        metadata={"help": "disabletorch.backends.cudnn.allow_tf32torch.backends.cuda.matmul.allow_tf32"},
+        metadata={
+            "help": "disabletorch.backends.cudnn.allow_tf32torch.backends.cuda.matmul.allow_tf32"
+        },
     )
     cudnn_benchmark: bool = field(
         default=False,
@@ -288,11 +294,15 @@ class _BasicTrainingArgs:
     )
     manual_gc: bool = field(
         default=False,
-        metadata={"help": "Disable automatic Python GC and collect explicitly after optimizer steps."},
+        metadata={
+            "help": "Disable automatic Python GC and collect explicitly after optimizer steps."
+        },
     )
     manual_gc_interval: int = field(
         default=0,
-        metadata={"help": "Manual GC cadence in steps when --manual-gc is enabled; 0 disables periodic collection."},
+        metadata={
+            "help": "Manual GC cadence in steps when --manual-gc is enabled; 0 disables periodic collection."  # noqa: E501
+        },
     )
     check_for_nan_in_loss_and_grad: bool = field(
         default=True,
@@ -306,7 +316,9 @@ class _LearningRateArgs:
 
     lr_base: float = field(
         default=2.5e-5,
-        metadata={"help": "Base learning rate applied to all parameters not matched by --lr-group."},
+        metadata={
+            "help": "Base learning rate applied to all parameters not matched by --lr-group."
+        },
     )
     lr_group: Optional[str] = field(
         default=None,
@@ -532,12 +544,14 @@ class _LearningRateArgs:
     lr_end: float = field(
         default=1e-7,
         metadata={
-            "help": "polynomial: final LR value at the end of decay. Only used when --lr-decay-style=polynomial."
+            "help": "polynomial: final LR value at the end of decay. Only used when --lr-decay-style=polynomial."  # noqa: E501
         },
     )
     polynomial_power: float = field(
         default=1.0,
-        metadata={"help": "polynomial: power factor of the decay curve. Only used when --lr-decay-style=polynomial."},
+        metadata={
+            "help": "polynomial: power factor of the decay curve. Only used when --lr-decay-style=polynomial."  # noqa: E501
+        },
     )
     # ── cosine_with_restarts scheduler params ──
     num_cycles: float = field(
@@ -583,7 +597,7 @@ class _OptimizerArgs:
     adam_beta1: float = field(
         default=0.9,
         metadata={
-            "help": "Adam beta1 — exponential decay rate for the first moment (mean). Also used by DMuon's AdamW route."
+            "help": "Adam beta1 — exponential decay rate for the first moment (mean). Also used by DMuon's AdamW route."  # noqa: E501
         },
     )
     adam_beta2: float = field(
@@ -596,7 +610,7 @@ class _OptimizerArgs:
     adam_eps: float = field(
         default=1e-8,
         metadata={
-            "help": "Adam epsilon added to the denominator for numerical stability. Also used by DMuon's AdamW route."
+            "help": "Adam epsilon added to the denominator for numerical stability. Also used by DMuon's AdamW route."  # noqa: E501
         },
     )
     dmuon_muon_lr: float = field(
@@ -643,7 +657,9 @@ class _OptimizerArgs:
     )
     dmuon_forward_prefetch_depth: int = field(
         default=1,
-        metadata={"help": "Number of subsequent DMuon parameter groups to prefetch during forward execution."},
+        metadata={
+            "help": "Number of subsequent DMuon parameter groups to prefetch during forward execution."  # noqa: E501
+        },
     )
     dmuon_adamw_foreach: bool = field(
         default=False,
@@ -671,7 +687,9 @@ class _DataArgs:
 
     dataset_format: str = field(
         default="lerobot_datasets",
-        metadata={"help": "Dataset backend to use (e.g. lerobot_datasets, hdf5_datasets, dummy_datasets)."},
+        metadata={
+            "help": "Dataset backend to use (e.g. lerobot_datasets, hdf5_datasets, dummy_datasets)."
+        },
     )
     dataset_path: Optional[str] = field(
         default=None,
@@ -717,17 +735,23 @@ class _DataArgs:
     )
     robot_type: Optional[str] = field(
         default=None,
-        metadata={"help": "Robot embodiment type (e.g. libero_franka); selects action/state layout."},
+        metadata={
+            "help": "Robot embodiment type (e.g. libero_franka); selects action/state layout."
+        },
     )
     task_name: str = field(
         default="perform the task",
-        metadata={"help": "Language instruction used as the prompt when the dataset has none (HDF5)."},
+        metadata={
+            "help": "Language instruction used as the prompt when the dataset has none (HDF5)."
+        },
     )
     per_device_batch_size: int = field(
         default=4,
         metadata={"help": "Micro-batch size processed per GPU per forward pass."},
     )
-    num_workers: int = field(default=4, metadata={"help": "Number of DataLoader worker processes per rank."})
+    num_workers: int = field(
+        default=4, metadata={"help": "Number of DataLoader worker processes per rank."}
+    )
     dataloader_prefetch_factor: int = field(
         default=2,
         metadata={
@@ -774,7 +798,7 @@ class _DataArgs:
     num_samples: int = field(
         default=100,
         metadata={
-            "help": "Number of synthetic samples to generate. Only effective when --dataset-format=dummy_datasets."
+            "help": "Number of synthetic samples to generate. Only effective when --dataset-format=dummy_datasets."  # noqa: E501
         },
     )
 
@@ -798,7 +822,7 @@ class _CheckpointArgs:
         default="safetensors",
         metadata={
             "choices": ["safetensors", "pt", "dcp"],
-            "help": "On-disk checkpoint format: safetensors, raw torch .pt, or distributed checkpoint (dcp).",
+            "help": "On-disk checkpoint format: safetensors, raw torch .pt, or distributed checkpoint (dcp).",  # noqa: E501
         },
     )
     save_training_state: bool = field(
@@ -817,7 +841,9 @@ class _FreezeArgs:
 
     freeze_modules: str = field(
         default="",
-        metadata={"help": "Comma-separated module path prefixes whose parameters are frozen (requires_grad=False)."},
+        metadata={
+            "help": "Comma-separated module path prefixes whose parameters are frozen (requires_grad=False)."  # noqa: E501
+        },
     )
 
 
@@ -846,11 +872,15 @@ class _LoraArgs:
     )
     lora_target_modules: Optional[str] = field(
         default=None,
-        metadata={"help": "Comma-separated target module names. Overrides the model-provided defaults."},
+        metadata={
+            "help": "Comma-separated target module names. Overrides the model-provided defaults."
+        },
     )
     lora_modules_to_save: Optional[str] = field(
         default=None,
-        metadata={"help": "Comma-separated modules trained and saved in full. Overrides the model-provided defaults."},
+        metadata={
+            "help": "Comma-separated modules trained and saved in full. Overrides the model-provided defaults."  # noqa: E501
+        },
     )
     lora_bias: str = field(
         default="none",
@@ -905,7 +935,9 @@ class _LoggingArgs:
     )
     tensorboard_queue_size: int = field(
         default=1000,
-        metadata={"help": "Max pending events buffered before the async TensorBoard writer flushes."},
+        metadata={
+            "help": "Max pending events buffered before the async TensorBoard writer flushes."
+        },
     )
 
 
@@ -965,29 +997,33 @@ class _CudaGraphArgs:
     cuda_graph_pad_length: Optional[int] = field(
         default=None,
         metadata={
-            "help": "Fixed token sequence length to pad to; required so captured shapes stay static across steps."
+            "help": "Fixed token sequence length to pad to; required so captured shapes stay static across steps."  # noqa: E501
         },
     )
     cuda_graph_ddp_sync_in_graph: bool = field(
         default=False,
-        metadata={"help": "Capture DDP gradient all-reduce inside the graph instead of running it eagerly."},
+        metadata={
+            "help": "Capture DDP gradient all-reduce inside the graph instead of running it eagerly."  # noqa: E501
+        },
     )
     cuda_graph_grad_sync_bucket_mb: float = field(
         default=200.0,
-        metadata={"help": "Bucket size (MiB) for the manual gradient all-reduce used with CUDA graphs."},
+        metadata={
+            "help": "Bucket size (MiB) for the manual gradient all-reduce used with CUDA graphs."
+        },
     )
     cuda_graph_grad_sync_impl: str = field(
         default="coalesced",
         metadata={
             "choices": ["flat", "coalesced"],
-            "help": "Manual gradient all-reduce implementation: single flat buffer or coalesced buckets.",
+            "help": "Manual gradient all-reduce implementation: single flat buffer or coalesced buckets.",  # noqa: E501
         },
     )
     cuda_graph_grad_sync_dtype: str = field(
         default="fp32",
         metadata={
             "choices": ["fp32", "float32", "bf16", "bfloat16"],
-            "help": "Communication dtype for the manual gradient all-reduce (bf16 halves comm volume).",
+            "help": "Communication dtype for the manual gradient all-reduce (bf16 halves comm volume).",  # noqa: E501
         },
     )
 
@@ -1031,14 +1067,14 @@ class _FP8Args:
     fp8: bool = field(
         default=False,
         metadata={
-            "help": "Convert selected nn.Linear modules for FP8 training with the backend selected by --fp8-backend.",
+            "help": "Convert selected nn.Linear modules for FP8 training with the backend selected by --fp8-backend.",  # noqa: E501
         },
     )
     fp8_backend: str = field(
         default="te",
         metadata={
             "choices": ["te", "torchao"],
-            "help": "FP8 implementation: TransformerEngine (te) or native PyTorch TorchAO (torchao).",
+            "help": "FP8 implementation: TransformerEngine (te) or native PyTorch TorchAO (torchao).",  # noqa: E501
         },
     )
 
@@ -1140,7 +1176,7 @@ class _FP8Args:
     fp8_te_current_use_power_2_scales: bool = field(
         default=False,
         metadata={
-            "help": "TransformerEngine Float8CurrentScaling only: constrain scaling factors to powers of two.",
+            "help": "TransformerEngine Float8CurrentScaling only: constrain scaling factors to powers of two.",  # noqa: E501
         },
     )
     fp8_te_block_use_f32_scales: bool = field(
@@ -1196,7 +1232,9 @@ class _DistributedArgs:
 
     init_on_meta: bool = field(
         default=False,
-        metadata={"help": "Allocate all params on 'meta' device.Then weights are loaded into the sharded DTensors."},
+        metadata={
+            "help": "Allocate all params on 'meta' device.Then weights are loaded into the sharded DTensors."  # noqa: E501
+        },
     )
 
     distributed_strategy: str = field(
@@ -1396,12 +1434,14 @@ class _DistributedArgs:
     ddp_find_unused_parameters: bool = field(
         default=True,
         metadata={
-            "help": "Detect parameters unused in the forward graph (needed for conditional branches; adds overhead)."
+            "help": "Detect parameters unused in the forward graph (needed for conditional branches; adds overhead)."  # noqa: E501
         },
     )
     ddp_gradient_as_bucket_view: bool = field(
         default=False,
-        metadata={"help": "Expose gradients as views into DDP communication buckets to save memory."},
+        metadata={
+            "help": "Expose gradients as views into DDP communication buckets to save memory."
+        },
     )
     ddp_static_graph: bool = field(
         default=False,
@@ -1436,7 +1476,9 @@ class _DistributedArgs:
     )
     ddp_comm_hook_logging: bool = field(
         default=False,
-        metadata={"help": "Wrap the DDP comm hook with rank-0 logging of bucket info before/after each all-reduce."},
+        metadata={
+            "help": "Wrap the DDP comm hook with rank-0 logging of bucket info before/after each all-reduce."  # noqa: E501
+        },
     )
     ddp_comm_hook_fp8_block: int = field(
         default=256,

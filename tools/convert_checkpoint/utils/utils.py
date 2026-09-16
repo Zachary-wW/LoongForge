@@ -46,7 +46,7 @@ def get_element_from_dict_by_path(d, path):
     Args:
         d (dict): the dictionary to get the element from
         path (list): the path to the element which is delimited by "."
-    """
+    """  # noqa: E501
     path = path.split(".")
     for k in path:
         if k not in d:
@@ -111,13 +111,16 @@ def transpose_shape0(param, m, n):
     return param.view(*current_shape).transpose(0, 1).contiguous().view(*_shape)
 
 
-def uneven_vpp_partition(num_layers, pp, vp, num_layers_in_first_pipeline_stage, num_layers_in_last_pipeline_stage):
+def uneven_vpp_partition(
+    num_layers, pp, vp, num_layers_in_first_pipeline_stage, num_layers_in_last_pipeline_stage
+):
     assert num_layers is not None and num_layers > 0, "num_layers must be provided."
     assert pp is not None and pp > 1, "pipeline model parallel size must be greater than 1."
     assert vp is not None and vp == 2, "virtual pipeline must be 2."
-    assert num_layers_in_first_pipeline_stage is not None or num_layers_in_last_pipeline_stage is not None, (
-        "num_layers_in_first_pipeline_stage or num_layers_in_last_pipeline_stage must be provided."
-    )
+    assert (
+        num_layers_in_first_pipeline_stage is not None
+        or num_layers_in_last_pipeline_stage is not None
+    ), "num_layers_in_first_pipeline_stage or num_layers_in_last_pipeline_stage must be provided."
     # Number of layers to distribute over rest of pipeline stages
     layers_to_distribute = num_layers
     # Number of pipeline stages left for distributing transformer layers
@@ -159,8 +162,12 @@ def custom_partition_imbalanced(num_layers, num_parts, custom_layers):
     if custom_layers.find(",") != -1:
         splits = [int(s) for s in custom_layers.split(",")]
     if len(splits) != num_parts:
-        raise ValueError(f"the argments of custom_pipeline_layers must be equal to pipeline size {num_parts}.")
-    assert num_layers == sum(splits), f"the sum of custom_pipeline_layers must be equal to num_layers {num_layers}."
+        raise ValueError(
+            f"the argments of custom_pipeline_layers must be equal to pipeline size {num_parts}."
+        )
+    assert num_layers == sum(splits), (
+        f"the sum of custom_pipeline_layers must be equal to num_layers {num_layers}."
+    )
     parts_count = splits
     parts = [0] * (num_parts + 1)
     for i in range(1, len(parts_count) + 1):
@@ -377,7 +384,9 @@ def make_hf_sub_checkpoints(base_path):
 
                             # Calculate new filename
                             new_i = sum_sub_count + i
-                            new_filename = f"model-{new_i:05d}-of-{global_file_count:05d}.safetensors"
+                            new_filename = (
+                                f"model-{new_i:05d}-of-{global_file_count:05d}.safetensors"
+                            )
 
                             # Rename file
                             old_filepath = os.path.join(subdir_path, filename)
@@ -412,12 +421,14 @@ def make_hf_sub_checkpoints(base_path):
                         # Replace with corresponding value in one_dict
                         merged_weight_map[key] = one_dict[value]
                     else:
-                        # If no replacement item found, keep original value (can be adjusted as needed)
-                        # Note: Keeping original value here may not have meaning, as typically we don't
+                        # If no replacement item found, keep original value (can be adjusted as needed)  # noqa: E501
+                        # Note: Keeping original value here may not have meaning, as typically we don't  # noqa: E501
                         # want to keep filename as weight name
                         # But for completeness of the example, I kept this line
                         # In actual application, you may want to throw an error or log a warning
-                        merged_weight_map[key] = value  # This is usually not expected behavior, only for example
+                        merged_weight_map[key] = (
+                            value  # This is usually not expected behavior, only for example
+                        )
 
     # Build new dict
     new_dict = {"metadata": merged_metadata, "weight_map": merged_weight_map}
@@ -460,13 +471,24 @@ def get_num_layers_in_vp_map(
     num_layers_in_last_pipeline_stage=None,
 ):
     if custom_pipeline_layers is not None:
-        assert num_layers_in_first_pipeline_stage is None and num_layers_in_last_pipeline_stage is None, (
-            "custom_pipeline_layers need not num_layers_in_first_pipeline_stage or in_last_pipeline_stage"
+        assert (
+            num_layers_in_first_pipeline_stage is None and num_layers_in_last_pipeline_stage is None
+        ), (
+            "custom_pipeline_layers need not num_layers_in_first_pipeline_stage or in_last_pipeline_stage"  # noqa: E501
         )
-        num_layers_in_vp, _ = custom_partition_imbalanced(num_layers, pp * stage, custom_pipeline_layers)
-    elif num_layers_in_first_pipeline_stage is not None or num_layers_in_last_pipeline_stage is not None:
+        num_layers_in_vp, _ = custom_partition_imbalanced(
+            num_layers, pp * stage, custom_pipeline_layers
+        )
+    elif (
+        num_layers_in_first_pipeline_stage is not None
+        or num_layers_in_last_pipeline_stage is not None
+    ):
         num_layers_in_vp = uneven_vpp_partition(
-            num_layers, pp, stage, num_layers_in_first_pipeline_stage, num_layers_in_last_pipeline_stage
+            num_layers,
+            pp,
+            stage,
+            num_layers_in_first_pipeline_stage,
+            num_layers_in_last_pipeline_stage,
         )
     else:
         num_layers_in_vp, _ = partition_balanced(num_layers, pp * stage)
@@ -567,7 +589,8 @@ def get_ep_map(num_experts, ep):
         return None, None, None
     experts_ids = [x for x in range(num_experts)]
     chunks = [
-        experts_ids[x : x + num_experts // ep] for x in range(0, len(experts_ids), num_experts // ep)
+        experts_ids[x : x + num_experts // ep]
+        for x in range(0, len(experts_ids), num_experts // ep)
     ]  # ep_id -> [expert_ids]
 
     expert_local_mapping = {}
@@ -587,7 +610,9 @@ def get_ep_map(num_experts, ep):
 def get_etp_map(tp, ep, etp):
     if etp is None:
         return None, None
-    assert tp % (etp * ep) == 0 or (etp * ep) % tp == 0, f"tp: {tp}, etp: {etp}, ep: {ep}, tp % (etp * ep) != 0"
+    assert tp % (etp * ep) == 0 or (etp * ep) % tp == 0, (
+        f"tp: {tp}, etp: {etp}, ep: {ep}, tp % (etp * ep) != 0"
+    )
     etp_to_tp_mapping = {}
     v_tp = tp
     if tp < etp * ep:
@@ -626,7 +651,9 @@ def get_quantizer_with_weight_scale_inv(weight, weight_scale_inv, dtype, amax_ep
     )
     qx = q.make_empty(weight.shape, dtype=dtype, device="cpu")
     qx._rowwise_data.copy_(weight.view(torch.uint8))
-    qx._rowwise_scale_inv[: weight_scale_inv.size(0), : weight_scale_inv.size(1)].copy_(weight_scale_inv)
+    qx._rowwise_scale_inv[: weight_scale_inv.size(0), : weight_scale_inv.size(1)].copy_(
+        weight_scale_inv
+    )
     return qx
 
 
@@ -709,7 +736,9 @@ def convert_bf16_to_fp8(
     if method == "pt":
         assert x.dim() == 2
         m, n = x.shape
-        x_padded = torch.zeros((ceil_div(m, 128) * 128, ceil_div(n, 128) * 128), dtype=x.dtype, device=x.device)
+        x_padded = torch.zeros(
+            (ceil_div(m, 128) * 128, ceil_div(n, 128) * 128), dtype=x.dtype, device=x.device
+        )
         x_padded[:m, :n] = x
         x_view = x_padded.view(-1, 128, x_padded.size(1) // 128, 128)
         x_amax = x_view.abs().float().amax(dim=(1, 3), keepdim=True).clamp(min=amax_epsilon)
@@ -726,7 +755,9 @@ def convert_bf16_to_fp8(
             scale_inv = 448.0 / x_amax
             x_scaled = (x_view * scale_inv).to(fp8_dtype)
         # scale returned is the scale factor (for dequantization: x = x_scaled * scale)
-        return x_scaled.view_as(x_padded)[:m, :n].contiguous().cpu(), scale.view(x_view.size(0), x_view.size(2)).cpu()
+        return x_scaled.view_as(x_padded)[:m, :n].contiguous().cpu(), scale.view(
+            x_view.size(0), x_view.size(2)
+        ).cpu()
 
     elif method == "te":
         from transformer_engine.pytorch.tensor.float8_blockwise_tensor import Float8BlockQuantizer

@@ -106,9 +106,13 @@ class GrootN1d7ModelFactory:
 
         import torch
 
-        pretrained_path = str(Path(server_args.ckpt_path).expanduser()) if server_args.ckpt_path else ""
+        pretrained_path = (
+            str(Path(server_args.ckpt_path).expanduser()) if server_args.ckpt_path else ""
+        )
         resolved_device = torch.device(
-            server_args.device if torch.cuda.is_available() or not server_args.device.startswith("cuda") else "cpu"
+            server_args.device
+            if torch.cuda.is_available() or not server_args.device.startswith("cuda")
+            else "cpu"
         )
 
         # Builds GrootN1d7Policy (loads the Qwen3-VL backbone from model_cfg.model_name).
@@ -152,11 +156,15 @@ class GrootN1d7ModelFactory:
         if _chunk_execute_steps > 0:
             _orig_predict_action = model.predict_action
 
-            def _predict_action_truncate(images, instructions, state=None, dataset_stats=None, **kwargs):
+            def _predict_action_truncate(
+                images, instructions, state=None, dataset_stats=None, **kwargs
+            ):
                 # Extra eval payload keys (cfg_scale, unnorm_key, ...) are swallowed
                 # here and NOT forwarded: GrootN1d7Policy.predict_action does not
                 # consume them.
-                result = _orig_predict_action(images, instructions, state=state, dataset_stats=dataset_stats)
+                result = _orig_predict_action(
+                    images, instructions, state=state, dataset_stats=dataset_stats
+                )
                 arr = np.asarray(result)
                 if arr.ndim == 3 and arr.shape[1] > _chunk_execute_steps:
                     arr = arr[:, :_chunk_execute_steps]
@@ -170,7 +178,9 @@ class GrootN1d7ModelFactory:
             "framework": "loongforge",
             "model_type": "gr00tn1d7",
             "embodiment_tag": embodiment_tag,
-            "ckpt_path": pretrained_path if not server_args.random_init else "random_init://gr00tn1d7",
+            "ckpt_path": pretrained_path
+            if not server_args.random_init
+            else "random_init://gr00tn1d7",
             "random_init": bool(server_args.random_init),
             "loongforge_root": server_args.loongforge_root,
             # Decoded LIBERO action dim (x, y, z, axis-angle x3, gripper).

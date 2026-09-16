@@ -145,7 +145,7 @@ class MinimaxSelfAttention(Attention):
             assert len(srcs) == len(tgts) == len(names)
             for src, tgt, name in zip(srcs, tgts, names):
                 assert torch.all(src == tgt), (
-                    f"Discrepancy between {name} in {parallelism} ranks {i} and {rank}. Diff: {torch.norm(src - tgt)}"
+                    f"Discrepancy between {name} in {parallelism} ranks {i} and {rank}. Diff: {torch.norm(src - tgt)}"  # noqa: E501
                 )
 
         for i, dp in enumerate(dp_list):

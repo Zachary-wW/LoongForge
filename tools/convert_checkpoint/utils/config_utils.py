@@ -118,14 +118,19 @@ def update_overwrite(model_cfg, module_cfg, module_type):
             continue
 
 
-prefix_mapping = {"vision_model": "encoder_model.image_encoder", "adapter": "encoder_model.image_projector"}
+prefix_mapping = {
+    "vision_model": "encoder_model.image_encoder",
+    "adapter": "encoder_model.image_projector",
+}
 
 
 def get_adapter_config(config_file, convert_file):
     with open(config_file, "r") as f:
         module_names = parse_at_configs(f.readlines())
     module_type = convert_file.split("/")[-3]
-    name_map = load_config(convert_file, hydra_overrides={module_type + "@module=" + module_names[module_type]})
+    name_map = load_config(
+        convert_file, hydra_overrides={module_type + "@module=" + module_names[module_type]}
+    )
     adapter_name_map = {}
     for k1, k2 in name_map.items():
         if k1 != "name_map" and k1 != "module":
@@ -138,7 +143,9 @@ def get_vision_patch_config(config_file, convert_file):
     with open(config_file, "r") as f:
         module_names = parse_at_configs(f.readlines())
     module_type = convert_file.split("/")[-3]
-    cfg = load_config(convert_file, hydra_overrides={module_type + "@module=" + module_names[module_type]})
+    cfg = load_config(
+        convert_file, hydra_overrides={module_type + "@module=" + module_names[module_type]}
+    )
 
     return cfg.vision_patch
 
@@ -156,7 +163,9 @@ def parse_yaml_config(config_file, convert_file):
         config_name = os.path.splitext(os.path.basename(config_file))[0]
         cfg = load_config(convert_file, hydra_overrides={module_type + "@module=" + config_name})
     else:  # omni vlm
-        cfg = load_config(convert_file, hydra_overrides={module_type + "@module=" + module_names[module_type]})
+        cfg = load_config(
+            convert_file, hydra_overrides={module_type + "@module=" + module_names[module_type]}
+        )
     OmegaConf.set_struct(cfg, False)
 
     model_cfg = load_config(config_file)
@@ -214,10 +223,12 @@ def convert_vlm_config(c_config, adapter=None, vision_patch=None, for_vlm=False)
 
         word_embeddings = c_config.get("name_map")["mcore"].get(WORD_EMBEDDINGS, None)
         if word_embeddings == "foundation_model.embedding.word_embeddings":
-            c_config.get("name_map")["huggingface"][VISION_WORD_EMBEDDINGS] = c_config.get("name_map")["huggingface"][
-                WORD_EMBEDDINGS
-            ]
-            c_config.get("name_map")["mcore"][VISION_WORD_EMBEDDINGS] = "encoder_model.text_encoder.word_embeddings"
+            c_config.get("name_map")["huggingface"][VISION_WORD_EMBEDDINGS] = c_config.get(
+                "name_map"
+            )["huggingface"][WORD_EMBEDDINGS]
+            c_config.get("name_map")["mcore"][VISION_WORD_EMBEDDINGS] = (
+                "encoder_model.text_encoder.word_embeddings"
+            )
     return c_config
 
 
@@ -277,7 +288,9 @@ def replace_vlm_config(c_config, adapter, vision_patch):
             hf_dict[hf_name] = True
 
     replace_prefix_keys = (
-        [LAYER_PREFIX] + FIRST_LAYER_NAMES + [name for name in LAST_LAYER_NAMES if name not in LAYER_LOCAL_LAST_NAMES]
+        [LAYER_PREFIX]
+        + FIRST_LAYER_NAMES
+        + [name for name in LAST_LAYER_NAMES if name not in LAYER_LOCAL_LAST_NAMES]
     )
     for key in replace_prefix_keys:
         mcore_key = c_config.get("name_map")["mcore"].get(key, None)

@@ -130,7 +130,9 @@ class RolloutStateStore:
         self._state = LingBotVARolloutState(episode_id=episode_id, keyframe_stride=keyframe_stride)
         return self._state
 
-    def get_or_start(self, episode_id: str, keyframe_stride: int, episode_step: int) -> LingBotVARolloutState:
+    def get_or_start(
+        self, episode_id: str, keyframe_stride: int, episode_step: int
+    ) -> LingBotVARolloutState:
         """Fetch the active state, starting a new episode when required.
 
         A new episode begins when ``episode_step == 0``; that also covers a re-run of

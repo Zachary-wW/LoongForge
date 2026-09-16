@@ -321,7 +321,9 @@ class SceneSupportSurfaceTest(unittest.TestCase):
         assert np.isfinite(p).all()
         assert np.isfinite(w).all()
         np.testing.assert_allclose(np.linalg.det(r), np.ones(len(r)), atol=1e-6)
-        np.testing.assert_allclose(np.einsum("nij,nkj->nik", r, r), np.broadcast_to(np.eye(3), r.shape), atol=1e-6)
+        np.testing.assert_allclose(
+            np.einsum("nij,nkj->nik", r, r), np.broadcast_to(np.eye(3), r.shape), atol=1e-6
+        )
 
     def test_invalid_keypoints_are_interpolated_without_sentinel_leak(self):
         values = np.array([[0.0, 1.0], [np.nan, 1e9], [2.0, 3.0]])

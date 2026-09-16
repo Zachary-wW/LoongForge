@@ -39,7 +39,9 @@ def _extract_image(env_obs: Any, camera_name: str, allow_dummy_image: bool = Fal
     if not isinstance(env_obs, dict):
         if allow_dummy_image:
             return _dummy_image()
-        raise KeyError(f"Could not find RGB image for camera {camera_name!r} in ManiSkill observation")
+        raise KeyError(
+            f"Could not find RGB image for camera {camera_name!r} in ManiSkill observation"
+        )
 
     if "image" in env_obs:
         image_obs = env_obs["image"]
@@ -121,7 +123,9 @@ class ManiSkillAdapter(BaseBenchmarkAdapter):
         # finger joints). PayloadBuilder ``passthrough`` mode reads
         # ``state_raw.joint`` directly and forwards it as ``state``.
         if qpos.size >= 9:
-            joint = np.concatenate([qpos[:7], np.array([float(qpos[7:9].mean())], dtype=np.float32)])
+            joint = np.concatenate(
+                [qpos[:7], np.array([float(qpos[7:9].mean())], dtype=np.float32)]
+            )
         elif qpos.size:
             joint = qpos
         else:
@@ -168,7 +172,9 @@ class ManiSkillAdapter(BaseBenchmarkAdapter):
             },
         }
 
-    def action_from_canonical(self, canonical_action: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> Any:
+    def action_from_canonical(
+        self, canonical_action: Dict[str, Any], context: Optional[Dict[str, Any]] = None
+    ) -> Any:
         """Convert a canonical 7D action to the ManiSkill control action."""
         if "actions" in canonical_action:
             flat = np.asarray(canonical_action["actions"], dtype=np.float32).reshape(-1)
@@ -176,17 +182,25 @@ class ManiSkillAdapter(BaseBenchmarkAdapter):
             rotation_delta = flat[3:6]
             gripper_value = flat[6]
         else:
-            world_vector = np.asarray(canonical_action["world_vector"], dtype=np.float32).reshape(-1)
+            world_vector = np.asarray(canonical_action["world_vector"], dtype=np.float32).reshape(
+                -1
+            )
             rotation_delta = np.asarray(
-                canonical_action.get("rot_axangle", canonical_action.get("rotation_delta")), dtype=np.float32
+                canonical_action.get("rot_axangle", canonical_action.get("rotation_delta")),
+                dtype=np.float32,
             ).reshape(-1)
             gripper_value = canonical_action["gripper"]
 
         if world_vector.size != 3 or rotation_delta.size != 3:
-            raise ValueError(f"Invalid ManiSkill action shape: world={world_vector.shape}, rot={rotation_delta.shape}")
+            raise ValueError(
+                f"Invalid ManiSkill action shape: world={world_vector.shape}, rot={rotation_delta.shape}"  # noqa: E501
+            )
 
         gripper = self._convert_gripper(gripper_value)
-        return np.concatenate([world_vector, rotation_delta, gripper], axis=0).astype(np.float32) * self.action_scale
+        return (
+            np.concatenate([world_vector, rotation_delta, gripper], axis=0).astype(np.float32)
+            * self.action_scale
+        )
 
     def _convert_gripper(self, gripper_value: Any) -> np.ndarray:
         """Map a canonical gripper command to ManiSkill's scalar gripper value."""

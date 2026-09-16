@@ -63,7 +63,9 @@ class MeanHyperHead(nn.Module):
         self.hidden_size = hidden_size
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        return hidden_states.view(*hidden_states.shape[:-1], self.streams, self.hidden_size).mean(-2)
+        return hidden_states.view(*hidden_states.shape[:-1], self.streams, self.hidden_size).mean(
+            -2
+        )
 
 
 class Glm5NextMTPLayer(nn.Module):
@@ -123,7 +125,8 @@ class Glm5NextMTPBlock(nn.Module):
         layer_spec.submodules.self_attention_hyper_connection = IdentityOp
         layer_spec.submodules.mlp_hyper_connection = IdentityOp
         self.layers = nn.ModuleList(
-            Glm5NextMTPLayer(config, layer_spec, pg_collection, vp_stage=vp_stage) for _ in range(config.mtp_num_layers)
+            Glm5NextMTPLayer(config, layer_spec, pg_collection, vp_stage=vp_stage)
+            for _ in range(config.mtp_num_layers)
         )
 
     def forward(
@@ -199,7 +202,9 @@ class LanguageModel(nn.Module):
             )
             if self.embedding.word_embeddings.tp_group is None:
                 self.embedding.word_embeddings.tp_group = pg_collection.tp
-        block_spec = get_glm5_next_decoder_block_spec(config, pg_collection=pg_collection, vp_stage=vp_stage)
+        block_spec = get_glm5_next_decoder_block_spec(
+            config, pg_collection=pg_collection, vp_stage=vp_stage
+        )
         self.decoder = TransformerBlock(
             config=config,
             spec=block_spec,
@@ -261,7 +266,9 @@ class MultimodalContainer(nn.Module):
     def __init__(self, config, pre_process, post_process, pg_collection, vp_stage=None) -> None:
         super().__init__()
         self.visual = Glm5NextVisionModel(config.vision_config) if pre_process else None
-        self.language_model = LanguageModel(config, pre_process, post_process, pg_collection, vp_stage=vp_stage)
+        self.language_model = LanguageModel(
+            config, pre_process, post_process, pg_collection, vp_stage=vp_stage
+        )
 
 
 class Glm5NextModel(nn.Module):
@@ -284,7 +291,9 @@ class Glm5NextModel(nn.Module):
         self.post_process = post_process
         self.parallel_output = parallel_output
         if not parallel_state.is_initialized():
-            raise RuntimeError("initialize Loong-Megatron model parallel before building Glm5NextModel")
+            raise RuntimeError(
+                "initialize Loong-Megatron model parallel before building Glm5NextModel"
+            )
         self.pg_collection = pg_collection or ProcessGroupCollection.use_mpu_process_groups()
         self.vp_stage = vp_stage
         self.model = MultimodalContainer(
@@ -362,8 +371,16 @@ class Glm5NextModel(nn.Module):
         sequence_first = decoder_input is not None or not self.pre_process
         if decoder_input is not None:
             inputs_embeds = decoder_input
-        if not sequence_first and inputs_embeds is not None and inputs_embeds.ndim == 3 and input_ids is not None:
-            if inputs_embeds.shape[0] == input_ids.shape[1] and inputs_embeds.shape[1] == input_ids.shape[0]:
+        if (
+            not sequence_first
+            and inputs_embeds is not None
+            and inputs_embeds.ndim == 3
+            and input_ids is not None
+        ):
+            if (
+                inputs_embeds.shape[0] == input_ids.shape[1]
+                and inputs_embeds.shape[1] == input_ids.shape[0]
+            ):
                 inputs_embeds = inputs_embeds.transpose(0, 1).contiguous()
                 sequence_first = True
         has_vision = pixel_values is not None or pixel_values_videos is not None
@@ -383,11 +400,15 @@ class Glm5NextModel(nn.Module):
                     global_input_ids, batch_embeds, image_features, is_video=False
                 )
             if pixel_values_videos is not None:
-                video_features = self.get_video_features(pixel_values_videos, video_grid_thw).pooler_output
+                video_features = self.get_video_features(
+                    pixel_values_videos, video_grid_thw
+                ).pooler_output
                 batch_embeds = self._merge_vision_features(
                     global_input_ids, batch_embeds, video_features, is_video=True
                 )
-            inputs_embeds = _scatter_context_parallel(batch_embeds.transpose(0, 1).contiguous(), cp_group)
+            inputs_embeds = _scatter_context_parallel(
+                batch_embeds.transpose(0, 1).contiguous(), cp_group
+            )
             inputs_embeds = _scatter_sequence_parallel(inputs_embeds, tp_group)
             sequence_first = True
         elif inputs_embeds is None and self.pre_process and input_ids is None:
@@ -430,7 +451,9 @@ class Glm5NextModel(nn.Module):
             )
             mtp = self.model.language_model.mtp
             if mtp is not None:
-                loss = loss + self._mtp_loss(mtp, hidden_states, input_ids, inputs_embeds, attention_mask, labels)
+                loss = loss + self._mtp_loss(
+                    mtp, hidden_states, input_ids, inputs_embeds, attention_mask, labels
+                )
         return Glm5NextOutput(logits=logits, loss=loss)
 
     def _mtp_loss(
@@ -463,9 +486,11 @@ class Glm5NextModel(nn.Module):
                 ignore_index=-100,
             )
             mtp_loss = depth_loss if mtp_loss is None else mtp_loss + depth_loss
-        scale = (self.config.mtp_loss_scaling_factor if self.config.mtp_loss_scaling_factor is not None else 0.1) / len(
-            mtp_outputs
-        )
+        scale = (
+            self.config.mtp_loss_scaling_factor
+            if self.config.mtp_loss_scaling_factor is not None
+            else 0.1
+        ) / len(mtp_outputs)
         return scale * mtp_loss
 
     def get_image_features(
@@ -520,13 +545,17 @@ class Glm5NextModel(nn.Module):
     def _remap_hf_state_dict(state: dict[str, torch.Tensor], model: "Glm5NextModel"):
         remapped = {}
         if model.pre_process:
-            remapped.update((key, value) for key, value in state.items() if key.startswith("model.visual."))
+            remapped.update(
+                (key, value) for key, value in state.items() if key.startswith("model.visual.")
+            )
             remapped["model.language_model.embedding.word_embeddings.weight"] = state[
                 "model.language_model.embed_tokens.weight"
             ]
         if model.post_process:
             remapped["lm_head.weight"] = state["lm_head.weight"]
-            remapped["model.language_model.decoder.final_layernorm.weight"] = state["model.language_model.norm.weight"]
+            remapped["model.language_model.decoder.final_layernorm.weight"] = state[
+                "model.language_model.norm.weight"
+            ]
 
         def _remap_one_layer(
             source: str,
@@ -536,7 +565,9 @@ class Glm5NextModel(nn.Module):
             has_hyper_connections: bool = True,
         ) -> None:
             remapped[target + "input_layernorm.weight"] = state[source + "input_layernorm.weight"]
-            remapped[target + "pre_mlp_layernorm.weight"] = state[source + "post_attention_layernorm.weight"]
+            remapped[target + "pre_mlp_layernorm.weight"] = state[
+                source + "post_attention_layernorm.weight"
+            ]
 
             attention_prefix = source + "self_attn."
             if layer_type == "linear_attention":
@@ -559,9 +590,15 @@ class Glm5NextModel(nn.Module):
                     "indexer.wk.weight": "core_attention.indexer.linear_wk.weight",
                     "indexer.k_norm.weight": "core_attention.indexer.k_norm.weight",
                     "indexer.k_norm.bias": "core_attention.indexer.k_norm.bias",
-                    "indexer.weights_proj.weight": ("core_attention.indexer.linear_weights_proj.weight"),
-                    "indexer.index_kpool_compress_ape": ("core_attention.indexer.index_kpool_compress_ape"),
-                    "indexer.index_kpool_compress_gate": ("core_attention.indexer.index_kpool_compress_gate"),
+                    "indexer.weights_proj.weight": (
+                        "core_attention.indexer.linear_weights_proj.weight"
+                    ),
+                    "indexer.index_kpool_compress_ape": (
+                        "core_attention.indexer.index_kpool_compress_ape"
+                    ),
+                    "indexer.index_kpool_compress_gate": (
+                        "core_attention.indexer.index_kpool_compress_gate"
+                    ),
                 }
                 for source_name, target_name in sparse_attention_names.items():
                     source_key = attention_prefix + source_name
@@ -573,7 +610,9 @@ class Glm5NextModel(nn.Module):
                     ("hc_attn", "self_attention_hyper_connection"),
                     ("hc_ffn", "mlp_hyper_connection"),
                 ):
-                    remapped[target + target_name + ".mapping_proj.weight"] = state[source + source_name + "_fn"]
+                    remapped[target + target_name + ".mapping_proj.weight"] = state[
+                        source + source_name + "_fn"
+                    ]
                     remapped[target + target_name + ".bias"] = state[source + source_name + "_base"]
                     scale = state[source + source_name + "_scale"]
                     remapped[target + target_name + ".alpha_pre"] = scale[0:1]
@@ -590,7 +629,9 @@ class Glm5NextModel(nn.Module):
                 remapped[mlp_target + "linear_fc2.weight"] = state[mlp_source + "down_proj.weight"]
             else:
                 remapped[mlp_target + "router.weight"] = state[mlp_source + "gate.weight"]
-                remapped[mlp_target + "router.expert_bias"] = state[mlp_source + "gate.e_score_correction_bias"]
+                remapped[mlp_target + "router.expert_bias"] = state[
+                    mlp_source + "gate.e_score_correction_bias"
+                ]
                 for expert_index in range(model.config.n_routed_experts):
                     expert_source = mlp_source + f"experts.{expert_index}."
                     expert_target = mlp_target + f"experts.local_experts.{expert_index}."
@@ -601,7 +642,9 @@ class Glm5NextModel(nn.Module):
                         ],
                         dim=0,
                     )
-                    remapped[expert_target + "linear_fc2.weight"] = state[expert_source + "down_proj.weight"]
+                    remapped[expert_target + "linear_fc2.weight"] = state[
+                        expert_source + "down_proj.weight"
+                    ]
                 shared_source = mlp_source + "shared_experts."
                 shared_target = mlp_target + "shared_experts."
                 remapped[shared_target + "linear_fc1.weight"] = torch.cat(
@@ -611,7 +654,9 @@ class Glm5NextModel(nn.Module):
                     ],
                     dim=0,
                 )
-                remapped[shared_target + "linear_fc2.weight"] = state[shared_source + "down_proj.weight"]
+                remapped[shared_target + "linear_fc2.weight"] = state[
+                    shared_source + "down_proj.weight"
+                ]
 
         for local_layer_index, layer in enumerate(model.model.language_model.layers):
             layer_index = layer.layer_number - 1
@@ -633,7 +678,9 @@ class Glm5NextModel(nn.Module):
                 remapped[base + "eh_proj.weight"] = state[source + "eh_proj.weight"]
                 remapped[base + "enorm.weight"] = state[source + "enorm.weight"]
                 remapped[base + "hnorm.weight"] = state[source + "hnorm.weight"]
-                remapped[base + "final_layernorm.weight"] = state[source + "shared_head.norm.weight"]
+                remapped[base + "final_layernorm.weight"] = state[
+                    source + "shared_head.norm.weight"
+                ]
                 # The MTP layer mirrors the last decoder layer's schedule
                 # (KPool-DSA attention + routed MoE) but carries no mHC.
                 _remap_one_layer(
@@ -663,7 +710,7 @@ class Glm5NextModel(nn.Module):
                 parameter = parameters.get(key)
                 if parameter is None or not getattr(parameter, "tensor_model_parallel", False):
                     raise RuntimeError(
-                        f"checkpoint shape mismatch for {key}: {tuple(value.shape)} != {tuple(target.shape)}"
+                        f"checkpoint shape mismatch for {key}: {tuple(value.shape)} != {tuple(target.shape)}"  # noqa: E501
                     )
                 partition_dim = parameter.partition_dim
                 if key.endswith("linear_fc1.weight") and model.config.gated_linear_unit:
@@ -681,7 +728,7 @@ class Glm5NextModel(nn.Module):
                     value = torch.cat(chunks[tp_rank::tp_size], dim=partition_dim)
                 if value.shape != target.shape:
                     raise RuntimeError(
-                        f"TP shard shape mismatch for {key}: {tuple(value.shape)} != {tuple(target.shape)}"
+                        f"TP shard shape mismatch for {key}: {tuple(value.shape)} != {tuple(target.shape)}"  # noqa: E501
                     )
             conformed[key] = value
         return conformed

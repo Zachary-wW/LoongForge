@@ -78,10 +78,12 @@ class WanLayer(TransformerLayer):
             vp_stage=vp_stage,
         )
 
-        self.d_t = ((config.num_latent_frames - 1) // config.vae_temporal_compress + 1) // config.latent_patch_size[0]
-        self.d_s = (config.max_latent_height // config.vae_spatial_compress // config.latent_patch_size[1]) * (
-            config.max_latent_width // config.vae_spatial_compress // config.latent_patch_size[2]
-        )
+        self.d_t = (
+            (config.num_latent_frames - 1) // config.vae_temporal_compress + 1
+        ) // config.latent_patch_size[0]
+        self.d_s = (
+            config.max_latent_height // config.vae_spatial_compress // config.latent_patch_size[1]
+        ) * (config.max_latent_width // config.vae_spatial_compress // config.latent_patch_size[2])
 
         dim = config.hidden_size
         ffn_dim = config.ffn_hidden_size
@@ -115,7 +117,10 @@ class WanLayer(TransformerLayer):
             )
 
         self.self_attention = build_module(
-            submodules.wan_self_attention, config=self.config, layer_number=layer_number, **attention_optional_kwargs
+            submodules.wan_self_attention,
+            config=self.config,
+            layer_number=layer_number,
+            **attention_optional_kwargs,
         )
 
         self.cross_attn = build_module(
@@ -201,12 +206,18 @@ class WanLayer(TransformerLayer):
         if self.recompute_cross_attn and self.training:
 
             def _cross_attn_fwd(norm3, context):
-                out, bias = self.cross_attn(norm3, attention_mask=context_mask, key_value_states=context)
+                out, bias = self.cross_attn(
+                    norm3, attention_mask=context_mask, key_value_states=context
+                )
                 return out, bias
 
-            cross_out, bias = torch.utils.checkpoint.checkpoint(_cross_attn_fwd, norm3, context, use_reentrant=False)
+            cross_out, bias = torch.utils.checkpoint.checkpoint(
+                _cross_attn_fwd, norm3, context, use_reentrant=False
+            )
         else:
-            cross_out, bias = self.cross_attn(norm3, attention_mask=context_mask, key_value_states=context)
+            cross_out, bias = self.cross_attn(
+                norm3, attention_mask=context_mask, key_value_states=context
+            )
         cross_out = cross_out + bias
         cross_out = self_att_out + cross_out
 
@@ -240,7 +251,9 @@ class WanLayer(TransformerLayer):
             token_count = sample_end - sample_start
             sample_t_mod = t_mod_by_sample[sample_index]
             modulated = base_modulation.to(dtype=sample_t_mod.dtype) + sample_t_mod
-            shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = modulated.chunk(6, dim=0)
+            shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = modulated.chunk(
+                6, dim=0
+            )
             shift_msa_list.append(shift_msa.expand(token_count, -1))
             scale_msa_list.append(scale_msa.expand(token_count, -1))
             gate_msa_list.append(gate_msa.expand(token_count, -1))
@@ -286,8 +299,8 @@ class WanLayer(TransformerLayer):
         t_mod_block = hidden_states[t_mod_start:t_mod_end]
         t_s_block = hidden_states[t_s_start:]
 
-        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = self._expand_packed_modulation(
-            t_mod_block, cu_seqlens_q_padded, num_samples
+        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = (
+            self._expand_packed_modulation(t_mod_block, cu_seqlens_q_padded, num_samples)
         )
 
         # Self-attention
@@ -317,7 +330,9 @@ class WanLayer(TransformerLayer):
                 )
                 return out, bias
 
-            cross_out, bias = torch.utils.checkpoint.checkpoint(_cross_attn_fwd, norm3, context, use_reentrant=False)
+            cross_out, bias = torch.utils.checkpoint.checkpoint(
+                _cross_attn_fwd, norm3, context, use_reentrant=False
+            )
         else:
             cross_out, bias = self.cross_attn(
                 norm3,
@@ -338,7 +353,9 @@ class WanLayer(TransformerLayer):
 
         # Reconstruct concatenated output with trailing tokens
         output = torch.cat([x, t_mod_block, t_s_block], dim=0)
-        output = make_viewless_tensor(inp=output, requires_grad=output.requires_grad, keep_graph=True)
+        output = make_viewless_tensor(
+            inp=output, requires_grad=output.requires_grad, keep_graph=True
+        )
         return output, context
 
     def sharded_state_dict(
@@ -349,7 +366,8 @@ class WanLayer(TransformerLayer):
     ) -> ShardedStateDict:
         sharded_state_dict = super().sharded_state_dict(prefix, sharded_offsets, metadata)
         prefixed_map = {
-            f"{prefix}{k}": f"{prefix}{v}" for k, v in self.submodules_config.sharded_state_dict_keys_map.items()
+            f"{prefix}{k}": f"{prefix}{v}"
+            for k, v in self.submodules_config.sharded_state_dict_keys_map.items()
         }
         if prefixed_map:
             apply_prefix_mapping(sharded_state_dict, prefixed_map)

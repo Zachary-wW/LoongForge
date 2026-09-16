@@ -108,7 +108,9 @@ def _load_indices_file(path: Path) -> list[int]:
         payload = json.load(f)
     raw_indices = payload.get("indices") if isinstance(payload, dict) else payload
     if not isinstance(raw_indices, list):
-        raise ValueError(f"indices file must be a JSON list or object with an 'indices' list: {path}")
+        raise ValueError(
+            f"indices file must be a JSON list or object with an 'indices' list: {path}"
+        )
 
     indices: list[int] = []
     for position, raw_index in enumerate(raw_indices):
@@ -119,7 +121,9 @@ def _load_indices_file(path: Path) -> list[int]:
                 f"indices file {path} has non-integer value at position {position}: {raw_index!r}"
             ) from exc
         if index < 0:
-            raise ValueError(f"indices file {path} has negative index at position {position}: {index}")
+            raise ValueError(
+                f"indices file {path} has negative index at position {position}: {index}"
+            )
         indices.append(index)
     return indices
 
@@ -144,11 +148,15 @@ def _select_dataset_indices(
     stop = min(len(indices), start_index + num_samples)
     selected = indices[start_index:stop]
     if len(set(selected)) != len(selected):
-        raise ValueError(f"indices file contains duplicate indices in selected slice: {indices_file}")
+        raise ValueError(
+            f"indices file contains duplicate indices in selected slice: {indices_file}"
+        )
     out_of_range = [index for index in selected if index >= dataset_len]
     if out_of_range:
         preview = ", ".join(str(index) for index in out_of_range[:8])
-        raise ValueError(f"indices file contains indices outside dataset length {dataset_len}: {preview}")
+        raise ValueError(
+            f"indices file contains indices outside dataset length {dataset_len}: {preview}"
+        )
     return selected
 
 
@@ -278,7 +286,9 @@ def main() -> None:
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--compare-existing", action="store_true")
     parser.add_argument("--compare-atol", type=float, default=0.0)
-    parser.add_argument("--include-video-latents", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument(
+        "--include-video-latents", action=argparse.BooleanOptionalAction, default=True
+    )
     parser.add_argument(
         "--include-first-frame-latents",
         action=argparse.BooleanOptionalAction,
@@ -323,7 +333,9 @@ def main() -> None:
     if args.tokenizer_path:
         config.tokenizer_path = args.tokenizer_path
     if not config.tokenizer_path:
-        raise ValueError("DreamZero VAE precompute requires --tokenizer-path or config.tokenizer_path")
+        raise ValueError(
+            "DreamZero VAE precompute requires --tokenizer-path or config.tokenizer_path"
+        )
     include_first_frame_latents = (
         _default_include_first_frame_latents(config)
         if args.include_first_frame_latents is None
@@ -331,10 +343,14 @@ def main() -> None:
     )
     args.include_first_frame_latents = include_first_frame_latents
     include_prompt_embs = (
-        _default_include_prompt_embs(config) if args.include_prompt_embs is None else bool(args.include_prompt_embs)
+        _default_include_prompt_embs(config)
+        if args.include_prompt_embs is None
+        else bool(args.include_prompt_embs)
     )
     args.include_prompt_embs = include_prompt_embs
-    if not (args.include_video_latents or args.include_first_frame_latents or args.include_prompt_embs):
+    if not (
+        args.include_video_latents or args.include_first_frame_latents or args.include_prompt_embs
+    ):
         raise ValueError(
             "at least one feature must be enabled: --include-video-latents, "
             "--include-first-frame-latents, or --include-prompt-embs"
@@ -398,7 +414,7 @@ def main() -> None:
             "[dreamzero-cache] starting precompute "
             f"world_size={dist_context.world_size} backend={dist_context.backend} "
             f"device={device} selected={len(indices)} batch_size={args.batch_size} "
-            f"num_workers={args.num_workers} pin_memory={bool(args.pin_memory) and device.type == 'cuda'} "
+            f"num_workers={args.num_workers} pin_memory={bool(args.pin_memory) and device.type == 'cuda'} "  # noqa: E501
             f"prefetch_factor={args.prefetch_factor} "
             f"storage_format={args.storage_format} "
             f"tensor_shard_size={effective_tensor_shard_size}",
@@ -424,10 +440,14 @@ def main() -> None:
         text_encoder.requires_grad_(False)
 
     local_manifest_path = (
-        _rank_manifest_path(args.output_dir, dist_context.rank, "jsonl") if dist_context.enabled else manifest_path
+        _rank_manifest_path(args.output_dir, dist_context.rank, "jsonl")
+        if dist_context.enabled
+        else manifest_path
     )
     local_csv_path = (
-        _rank_manifest_path(args.output_dir, dist_context.rank, "csv") if dist_context.enabled else csv_path
+        _rank_manifest_path(args.output_dir, dist_context.rank, "csv")
+        if dist_context.enabled
+        else csv_path
     )
 
     stats = _PrecomputeStats()
@@ -494,7 +514,9 @@ def main() -> None:
                     if "text" in batch:
                         batch["text"] = batch["text"].index_select(0, positions)
                     if "text_attention_mask" in batch:
-                        batch["text_attention_mask"] = batch["text_attention_mask"].index_select(0, positions)
+                        batch["text_attention_mask"] = batch["text_attention_mask"].index_select(
+                            0, positions
+                        )
             videos = _prepare_videos(image_batch, config, device, dtype)
             with torch.no_grad():
                 latents = None
@@ -538,7 +560,9 @@ def main() -> None:
                     if text_encoder is None:
                         raise RuntimeError("text encoder is not initialized")
                     if "text" not in batch or "text_attention_mask" not in batch:
-                        raise KeyError("batch is missing text/text_attention_mask for prompt precompute")
+                        raise KeyError(
+                            "batch is missing text/text_attention_mask for prompt precompute"
+                        )
                     prompt_embs = _encode_prompt_embs_for_cache(
                         text_encoder,
                         batch["text"],
@@ -556,9 +580,13 @@ def main() -> None:
                 )
                 sample_latents = latents[local_idx].detach().cpu() if latents is not None else None
                 sample_first_frame_latents = (
-                    first_frame_latents[local_idx].detach().cpu() if first_frame_latents is not None else None
+                    first_frame_latents[local_idx].detach().cpu()
+                    if first_frame_latents is not None
+                    else None
                 )
-                sample_prompt_embs = prompt_embs[local_idx].detach().cpu() if prompt_embs is not None else None
+                sample_prompt_embs = (
+                    prompt_embs[local_idx].detach().cpu() if prompt_embs is not None else None
+                )
                 _process_write(
                     {
                         "output_dir": args.output_dir,
@@ -671,7 +699,7 @@ def main() -> None:
             )
             if len(records) != processed:
                 raise ValueError(
-                    f"single-rank precompute manifest row count mismatch: records={len(records)}, processed={processed}"
+                    f"single-rank precompute manifest row count mismatch: records={len(records)}, processed={processed}"  # noqa: E501
                 )
             _write_manifest_files(manifest_path, csv_path, records)
             cache_files = [
@@ -714,13 +742,19 @@ def main() -> None:
         "backend": dist_context.backend,
         "batch_size": int(args.batch_size),
         "storage_format": str(args.storage_format),
-        "tensor_shard_size": (int(effective_tensor_shard_size) if effective_tensor_shard_size is not None else None),
+        "tensor_shard_size": (
+            int(effective_tensor_shard_size) if effective_tensor_shard_size is not None else None
+        ),
         "tensor_shard_file_hash": bool(args.tensor_shard_file_hash),
         "num_workers": int(args.num_workers),
         "pin_memory": bool(args.pin_memory) and device.type == "cuda",
-        "prefetch_factor": (int(args.prefetch_factor) if args.prefetch_factor is not None else None),
+        "prefetch_factor": (
+            int(args.prefetch_factor) if args.prefetch_factor is not None else None
+        ),
         "elapsed_sec": precompute_elapsed_sec,
-        "samples_per_sec": (float(processed / precompute_elapsed_sec) if precompute_elapsed_sec > 0 else 0.0),
+        "samples_per_sec": (
+            float(processed / precompute_elapsed_sec) if precompute_elapsed_sec > 0 else 0.0
+        ),
         "rank_summaries": rank_summaries,
     }
     storage_files = _tensor_storage_files(storage)
@@ -754,7 +788,8 @@ def main() -> None:
             "text_encoder_pretrained_path": config.text_encoder_pretrained_path,
             "text_encoder_pretrained_sha256": (
                 sha256_file(Path(config.text_encoder_pretrained_path))
-                if config.text_encoder_pretrained_path and Path(config.text_encoder_pretrained_path).exists()
+                if config.text_encoder_pretrained_path
+                and Path(config.text_encoder_pretrained_path).exists()
                 else None
             ),
             "vae_class": config.vae_class,
@@ -792,7 +827,9 @@ def main() -> None:
             "cache_template": args.cache_template,
             "storage_format": str(args.storage_format),
             "tensor_shard_size": (
-                int(effective_tensor_shard_size) if effective_tensor_shard_size is not None else None
+                int(effective_tensor_shard_size)
+                if effective_tensor_shard_size is not None
+                else None
             ),
             "tensor_shard_file_hash": bool(args.tensor_shard_file_hash),
             "dtype": args.dtype,
@@ -800,7 +837,9 @@ def main() -> None:
             "num_samples": int(args.num_samples),
             "indices_file": str(args.indices_file) if args.indices_file else None,
             "indices_file_sha256": (
-                sha256_file(args.indices_file) if args.indices_file is not None and args.indices_file.exists() else None
+                sha256_file(args.indices_file)
+                if args.indices_file is not None and args.indices_file.exists()
+                else None
             ),
             "indices_sha256": json_sha256(indices),
             "use_sample_transform_seed": bool(args.use_sample_transform_seed),
@@ -832,7 +871,9 @@ def main() -> None:
         },
     }
     tmp_manifest_path = artifact_manifest_path.with_suffix(".json.tmp")
-    tmp_manifest_path.write_text(json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    tmp_manifest_path.write_text(
+        json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     os.replace(tmp_manifest_path, artifact_manifest_path)
     artifact_sha256 = sha256_file(artifact_manifest_path)
     success_payload = {
@@ -843,7 +884,9 @@ def main() -> None:
         "compare": compare_summary,
     }
     tmp_success_path = success_path.with_suffix(".tmp")
-    tmp_success_path.write_text(json.dumps(success_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    tmp_success_path.write_text(
+        json.dumps(success_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     os.replace(tmp_success_path, success_path)
     _sync_rank0_finalization(dist_context)
 
@@ -851,7 +894,7 @@ def main() -> None:
         "[dreamzero-cache] processed "
         f"{processed} latents (saved={saved}, compared={compared}, "
         f"skipped_partial={skipped_partial}) in {args.output_dir}; "
-        f"template={args.cache_template!r}; use_sample_transform_seed={args.use_sample_transform_seed}; "
+        f"template={args.cache_template!r}; use_sample_transform_seed={args.use_sample_transform_seed}; "  # noqa: E501
         f"require_full_language_chunks={require_full_chunks}",
         flush=True,
     )

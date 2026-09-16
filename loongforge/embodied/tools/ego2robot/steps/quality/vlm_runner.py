@@ -43,7 +43,9 @@ def _resolve_model(model: str | None) -> str:
 
 def _extract_json(content: Any) -> dict[str, Any]:
     if isinstance(content, list):
-        content = "".join(str(part.get("text", part)) if isinstance(part, dict) else str(part) for part in content)
+        content = "".join(
+            str(part.get("text", part)) if isinstance(part, dict) else str(part) for part in content
+        )
     text = str(content).strip()
     fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, flags=re.I | re.S)
     candidate = fenced.group(1) if fenced else text
@@ -90,7 +92,9 @@ def _uniform_indices(count: int, limit: int) -> list[int]:
     return [round(i * (count - 1) / (limit - 1)) for i in range(limit)]
 
 
-def _sample_video(path: Path, fps: float, max_frames: int | None, max_edge: int, jpeg_quality: int) -> list[str]:
+def _sample_video(
+    path: Path, fps: float, max_frames: int | None, max_edge: int, jpeg_quality: int
+) -> list[str]:
     """Decode bounded, chronological JPEG data URLs across the full video."""
     import av
     from PIL import Image
@@ -148,7 +152,10 @@ def _review_one(
         raise FileNotFoundError(video)
     fps = float(request.get("sample_fps", 4.0))
     images = _sample_video(video, fps, max_frames, max_edge, jpeg_quality)
-    prompt = str(request.get("prompt") or f"Task Description: {request.get('task_description', 'manipulation')}")
+    prompt = str(
+        request.get("prompt")
+        or f"Task Description: {request.get('task_description', 'manipulation')}"
+    )
     content = [{"type": "image_url", "image_url": {"url": image}} for image in images]
     content.append(
         {
@@ -177,7 +184,9 @@ def _review_one(
     response.raise_for_status()
     body = response.json()
     result = _extract_json(body["choices"][0]["message"]["content"])
-    result.update({"model_name": model, "sample_fps": fps, "sampled_frames": len(images), "backend": "sglang"})
+    result.update(
+        {"model_name": model, "sample_fps": fps, "sampled_frames": len(images), "backend": "sglang"}
+    )
     return result
 
 
@@ -236,7 +245,10 @@ def run(
     results = {} if overwrite else _load_json_object(output)
     errors = {} if overwrite else _load_json_object(error_path)
     pending = [r for r in requests_to_run if str(r["episode"]) not in results]
-    print(f"SGLang ready: {len(requests_to_run)} requested, {len(results)} cached, {len(pending)} pending", flush=True)
+    print(
+        f"SGLang ready: {len(requests_to_run)} requested, {len(results)} cached, {len(pending)} pending",  # noqa: E501
+        flush=True,
+    )
     lock = threading.Lock()
 
     def work(request: dict[str, Any]) -> tuple[str, dict[str, Any]]:
@@ -245,7 +257,14 @@ def run(
         for attempt in range(retries + 1):
             try:
                 return episode, _review_one(
-                    request, server_url, model, timeout, max_tokens, max_frames, max_edge, jpeg_quality
+                    request,
+                    server_url,
+                    model,
+                    timeout,
+                    max_tokens,
+                    max_frames,
+                    max_edge,
+                    jpeg_quality,
                 )
             except Exception as exc:
                 last_error = exc
@@ -253,11 +272,13 @@ def run(
                     time.sleep(min(2**attempt, 10))
         assert last_error is not None
         raise RuntimeError(
-            f"{episode} failed after {retries + 1} attempt(s): {type(last_error).__name__}: {last_error}"
+            f"{episode} failed after {retries + 1} attempt(s): {type(last_error).__name__}: {last_error}"  # noqa: E501
         ) from last_error
 
     with ThreadPoolExecutor(max_workers=max(1, concurrency)) as executor:
-        future_to_episode = {executor.submit(work, request): str(request["episode"]) for request in pending}
+        future_to_episode = {
+            executor.submit(work, request): str(request["episode"]) for request in pending
+        }
         completed = 0
         for future in as_completed(future_to_episode):
             episode = future_to_episode[future]
@@ -281,7 +302,9 @@ def run(
                     errors[episode] = error
                     _atomic_json(error_path, errors)
                 print(f"[{completed}/{len(pending)}] {episode}: ERROR {error['error']}", flush=True)
-    print(f"wrote {len(results)} decisions to {output}; {len(errors)} unresolved errors in {error_path}")
+    print(
+        f"wrote {len(results)} decisions to {output}; {len(errors)} unresolved errors in {error_path}"  # noqa: E501
+    )
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -309,7 +332,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--max_edge", type=int, default=448)
     parser.add_argument("--jpeg_quality", type=int, default=85)
-    parser.add_argument("--overwrite", action="store_true", help="discard cached decisions and review all requests")
+    parser.add_argument(
+        "--overwrite", action="store_true", help="discard cached decisions and review all requests"
+    )
     return parser
 
 

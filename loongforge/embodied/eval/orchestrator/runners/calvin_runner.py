@@ -23,7 +23,11 @@ from loongforge.embodied.eval.orchestrator.config import (
     build_rpc_payload,
 )
 from loongforge.embodied.eval.orchestrator.runners import _common
-from loongforge.embodied.eval.orchestrator.runners._common import StepTimeoutError, alarm_timeout, avg as _avg
+from loongforge.embodied.eval.orchestrator.runners._common import (
+    StepTimeoutError,
+    alarm_timeout,
+    avg as _avg,
+)
 from loongforge.embodied.eval.payload_builders import PayloadBuilder
 from loongforge.embodied.eval.protocol import PROTOCOL_VERSION
 from loongforge.embodied.eval.transport import PolicyClient
@@ -55,7 +59,9 @@ def _make_env(dataset_path: str):
 
     cfg = OmegaConf.load(config_path)
     if hasattr(cfg.env, "cameras") and "tactile" in cfg.env.cameras:
-        cfg.env.cameras = OmegaConf.create({key: value for key, value in cfg.env.cameras.items() if key != "tactile"})
+        cfg.env.cameras = OmegaConf.create(
+            {key: value for key, value in cfg.env.cameras.items() if key != "tactile"}
+        )
     cfg.env.show_gui = False
     cfg.env.use_vr = False
     cfg.env.use_scene_info = True
@@ -106,8 +112,12 @@ def _initial_condition_to_obs(initial_state: Dict[str, Any]) -> Tuple[Any, Any]:
         dtype=np.float64,
     )
     block_rot_z_range = (np.pi / 2 - np.pi / 8, np.pi / 2 + np.pi / 8)
-    block_slider_left = np.array([-2.40851662e-01, 9.24044687e-02, 4.60990009e-01], dtype=np.float64)
-    block_slider_right = np.array([7.03416330e-02, 9.24044687e-02, 4.60990009e-01], dtype=np.float64)
+    block_slider_left = np.array(
+        [-2.40851662e-01, 9.24044687e-02, 4.60990009e-01], dtype=np.float64
+    )
+    block_slider_right = np.array(
+        [7.03416330e-02, 9.24044687e-02, 4.60990009e-01], dtype=np.float64
+    )
     block_table = [
         np.array([5.00000896e-02, -1.20000177e-01, 4.59990009e-01], dtype=np.float64),
         np.array([2.29995412e-01, -1.19995140e-01, 4.59990010e-01], dtype=np.float64),
@@ -153,15 +163,21 @@ def _initial_condition_to_obs(initial_state: Dict[str, Any]) -> Tuple[Any, Any]:
     return robot_obs, scene_obs
 
 
-def _save_replay(frames: List[np.ndarray], output_dir: str, sequence_idx: int, success_count: int) -> Optional[str]:
+def _save_replay(
+    frames: List[np.ndarray], output_dir: str, sequence_idx: int, success_count: int
+) -> Optional[str]:
     """Run _save_replay."""
     if not frames:
         return None
     artifact_dir = pathlib.Path(output_dir) / "artifacts" / "calvin" / f"sequence{sequence_idx}"
-    return _common.write_replay_gif(frames, artifact_dir / f"replay_successes{success_count}.gif", duration=0.1)
+    return _common.write_replay_gif(
+        frames, artifact_dir / f"replay_successes{success_count}.gif", duration=0.1
+    )
 
 
-def _save_trace(trace: List[Dict[str, Any]], output_dir: str, sequence_idx: int, success_count: int) -> Optional[str]:
+def _save_trace(
+    trace: List[Dict[str, Any]], output_dir: str, sequence_idx: int, success_count: int
+) -> Optional[str]:
     """Run _save_trace."""
     if not trace:
         return None
@@ -276,7 +292,9 @@ def run_sequence(
 
             for subtask_idx, subtask in enumerate(eval_sequence):
                 obs = env.get_obs()
-                lang_annotation = str(val_annotations[subtask][0]).split("\n")[0].replace("\u2019", "'")
+                lang_annotation = (
+                    str(val_annotations[subtask][0]).split("\n")[0].replace("\u2019", "'")
+                )
                 start_info = env.get_info()
                 subtask_episode_id = f"{episode_id}/subtask={subtask_idx}"
                 client.reset(subtask_episode_id)
@@ -353,7 +371,9 @@ def run_sequence(
                     with alarm_timeout(args.per_step_timeout_sec, StepTimeoutError):
                         obs, _, _, current_info = env.step(env_action)
                     steps += 1
-                    current_task_info = task_oracle.get_task_info_for_set(start_info, current_info, {subtask})
+                    current_task_info = task_oracle.get_task_info_for_set(
+                        start_info, current_info, {subtask}
+                    )
                     subtask_success = len(current_task_info) > 0
 
                     if args.save_trace:
@@ -382,9 +402,15 @@ def run_sequence(
     except Exception as exc:
         failure_reason = _classify_exception(exc)
         replay_path = (
-            _save_replay(replay_frames, args.output_dir, sequence_idx, success_count) if args.save_replay else None
+            _save_replay(replay_frames, args.output_dir, sequence_idx, success_count)
+            if args.save_replay
+            else None
         )
-        trace_path = _save_trace(trace, args.output_dir, sequence_idx, success_count) if args.save_trace else None
+        trace_path = (
+            _save_trace(trace, args.output_dir, sequence_idx, success_count)
+            if args.save_trace
+            else None
+        )
         return _failure_record(
             args=args,
             sequence_idx=sequence_idx,
@@ -403,9 +429,15 @@ def run_sequence(
 
     success = success_count == len(eval_sequence)
     replay_path = (
-        _save_replay(replay_frames, args.output_dir, sequence_idx, success_count) if args.save_replay else None
+        _save_replay(replay_frames, args.output_dir, sequence_idx, success_count)
+        if args.save_replay
+        else None
     )
-    trace_path = _save_trace(trace, args.output_dir, sequence_idx, success_count) if args.save_trace else None
+    trace_path = (
+        _save_trace(trace, args.output_dir, sequence_idx, success_count)
+        if args.save_trace
+        else None
+    )
     return {
         "benchmark": "calvin",
         "task_suite": args.task_suite_name,
@@ -452,7 +484,9 @@ def _write_summary_csv(path: pathlib.Path, records: List[Dict[str, Any]]) -> Non
         for index in range(1, 6):
             if success_count >= index:
                 counts[index] += 1
-    avg_length = sum(int(record.get("success_count", 0)) for record in records) / total if total else 0.0
+    avg_length = (
+        sum(int(record.get("success_count", 0)) for record in records) / total if total else 0.0
+    )
     with path.open("w", encoding="utf-8") as file:
         file.write("metric,value\n")
         file.write(f"num_sequences,{total}\n")
@@ -476,7 +510,9 @@ def run_batch(args: argparse.Namespace) -> Dict[str, Any]:
     if args.restart and results_path.exists():
         results_path.unlink()
         existing_records = []
-    completed = {int(record["sequence_idx"]) for record in existing_records} if args.resume else set()
+    completed = (
+        {int(record["sequence_idx"]) for record in existing_records} if args.resume else set()
+    )
 
     with open(args.eval_sequences_path, "r", encoding="utf-8") as file:
         eval_sequences = json.load(file)
@@ -528,7 +564,9 @@ def run_batch(args: argparse.Namespace) -> Dict[str, Any]:
     all_records = existing_records + new_records
     _write_summary_csv(summary_path, all_records)
     avg_length = (
-        sum(int(record.get("success_count", 0)) for record in all_records) / len(all_records) if all_records else 0.0
+        sum(int(record.get("success_count", 0)) for record in all_records) / len(all_records)
+        if all_records
+        else 0.0
     )
     return {
         "benchmark": "calvin",

@@ -40,7 +40,9 @@ def wan_rope_apply(
     """wan rope apply — uses VeOmni fused Triton fp32 kernel when available"""
     heads = x.shape[2]
 
-    need_cp_gather = config.context_parallel_size > 1 and freqs is not None and freqs.shape[0] != x.shape[0]
+    need_cp_gather = (
+        config.context_parallel_size > 1 and freqs is not None and freqs.shape[0] != x.shape[0]
+    )
     if need_cp_gather:
         x = gather_forward_split_backward(x, get_context_parallel_group(), dim=0, grad_scale=None)
     x = rearrange(x, "s b n d -> b s n d")
@@ -56,7 +58,9 @@ def wan_rope_apply(
         x_out = torch.view_as_real(x_out * freqs).flatten(2)
 
     if need_cp_gather:
-        x_out = split_forward_gather_backward(x_out, get_context_parallel_group(), dim=1, grad_scale=None)
+        x_out = split_forward_gather_backward(
+            x_out, get_context_parallel_group(), dim=1, grad_scale=None
+        )
     x_out = rearrange(x_out, "b s (n d) -> s b n d", n=heads).to(x.dtype)
     # clone(contiguous_format) forces a real reallocation with canonical strides.
     return x_out.clone(memory_format=torch.contiguous_format)
@@ -66,7 +70,9 @@ def send_batch(batch, broadcast):
     """send batch"""
     args = get_args()
     video_shape = torch.tensor(batch["latents"].shape, dtype=torch.int64).cuda(non_blocking=True)
-    contxt_shape = torch.tensor(batch["prompt_emb"]["context"].shape, dtype=torch.int64).cuda(non_blocking=True)
+    contxt_shape = torch.tensor(batch["prompt_emb"]["context"].shape, dtype=torch.int64).cuda(
+        non_blocking=True
+    )
     broadcast(video_shape)
     broadcast(batch["latents"])
     broadcast(batch["training_target"])
@@ -86,7 +92,9 @@ def send_batch(batch, broadcast):
 
     broadcast(image_info)
     if image_info[0] == 1:
-        clip_feature_shape = torch.tensor(image_emb["clip_feature"].shape, dtype=torch.int64).cuda(non_blocking=True)
+        clip_feature_shape = torch.tensor(image_emb["clip_feature"].shape, dtype=torch.int64).cuda(
+            non_blocking=True
+        )
         broadcast(clip_feature_shape)
         broadcast(image_emb["clip_feature"])
     if image_info[1] == 1:

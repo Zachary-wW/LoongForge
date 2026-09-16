@@ -51,11 +51,15 @@ def _single_all_to_all(input, scatter_idx, gather_idx, group):
     inp_shape = list(input.shape)
     inp_shape[scatter_idx] = inp_shape[scatter_idx] // seq_world_size
     if scatter_idx < 2:
-        input_t = input.reshape([seq_world_size, inp_shape[scatter_idx]] + inp_shape[scatter_idx + 1 :]).contiguous()
+        input_t = input.reshape(
+            [seq_world_size, inp_shape[scatter_idx]] + inp_shape[scatter_idx + 1 :]
+        ).contiguous()
     else:
-        # transpose groups of heads with the seq-len parallel dimension, so that we can scatter them!
+        # transpose groups of heads with the seq-len parallel dimension, so that we can scatter them!  # noqa: E501
         input_t = (
-            input.reshape([-1, seq_world_size, inp_shape[scatter_idx]] + inp_shape[scatter_idx + 1 :])
+            input.reshape(
+                [-1, seq_world_size, inp_shape[scatter_idx]] + inp_shape[scatter_idx + 1 :]
+            )
             .transpose(0, 1)
             .contiguous()
         )
@@ -197,12 +201,18 @@ class DistributedAttention(torch.nn.Module):
         # TODO (Reza): change the api on the megatron-deepspeed side
         # so that we only receive all data (q,k, and v) together!
         # in shape : e.g.,  [s/p:h:]
-        query_layer = SeqAllToAll.apply(self.spg, query, self.scatter_idx, self.gather_idx, single_all_to_all)
-        key_layer = SeqAllToAll.apply(self.spg, key, self.scatter_idx, self.gather_idx, single_all_to_all)
-        value_layer = SeqAllToAll.apply(self.spg, value, self.scatter_idx, self.gather_idx, single_all_to_all)
+        query_layer = SeqAllToAll.apply(
+            self.spg, query, self.scatter_idx, self.gather_idx, single_all_to_all
+        )
+        key_layer = SeqAllToAll.apply(
+            self.spg, key, self.scatter_idx, self.gather_idx, single_all_to_all
+        )
+        value_layer = SeqAllToAll.apply(
+            self.spg, value, self.scatter_idx, self.gather_idx, single_all_to_all
+        )
 
         if self.pad_kv:
-            # cat in cp dim, split muliti-head; we remove pads so that pads do not influence cross-attention
+            # cat in cp dim, split muliti-head; we remove pads so that pads do not influence cross-attention  # noqa: E501
             key_layer = key_layer[: self.effective_length]
             value_layer = value_layer[: self.effective_length]
 

@@ -102,7 +102,13 @@ def _add_hf_weight_file(weight_map, filenames, weight_key, args=None, dequant_we
 
 
 def get_hf_checkpoint_names(
-    c_config, weight_map, layer_ids, expert_ids=None, mtp_num_layers=0, args=None, return_dequant_weight_keys=False
+    c_config,
+    weight_map,
+    layer_ids,
+    expert_ids=None,
+    mtp_num_layers=0,
+    args=None,
+    return_dequant_weight_keys=False,
 ):
     name_map = c_config.get("name_map")["huggingface"]
     cargs = c_config.get_args("common")
@@ -121,11 +127,17 @@ def get_hf_checkpoint_names(
             if c_name in name_map:
                 if name_map[c_name] is None:
                     continue
-                hf_name, is_direct_name, _, _, _, _, _ = HuggingfaceBase.get_hf_name_and_args(name_map[c_name])
+                hf_name, is_direct_name, _, _, _, _, _ = HuggingfaceBase.get_hf_name_and_args(
+                    name_map[c_name]
+                )
                 for ext in ["", ".weight"]:
                     name = hf_name + ext
                     _add_hf_weight_file(
-                        weight_map, filenames_in_the_layer, name, args=args, dequant_weight_keys=dequant_weight_keys
+                        weight_map,
+                        filenames_in_the_layer,
+                        name,
+                        args=args,
+                        dequant_weight_keys=dequant_weight_keys,
                     )
 
     if args is not None and args.enable_full_hetero_dp:
@@ -134,13 +146,19 @@ def get_hf_checkpoint_names(
             hf_name, _, _, _, _, _, _ = HuggingfaceBase.get_hf_name_and_args(name_map[c_name])
             name = hf_name + ".weight"
             _add_hf_weight_file(
-                weight_map, filenames_in_the_layer, name, args=args, dequant_weight_keys=dequant_weight_keys
+                weight_map,
+                filenames_in_the_layer,
+                name,
+                args=args,
+                dequant_weight_keys=dequant_weight_keys,
             )
 
     if 0 in layer_ids:
         for c_name in name_map.keys():
             if c_name.startswith(VISION_MAP):
-                hf_name, _, _, _, _, no_layer_id, _ = HuggingfaceBase.get_hf_name_and_args(name_map[c_name])
+                hf_name, _, _, _, _, no_layer_id, _ = HuggingfaceBase.get_hf_name_and_args(
+                    name_map[c_name]
+                )
                 for ext in ["", ".weight", ".bias"]:
                     name = hf_name + ext
                     if ext == ".bias":
@@ -148,7 +166,11 @@ def get_hf_checkpoint_names(
                             filenames_in_the_layer.add(weight_map[name])
                     else:
                         _add_hf_weight_file(
-                            weight_map, filenames_in_the_layer, name, args=args, dequant_weight_keys=dequant_weight_keys
+                            weight_map,
+                            filenames_in_the_layer,
+                            name,
+                            args=args,
+                            dequant_weight_keys=dequant_weight_keys,
                         )
 
         if is_glm5_next_config(c_config):
@@ -164,29 +186,43 @@ def get_hf_checkpoint_names(
             if c_name in name_map:
                 if name_map[c_name] is None:
                     continue
-                hf_name, is_direct_name, _, _, _, _, _ = HuggingfaceBase.get_hf_name_and_args(name_map[c_name])
+                hf_name, is_direct_name, _, _, _, _, _ = HuggingfaceBase.get_hf_name_and_args(
+                    name_map[c_name]
+                )
                 for ext in ["", ".weight"]:
                     name = hf_name + ext
                     _add_hf_weight_file(
-                        weight_map, filenames_in_the_layer, name, args=args, dequant_weight_keys=dequant_weight_keys
+                        weight_map,
+                        filenames_in_the_layer,
+                        name,
+                        args=args,
+                        dequant_weight_keys=dequant_weight_keys,
                     )
         if mtp_num_layers > 0:
             for c_name in MTP_NAMES:
                 if c_name in name_map:
                     if name_map[c_name] is None:
                         continue
-                    hf_name, _, _, _, no_layer_id, _, _ = HuggingfaceBase.get_hf_name_and_args(name_map[c_name])
+                    hf_name, _, _, _, no_layer_id, _, _ = HuggingfaceBase.get_hf_name_and_args(
+                        name_map[c_name]
+                    )
                     if not no_layer_id:
                         continue
                     for ext in ["", ".weight"]:
                         name = hf_name + ext
                         _add_hf_weight_file(
-                            weight_map, filenames_in_the_layer, name, args=args, dequant_weight_keys=dequant_weight_keys
+                            weight_map,
+                            filenames_in_the_layer,
+                            name,
+                            args=args,
+                            dequant_weight_keys=dequant_weight_keys,
                         )
                         if is_dsv4_hybrid:
                             # Also try without "layers." sub-prefix for V4-style MTP keys
                             # (e.g. "mtp.layers.0.emb.tok_emb" -> "mtp.0.emb.tok_emb")
-                            alt_name = name.replace(".layers.", ".", 1) if ".layers." in name else None
+                            alt_name = (
+                                name.replace(".layers.", ".", 1) if ".layers." in name else None
+                            )
                             if alt_name and alt_name in weight_map:
                                 filenames_in_the_layer.add(weight_map[alt_name])
 
@@ -198,13 +234,19 @@ def get_hf_checkpoint_names(
     for layer_id in layer_ids:
         transformer = ori_transformer
         cur_layer_id = layer_id
-        is_mtp_layer = layer_id >= ori_num_layers and mtp_num_layers > 0 and mtp_transformer is not None
+        is_mtp_layer = (
+            layer_id >= ori_num_layers and mtp_num_layers > 0 and mtp_transformer is not None
+        )
         if is_mtp_layer:
             transformer = mtp_transformer
             if mtp_layer_id is not None:
                 cur_layer_id = mtp_layer_id
-        cur_layer_prefix = mtp_layer_prefix if is_mtp_layer and mtp_layer_prefix is not None else layer_prefix
-        name_prefix = ".".join([p for p in [transformer, cur_layer_prefix, str(cur_layer_id)] if p]) + "."
+        cur_layer_prefix = (
+            mtp_layer_prefix if is_mtp_layer and mtp_layer_prefix is not None else layer_prefix
+        )
+        name_prefix = (
+            ".".join([p for p in [transformer, cur_layer_prefix, str(cur_layer_id)] if p]) + "."
+        )
         alt_prefixes = set()
         alt_prefixes.add(name_prefix)
         if is_dsv4_hybrid and is_mtp_layer:
@@ -225,14 +267,19 @@ def get_hf_checkpoint_names(
                 include_key = not is_expert_key
                 if not include_key:
                     for expert_id in expert_ids:
-                        if any(key.startswith(f"{pfx}{moe_expert}.{expert_id}.") for pfx in alt_prefixes):
+                        if any(
+                            key.startswith(f"{pfx}{moe_expert}.{expert_id}.")
+                            for pfx in alt_prefixes
+                        ):
                             include_key = True
                             break
             if not include_key:
                 continue
 
             filenames_in_the_layer.add(value)
-            dequant_weight_key = _packed_to_weight_key(key) if _hf_dequantize_int4_enabled(args) else None
+            dequant_weight_key = (
+                _packed_to_weight_key(key) if _hf_dequantize_int4_enabled(args) else None
+            )
             if dequant_weight_key is not None and dequant_weight_key not in weight_map:
                 dequant_weight_keys.add(dequant_weight_key)
 
@@ -266,10 +313,12 @@ def merge_transformers_sharded_states(
         if load_safe:
             current_chunks[i] = load_file(checkpoint_path, device=hf_checkpoint_device)
         else:
-            current_chunks[i] = torch.load(checkpoint_path, map_location=hf_checkpoint_device, weights_only=False)
+            current_chunks[i] = torch.load(
+                checkpoint_path, map_location=hf_checkpoint_device, weights_only=False
+            )
         done.append(1)
         progress_print(
-            f"[hf-load] {len(done)}/{n_total} {os.path.basename(checkpoint_path)} ({time.perf_counter() - t0:.1f}s)"
+            f"[hf-load] {len(done)}/{n_total} {os.path.basename(checkpoint_path)} ({time.perf_counter() - t0:.1f}s)"  # noqa: E501
         )
 
     if max_workers is None:
@@ -279,7 +328,9 @@ def merge_transformers_sharded_states(
         futures = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             for i in range(len(checkpoint_names)):
-                futures.append(executor.submit(load_files, os.path.join(path, checkpoint_names[i]), i))
+                futures.append(
+                    executor.submit(load_files, os.path.join(path, checkpoint_names[i]), i)
+                )
         concurrent.futures.wait(futures)
         for future in futures:
             try:
@@ -329,7 +380,9 @@ class HuggingFaceCheckpoint(AbstractCheckpoint):
             os.makedirs(done_dir, exist_ok=True)
         return False
 
-    def convert_from_common(self, c_ckpt, layer_dict, expert_dict=None, save_path=None, save_file=True):
+    def convert_from_common(
+        self, c_ckpt, layer_dict, expert_dict=None, save_path=None, save_file=True
+    ):
         """
         Convert HuggingFace checkpoint to common checkpoint.
         """
@@ -384,9 +437,17 @@ class HuggingFaceCheckpoint(AbstractCheckpoint):
             # ====moe shared_expert
             for c_name in MOE_EXPERT_PROJS:
                 if c_name == MOE_EXPERT_H_TO_4H:
-                    spec_name = MTP_MOE_SHARED_EXPERT_H_TO_4H if layer_id >= num_layers else MOE_SHARED_EXPERT_H_TO_4H
+                    spec_name = (
+                        MTP_MOE_SHARED_EXPERT_H_TO_4H
+                        if layer_id >= num_layers
+                        else MOE_SHARED_EXPERT_H_TO_4H
+                    )
                 else:
-                    spec_name = MTP_MOE_SHARED_EXPERT_4H_TO_H if layer_id >= num_layers else MOE_SHARED_EXPERT_4H_TO_H
+                    spec_name = (
+                        MTP_MOE_SHARED_EXPERT_4H_TO_H
+                        if layer_id >= num_layers
+                        else MOE_SHARED_EXPERT_4H_TO_H
+                    )
                 self.h_base.common_to_hf(
                     c_name,
                     c_ckpt,
@@ -405,9 +466,13 @@ class HuggingFaceCheckpoint(AbstractCheckpoint):
                     for expert_id in expert_ids:
                         for c_name in MOE_EXPERT_PROJS:
                             if c_name == MOE_EXPERT_H_TO_4H:
-                                spec_name = MTP_MOE_EXPERT_H_TO_4H if layer_id >= num_layers else None
+                                spec_name = (
+                                    MTP_MOE_EXPERT_H_TO_4H if layer_id >= num_layers else None
+                                )
                             else:
-                                spec_name = MTP_MOE_EXPERT_4H_TO_H if layer_id >= num_layers else None
+                                spec_name = (
+                                    MTP_MOE_EXPERT_4H_TO_H if layer_id >= num_layers else None
+                                )
                             self.h_moe.common_e_to_hf(
                                 MOE_EXPERT,
                                 c_name,
@@ -446,10 +511,14 @@ class HuggingFaceCheckpoint(AbstractCheckpoint):
             merged = 0
             marker = "_alpha_"
             bases = {
-                key[: key.rfind(marker)] for key in list(self.state_dict.keys()) if ".hc_" in key and marker in key
+                key[: key.rfind(marker)]
+                for key in list(self.state_dict.keys())
+                if ".hc_" in key and marker in key
             }
             for base in sorted(bases):
-                triplet = [self.state_dict.get(f"{base}_alpha_{part}") for part in ("pre", "post", "res")]
+                triplet = [
+                    self.state_dict.get(f"{base}_alpha_{part}") for part in ("pre", "post", "res")
+                ]
                 if any(t is None for t in triplet):
                     continue
                 for part in ("pre", "post", "res"):
@@ -520,7 +589,9 @@ class HuggingFaceCheckpoint(AbstractCheckpoint):
             self.h_base.hf_to_common(VISION_WORD_EMBEDDINGS, c_ckpt, self.state_dict)
 
         for layer_id in layer_ids:
-            hf_layer_id = mtp_layer_id if (layer_id >= num_layers and mtp_layer_id is not None) else layer_id
+            hf_layer_id = (
+                mtp_layer_id if (layer_id >= num_layers and mtp_layer_id is not None) else layer_id
+            )
             transformer = mtp_transformer if layer_id >= num_layers else None
             layer_prefix = mtp_layer_prefix if layer_id >= num_layers else None
             for c_name in BASE_NAMES:
@@ -536,9 +607,17 @@ class HuggingFaceCheckpoint(AbstractCheckpoint):
             # ====moe shared_expert
             for c_name in MOE_EXPERT_PROJS:
                 if c_name == MOE_EXPERT_H_TO_4H:
-                    spec_name = MTP_MOE_SHARED_EXPERT_H_TO_4H if layer_id >= num_layers else MOE_SHARED_EXPERT_H_TO_4H
+                    spec_name = (
+                        MTP_MOE_SHARED_EXPERT_H_TO_4H
+                        if layer_id >= num_layers
+                        else MOE_SHARED_EXPERT_H_TO_4H
+                    )
                 else:
-                    spec_name = MTP_MOE_SHARED_EXPERT_4H_TO_H if layer_id >= num_layers else MOE_SHARED_EXPERT_4H_TO_H
+                    spec_name = (
+                        MTP_MOE_SHARED_EXPERT_4H_TO_H
+                        if layer_id >= num_layers
+                        else MOE_SHARED_EXPERT_4H_TO_H
+                    )
                 self.h_base.hf_to_common(
                     c_name,
                     c_ckpt,
@@ -557,9 +636,13 @@ class HuggingFaceCheckpoint(AbstractCheckpoint):
                     for expert_id in expert_ids:
                         for c_name in MOE_EXPERT_PROJS:
                             if c_name == MOE_EXPERT_H_TO_4H:
-                                spec_name = MTP_MOE_EXPERT_H_TO_4H if layer_id >= num_layers else None
+                                spec_name = (
+                                    MTP_MOE_EXPERT_H_TO_4H if layer_id >= num_layers else None
+                                )
                             else:
-                                spec_name = MTP_MOE_EXPERT_4H_TO_H if layer_id >= num_layers else None
+                                spec_name = (
+                                    MTP_MOE_EXPERT_4H_TO_H if layer_id >= num_layers else None
+                                )
                             self.h_moe.hf_e_to_common(
                                 MOE_EXPERT,
                                 c_name,
@@ -663,9 +746,19 @@ class HuggingFaceCheckpoint(AbstractCheckpoint):
             output_dtype=output_dtype,
             target_weight_keys=target_weight_keys,
         )
-        progress_print(f"[mxfp4-dequant] done: materialized {converted} packed FP4 weight(s) to {dtype_name}.")
+        progress_print(
+            f"[mxfp4-dequant] done: materialized {converted} packed FP4 weight(s) to {dtype_name}."
+        )
 
-    def load(self, load_path, load_safe=False, c_config=None, layer_ids=[], expert_ids=None, mtp_num_layers=0):
+    def load(
+        self,
+        load_path,
+        load_safe=False,
+        c_config=None,
+        layer_ids=[],
+        expert_ids=None,
+        mtp_num_layers=0,
+    ):
         """load ckpt"""
         dequant_weight_keys = None
         if load_safe:
@@ -750,7 +843,9 @@ class HuggingFaceCheckpoint(AbstractCheckpoint):
         # K3 names MXFP4 pairs as ``weight_packed``/``weight_scale``. Rename
         # them before dequantization so the shared path can consume the pair.
         normalize_kimi_k3_state_dict(self.state_dict, c_config)
-        self.dequantize_compressed_tensors_if_needed(load_path, target_weight_keys=dequant_weight_keys)
+        self.dequantize_compressed_tensors_if_needed(
+            load_path, target_weight_keys=dequant_weight_keys
+        )
         # MXFP4 dequant must run before the DSV4 `.scale` -> `.weight_scale_inv`
         # rename below: it matches routed-expert scale companions by the raw
         # `.scale` suffix and pops them once consumed. If the rename ran first,
@@ -837,7 +932,7 @@ class HuggingFaceCheckpoint(AbstractCheckpoint):
             )
             if config_file is None:
                 raise ValueError(
-                    "--hf-pack-quantized-from-config requires --hf-official-config-file or --hf-quant-config-file"
+                    "--hf-pack-quantized-from-config requires --hf-official-config-file or --hf-quant-config-file"  # noqa: E501
                 )
             pack_state_dict_from_official_config(
                 state_dict,
@@ -858,7 +953,13 @@ class HuggingFaceCheckpoint(AbstractCheckpoint):
                 # shared_head.head aliases the trunk output_layer (mcore_base.py redirects
                 # mtp_shared_head_head to word_embeddings_for_head). safetensors refuses aliased
                 # storages, so materialize a copy for every name after the first.
-                key = (t.untyped_storage().data_ptr(), t.storage_offset(), tuple(t.shape), tuple(t.stride()), t.dtype)
+                key = (
+                    t.untyped_storage().data_ptr(),
+                    t.storage_offset(),
+                    tuple(t.shape),
+                    tuple(t.stride()),
+                    t.dtype,
+                )
                 if key in seen_storage:
                     logging.info(
                         f"Tensor {tensor} shares storage with {seen_storage[key]}; "
@@ -875,10 +976,14 @@ class HuggingFaceCheckpoint(AbstractCheckpoint):
 
         if self.args.max_workers > 1:
             futures = []
-            with concurrent.futures.ThreadPoolExecutor(max_workers=self.args.max_workers) as executor:
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=self.args.max_workers
+            ) as executor:
                 for shard_file, tensors in state_dict_split.filename_to_tensors.items():
                     has_safetensor_file = True
-                    futures.append(executor.submit(save_hf_shard, tensors=tensors, shard_file=shard_file))
+                    futures.append(
+                        executor.submit(save_hf_shard, tensors=tensors, shard_file=shard_file)
+                    )
             concurrent.futures.wait(futures)
             for future in futures:
                 try:
@@ -925,7 +1030,11 @@ class HuggingFaceCheckpoint(AbstractCheckpoint):
 
     def merge_dict_tensor(self, state_dict):
         for key, value in state_dict.items():
-            if isinstance(value, dict) and LAYER_IS_DICT_FOR_EXPERT in value and value[LAYER_IS_DICT_FOR_EXPERT]:
+            if (
+                isinstance(value, dict)
+                and LAYER_IS_DICT_FOR_EXPERT in value
+                and value[LAYER_IS_DICT_FOR_EXPERT]
+            ):
                 value.pop(LAYER_IS_DICT_FOR_EXPERT)
                 sorted_items = sorted(value.items())
                 tensors = [tensor for _, tensor in sorted_items]
@@ -954,7 +1063,9 @@ class HuggingFaceCheckpoint(AbstractCheckpoint):
             save_path=save_path,
             save_file=False,
         )
-        vision_ckpt = hf_vision_ckpt.convert_from_common(c_vision_ckpt, vision_layer_dict, save_file=False)
+        vision_ckpt = hf_vision_ckpt.convert_from_common(
+            c_vision_ckpt, vision_layer_dict, save_file=False
+        )
         state_dict.update(vision_ckpt)
         # save checkpoint file
         ep_ids = list(expert_dict.keys()) if expert_dict is not None else None

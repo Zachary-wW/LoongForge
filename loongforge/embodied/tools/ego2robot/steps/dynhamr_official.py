@@ -214,7 +214,12 @@ def _mano_joints(result, mano_dir: Path):
     def tensor(x):
         return torch.as_tensor(x.reshape(b * t, -1), dtype=torch.float32)
 
-    out = model(global_orient=tensor(root), hand_pose=tensor(pose), betas=tensor(betas), transl=tensor(trans))
+    out = model(
+        global_orient=tensor(root),
+        hand_pose=tensor(pose),
+        betas=tensor(betas),
+        transl=tensor(trans),
+    )
     base = out.joints
     extras = out.vertices[:, [vertex_ids["mano"][k] for k in vertex_ids["mano"]]]
     # smplx's MANO order is rearranged to OpenPose order by this fixed map.
@@ -235,7 +240,10 @@ def run(args):
     output = Path(args.output).resolve()
     output.mkdir(parents=True, exist_ok=True)
     data_root = repo / "_DATA" / "data"
-    _link_asset(Path(args.mano_dir).expanduser().resolve() / "MANO_RIGHT.pkl", data_root / "mano" / "MANO_RIGHT.pkl")
+    _link_asset(
+        Path(args.mano_dir).expanduser().resolve() / "MANO_RIGHT.pkl",
+        data_root / "mano" / "MANO_RIGHT.pkl",
+    )
     if args.mano_mean_params:
         # Do not call resolve() here: a stale destination may be a cyclic
         # symlink, and _link_asset handles replacing it safely.
@@ -276,9 +284,13 @@ def run(args):
         shim_dir = Path(__file__).resolve().parent
         pythonpath = os.pathsep.join((str(shim_dir), str(repo / "dyn-hamr")))
         env = {**os.environ, "PYTHONPATH": pythonpath}
-        proc = subprocess.run(cmd, cwd=str(repo / "dyn-hamr"), env=env, text=True, capture_output=True)
+        proc = subprocess.run(
+            cmd, cwd=str(repo / "dyn-hamr"), env=env, text=True, capture_output=True
+        )
         if proc.returncode:
-            raise RuntimeError("Dyn-HaMR failed (last output):\n" + (proc.stdout + "\n" + proc.stderr)[-10000:])
+            raise RuntimeError(
+                "Dyn-HaMR failed (last output):\n" + (proc.stdout + "\n" + proc.stderr)[-10000:]
+            )
         result_path = _find_result(output / "logs")
         with np.load(result_path, allow_pickle=True) as data:
             result = {k: data[k] for k in data.files}

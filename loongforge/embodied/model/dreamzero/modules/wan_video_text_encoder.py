@@ -43,7 +43,11 @@ class GELU(nn.Module):
 
     def forward(self, x):
         """Apply the tanh-approx GELU activation to ``x``."""
-        return 0.5 * x * (1.0 + torch.tanh(math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))))
+        return (
+            0.5
+            * x
+            * (1.0 + torch.tanh(math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))))
+        )
 
 
 class T5LayerNorm(nn.Module):
@@ -146,7 +150,9 @@ class T5FeedForward(nn.Module):
 class T5SelfAttention(nn.Module):
     """Pre-norm self-attention block: norm1 -> attn -> norm2 -> ffn."""
 
-    def __init__(self, dim, dim_attn, dim_ffn, num_heads, num_buckets, shared_pos=True, dropout=0.1):
+    def __init__(
+        self, dim, dim_attn, dim_ffn, num_heads, num_buckets, shared_pos=True, dropout=0.1
+    ):
         """Initialize the norm/attn/ffn sublayers and optional pos embedding."""
         super(T5SelfAttention, self).__init__()
         self.dim = dim
@@ -161,7 +167,9 @@ class T5SelfAttention(nn.Module):
         self.attn = T5Attention(dim, dim_attn, num_heads, dropout)
         self.norm2 = T5LayerNorm(dim)
         self.ffn = T5FeedForward(dim, dim_ffn, dropout)
-        self.pos_embedding = None if shared_pos else T5RelativeEmbedding(num_buckets, num_heads, bidirectional=True)
+        self.pos_embedding = (
+            None if shared_pos else T5RelativeEmbedding(num_buckets, num_heads, bidirectional=True)
+        )
 
     def forward(self, x, mask=None, pos_bias=None):
         """Run the pre-norm attention + FFN block on ``x``."""
@@ -188,7 +196,9 @@ class T5RelativeEmbedding(nn.Module):
     def forward(self, lq, lk):
         """Compute the relative position bias tensor of shape [1, N, Lq, Lk]."""
         device = self.embedding.weight.device
-        rel_pos = torch.arange(lk, device=device).unsqueeze(0) - torch.arange(lq, device=device).unsqueeze(1)
+        rel_pos = torch.arange(lk, device=device).unsqueeze(0) - torch.arange(
+            lq, device=device
+        ).unsqueeze(1)
         rel_pos = self._relative_position_bucket(rel_pos)
         rel_pos_embeds = self.embedding(rel_pos)
         rel_pos_embeds = rel_pos_embeds.permute(2, 0, 1).unsqueeze(0)  # [1, N, Lq, Lk]
@@ -211,7 +221,9 @@ class T5RelativeEmbedding(nn.Module):
         rel_pos_large = (
             max_exact
             + (
-                torch.log(rel_pos.float() / max_exact) / math.log(self.max_dist / max_exact) * (num_buckets - max_exact)
+                torch.log(rel_pos.float() / max_exact)
+                / math.log(self.max_dist / max_exact)
+                * (num_buckets - max_exact)
             ).long()
         )
         rel_pos_large = torch.min(rel_pos_large, torch.full_like(rel_pos_large, num_buckets - 1))

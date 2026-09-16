@@ -67,7 +67,9 @@ class VideoSamplingTest(unittest.TestCase):
 
     def test_none_uses_hard_default_cap(self):
         fake_av = SimpleNamespace(
-            open=lambda _path: _FakeContainer(frame_count=vlm_runner.DEFAULT_MAX_FRAMES + 20, fps=10.0)
+            open=lambda _path: _FakeContainer(
+                frame_count=vlm_runner.DEFAULT_MAX_FRAMES + 20, fps=10.0
+            )
         )
         with mock.patch.dict(sys.modules, {"av": fake_av}):
             images = vlm_runner._sample_video(

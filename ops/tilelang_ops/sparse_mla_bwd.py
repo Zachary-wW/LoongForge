@@ -37,8 +37,13 @@ def preprocess(
             acc = T.alloc_fragment([block_ND, block_ND], accum_dtype)
             T.clear(acc)
             for k in T.Pipelined(T.ceildiv(D, block_ND), num_stages=num_stages):
-                T.copy(O[by * block_ND : (by + 1) * block_ND, bx, k * block_ND : (k + 1) * block_ND], o)
-                T.copy(dO[by * block_ND : (by + 1) * block_ND, bx, k * block_ND : (k + 1) * block_ND], do)
+                T.copy(
+                    O[by * block_ND : (by + 1) * block_ND, bx, k * block_ND : (k + 1) * block_ND], o
+                )
+                T.copy(
+                    dO[by * block_ND : (by + 1) * block_ND, bx, k * block_ND : (k + 1) * block_ND],
+                    do,
+                )
                 for i, j in T.Parallel(block_ND, block_ND):
                     acc[i, j] += o[i, j] * do[i, j]
             T.reduce_sum(acc, delta, 1)
@@ -105,7 +110,9 @@ def bwd(
 ):
     """backward function."""
     assert is_causal == True, "non-casual is not supported now"
-    assert topk % block_size == 0, "otherwise will load some index=0 thus causing wrong kv to be loaded"
+    assert topk % block_size == 0, (
+        "otherwise will load some index=0 thus causing wrong kv to be loaded"
+    )
     assert dtype == T.bfloat16
     assert accum_dtype == T.float32
     assert indices_dtype == T.int32
@@ -191,24 +198,55 @@ def bwd(
                 for bi_i, d_i in T.Parallel(BS, D):
                     KV_shared[bi_i, d_i] = KV[bos + Indices[b_s_i, bz, i_i * BS + bi_i], bz, d_i]
                 for bi_i, d_i in T.Parallel(BS, D_tail):
-                    KV_tail_shared[bi_i, d_i] = KV[bos + Indices[b_s_i, bz, i_i * BS + bi_i], bz, D + d_i]
-                T.gemm(Q_shared, KV_shared, acc_p, transpose_B=True, policy=T.GemmWarpPolicy.FullCol, wg_wait=0)
+                    KV_tail_shared[bi_i, d_i] = KV[
+                        bos + Indices[b_s_i, bz, i_i * BS + bi_i], bz, D + d_i
+                    ]
                 T.gemm(
-                    Q_tail_shared, KV_tail_shared, acc_p, transpose_B=True, policy=T.GemmWarpPolicy.FullCol, wg_wait=0
+                    Q_shared,
+                    KV_shared,
+                    acc_p,
+                    transpose_B=True,
+                    policy=T.GemmWarpPolicy.FullCol,
+                    wg_wait=0,
+                )
+                T.gemm(
+                    Q_tail_shared,
+                    KV_tail_shared,
+                    acc_p,
+                    transpose_B=True,
+                    policy=T.GemmWarpPolicy.FullCol,
+                    wg_wait=0,
                 )
                 for h_i, bi_i in T.Parallel(padded_H, BS):
-                    acc_p[h_i, bi_i] = T.exp(acc_p[h_i, bi_i] * sm_scale - Lse[b_s_i, bz * padded_H + h_i])
+                    acc_p[h_i, bi_i] = T.exp(
+                        acc_p[h_i, bi_i] * sm_scale - Lse[b_s_i, bz * padded_H + h_i]
+                    )
                 T.copy(acc_p, P_shared_cast)
                 T.gemm(
-                    dO_shared, KV_shared, acc_dp, transpose_B=True, policy=T.GemmWarpPolicy.FullCol, clear_accum=True
+                    dO_shared,
+                    KV_shared,
+                    acc_dp,
+                    transpose_B=True,
+                    policy=T.GemmWarpPolicy.FullCol,
+                    clear_accum=True,
                 )
                 for h_i, bi_i in T.Parallel(padded_H, BS):
                     acc_dp[h_i, bi_i] = (
-                        acc_p[h_i, bi_i] * (acc_dp[h_i, bi_i] - Delta[bos + s_i, bz * padded_H + h_i]) * sm_scale
+                        acc_p[h_i, bi_i]
+                        * (acc_dp[h_i, bi_i] - Delta[bos + s_i, bz * padded_H + h_i])
+                        * sm_scale
                     )
                 T.copy(acc_dp, dP_shared_cast)
-                T.gemm(dP_shared_cast, KV_shared, acc_dq, policy=T.GemmWarpPolicy.FullCol, wg_wait=-1)
-                T.gemm(dP_shared_cast, KV_tail_shared, acc_dq_tail, policy=T.GemmWarpPolicy.FullCol, wg_wait=-1)
+                T.gemm(
+                    dP_shared_cast, KV_shared, acc_dq, policy=T.GemmWarpPolicy.FullCol, wg_wait=-1
+                )
+                T.gemm(
+                    dP_shared_cast,
+                    KV_tail_shared,
+                    acc_dq_tail,
+                    policy=T.GemmWarpPolicy.FullCol,
+                    wg_wait=-1,
+                )
                 T.gemm(
                     dP_shared_cast,
                     Q_shared,
@@ -218,7 +256,14 @@ def bwd(
                     clear_accum=True,
                     wg_wait=-1,
                 )
-                T.gemm(P_shared_cast, dO_shared, acc_dkv, transpose_A=True, policy=T.GemmWarpPolicy.FullCol, wg_wait=-1)
+                T.gemm(
+                    P_shared_cast,
+                    dO_shared,
+                    acc_dkv,
+                    transpose_A=True,
+                    policy=T.GemmWarpPolicy.FullCol,
+                    wg_wait=-1,
+                )
                 T.clear(acc_dkv_tail)
                 T.gemm(
                     dP_shared_cast,
@@ -234,16 +279,26 @@ def bwd(
                         acc_dkv_shared[bi_i, d_i] = acc_dkv[bi_i + s * (BS // split_store), d_i]
                     for bi_i, d_i in T.Parallel(BS // split_store, D_tail):
                         # if bi_i < BS // split_store:
-                        acc_dkv_tail_shared[bi_i, d_i] = acc_dkv_tail[bi_i + s * (BS // split_store), d_i]
+                        acc_dkv_tail_shared[bi_i, d_i] = acc_dkv_tail[
+                            bi_i + s * (BS // split_store), d_i
+                        ]
                     for bi_i, d_i in T.Parallel(BS // split_store, D // 4):
                         T.atomic_addx4(
-                            dKV[bos + Indices[b_s_i, bz, i_i * BS + bi_i + s * (BS // split_store)], bz, d_i * 4],
+                            dKV[
+                                bos + Indices[b_s_i, bz, i_i * BS + bi_i + s * (BS // split_store)],
+                                bz,
+                                d_i * 4,
+                            ],
                             acc_dkv_shared[bi_i, d_i * 4],
                         )
                     # Atomically update dKV, dKV_tail tensors
                     for bi_i, d_i in T.Parallel(BS // split_store, D_tail // 4):
                         T.atomic_addx4(
-                            dKV[bos + Indices[b_s_i, bz, i_i * BS + bi_i + s * (BS // split_store)], bz, D + d_i * 4],
+                            dKV[
+                                bos + Indices[b_s_i, bz, i_i * BS + bi_i + s * (BS // split_store)],
+                                bz,
+                                D + d_i * 4,
+                            ],
                             acc_dkv_tail_shared[bi_i, d_i * 4],
                         )
             # Store the accumulated dQ
@@ -256,7 +311,18 @@ def bwd(
 
 
 def sparse_mla_bwd(
-    q, kv, o, do, indices, lse, offsets, chunk_offset, sm_scale=None, is_casual=True, return_kernel=False, delta=None
+    q,
+    kv,
+    o,
+    do,
+    indices,
+    lse,
+    offsets,
+    chunk_offset,
+    sm_scale=None,
+    is_casual=True,
+    return_kernel=False,
+    delta=None,
 ):
     """sparse mla backward api."""
     assert q.is_contiguous()
@@ -343,7 +409,9 @@ def sparse_mla_bwd(
     return dq, dkv
 
 
-def ref_sparse_mla_bwd_interface(q, kv, o, do, indices, lse, offsets, chunk_offset, sm_scale=None, is_casual=True):
+def ref_sparse_mla_bwd_interface(
+    q, kv, o, do, indices, lse, offsets, chunk_offset, sm_scale=None, is_casual=True
+):
     """sparse mla backward reference."""
     from sparse_mla_fwd import ref_sparse_mla_fwd_interface
 
@@ -391,7 +459,9 @@ def test_sparse_mla_bwd(
     tl_out, tl_lse = sparse_mla_fwd_interface(q, kv, indices, offsets, chunk_offset)
 
     tl_dq, tl_dkv = sparse_mla_bwd(q, kv, tl_out, do, indices, tl_lse, offsets, chunk_offset)
-    ref_dq, ref_dkv = ref_sparse_mla_bwd_interface(q, kv, None, do, indices, None, offsets, chunk_offset)
+    ref_dq, ref_dkv = ref_sparse_mla_bwd_interface(
+        q, kv, None, do, indices, None, offsets, chunk_offset
+    )
     if check_correctness:
         assert_tensors_similar(tl_dq, ref_dq, eps=1e-4, name="dq")
         assert_tensors_similar(tl_dkv, ref_dkv, eps=1e-4, name="dkv")
@@ -413,7 +483,9 @@ def test_sparse_mla_bwd(
 
     ms = do_bench(fn, rep=100, warmup=250)
     print(f"Average time: {ms:.3f} ms")
-    print(f"bwd io bandwidth = ", (B * S * max(DQKV * 2, DQKV + DV) * topk * 2) / (ms * 1e-3) / 1e12)
+    print(
+        f"bwd io bandwidth = ", (B * S * max(DQKV * 2, DQKV + DV) * topk * 2) / (ms * 1e-3) / 1e12
+    )
     print(f"bwd tflops = ", per_token_flop * S / (ms * 1e-3) / 1e12)
 
 

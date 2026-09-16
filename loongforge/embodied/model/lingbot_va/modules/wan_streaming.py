@@ -59,7 +59,9 @@ def get_mesh_id_streaming(
     return grid
 
 
-def data_seq_to_patch(patch_size, data_seq, latent_num_frames, latent_height, latent_width, batch_size=1):
+def data_seq_to_patch(
+    patch_size, data_seq, latent_num_frames, latent_height, latent_width, batch_size=1
+):
     """Reshape a flattened patch sequence back into a ``[B, C, F, H, W]`` latent grid.
 
     Inverse of the latent stream's input patchification. Inference needs it to turn the
@@ -137,8 +139,12 @@ class WanStreamingAttention(WanAttention):
         if self.attn_caches is None:
             return
         self.attn_caches[cache_name] = {
-            "k": torch.empty([batch_size, total_token_len, num_head, head_dim], device=device, dtype=dtype),
-            "v": torch.empty([batch_size, total_token_len, num_head, head_dim], device=device, dtype=dtype),
+            "k": torch.empty(
+                [batch_size, total_token_len, num_head, head_dim], device=device, dtype=dtype
+            ),
+            "v": torch.empty(
+                [batch_size, total_token_len, num_head, head_dim], device=device, dtype=dtype
+            ),
             "id": torch.full((total_token_len,), -1, device=device),
             "mask": torch.zeros((total_token_len,), dtype=torch.bool, device=device),
             "is_pred": torch.zeros((total_token_len,), dtype=torch.bool, device=device),
@@ -167,7 +173,9 @@ class WanStreamingAttention(WanAttention):
             free = (~mask).nonzero(as_tuple=False).squeeze(-1)
 
         if free.numel() < key_size:
-            raise RuntimeError(f"KV cache exhausted: need {key_size} free slots, have {free.numel()}.")
+            raise RuntimeError(
+                f"KV cache exhausted: need {key_size} free slots, have {free.numel()}."
+            )
         return free[:key_size]
 
     def _next_cache_id(self, cache_name: str):
@@ -273,7 +281,9 @@ class WanStreamingTransformerBlock(WanTransformerBlock):
         # ``temb`` is the [B, L, 6, C] modulation tensor produced by
         # ``WanTransformer3DModel._time_embed``.
         modulation = self.scale_shift_table[None] + temb.float()
-        shift, scale, gate, ff_shift, ff_scale, ff_gate = rearrange(modulation, "b l n c -> b n l c").chunk(6, dim=1)
+        shift, scale, gate, ff_shift, ff_scale, ff_gate = rearrange(
+            modulation, "b l n c -> b n l c"
+        ).chunk(6, dim=1)
 
         # 1. Self-attention (with KV cache)
         normed = self.norm1(hidden_states.float())
@@ -286,7 +296,9 @@ class WanStreamingTransformerBlock(WanTransformerBlock):
             update_cache=update_cache,
             cache_name=cache_name,
         )
-        hidden_states = (hidden_states.float() + self_update * gate.squeeze(1)).to(hidden_states.dtype)
+        hidden_states = (hidden_states.float() + self_update * gate.squeeze(1)).to(
+            hidden_states.dtype
+        )
 
         # 2. Cross-attention (no cache)
         if isinstance(self.norm2, nn.Identity):
@@ -300,7 +312,9 @@ class WanStreamingTransformerBlock(WanTransformerBlock):
         normed = self.norm3(hidden_states.float())
         normed = (normed * (1 + ff_scale.squeeze(1)) + ff_shift.squeeze(1)).to(hidden_states.dtype)
         ffn_update = self.ffn(normed)
-        hidden_states = (hidden_states.float() + ffn_update.float() * ff_gate.squeeze(1)).to(hidden_states.dtype)
+        hidden_states = (hidden_states.float() + ffn_update.float() * ff_gate.squeeze(1)).to(
+            hidden_states.dtype
+        )
         return hidden_states
 
 
@@ -360,7 +374,9 @@ class WanStreamingTransformer3DModel(WanTransformer3DModel):
         into ``attn_window // 2`` chunks of each kind. This bound is what keeps peak
         memory flat regardless of episode length.
         """
-        total_token_len = (attn_window // 2) * latent_token_per_chunk + (attn_window // 2) * action_token_per_chunk
+        total_token_len = (attn_window // 2) * latent_token_per_chunk + (
+            attn_window // 2
+        ) * action_token_per_chunk
         for block in self.blocks:
             block.attn1.init_kv_cache(
                 cache_name,
@@ -373,7 +389,9 @@ class WanStreamingTransformer3DModel(WanTransformer3DModel):
             )
 
     # ── single-stream inference forward ──────────────────────────────
-    def forward(self, input_dict, update_cache=0, cache_name="pos", action_mode=False, train_mode=False):
+    def forward(
+        self, input_dict, update_cache=0, cache_name="pos", action_mode=False, train_mode=False
+    ):
         """Run one stream through the transformer, or delegate to the training path.
 
         ``train_mode=True`` forwards to the base class's dual-stream training path
@@ -387,7 +405,9 @@ class WanStreamingTransformer3DModel(WanTransformer3DModel):
 
         if action_mode:
             # Action input embedding: [B, C, F, apf, 1] -> [B, F*apf, C]
-            latent_hidden_states = rearrange(input_dict["noisy_latents"], "b c f h w -> b (f h w) c")
+            latent_hidden_states = rearrange(
+                input_dict["noisy_latents"], "b c f h w -> b (f h w) c"
+            )
             latent_hidden_states = self.action_embedder(latent_hidden_states)
         else:
             # Video-latent input embedding with patchification.
@@ -404,7 +424,9 @@ class WanStreamingTransformer3DModel(WanTransformer3DModel):
 
         latent_grid_id = input_dict["grid_id"]
         rotary_emb = self.rope(latent_grid_id)[:, :, None]  # [1, L, 1, C]
-        patch_scale_h, patch_scale_w = (1, 1) if action_mode else (self.patch_size[1], self.patch_size[2])
+        patch_scale_h, patch_scale_w = (
+            (1, 1) if action_mode else (self.patch_size[1], self.patch_size[2])
+        )
 
         latent_time_steps = torch.repeat_interleave(
             input_dict["timesteps"],
@@ -412,8 +434,12 @@ class WanStreamingTransformer3DModel(WanTransformer3DModel):
             * (input_dict["noisy_latents"].shape[-1] // patch_scale_w),
             dim=1,
         )
-        current_condition_embedder = self.condition_embedder_action if action_mode else self.condition_embedder
-        temb, timestep_proj = current_condition_embedder(latent_time_steps, dtype=latent_hidden_states.dtype)
+        current_condition_embedder = (
+            self.condition_embedder_action if action_mode else self.condition_embedder
+        )
+        temb, timestep_proj = current_condition_embedder(
+            latent_time_steps, dtype=latent_hidden_states.dtype
+        )
         timestep_proj = timestep_proj.unflatten(2, (6, -1))  # [B, L, 6, C]
 
         for block in self.blocks:
@@ -430,9 +456,9 @@ class WanStreamingTransformer3DModel(WanTransformer3DModel):
         shift, scale = rearrange(temb_scale_shift_table, "b l n c -> b n l c").chunk(2, dim=1)
         shift = shift.to(latent_hidden_states.device).squeeze(1)
         scale = scale.to(latent_hidden_states.device).squeeze(1)
-        latent_hidden_states = (self.norm_out(latent_hidden_states.float()) * (1.0 + scale) + shift).type_as(
-            latent_hidden_states
-        )
+        latent_hidden_states = (
+            self.norm_out(latent_hidden_states.float()) * (1.0 + scale) + shift
+        ).type_as(latent_hidden_states)
 
         if action_mode:
             latent_hidden_states = self.action_proj_out(latent_hidden_states)

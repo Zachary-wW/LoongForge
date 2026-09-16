@@ -51,7 +51,7 @@ class FusedRMSNorm(ApexFusedRMSNorm):
 class LocalNorm:
     """
     A conditional wrapper to initialize an instance of Megatron Local `LayerNorm` or `RMSNorm` based on input
-    """
+    """  # noqa: E501
 
     # TODO should we ditch normalization config and just use spec to choose LayerNorm vs RMSNorm?
     def __new__(
@@ -69,7 +69,9 @@ class LocalNorm:
                     eps=eps,
                 )
             else:
-                assert HAVE_FUSED_LAYER_NORM, "Apex must currently be installed to use FusedLayerNorm op."
+                assert HAVE_FUSED_LAYER_NORM, (
+                    "Apex must currently be installed to use FusedLayerNorm op."
+                )
                 instance = ApexFusedLayerNorm(
                     hidden_size,
                     eps=eps,

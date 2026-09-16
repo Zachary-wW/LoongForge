@@ -9,7 +9,11 @@
 
 import torch
 from torch import Tensor
-from torch.nn.attention.flex_attention import BlockMask, create_block_mask, flex_attention as _flex_attention
+from torch.nn.attention.flex_attention import (
+    BlockMask,
+    create_block_mask,
+    flex_attention as _flex_attention,
+)
 from flash_attn.flash_attn_interface import flash_attn_func, flash_attn_varlen_func
 from enum import Enum
 
@@ -58,7 +62,9 @@ def merge_attentions(
             exp_1 = torch.exp(result_lse - max_lse)
             exp_2 = torch.exp(lse_tensors[i] - max_lse)
             denom = exp_1 + exp_2
-            result = (result * exp_1.unsqueeze(-1) + outputs[i] * exp_2.unsqueeze(-1)) / denom.unsqueeze(-1)
+            result = (
+                result * exp_1.unsqueeze(-1) + outputs[i] * exp_2.unsqueeze(-1)
+            ) / denom.unsqueeze(-1)
             result_lse = max_lse + torch.log(denom)
         return result, result_lse
     # Legacy positional interface
@@ -66,7 +72,9 @@ def merge_attentions(
     exp_1 = torch.exp(lse_1 - max_lse)
     exp_2 = torch.exp(lse_2 - max_lse)
     denom = exp_1 + exp_2
-    out = (attn_out_1 * exp_1.unsqueeze(-1) + attn_out_2 * exp_2.unsqueeze(-1)) / denom.unsqueeze(-1)
+    out = (attn_out_1 * exp_1.unsqueeze(-1) + attn_out_2 * exp_2.unsqueeze(-1)) / denom.unsqueeze(
+        -1
+    )
     new_lse = max_lse + torch.log(denom)
     return out, new_lse
 
@@ -92,7 +100,7 @@ class SplitInfo:
         originally padded to max sequence length (likely for flex attention).
         """
         assert sum(sample_lens) == sum(split_lens), (
-            f"Sum of new sample lens {sum(sample_lens)} is not equal to sum of new split lens {sum(split_lens)}"
+            f"Sum of new sample lens {sum(sample_lens)} is not equal to sum of new split lens {sum(split_lens)}"  # noqa: E501
         )
 
         max_causal_len = 0
@@ -213,7 +221,8 @@ def three_way_attention(
         full_v = full_v.clone()
         starts = full_q_offsets[:-1].long()  # [B]
         null_positions = (
-            starts.unsqueeze(1) + torch.arange(attention_meta.num_action_tokens_per_supertoken, device=starts.device)
+            starts.unsqueeze(1)
+            + torch.arange(attention_meta.num_action_tokens_per_supertoken, device=starts.device)
         ).reshape(-1)
         full_v[null_positions] = 0
 
@@ -311,9 +320,15 @@ def block_flex_attention(
 
     # Handle block mask attention with flex_attention
     pad_size = max_num_tokens - packed_queries.shape[0]
-    packed_queries_padded = pad_sequence(packed_queries.permute(1, 0, 2), pad_size)  # [heads,max_num_tokens,head_dim]
-    packed_keys_padded = pad_sequence(packed_keys.permute(1, 0, 2), pad_size)  # [heads,max_num_tokens,head_dim]
-    packed_values_padded = pad_sequence(packed_values.permute(1, 0, 2), pad_size)  # [heads,max_num_tokens,head_dim]
+    packed_queries_padded = pad_sequence(
+        packed_queries.permute(1, 0, 2), pad_size
+    )  # [heads,max_num_tokens,head_dim]
+    packed_keys_padded = pad_sequence(
+        packed_keys.permute(1, 0, 2), pad_size
+    )  # [heads,max_num_tokens,head_dim]
+    packed_values_padded = pad_sequence(
+        packed_values.permute(1, 0, 2), pad_size
+    )  # [heads,max_num_tokens,head_dim]
 
     packed_attn_output = flex_attention(
         packed_queries_padded.unsqueeze(0),  # [1,heads,max_num_tokens,head_dim]
@@ -352,7 +367,9 @@ def dispatch_attention(
     elif isinstance(attention_mask, SplitInfo):
         return two_way_attention(packed_query_states, packed_key_states, packed_value_states)
     else:
-        return block_flex_attention(packed_query_states, packed_key_states, packed_value_states, attention_mask)
+        return block_flex_attention(
+            packed_query_states, packed_key_states, packed_value_states, attention_mask
+        )
 
 
 def build_packed_sequence(
@@ -424,7 +441,7 @@ def build_packed_sequence(
         # The rolling KV-cache path implements temporal causality in
         # three_way_attention_with_kv_cache; skip NATTEN metadata.
         if not use_rolling_kv_cache:
-            # Temporal causal: encode (T, S) supertoken layout; spatial NATTEN: encode (H, W) layout.
+            # Temporal causal: encode (T, S) supertoken layout; spatial NATTEN: encode (H, W) layout.  # noqa: E501
             if video_temporal_causal:
                 natten_metadata_list = generate_temporal_causal_natten_metadata(
                     vision_token_shapes=vision_token_shapes,

@@ -62,7 +62,7 @@ class DynamicRotaryEmbedding(RotaryEmbedding):
         seq_len_interpolation_factor (float, optional): scale of linearly interpolating RoPE for longer sequences.
         The value must be a float larger than 1.0. Defaults to None
         rotary_base (int, optional): Base period for rotary position embeddings. Defaults to 10000.
-    """
+    """  # noqa: E501
 
     def __init__(
         self,
@@ -102,7 +102,8 @@ class DynamicRotaryEmbedding(RotaryEmbedding):
         """Forward pass of RoPE embedding"""
         if max_seq_len > self.max_position_embeddings:
             base = self.rotary_base * (
-                (self.scaling_factor * max_seq_len / self.max_position_embeddings) - (self.scaling_factor - 1)
+                (self.scaling_factor * max_seq_len / self.max_position_embeddings)
+                - (self.scaling_factor - 1)
             ) ** (self.dim / (self.dim - 2))
             self.inv_freq = 1.0 / (
                 base
@@ -127,15 +128,21 @@ class Qwen2VLRotaryEmbedding(torch.nn.Module):
     def __init__(self, dim, theta=1000000):
         super().__init__()
         self.inv_freq = 1.0 / (
-            theta ** (torch.arange(0, dim, 2, dtype=torch.int64).float().to(torch.cuda.current_device()) / dim)
+            theta
+            ** (
+                torch.arange(0, dim, 2, dtype=torch.int64).float().to(torch.cuda.current_device())
+                / dim
+            )
         )
 
     @torch.no_grad()
     def forward(self, position_ids, packed_seq):
         """Returns the frequency"""
-        # Core RoPE block. In contrast to other models, Qwen2_VL has different position ids for thw grids
+        # Core RoPE block. In contrast to other models, Qwen2_VL has different position ids for thw grids  # noqa: E501
         # So we expand the inv_freq to shape (3, ...)
-        inv_freq_expanded = self.inv_freq[None, None, :, None].float().expand(3, position_ids.shape[1], -1, 1)
+        inv_freq_expanded = (
+            self.inv_freq[None, None, :, None].float().expand(3, position_ids.shape[1], -1, 1)
+        )
         position_ids_expanded = position_ids[:, :, None, :].float()  # shape (3, bs, 1, positions)
 
         freqs = (inv_freq_expanded.float() @ position_ids_expanded.float()).transpose(2, 3)
@@ -169,7 +176,7 @@ class Qwen2Model(BaseGPTModel):
             is 'rope'. Defaults to 10000.
         seq_len_interpolation_factor (Optional[float], optional): scale of linearly interpolating RoPE for longer
             sequences. The value must be a float larger than 1.0. Defaults to None.
-    """
+    """  # noqa: E501
 
     config_class = Qwen2Config
 

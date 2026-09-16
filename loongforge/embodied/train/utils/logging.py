@@ -140,14 +140,18 @@ class StageTimers:
             torch.cuda.synchronize()
         if name not in self._start_time:
             return
-        self._elapsed[name] = self._elapsed.get(name, 0.0) + (time.perf_counter() - self._start_time.pop(name))
+        self._elapsed[name] = self._elapsed.get(name, 0.0) + (
+            time.perf_counter() - self._start_time.pop(name)
+        )
 
     def reset(self):
         """Clear all accumulated times."""
         self._elapsed.clear()
         self._start_time.clear()
 
-    def get_max_time_string(self, ctx, normalizer: float = 1.0, log_level: int = 0) -> Optional[str]:
+    def get_max_time_string(
+        self, ctx, normalizer: float = 1.0, log_level: int = 0
+    ) -> Optional[str]:
         """Render `max time across ranks (ms):` string on rank 0, else None.
 
         Args:
@@ -538,7 +542,9 @@ class TrainingLogger:
         # JSONL
         self._append_metrics_jsonl(metrics)
 
-    def log_stage_times(self, timers: "StageTimers", ctx, normalizer: float = 1.0, log_level: int = 0):
+    def log_stage_times(
+        self, timers: "StageTimers", ctx, normalizer: float = 1.0, log_level: int = 0
+    ):
         """Log per-stage timing in `max time across ranks (ms):` format.
 
         All ranks must call this (all_gather is collective); only rank 0 emits.
@@ -608,7 +614,9 @@ class TrainingLogger:
             return
         logger.info(f"Frozen: {dot_path}")
 
-    def log_freeze_not_found(self, dot_path: str, resolved_prefix: str = "", missing_attr: str = ""):
+    def log_freeze_not_found(
+        self, dot_path: str, resolved_prefix: str = "", missing_attr: str = ""
+    ):
         """Log that freeze target was not found.
 
         Args:

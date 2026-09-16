@@ -115,7 +115,9 @@ class TransformerLayerSchedulePlan:
         # get flags for latter use
         is_mtp = isinstance(self.layer, MultiTokenPredictionLayer)
         is_moe = (
-            isinstance(self.layer.transformer_layer.mlp, MoELayer) if is_mtp else isinstance(self.layer.mlp, MoELayer)
+            isinstance(self.layer.transformer_layer.mlp, MoELayer)
+            if is_mtp
+            else isinstance(self.layer.mlp, MoELayer)
         )
         enable_deepep = (
             self.layer.config.moe_token_dispatcher_type == "flex"
@@ -173,12 +175,16 @@ class TransformerLayerSchedulePlan:
             self.post_combine = NoopScheduleNode()
 
         if is_mtp:
-            self.mtp_post_process = create_node(comp_stream, mtp_post_process_module, "mtp_post_process")
+            self.mtp_post_process = create_node(
+                comp_stream, mtp_post_process_module, "mtp_post_process"
+            )
         else:
             self.mtp_post_process = NoopScheduleNode()
 
         if deepstack_handler is not None:
-            self.deepstack = create_node(comp_stream, deepstack_module_wrapper(deepstack_handler), "deepstack")
+            self.deepstack = create_node(
+                comp_stream, deepstack_module_wrapper(deepstack_handler), "deepstack"
+            )
         else:
             self.deepstack = NoopScheduleNode()
 
@@ -186,9 +192,13 @@ class TransformerLayerSchedulePlan:
         """
         Get the fp8 context for the transformer layer.
         """
-        use_inner_fp8_context = self.layer.config.fp8 and self.layer.config.fp8_recipe != Fp8Recipe.delayed
+        use_inner_fp8_context = (
+            self.layer.config.fp8 and self.layer.config.fp8_recipe != Fp8Recipe.delayed
+        )
         return (
-            get_fp8_context(self.layer.config, self.layer.layer_number - 1) if use_inner_fp8_context else nullcontext()
+            get_fp8_context(self.layer.config, self.layer.layer_number - 1)
+            if use_inner_fp8_context
+            else nullcontext()
         )
 
     @staticmethod
@@ -403,7 +413,9 @@ class TransformerModelChunkSchedulePlan(AbstractSchedulePlan):
         # check if encoder model has deepstack
         self._deepstack_indexes = None
         if getattr(model, "encoder_model", None) is not None:
-            self._deepstack_indexes = getattr(model.encoder_model.image_encoder, "deepstack_visual_indexes", None)
+            self._deepstack_indexes = getattr(
+                model.encoder_model.image_encoder, "deepstack_visual_indexes", None
+            )
 
         # if has foundation, use foundation as model
         if hasattr(model, "foundation_model"):
@@ -413,11 +425,15 @@ class TransformerModelChunkSchedulePlan(AbstractSchedulePlan):
         # The methods to obtain layers are different for MTP so we need the other build plan for
         # MTP. Also, this can help annotate MTP layer so that it can know where MTP is.
         self._build_layer_schedule_plan(model, model.decoder, comp_stream, comm_stream)
-        self._build_layer_schedule_plan(model, getattr(model, "mtp", None), comp_stream, comm_stream)
+        self._build_layer_schedule_plan(
+            model, getattr(model, "mtp", None), comp_stream, comm_stream
+        )
 
         # build post process
         if model.post_process:
-            self.post_process = PostProcessNode(model, self._model_chunk_state, self._event, comp_stream)
+            self.post_process = PostProcessNode(
+                model, self._model_chunk_state, self._event, comp_stream
+            )
 
     def _build_layer_schedule_plan(self, model, module, comp_stream, comm_stream):
         if module is None:

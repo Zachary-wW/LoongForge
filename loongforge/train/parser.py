@@ -58,8 +58,12 @@ def register_custom_resolvers():
     }
     LOSS_FUNC_MAP = {"default": default_loss_func, "loss_func_internvl": loss_func_internvl}
     OmegaConf.register_new_resolver("act", lambda name: ACTIVATION_MAP[name.lower()], replace=True)
-    OmegaConf.register_new_resolver("position_func", lambda name: POSITION_IDX_FUNC_MAP[name.lower()], replace=True)
-    OmegaConf.register_new_resolver("loss_func", lambda name: LOSS_FUNC_MAP[name.lower()], replace=True)
+    OmegaConf.register_new_resolver(
+        "position_func", lambda name: POSITION_IDX_FUNC_MAP[name.lower()], replace=True
+    )
+    OmegaConf.register_new_resolver(
+        "loss_func", lambda name: LOSS_FUNC_MAP[name.lower()], replace=True
+    )
 
     # moe layer freq resolver
     OmegaConf.register_new_resolver("moe_freq", lambda expr: moe_freq_type(expr), replace=True)

@@ -35,7 +35,11 @@ try:
 except ImportError:
     _hf_no_init_weights = None
 
-from .configuration_eagle3_vl import Eagle3VLConfig, build_eagle_load_kwargs, resolve_eagle_local_path
+from .configuration_eagle3_vl import (
+    Eagle3VLConfig,
+    build_eagle_load_kwargs,
+    resolve_eagle_local_path,
+)
 from .modeling_eagle3_vl import load_eagle_model
 
 
@@ -73,7 +77,9 @@ def _groot_eagle_no_init_weights():
     # Transformers 4 is the base environment and exposes no_init_weights from
     # modeling_utils. Keep that exact path there; Transformers 5 moved no-init
     # to a broader implementation that changes the CPU RNG stream.
-    if _hf_no_init_weights is not None and (_TRANSFORMERS_MAJOR_VERSION is None or _TRANSFORMERS_MAJOR_VERSION < 5):
+    if _hf_no_init_weights is not None and (
+        _TRANSFORMERS_MAJOR_VERSION is None or _TRANSFORMERS_MAJOR_VERSION < 5
+    ):
         with _hf_no_init_weights():
             yield
         return
@@ -124,7 +130,9 @@ def _load_lerobot_eager_eagle(
 ) -> torch.nn.Module:
     """Load Eagle through the same AutoModel remote-code path LeRobot uses."""
     if not use_flash_attention or not load_bf16:
-        raise ValueError("GR00T-N1.6 Eagle eager parity expects flash_attention_2 and bf16 loading.")
+        raise ValueError(
+            "GR00T-N1.6 Eagle eager parity expects flash_attention_2 and bf16 loading."
+        )
 
     local_model_path = resolve_eagle_local_path(model_name, current_file)
     if not local_model_path or not os.path.exists(os.path.join(local_model_path, "config.json")):
@@ -215,7 +223,9 @@ class EagleBackbone(torch.nn.Module):
         # Handle layer selection for different model structures
         # The language model structure may vary based on how the model was loaded
         if hasattr(self.model, "language_model"):
-            if hasattr(self.model.language_model, "model") and hasattr(self.model.language_model.model, "layers"):
+            if hasattr(self.model.language_model, "model") and hasattr(
+                self.model.language_model.model, "layers"
+            ):
                 # Standard structure: model.language_model.model.layers
                 while len(self.model.language_model.model.layers) > select_layer:
                     self.model.language_model.model.layers.pop(-1)
@@ -260,7 +270,9 @@ class EagleBackbone(torch.nn.Module):
 
         if tune_top_llm_layers > 0 and hasattr(self.model, "language_model"):
             # Handle different layer structures
-            if hasattr(self.model.language_model, "model") and hasattr(self.model.language_model.model, "layers"):
+            if hasattr(self.model.language_model, "model") and hasattr(
+                self.model.language_model.model, "layers"
+            ):
                 layers = self.model.language_model.model.layers
             elif hasattr(self.model.language_model, "layers"):
                 layers = self.model.language_model.layers
@@ -277,9 +289,17 @@ class EagleBackbone(torch.nn.Module):
     def set_frozen_modules_to_eval_mode(self):
         """Set frozen modules to evaluation mode."""
         if self.training:
-            if hasattr(self.model, "language_model") and self.model.language_model and not self.tune_llm:
+            if (
+                hasattr(self.model, "language_model")
+                and self.model.language_model
+                and not self.tune_llm
+            ):
                 self.model.language_model.eval()
-            if hasattr(self.model, "vision_model") and self.model.vision_model and not self.tune_visual:
+            if (
+                hasattr(self.model, "vision_model")
+                and self.model.vision_model
+                and not self.tune_visual
+            ):
                 self.model.vision_model.eval()
             if hasattr(self.model, "mlp1") and self.model.mlp1 and not self.tune_visual:
                 self.model.mlp1.eval()

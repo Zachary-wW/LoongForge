@@ -57,7 +57,9 @@ def vulkan_runtime_env(args: argparse.Namespace) -> Dict[str, str]:
         if path and path not in library_paths:
             library_paths.insert(0, path)
     env["LD_LIBRARY_PATH"] = ":".join(library_paths)
-    env["VK_ICD_FILENAMES"] = args.nvidia_icd_json or env.get("VK_ICD_FILENAMES", "/path/to/nvidia_lib/10_nvidia.json")
+    env["VK_ICD_FILENAMES"] = args.nvidia_icd_json or env.get(
+        "VK_ICD_FILENAMES", "/path/to/nvidia_lib/10_nvidia.json"
+    )
     runtime_dir = pathlib.Path(env.get("XDG_RUNTIME_DIR") or f"/tmp/runtime-{os.getuid()}")
     runtime_dir.mkdir(parents=True, exist_ok=True)
     runtime_dir.chmod(stat.S_IRWXU)

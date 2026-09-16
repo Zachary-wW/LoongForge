@@ -45,35 +45,52 @@ class HuggingfaceMoe(HuggingfaceBase):
             return
         layer_prefix = self.layer_prefix if layer_prefix is None else layer_prefix
         transformer = self.transformer if transformer is None else transformer
-        common_key = CommonCheckpoint.get_key(f"{expert_name}.{name}", layer_id=layer_id, expert_id=expert_id)
+        common_key = CommonCheckpoint.get_key(
+            f"{expert_name}.{name}", layer_id=layer_id, expert_id=expert_id
+        )
         weight, bias, weight_scale = c_ckpt.get(common_key)
-        hf_name, is_direct_name, is_dict_for_expert, need_transpose, _, _, _ = self.get_hf_name_and_args(
-            self.name_map[spec_name]
+        hf_name, is_direct_name, is_dict_for_expert, need_transpose, _, _, _ = (
+            self.get_hf_name_and_args(self.name_map[spec_name])
         )
         if name == MOE_EXPERT_H_TO_4H:
             if expert_id is None or is_dict_for_expert:
-                hf_prefix_path = self._build_path(transformer, layer_prefix, hf_layer_id, self.name_map[expert_name])
+                hf_prefix_path = self._build_path(
+                    transformer, layer_prefix, hf_layer_id, self.name_map[expert_name]
+                )
             else:
                 hf_prefix_path = self._build_path(
                     transformer, layer_prefix, hf_layer_id, self.name_map[expert_name], expert_id
                 )
-            self.update_h_to_4h(h_dict, spec_name, hf_prefix_path, weight, bias, weight_scale, expert_id=expert_id)
+            self.update_h_to_4h(
+                h_dict, spec_name, hf_prefix_path, weight, bias, weight_scale, expert_id=expert_id
+            )
         else:
             # MOE_EXPERT_4H_TO_H
             weight, weight_scale = self._materialize_fp8_weight_if_needed(weight, weight_scale)
             weight = weight.t() if weight is not None and need_transpose else weight
             if expert_id is None or is_dict_for_expert:
-                hf_path = self._build_path(transformer, layer_prefix, hf_layer_id, self.name_map[expert_name], hf_name)
+                hf_path = self._build_path(
+                    transformer, layer_prefix, hf_layer_id, self.name_map[expert_name], hf_name
+                )
             else:
                 hf_path = self._build_path(
-                    transformer, layer_prefix, hf_layer_id, self.name_map[expert_name], expert_id, hf_name
+                    transformer,
+                    layer_prefix,
+                    hf_layer_id,
+                    self.name_map[expert_name],
+                    expert_id,
+                    hf_name,
                 )
             hf_weight_path = f"{hf_path}.{WEIGHT}" if not is_direct_name else hf_path
             bias_name = f"{spec_name}.{BIAS}"
             if expert_id is None or is_dict_for_expert:
                 hf_bias_path = (
                     self._build_path(
-                        transformer, layer_prefix, hf_layer_id, self.name_map[expert_name], self.name_map[bias_name]
+                        transformer,
+                        layer_prefix,
+                        hf_layer_id,
+                        self.name_map[expert_name],
+                        self.name_map[bias_name],
                     )
                     if bias_name in self.name_map
                     else f"{hf_path}.{BIAS}"
@@ -122,7 +139,9 @@ class HuggingfaceMoe(HuggingfaceBase):
         if is_dict_for_expert:
             assert expert_id is not None, "expert_id must be specified when is_dict_for_expert"
             h_dict[hf_weight_path] = (
-                {LAYER_IS_DICT_FOR_EXPERT: True} if hf_weight_path not in h_dict else h_dict[hf_weight_path]
+                {LAYER_IS_DICT_FOR_EXPERT: True}
+                if hf_weight_path not in h_dict
+                else h_dict[hf_weight_path]
             )
             h_dict[hf_weight_path][expert_id] = weight
         else:
@@ -152,13 +171,17 @@ class HuggingfaceMoe(HuggingfaceBase):
             return
         layer_prefix = self.layer_prefix if layer_prefix is None else layer_prefix
         transformer = self.transformer if transformer is None else transformer
-        common_key = CommonCheckpoint.get_key(f"{expert_name}.{name}", layer_id=layer_id, expert_id=expert_id)
-        hf_name, is_direct_name, is_dict_for_expert, need_transpose, _, _, _ = self.get_hf_name_and_args(
-            self.name_map[spec_name]
+        common_key = CommonCheckpoint.get_key(
+            f"{expert_name}.{name}", layer_id=layer_id, expert_id=expert_id
+        )
+        hf_name, is_direct_name, is_dict_for_expert, need_transpose, _, _, _ = (
+            self.get_hf_name_and_args(self.name_map[spec_name])
         )
         if name == MOE_EXPERT_H_TO_4H:
             if expert_id is None or is_dict_for_expert:
-                hf_prefix_path = self._build_path(transformer, layer_prefix, hf_layer_id, self.name_map[expert_name])
+                hf_prefix_path = self._build_path(
+                    transformer, layer_prefix, hf_layer_id, self.name_map[expert_name]
+                )
             else:
                 hf_prefix_path = self._build_path(
                     transformer, layer_prefix, hf_layer_id, self.name_map[expert_name], expert_id
@@ -169,17 +192,28 @@ class HuggingfaceMoe(HuggingfaceBase):
         else:
             # MOE_EXPERT_4H_TO_H
             if expert_id is None or is_dict_for_expert:
-                hf_path = self._build_path(transformer, layer_prefix, hf_layer_id, self.name_map[expert_name], hf_name)
+                hf_path = self._build_path(
+                    transformer, layer_prefix, hf_layer_id, self.name_map[expert_name], hf_name
+                )
             else:
                 hf_path = self._build_path(
-                    transformer, layer_prefix, hf_layer_id, self.name_map[expert_name], expert_id, hf_name
+                    transformer,
+                    layer_prefix,
+                    hf_layer_id,
+                    self.name_map[expert_name],
+                    expert_id,
+                    hf_name,
                 )
             hf_weight_path = f"{hf_path}.{WEIGHT}" if not is_direct_name else hf_path
             bias_name = f"{spec_name}.{BIAS}"
             if expert_id is None or is_dict_for_expert:
                 hf_bias_path = (
                     self._build_path(
-                        transformer, layer_prefix, hf_layer_id, self.name_map[expert_name], self.name_map[bias_name]
+                        transformer,
+                        layer_prefix,
+                        hf_layer_id,
+                        self.name_map[expert_name],
+                        self.name_map[bias_name],
                     )
                     if bias_name in self.name_map
                     else f"{hf_path}.{BIAS}"

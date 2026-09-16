@@ -48,7 +48,7 @@ def flash_attention(
         x = rearrange(x, "b n s d -> b s (n d)", n=num_heads)
         return x
     raise NotImplementedError(
-        "Only compatibility mode is implemented for flash attention. Please set compatibility_mode=True."
+        "Only compatibility mode is implemented for flash attention. Please set compatibility_mode=True."  # noqa: E501
     )
 
 
@@ -62,7 +62,10 @@ def sinusoidal_embedding_1d(dim, position):
     half_dim = dim // 2
     sinusoid = torch.outer(
         position.type(torch.float64),
-        torch.pow(10000, -torch.arange(half_dim, dtype=torch.float64, device=position.device).div(half_dim)),
+        torch.pow(
+            10000,
+            -torch.arange(half_dim, dtype=torch.float64, device=position.device).div(half_dim),
+        ),
     )
     x = torch.cat([torch.cos(sinusoid), torch.sin(sinusoid)], dim=1)
     return x.to(position.dtype)
@@ -204,16 +207,22 @@ def create_group_causal_attn_mask(
                 [False, False, False, False,  True,  True],
                 [False, False, False, False,  True,  True]])
 
-    """
+    """  # noqa: E501
     assert mode in ["causal", "group_diagonal"], f"Mode {mode} must be 'causal' or 'group_diagonal'"
 
     # Total number of query and key tokens
-    total_num_query_tokens = num_temporal_groups * num_query_per_group  # Total number of query tokens (L)
+    total_num_query_tokens = (
+        num_temporal_groups * num_query_per_group
+    )  # Total number of query tokens (L)
     total_num_key_tokens = num_temporal_groups * num_key_per_group  # Total number of key tokens (S)
 
     # Generate time indices for query and key tokens (shape: [L] and [S])
-    query_time_indices = torch.arange(num_temporal_groups).repeat_interleave(num_query_per_group)  # Shape: [L]
-    key_time_indices = torch.arange(num_temporal_groups).repeat_interleave(num_key_per_group)  # Shape: [S]
+    query_time_indices = torch.arange(num_temporal_groups).repeat_interleave(
+        num_query_per_group
+    )  # Shape: [L]
+    key_time_indices = torch.arange(num_temporal_groups).repeat_interleave(
+        num_key_per_group
+    )  # Shape: [S]
 
     # Expand dimensions to compute outer comparison
     query_time_indices = query_time_indices.unsqueeze(1)  # Shape: [L, 1]
@@ -226,7 +235,9 @@ def create_group_causal_attn_mask(
         # Group Diagonal Mode: Query can attend only to keys where key_time == query_time
         attn_mask = query_time_indices == key_time_indices  # Shape: [L, S]
 
-    assert attn_mask.shape == (total_num_query_tokens, total_num_key_tokens), "Attention mask shape mismatch"
+    assert attn_mask.shape == (total_num_query_tokens, total_num_key_tokens), (
+        "Attention mask shape mismatch"
+    )
     return attn_mask
 
 
@@ -429,7 +440,15 @@ class DiTBlock(nn.Module):
         self.modulation = nn.Parameter(torch.randn(1, 6, hidden_dim) / hidden_dim**0.5)
         self.gate = GateModule()
 
-    def forward(self, x, context, t_mod, freqs, context_mask=None, self_attn_mask: Optional[torch.Tensor] = None):
+    def forward(
+        self,
+        x,
+        context,
+        t_mod,
+        freqs,
+        context_mask=None,
+        self_attn_mask: Optional[torch.Tensor] = None,
+    ):
         """Apply the DiT block to hidden states with optional masks."""
         if context_mask is not None and context_mask.dim() == 3:
             context_mask = context_mask.unsqueeze(1)  # (B, 1, seq_len, context_len), 1 for heads
@@ -440,7 +459,7 @@ class DiTBlock(nn.Module):
             self.modulation.to(dtype=t_mod.dtype, device=t_mod.device) + t_mod
         ).chunk(6, dim=chunk_dim)
         if has_seq:
-            # means t_mod has separate modulation for each token, otherwise same modulation for all tokens in the block
+            # means t_mod has separate modulation for each token, otherwise same modulation for all tokens in the block  # noqa: E501
             shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = (
                 shift_msa.squeeze(2),
                 scale_msa.squeeze(2),
@@ -497,11 +516,14 @@ class Head(nn.Module):
         """Apply timestep-conditioned output projection."""
         if len(t_mod.shape) == 3:
             shift, scale = (
-                self.modulation.unsqueeze(0).to(dtype=t_mod.dtype, device=t_mod.device) + t_mod.unsqueeze(2)
+                self.modulation.unsqueeze(0).to(dtype=t_mod.dtype, device=t_mod.device)
+                + t_mod.unsqueeze(2)
             ).chunk(2, dim=2)
             x = self.head(self.norm(x) * (1 + scale.squeeze(2)) + shift.squeeze(2))
         else:
-            shift, scale = (self.modulation.to(dtype=t_mod.dtype, device=t_mod.device) + t_mod).chunk(2, dim=1)
+            shift, scale = (
+                self.modulation.to(dtype=t_mod.dtype, device=t_mod.device) + t_mod
+            ).chunk(2, dim=1)
             x = self.head(self.norm(x) * (1 + scale) + shift)
         return x
 
@@ -567,16 +589,23 @@ class WanVideoDiT(torch.nn.Module):
             "Only support fusing vae embedding in latents"
         )
 
-        self.patch_embedding = nn.Conv3d(in_dim, hidden_dim, kernel_size=patch_size, stride=patch_size)
+        self.patch_embedding = nn.Conv3d(
+            in_dim, hidden_dim, kernel_size=patch_size, stride=patch_size
+        )
         self.text_embedding = nn.Sequential(
-            nn.Linear(text_dim, hidden_dim), nn.GELU(approximate="tanh"), nn.Linear(hidden_dim, hidden_dim)
+            nn.Linear(text_dim, hidden_dim),
+            nn.GELU(approximate="tanh"),
+            nn.Linear(hidden_dim, hidden_dim),
         )
         self.time_embedding = nn.Sequential(
             nn.Linear(freq_dim, hidden_dim), nn.SiLU(), nn.Linear(hidden_dim, hidden_dim)
         )
         self.time_projection = nn.Sequential(nn.SiLU(), nn.Linear(hidden_dim, hidden_dim * 6))
         self.blocks = nn.ModuleList(
-            [DiTBlock(hidden_dim, attn_head_dim, num_heads, ffn_dim, eps, rmsnorm_impl) for _ in range(num_layers)]
+            [
+                DiTBlock(hidden_dim, attn_head_dim, num_heads, ffn_dim, eps, rmsnorm_impl)
+                for _ in range(num_layers)
+            ]
         )
         self.head = Head(hidden_dim, out_dim, patch_size, eps)
         self.freqs = precompute_freqs_cis_3d(attn_head_dim)
@@ -592,9 +621,13 @@ class WanVideoDiT(torch.nn.Module):
 
         self.use_gradient_checkpointing = use_gradient_checkpointing
         if self.use_gradient_checkpointing:
-            logger.info("Using gradient checkpointing for DiT blocks. This will save memory but use more computation.")
+            logger.info(
+                "Using gradient checkpointing for DiT blocks. This will save memory but use more computation."  # noqa: E501
+            )
 
-    def patchify(self, x: torch.Tensor, control_camera_latents_input: Optional[torch.Tensor] = None):
+    def patchify(
+        self, x: torch.Tensor, control_camera_latents_input: Optional[torch.Tensor] = None
+    ):
         """Convert latent volumes into patch tokens before transformer blocks."""
         x = self.patch_embedding(x)
         if self.control_adapter is not None and control_camera_latents_input is not None:
@@ -638,12 +671,16 @@ class WanVideoDiT(torch.nn.Module):
                 assert action is not None, "Action input is required for action-conditioned model."
                 if action.ndim != 3:
                     raise ValueError(
-                        f"`action` must be 3D [B, action_horizon, action_dim], got shape {tuple(action.shape)}"
+                        f"`action` must be 3D [B, action_horizon, action_dim], got shape {tuple(action.shape)}"  # noqa: E501
                     )
                 if action.shape[2] != self.action_dim:
-                    raise ValueError(f"`action` last dimension must be {self.action_dim}, got {action.shape[2]}")
+                    raise ValueError(
+                        f"`action` last dimension must be {self.action_dim}, got {action.shape[2]}"
+                    )
                 if num_latent_frames <= 1:
-                    raise ValueError(f"video length must be > 1 for action-conditioned model, got {num_latent_frames}")
+                    raise ValueError(
+                        f"video length must be > 1 for action-conditioned model, got {num_latent_frames}"  # noqa: E501
+                    )
                 if action.shape[1] % (num_latent_frames - 1) != 0:
                     raise ValueError(
                         "action horizon must be divisible by (num_latent_frames - 1), "
@@ -657,8 +694,13 @@ class WanVideoDiT(torch.nn.Module):
             )
         else:
             if context_mask.ndim != 2:
-                raise ValueError(f"`context_mask` must be 2D [B, L], got shape {tuple(context_mask.shape)}")
-            if context_mask.shape[0] != context.shape[0] or context_mask.shape[1] != context.shape[1]:
+                raise ValueError(
+                    f"`context_mask` must be 2D [B, L], got shape {tuple(context_mask.shape)}"
+                )
+            if (
+                context_mask.shape[0] != context.shape[0]
+                or context_mask.shape[1] != context.shape[1]
+            ):
                 raise ValueError(
                     "`context_mask` shape must match `context` shape [B, L], "
                     f"got {tuple(context_mask.shape)} vs {tuple(context.shape)}"
@@ -670,10 +712,14 @@ class WanVideoDiT(torch.nn.Module):
                 x = x.expand(context.shape[0], -1, -1, -1, -1)
                 batch_size = context.shape[0]
             else:
-                raise ValueError(f"Batch mismatch between latents and context: {batch_size} vs {context.shape[0]}.")
+                raise ValueError(
+                    f"Batch mismatch between latents and context: {batch_size} vs {context.shape[0]}."  # noqa: E501
+                )
 
         if timestep.shape[0] not in (1, batch_size):
-            raise ValueError(f"`timestep` length must be 1 or batch_size({batch_size}), got {timestep.shape[0]}")
+            raise ValueError(
+                f"`timestep` length must be 1 or batch_size({batch_size}), got {timestep.shape[0]}"
+            )
         if timestep.shape[0] == 1 and batch_size > 1:
             assert not self.training, "During training, timestep length must match batch_size."
             timestep = timestep.expand(batch_size)
@@ -689,7 +735,9 @@ class WanVideoDiT(torch.nn.Module):
         if video_seq_len <= 0:
             raise ValueError(f"`video_seq_len` must be positive, got {video_seq_len}")
         if video_tokens_per_frame <= 0:
-            raise ValueError(f"`video_tokens_per_frame` must be positive, got {video_tokens_per_frame}")
+            raise ValueError(
+                f"`video_tokens_per_frame` must be positive, got {video_tokens_per_frame}"
+            )
 
         if self.video_attention_mask_mode == "bidirectional":
             return torch.ones((video_seq_len, video_seq_len), dtype=torch.bool, device=device)
@@ -697,11 +745,13 @@ class WanVideoDiT(torch.nn.Module):
         if self.video_attention_mask_mode == "per_frame_causal":
             if video_seq_len % video_tokens_per_frame != 0:
                 raise ValueError(
-                    "`video_seq_len` must be divisible by `video_tokens_per_frame` in `per_frame_causal` mode, "
+                    "`video_seq_len` must be divisible by `video_tokens_per_frame` in `per_frame_causal` mode, "  # noqa: E501
                     f"got {video_seq_len} and {video_tokens_per_frame}"
                 )
             num_video_frames = video_seq_len // video_tokens_per_frame
-            frame_causal = torch.tril(torch.ones((num_video_frames, num_video_frames), dtype=torch.bool, device=device))
+            frame_causal = torch.tril(
+                torch.ones((num_video_frames, num_video_frames), dtype=torch.bool, device=device)
+            )
             return frame_causal.repeat_interleave(video_tokens_per_frame, dim=0).repeat_interleave(
                 video_tokens_per_frame, dim=1
             )
@@ -758,7 +808,9 @@ class WanVideoDiT(torch.nn.Module):
             t = self.time_embedding(token_t_emb).reshape(batch_size, -1, self.hidden_dim)
             t_mod = self.time_projection(t).unflatten(2, (6, self.hidden_dim))
         else:
-            raise NotImplementedError("Only support seperated_timestep with fuse_vae_embedding_in_latents for now.")
+            raise NotImplementedError(
+                "Only support seperated_timestep with fuse_vae_embedding_in_latents for now."
+            )
             t = self.time_embedding(sinusoidal_embedding_1d(self.freq_dim, timestep))
             t_mod = self.time_projection(t).unflatten(1, (6, self.hidden_dim))
         x = self.patchify(x, control_camera_latents_input=control_camera_latents_input)
@@ -780,13 +832,13 @@ class WanVideoDiT(torch.nn.Module):
             num_temporal_groups = f - 1  # first latent frame do not attend to actions
             if num_temporal_groups <= 0:
                 raise ValueError(
-                    "Action-conditioned context mask requires at least 2 latent frames when `action` is provided."
+                    "Action-conditioned context mask requires at least 2 latent frames when `action` is provided."  # noqa: E501
                 )
             assert action_emb.shape[1] % num_temporal_groups == 0, (
                 "Action embedding length must be divisible by number of temporal groups, "
                 f"got {action_emb.shape[1]} and {num_temporal_groups}"
             )
-            # Each latent frame (from the 2nd one) attends to the corresponding group of action tokens
+            # Each latent frame (from the 2nd one) attends to the corresponding group of action tokens  # noqa: E501
             action_group_mask = create_group_causal_attn_mask(
                 num_temporal_groups=num_temporal_groups,
                 num_query_per_group=tokens_per_frame,
@@ -801,9 +853,13 @@ class WanVideoDiT(torch.nn.Module):
                 device=context.device,
             )  # (B, seq_len, L + action_len)
             # all latent frames attend to text tokens
-            final_context_mask[:, :, :context_len] = context_mask.unsqueeze(1).expand(-1, seq_len, -1)
+            final_context_mask[:, :, :context_len] = context_mask.unsqueeze(1).expand(
+                -1, seq_len, -1
+            )
             # latent frames from the 2nd one attend to action tokens
-            final_context_mask[:, tokens_per_frame:, context_len:] = action_group_mask.unsqueeze(0).expand(
+            final_context_mask[:, tokens_per_frame:, context_len:] = action_group_mask.unsqueeze(
+                0
+            ).expand(
                 batch_size,
                 -1,
                 -1,
@@ -812,7 +868,7 @@ class WanVideoDiT(torch.nn.Module):
         elif self.action_conditioned and action is None:
             if f != 1:
                 raise ValueError(
-                    "Action-conditioned model requires `action` unless running single-frame text-only mode "
+                    "Action-conditioned model requires `action` unless running single-frame text-only mode "  # noqa: E501
                     "with num_latent_frames=1."
                 )
             context_mask = context_mask.unsqueeze(1).expand(-1, f * h * w, -1)

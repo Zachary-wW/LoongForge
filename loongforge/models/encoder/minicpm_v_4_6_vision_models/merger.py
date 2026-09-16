@@ -100,7 +100,10 @@ class MiniCPMV46Merger(BaseMegatronModule):
         super().__init__(config=config)
         self.merge_kernel_size = tuple(config.merge_kernel_size)
         self.merger_times = config.merger_times
-        mlps = [MiniCPMV46DownsampleMLP(config, input_size, input_size) for _ in range(self.merger_times - 1)]
+        mlps = [
+            MiniCPMV46DownsampleMLP(config, input_size, input_size)
+            for _ in range(self.merger_times - 1)
+        ]
         mlps.append(MiniCPMV46DownsampleMLP(config, input_size, output_size))
         self.mlp = nn.ModuleList(mlps)
         self.register_load_state_dict_post_hook(_load_state_dict_hook_ignore_extra_state)
@@ -139,7 +142,7 @@ class MiniCPMV46Merger(BaseMegatronModule):
             height, width = int(height.item()), int(width.item())
             if height % merge_h != 0 or width % merge_w != 0:
                 raise ValueError(
-                    f"Patch grid ({height}, {width}) must be divisible by merge kernel size {self.merge_kernel_size}."
+                    f"Patch grid ({height}, {width}) must be divisible by merge kernel size {self.merge_kernel_size}."  # noqa: E501
                 )
             num_patches = height * width
             embed_dim = hidden_states.shape[-1]
@@ -174,6 +177,6 @@ class MiniCPMV46Merger(BaseMegatronModule):
             processed_features.append(hidden_state)
         if start != hidden_states.shape[0]:
             raise ValueError(
-                f"MiniCPM merger received {hidden_states.shape[0]} vision tokens, but target_sizes describes {start}."
+                f"MiniCPM merger received {hidden_states.shape[0]} vision tokens, but target_sizes describes {start}."  # noqa: E501
             )
         return processed_features

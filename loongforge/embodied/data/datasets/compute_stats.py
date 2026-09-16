@@ -29,7 +29,9 @@ Functions:
 import numpy as np
 
 
-def aggregate_feature_stats(stats_ft_list: list[dict[str, dict]]) -> dict[str, dict[str, np.ndarray]]:
+def aggregate_feature_stats(
+    stats_ft_list: list[dict[str, dict]],
+) -> dict[str, dict[str, np.ndarray]]:
     """Aggregate stats for a single feature across multiple episodes.
 
     Uses Chan's parallel algorithm to combine per-episode mean/std/count into

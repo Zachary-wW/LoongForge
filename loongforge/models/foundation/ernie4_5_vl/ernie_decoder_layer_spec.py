@@ -13,10 +13,18 @@ from megatron.core.transformer.spec_utils import ModuleSpec
 from megatron.core.transformer.attention import SelfAttentionSubmodules, SelfAttention
 from megatron.core.transformer.mlp import MLPSubmodules
 from megatron.core.transformer.moe.moe_layer import MoESubmodules
-from megatron.core.transformer.transformer_block import TransformerBlockSubmodules, get_num_layers_to_build
-from megatron.core.transformer.transformer_layer import TransformerLayerSubmodules, get_transformer_layer_offset
+from megatron.core.transformer.transformer_block import (
+    TransformerBlockSubmodules,
+    get_num_layers_to_build,
+)
+from megatron.core.transformer.transformer_layer import (
+    TransformerLayerSubmodules,
+    get_transformer_layer_offset,
+)
 from loongforge.models.dispatch import multiacc_modules
-from loongforge.models.encoder.ernie4_5_vl_vision_models.ernie_adapter import RMSNorm as _AdapterRMSNorm
+from loongforge.models.encoder.ernie4_5_vl_vision_models.ernie_adapter import (
+    RMSNorm as _AdapterRMSNorm,
+)
 from .ernie_transformer_layer import TransformerLayerErnie
 from .ernie_config import ErnieMoeConfig
 from .ernie_moe_layer import ErnieMultiTypeMoE, MultiTypeMoeSubmodules, ErnieMoeLayer
@@ -79,7 +87,9 @@ def _get_mlp_module_spec(
     )
 
 
-def _get_ernie4_5_vl_moedecoderlayer_with_spec(num_experts=0, qk_layernorm: bool = False) -> ModuleSpec:
+def _get_ernie4_5_vl_moedecoderlayer_with_spec(
+    num_experts=0, qk_layernorm: bool = False
+) -> ModuleSpec:
     """
     Use this spec for an implementation using transformer, local or multi-accel engine
     """

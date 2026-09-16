@@ -189,13 +189,15 @@ class EE6DActionSpace(BaseActionSpace):
             p1s, p1e = self.POS_IDX_1
             p2s, p2e = self.POS_IDX_2
             pos_loss = (
-                self.mse(pred[..., p1s:p1e], target[..., p1s:p1e]) + self.mse(pred[..., p2s:p2e], target[..., p2s:p2e])
+                self.mse(pred[..., p1s:p1e], target[..., p1s:p1e])
+                + self.mse(pred[..., p2s:p2e], target[..., p2s:p2e])
             ) * self.XYZ_SCALE
 
             r1s, r1e = self.ROT_IDX_1
             r2s, r2e = self.ROT_IDX_2
             rot_loss = (
-                self.mse(pred[..., r1s:r1e], target[..., r1s:r1e]) + self.mse(pred[..., r2s:r2e], target[..., r2s:r2e])
+                self.mse(pred[..., r1s:r1e], target[..., r1s:r1e])
+                + self.mse(pred[..., r2s:r2e], target[..., r2s:r2e])
             ) * self.ROT_SCALE
 
             return {
@@ -353,7 +355,10 @@ class AGIBOTEE6DActionSpace(BaseActionSpace):
         B, T, D = pred.shape
         _ensure_indices_valid(D, self.gripper_idx, "gripper_idx")
 
-        gripper_loss = self.mse(pred[:, :, self.gripper_idx], target[:, :, self.gripper_idx]) * self.GRIPPER_SCALE
+        gripper_loss = (
+            self.mse(pred[:, :, self.gripper_idx], target[:, :, self.gripper_idx])
+            * self.GRIPPER_SCALE
+        )
         pos_loss = (
             self.mse(pred[:, :, self.POS_IDX_1], target[:, :, self.POS_IDX_1])
             + self.mse(pred[:, :, self.POS_IDX_2], target[:, :, self.POS_IDX_2])
@@ -441,7 +446,9 @@ class AutoActionSpace(BaseActionSpace):
         """
         pred = self._pad_to_model_dim(pred)
         target = self._pad_to_model_dim(target)
-        assert pred.shape == target.shape, f"Shape mismatch: pred {pred.shape} vs target {target.shape}"
+        assert pred.shape == target.shape, (
+            f"Shape mismatch: pred {pred.shape} vs target {target.shape}"
+        )
 
         # only compute loss on the real dimensions
         joints_loss = (

@@ -47,7 +47,10 @@ def _reference_update(
 def _state(seed=23):
     generator = torch.Generator(device="cuda").manual_seed(seed)
     shapes = [(4097,), (17, 31)]
-    params = [torch.randn(shape, device="cuda", dtype=torch.float32, generator=generator) for shape in shapes]
+    params = [
+        torch.randn(shape, device="cuda", dtype=torch.float32, generator=generator)
+        for shape in shapes
+    ]
     grads = [torch.randn_like(param) for param in params]
     exp_avgs = [torch.randn_like(param) for param in params]
     exp_avg_sqs = [torch.rand_like(param) for param in params]
@@ -75,7 +78,9 @@ def test_eager_step_matches_reference():
 
     eager_step(actual, grads, actual_m, actual_v, **args)
     _reference_update(expected, grads, expected_m, expected_v, **args)
-    for actual_tensor, expected_tensor in zip(actual + actual_m + actual_v, expected + expected_m + expected_v):
+    for actual_tensor, expected_tensor in zip(
+        actual + actual_m + actual_v, expected + expected_m + expected_v
+    ):
         torch.testing.assert_close(actual_tensor, expected_tensor, atol=2e-6, rtol=2e-6)
 
 
@@ -123,7 +128,9 @@ def test_capturable_step_matches_reference():
         bias_correction2_sqrt=float(args["bias_correction2_sqrt"][step].item()),
         lr=lr,
     )
-    for actual_tensor, expected_tensor in zip(actual + actual_m + actual_v, expected + expected_m + expected_v):
+    for actual_tensor, expected_tensor in zip(
+        actual + actual_m + actual_v, expected + expected_m + expected_v
+    ):
         torch.testing.assert_close(actual_tensor, expected_tensor, atol=2e-6, rtol=2e-6)
 
 
@@ -156,7 +163,9 @@ def test_capturable_grad_scaled_step_matches_reference():
         lr=lr,
         grad_scale=float(args["grad_scale"].item()),
     )
-    for actual_tensor, expected_tensor in zip(actual + actual_m + actual_v, expected + expected_m + expected_v):
+    for actual_tensor, expected_tensor in zip(
+        actual + actual_m + actual_v, expected + expected_m + expected_v
+    ):
         torch.testing.assert_close(actual_tensor, expected_tensor, atol=2e-6, rtol=2e-6)
 
 
@@ -229,7 +238,11 @@ def test_eager_step_near_zero_exp_avg_sq():
         lr=1e-3,
     )
     eager_step(
-        [p.clone() for p in params], grads, [m.clone() for m in exp_avgs], [v.clone() for v in exp_avg_sqs], **args
+        [p.clone() for p in params],
+        grads,
+        [m.clone() for m in exp_avgs],
+        [v.clone() for v in exp_avg_sqs],
+        **args,
     )
     # Just verify no exception and no NaN/Inf in result
     result = [p.clone() for p in params]

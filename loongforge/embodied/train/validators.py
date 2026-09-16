@@ -21,7 +21,9 @@ def _validate_fsdp_ignored_frozen_args(training_args):
         training_args.fsdp_ignored_frozen_param_dtype is not None
         and not training_args.fsdp_ignore_frozen_module_classes
     ):
-        raise ValueError("--fsdp-ignored-frozen-param-dtype requires --fsdp-ignore-frozen-module-classes")
+        raise ValueError(
+            "--fsdp-ignored-frozen-param-dtype requires --fsdp-ignore-frozen-module-classes"
+        )
     if not training_args.fsdp_ignore_frozen_module_classes:
         return
     if training_args.distributed_strategy != "fsdp":
@@ -76,26 +78,38 @@ def validate(training_args, model_cfg, data_cfg):
         raise ValueError(f"--lr-decay-iters must be positive, got {training_args.lr_decay_iters}")
     lr_schedule_steps = int(training_args.lr_decay_iters or training_args.train_iters)
     if training_args.lr_warmup_iters >= lr_schedule_steps:
-        logger.warning(f"--lr-warmup-iters ({training_args.lr_warmup_iters}) >= scheduler steps ({lr_schedule_steps})")
+        logger.warning(
+            f"--lr-warmup-iters ({training_args.lr_warmup_iters}) >= scheduler steps ({lr_schedule_steps})"  # noqa: E501
+        )
     if training_args.manual_gc_interval < 0:
-        raise ValueError(f"--manual-gc-interval must be >= 0, got {training_args.manual_gc_interval}")
+        raise ValueError(
+            f"--manual-gc-interval must be >= 0, got {training_args.manual_gc_interval}"
+        )
     if training_args.dataloader_prefetch_factor <= 0:
         raise ValueError(
-            f"--dataloader-prefetch-factor must be positive, got {training_args.dataloader_prefetch_factor}"
+            f"--dataloader-prefetch-factor must be positive, got {training_args.dataloader_prefetch_factor}"  # noqa: E501
         )
     if training_args.cuda_graph_warmup_steps <= 0:
-        raise ValueError(f"--cuda-graph-warmup-steps must be positive, got {training_args.cuda_graph_warmup_steps}")
+        raise ValueError(
+            f"--cuda-graph-warmup-steps must be positive, got {training_args.cuda_graph_warmup_steps}"  # noqa: E501
+        )
 
     # ── CUDA graph ──
     if training_args.cuda_graph_impl == "local":
-        logger.warning("Host-side loss/grad NaN checks are disabled because CUDA graph mode is enabled.")
+        logger.warning(
+            "Host-side loss/grad NaN checks are disabled because CUDA graph mode is enabled."
+        )
 
         if training_args.cuda_graph_pad_length is None:
             raise ValueError("--cuda-graph-pad-length must be set when --cuda-graph-impl=local.")
         if training_args.cuda_graph_pad_length < 0:
-            raise ValueError(f"--cuda-graph-pad-length must be non-negative, got {training_args.cuda_graph_pad_length}")
+            raise ValueError(
+                f"--cuda-graph-pad-length must be non-negative, got {training_args.cuda_graph_pad_length}"  # noqa: E501
+            )
         if training_args.cuda_graph_scope not in {"full_iteration", "per_microbatch"}:
-            raise ValueError(f"Unsupported --cuda-graph-scope={training_args.cuda_graph_scope!r} in embodied trainer.")
+            raise ValueError(
+                f"Unsupported --cuda-graph-scope={training_args.cuda_graph_scope!r} in embodied trainer."  # noqa: E501
+            )
 
     # ── Tokenizer ──
     if training_args.tokenizer_path is None and not os.environ.get("TOKENIZER_PATH"):
@@ -128,9 +142,13 @@ def validate(training_args, model_cfg, data_cfg):
             raise ValueError(f"{option_name} must be non-negative, got {value}")
     delta_fp8_block = training_args.fsdp_delta_fp8_block
     if delta_fp8_block <= 0 or delta_fp8_block & (delta_fp8_block - 1):
-        raise ValueError(f"--fsdp-delta-fp8-block must be a positive power of two, got {delta_fp8_block}")
+        raise ValueError(
+            f"--fsdp-delta-fp8-block must be a positive power of two, got {delta_fp8_block}"
+        )
     if delta_fp8_block > 1 << 20:
-        raise ValueError(f"--fsdp-delta-fp8-block must be <= 1048576 for Triton tl.arange, got {delta_fp8_block}")
+        raise ValueError(
+            f"--fsdp-delta-fp8-block must be <= 1048576 for Triton tl.arange, got {delta_fp8_block}"
+        )
     if training_args.fsdp_delta_fp8_allgather and training_args.distributed_strategy != "fsdp":
         raise ValueError("--fsdp-delta-fp8-allgather requires --distributed-strategy fsdp")
     _validate_fsdp_ignored_frozen_args(training_args)
@@ -139,7 +157,9 @@ def validate(training_args, model_cfg, data_cfg):
         raise ValueError(f"--hsdp-shard-size must be positive, got {training_args.hsdp_shard_size}")
 
     if training_args.distributed_strategy == "fsdp":
-        wrap_conflict = set(training_args.fsdp_wrap_modules or []) & set(training_args.fsdp_no_wrap_modules or [])
+        wrap_conflict = set(training_args.fsdp_wrap_modules or []) & set(
+            training_args.fsdp_no_wrap_modules or []
+        )
         if wrap_conflict:
             raise ValueError(
                 "Module classes appear in both --fsdp-wrap-modules and "
@@ -157,19 +177,31 @@ def validate(training_args, model_cfg, data_cfg):
         logger.warning("--zero-parameters-as-bucket-view has no effect without --zero-optimizer.")
     if training_args.zero_master_param_dtype != "none" and not training_args.zero_optimizer:
         logger.warning("--zero-master-param-dtype has no effect without --zero-optimizer.")
-    if training_args.zero_master_param_dtype != "none" and training_args.distributed_strategy != "ddp":
-        logger.warning("--zero-master-param-dtype is only effective with --distributed-strategy ddp.")
+    if (
+        training_args.zero_master_param_dtype != "none"
+        and training_args.distributed_strategy != "ddp"
+    ):
+        logger.warning(
+            "--zero-master-param-dtype is only effective with --distributed-strategy ddp."
+        )
 
     # ── DMuon optimizer options ──
     if training_args.optimizer.lower() == "dmuon":
         if training_args.distributed_strategy != "fsdp":
             raise ValueError("--optimizer=dmuon requires --distributed-strategy=fsdp.")
         if training_args.save_format == "dcp":
-            raise ValueError("--optimizer=dmuon currently supports only safetensors/pt checkpoints.")
+            raise ValueError(
+                "--optimizer=dmuon currently supports only safetensors/pt checkpoints."
+            )
         if training_args.zero_optimizer:
             raise ValueError("--optimizer=dmuon is incompatible with --zero-optimizer.")
-        if training_args.dmuon_ns_coefficients == "wallx_muon" and training_args.dmuon_ns_backend != "direct":
-            raise ValueError("--dmuon-ns-coefficients=wallx_muon requires --dmuon-ns-backend=direct.")
+        if (
+            training_args.dmuon_ns_coefficients == "wallx_muon"
+            and training_args.dmuon_ns_backend != "direct"
+        ):
+            raise ValueError(
+                "--dmuon-ns-coefficients=wallx_muon requires --dmuon-ns-backend=direct."
+            )
 
     # ── Profiler mutual exclusion ──
     if training_args.use_pytorch_profiler and training_args.use_nsys_profiler:
@@ -198,7 +230,7 @@ def validate(training_args, model_cfg, data_cfg):
     if training_args.fp8:
         if training_args.init_on_meta:
             raise ValueError(
-                "--fp8 does not currently support --init-on-meta in the embodied model wrapping lifecycle."
+                "--fp8 does not currently support --init-on-meta in the embodied model wrapping lifecycle."  # noqa: E501
             )
         if training_args.use_lora:
             raise ValueError(
@@ -241,10 +273,20 @@ def validate(training_args, model_cfg, data_cfg):
                     "--fp8-backend=torchao; configure --fp8-torchao-recipe "
                     "and TorchAO-specific options instead."
                 )
-            if training_args.fp8_torchao_fsdp_float8_all_gather and training_args.distributed_strategy != "fsdp":
-                raise ValueError("--fp8-torchao-fsdp-float8-all-gather requires --distributed-strategy=fsdp.")
-            if training_args.fp8_torchao_fsdp_float8_all_gather and training_args.fp8_torchao_recipe != "tensorwise":
-                raise ValueError("TorchAO FP8 FSDP all-gather currently supports only --fp8-torchao-recipe=tensorwise.")
+            if (
+                training_args.fp8_torchao_fsdp_float8_all_gather
+                and training_args.distributed_strategy != "fsdp"
+            ):
+                raise ValueError(
+                    "--fp8-torchao-fsdp-float8-all-gather requires --distributed-strategy=fsdp."
+                )
+            if (
+                training_args.fp8_torchao_fsdp_float8_all_gather
+                and training_args.fp8_torchao_recipe != "tensorwise"
+            ):
+                raise ValueError(
+                    "TorchAO FP8 FSDP all-gather currently supports only --fp8-torchao-recipe=tensorwise."  # noqa: E501
+                )
         elif (
             training_args.fp8_torchao_recipe != "tensorwise"
             or not training_args.fp8_torchao_pad_inner_dim

@@ -18,7 +18,18 @@ def _batch(config, device: torch.device, multimodal: bool):
         input_ids = torch.tensor([[3, 5, 7, 9, 11, 13, 15, 17]], dtype=torch.long, device=device)
         return {"input_ids": input_ids, "attention_mask": torch.ones_like(input_ids)}
     input_ids = torch.tensor(
-        [[9, config.image_token_id, config.image_token_id, config.image_token_id, config.image_token_id, 10, 11, 12]],
+        [
+            [
+                9,
+                config.image_token_id,
+                config.image_token_id,
+                config.image_token_id,
+                config.image_token_id,
+                10,
+                11,
+                12,
+            ]
+        ],
         dtype=torch.long,
         device=device,
     )
@@ -28,9 +39,9 @@ def _batch(config, device: torch.device, multimodal: bool):
         * config.vision_config.patch_size
         * config.vision_config.patch_size
     )
-    pixel_values = torch.linspace(-1.0, 1.0, steps=4 * patch_width, dtype=torch.float32, device=device).reshape(
-        4, patch_width
-    )
+    pixel_values = torch.linspace(
+        -1.0, 1.0, steps=4 * patch_width, dtype=torch.float32, device=device
+    ).reshape(4, patch_width)
     return {
         "input_ids": input_ids,
         "attention_mask": torch.ones_like(input_ids),

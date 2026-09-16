@@ -234,7 +234,12 @@ QUANT_HF_BF16_AND_MCORE_FP8 = "hf_bf16_and_mcore_fp8"
 VISION_MAP = "vision_map"
 VISION_WORD_EMBEDDINGS = "vision_word_embeddings"
 
-FIRST_LAYER_NAMES = [WORD_EMBEDDINGS, WORD_POSITION_EMBEDDINGS, WORD_BLOCK_POSITION_EMBEDDINGS, VISION_WORD_EMBEDDINGS]
+FIRST_LAYER_NAMES = [
+    WORD_EMBEDDINGS,
+    WORD_POSITION_EMBEDDINGS,
+    WORD_BLOCK_POSITION_EMBEDDINGS,
+    VISION_WORD_EMBEDDINGS,
+]
 BASE_NAMES = [
     INPUT_LAYERNORM,
     ATTENTION_ROTARY_EMB_INV_FREQ,
@@ -459,9 +464,15 @@ class CommonCheckpoint(AbstractCheckpoint):
         raise NotImplementedError()
 
     def get(self, key):
-        weight = self.model_dict[f"{key}.{WEIGHT}"] if f"{key}.{WEIGHT}" in self.model_dict else None
+        weight = (
+            self.model_dict[f"{key}.{WEIGHT}"] if f"{key}.{WEIGHT}" in self.model_dict else None
+        )
         bias = self.model_dict[f"{key}.{BIAS}"] if f"{key}.{BIAS}" in self.model_dict else None
-        weight_scale = self.model_dict[f"{key}.{WEIGHT_SCALE}"] if f"{key}.{WEIGHT_SCALE}" in self.model_dict else None
+        weight_scale = (
+            self.model_dict[f"{key}.{WEIGHT_SCALE}"]
+            if f"{key}.{WEIGHT_SCALE}" in self.model_dict
+            else None
+        )
         return weight, bias, weight_scale
 
     def clear(self):
@@ -499,4 +510,6 @@ class CommonCheckpoint(AbstractCheckpoint):
         if weight_scale is not None:
             self.model_dict[f"{common_key}.{WEIGHT_SCALE}"] = weight_scale
             if log_flag:
-                logging.info(f"> common set {common_key}, weight_scale, shape: {weight_scale.shape}")
+                logging.info(
+                    f"> common set {common_key}, weight_scale, shape: {weight_scale.shape}"
+                )

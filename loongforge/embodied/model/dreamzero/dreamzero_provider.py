@@ -171,7 +171,9 @@ def _maybe_load_full_dit_from_checkpoint(
     from safetensors import safe_open  # local import: optional dep
 
     target_keys = _loadable_model_state_keys(model)
-    source_to_target = {f"action_head.model.{target_name}": target_name for target_name in target_keys}
+    source_to_target = {
+        f"action_head.model.{target_name}": target_name for target_name in target_keys
+    }
     source_keys = set(source_to_target)
     strict = True
 
@@ -187,12 +189,16 @@ def _maybe_load_full_dit_from_checkpoint(
                 shard_name = weight_map.get(source_key)
                 if shard_name is None:
                     continue
-                file_to_sources.setdefault(os.path.join(ckpt_path, shard_name), []).append(source_key)
+                file_to_sources.setdefault(os.path.join(ckpt_path, shard_name), []).append(
+                    source_key
+                )
         else:
             files = sorted(glob.glob(os.path.join(ckpt_path, "*.safetensors")))
             file_to_sources = {fpath: sorted(source_keys) for fpath in files}
         if not file_to_sources:
-            raise FileNotFoundError(f"no DiT safetensors shards found under dit_init_checkpoint_path={ckpt_path}")
+            raise FileNotFoundError(
+                f"no DiT safetensors shards found under dit_init_checkpoint_path={ckpt_path}"
+            )
     else:
         raise FileNotFoundError(f"dit_init_checkpoint_path does not exist: {ckpt_path}")
 
@@ -211,7 +217,9 @@ def _maybe_load_full_dit_from_checkpoint(
             missing_targets.append(target_name)
             return False
         if target.shape != tensor.shape:
-            shape_mismatches.append(f"{source_key} -> {target_name}: {tuple(tensor.shape)} vs {tuple(target.shape)}")
+            shape_mismatches.append(
+                f"{source_key} -> {target_name}: {tuple(tensor.shape)} vs {tuple(target.shape)}"
+            )
             return False
         with torch.no_grad():
             target.copy_(tensor.to(device=target.device, dtype=target.dtype))
@@ -235,14 +243,20 @@ def _maybe_load_full_dit_from_checkpoint(
     unloaded_targets = sorted(target_keys - loaded_targets)
     problems = []
     if missing_source_keys:
-        problems.append(f"missing source keys={sorted(missing_source_keys)[:10]} count={len(missing_source_keys)}")
+        problems.append(
+            f"missing source keys={sorted(missing_source_keys)[:10]} count={len(missing_source_keys)}"  # noqa: E501
+        )
     if missing_targets:
-        problems.append(f"missing target attrs={sorted(set(missing_targets))[:10]} count={len(set(missing_targets))}")
+        problems.append(
+            f"missing target attrs={sorted(set(missing_targets))[:10]} count={len(set(missing_targets))}"  # noqa: E501
+        )
     if shape_mismatches:
         problems.append(f"shape mismatches={shape_mismatches[:10]} count={len(shape_mismatches)}")
 
     if problems and strict:
-        raise RuntimeError(f"failed to load complete DreamZero DiT init from {ckpt_path}: {'; '.join(problems)}")
+        raise RuntimeError(
+            f"failed to load complete DreamZero DiT init from {ckpt_path}: {'; '.join(problems)}"
+        )
 
     if _rank0():
         logger.info(
@@ -283,14 +297,18 @@ def _maybe_load_action_state_from_checkpoint(
 
     from safetensors import safe_open  # local import: optional dep
 
-    source_to_target = {f"action_head.model.{target_name}": target_name for target_name in _ACTION_STATE_TARGETS}
+    source_to_target = {
+        f"action_head.model.{target_name}": target_name for target_name in _ACTION_STATE_TARGETS
+    }
     source_keys = set(source_to_target)
     strict = True
 
     try:
         candidates = candidate_action_state_files(ckpt_path)
     except FileNotFoundError:
-        raise FileNotFoundError(f"action_state_init_checkpoint_path does not exist: {ckpt_path}") from None
+        raise FileNotFoundError(
+            f"action_state_init_checkpoint_path does not exist: {ckpt_path}"
+        ) from None
 
     file_to_sources: dict[str, list[str]] = {}
     for source_key, files in candidates.items():
@@ -298,7 +316,7 @@ def _maybe_load_action_state_from_checkpoint(
             file_to_sources.setdefault(str(fpath), []).append(source_key)
     if not file_to_sources:
         raise FileNotFoundError(
-            f"no action/state safetensors shards found under action_state_init_checkpoint_path={ckpt_path}"
+            f"no action/state safetensors shards found under action_state_init_checkpoint_path={ckpt_path}"  # noqa: E501
         )
 
     params = dict(model.named_parameters())
@@ -316,7 +334,9 @@ def _maybe_load_action_state_from_checkpoint(
             missing_targets.append(target_name)
             return False
         if target.shape != tensor.shape:
-            shape_mismatches.append(f"{source_key} -> {target_name}: {tuple(tensor.shape)} vs {tuple(target.shape)}")
+            shape_mismatches.append(
+                f"{source_key} -> {target_name}: {tuple(tensor.shape)} vs {tuple(target.shape)}"
+            )
             return False
         with torch.no_grad():
             target.copy_(tensor.to(device=target.device, dtype=target.dtype))
@@ -348,7 +368,7 @@ def _maybe_load_action_state_from_checkpoint(
 
     if problems and strict:
         raise RuntimeError(
-            f"failed to load complete DreamZero action/state init from {ckpt_path}: {'; '.join(problems)}"
+            f"failed to load complete DreamZero action/state init from {ckpt_path}: {'; '.join(problems)}"  # noqa: E501
         )
 
     if _rank0():
@@ -470,7 +490,9 @@ def _load_dit_pretrained(model: torch.nn.Module, path: str) -> set[str]:
                 skipped.append(source_key)
                 return False
             if target.shape != tensor.shape:
-                skipped.append(f"{source_key} (shape mismatch {tuple(tensor.shape)} vs {tuple(target.shape)})")
+                skipped.append(
+                    f"{source_key} (shape mismatch {tuple(tensor.shape)} vs {tuple(target.shape)})"
+                )
                 return False
             target.copy_(tensor.to(target.dtype))
             loaded_targets.add(target_name)
@@ -507,7 +529,9 @@ def _load_dit_pretrained(model: torch.nn.Module, path: str) -> set[str]:
                 missing_targets[:10],
             )
         if skipped:
-            logger.warning("[dreamzero] DiT skipped %s keys; first 5: %s", len(skipped), skipped[:5])
+            logger.warning(
+                "[dreamzero] DiT skipped %s keys; first 5: %s", len(skipped), skipped[:5]
+            )
     return loaded_targets
 
 

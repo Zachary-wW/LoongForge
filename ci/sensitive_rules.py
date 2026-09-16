@@ -57,7 +57,7 @@ RULES = [
         "id": "internal-domain",
         "severity": "error",
         "title": "Internal-only hostname",
-        "why": "Corporate intranet hosts are unreachable externally and expose internal tooling topology.",
+        "why": "Corporate intranet hosts are unreachable externally and expose internal tooling topology.",  # noqa: E501
         "pattern": r"(?i)\b[\w.-]*\.baidu-int\.com\b"
         r"|\biregistry\.[\w.-]+\b"
         r"|\bicode\.baidu\.com\b"
@@ -68,11 +68,11 @@ RULES = [
         "id": "internal-package-mirror",
         "severity": "error",
         "title": "Internal package registry or mirror",
-        "why": "Hardcoded internal mirrors make builds fail for external users and leak the internal build chain.",
+        "why": "Hardcoded internal mirrors make builds fail for external users and leak the internal build chain.",  # noqa: E501
         "pattern": r"(?i)\b(?:registry|mirrors)\.baidubce\.com\b"
         r"|\bpip\.baidu(?:-int)?\.com\b"
         r"|--index-url\s+\S*baidu\S*",
-        "hint": "Use the public index (pypi.org / nvcr.io / docker.io), or make it an overridable build arg.",
+        "hint": "Use the public index (pypi.org / nvcr.io / docker.io), or make it an overridable build arg.",  # noqa: E501
     },
     {
         "id": "private-object-storage",
@@ -83,7 +83,7 @@ RULES = [
         "pattern": r"(?i)\bbos:/\S+"
         r"|\baihc-private-[\w-]+"
         r"|\baiak[_-]share\b",
-        "hint": "Replace with a public URL or a documented placeholder such as bos:/path/to/<artifact>/.",
+        "hint": "Replace with a public URL or a documented placeholder such as bos:/path/to/<artifact>/.",  # noqa: E501
     },
     {
         "id": "corp-email",
@@ -220,7 +220,7 @@ RULES = [
         "id": "internal-codename",
         "severity": "error",
         "title": "Internal hardware or product codename",
-        "why": "Non-public chip/cluster/product codenames disclose the internal hardware fleet and roadmap.",
+        "why": "Non-public chip/cluster/product codenames disclose the internal hardware fleet and roadmap.",  # noqa: E501
         # Datacenter codenames come as a `<letters>zz<digit>` family (Bzz2, Hzz2,
         # ...), so match the shape rather than the one member that happened to
         # be known first; spelling out only BZZ let sibling names through.
@@ -255,7 +255,7 @@ ALLOWLIST = [
         "rule": "corp-email",
         "path": "README*.md",
         "match": r"loongforge@baidu\.com",
-        "reason": "Official project role address for enterprise contact, deliberately published on the README.",
+        "reason": "Official project role address for enterprise contact, deliberately published on the README.",  # noqa: E501
     },
     {
         "rule": "legacy-internal-name",

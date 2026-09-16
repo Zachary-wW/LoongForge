@@ -127,7 +127,7 @@ class WanT2VCrossAttention(WanSelfAttention):
             context(Tensor): Shape [B, L2, C]
             context_lens(Tensor): Shape [B]
             crossattn_cache (List[dict], *optional*): Contains the cached key and value tensors for context embedding.
-        """
+        """  # noqa: E501
         b, n, d = x.size(0), self.num_heads, self.head_dim
 
         # compute query, key, value

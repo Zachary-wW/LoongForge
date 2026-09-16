@@ -130,7 +130,7 @@ def get_batch(data_iterator):
         if "mtp_tokens" in batch:
             expected_length = args.chunksize + (args.mtp_num_layers or 0)
             assert batch["tokens"].size(1) == args.chunksize, (
-                f"SFT chunkpipe main tokens must have base length {args.chunksize}, got {batch['tokens'].size(1)}."
+                f"SFT chunkpipe main tokens must have base length {args.chunksize}, got {batch['tokens'].size(1)}."  # noqa: E501
             )
             assert batch["mtp_tokens"].size(1) == expected_length, (
                 f"SFT chunkpipe MTP tokens must have physical length "
@@ -174,7 +174,7 @@ def loss_func(loss_mask: torch.Tensor, output_tensor: torch.Tensor):
         the loss scalar for this micro-batch
         the number of non-padded tokens in this microbatch
         a dict containing reporting metrics on the loss and number of tokens across the data parallel ranks
-    """
+    """  # noqa: E501
     args = get_args()
 
     losses = output_tensor.view(-1).float()
@@ -422,7 +422,9 @@ def train_valid_test_datasets_provider(train_val_test_num_samples, vp_stage=None
 
     # will use external dataloader type for sft
     data_collator = build_sft_data_collator(DataCollatorForSupervisedDataset)
-    train_iter, valid_iter, test_iter = build_sft_cyclic_iterators(train_ds, valid_ds, test_ds, data_collator)
+    train_iter, valid_iter, test_iter = build_sft_cyclic_iterators(
+        train_ds, valid_ds, test_ds, data_collator
+    )
     print_rank_0(f"> finished creating {args.model_name} sft datasets ...")
 
     return train_iter, valid_iter, test_iter

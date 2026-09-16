@@ -95,11 +95,17 @@ class CalvinAdapter(BaseBenchmarkAdapter):
             },
         }
 
-    def action_from_canonical(self, canonical_action: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> Any:
+    def action_from_canonical(
+        self, canonical_action: Dict[str, Any], context: Optional[Dict[str, Any]] = None
+    ) -> Any:
         """Run action_from_canonical."""
         if "world_vector" in canonical_action:
-            world_vector = np.asarray(canonical_action["world_vector"], dtype=np.float32).reshape(-1)
-            rotation_delta = np.asarray(canonical_action["rotation_delta"], dtype=np.float32).reshape(-1)
+            world_vector = np.asarray(canonical_action["world_vector"], dtype=np.float32).reshape(
+                -1
+            )
+            rotation_delta = np.asarray(
+                canonical_action["rotation_delta"], dtype=np.float32
+            ).reshape(-1)
             gripper_value = canonical_action["gripper"]
         elif "actions" in canonical_action:
             flat = np.asarray(canonical_action["actions"], dtype=np.float32).reshape(-1)
@@ -107,10 +113,14 @@ class CalvinAdapter(BaseBenchmarkAdapter):
             rotation_delta = flat[3:6]
             gripper_value = flat[6]
         else:
-            raise ValueError("Canonical action must contain either structured fields or `actions` flat array")
+            raise ValueError(
+                "Canonical action must contain either structured fields or `actions` flat array"
+            )
 
         if world_vector.size != 3 or rotation_delta.size != 3:
-            raise ValueError(f"Invalid CALVIN action shape: world={world_vector.shape}, rot={rotation_delta.shape}")
+            raise ValueError(
+                f"Invalid CALVIN action shape: world={world_vector.shape}, rot={rotation_delta.shape}"  # noqa: E501
+            )
 
         gripper = (
             np.asarray([float(gripper_value)], dtype=np.float32)

@@ -11,7 +11,11 @@ from typing import Any, Dict, List, Optional
 
 import torch
 
-from loongforge.embodied.data.datasets.transforms.collator import BasePreprocessor, PreparedBatch, register_preprocessor
+from loongforge.embodied.data.datasets.transforms.collator import (
+    BasePreprocessor,
+    PreparedBatch,
+    register_preprocessor,
+)
 
 
 def _ensure_fastwam_on_path() -> None:
@@ -91,7 +95,9 @@ class FastWAMPreprocessor(BasePreprocessor):
         """Collate a list of per-sample dicts into a ``FastWAMPreparedBatch``."""
         videos = [self._build_video(ex) for ex in examples]
         actions = [self._require_action(ex) for ex in examples]
-        proprio = [self._build_proprio(ex, action.shape[0]) for ex, action in zip(examples, actions)]
+        proprio = [
+            self._build_proprio(ex, action.shape[0]) for ex, action in zip(examples, actions)
+        ]
         prompts = [str(ex.get("prompt", "")) for ex in examples]
 
         # Use pre-computed context from RobotVideoDataset if available
@@ -107,7 +113,9 @@ class FastWAMPreprocessor(BasePreprocessor):
             proprio_dim = next(p.shape[1] for p in proprio if p is not None)
             proprio_tensor = torch.stack(
                 [
-                    p if p is not None else torch.zeros((action.shape[1], proprio_dim), dtype=torch.float32)
+                    p
+                    if p is not None
+                    else torch.zeros((action.shape[1], proprio_dim), dtype=torch.float32)
                     for p in proprio
                 ],
                 dim=0,
@@ -141,7 +149,9 @@ class FastWAMPreprocessor(BasePreprocessor):
             if image.max() > 2.0:
                 image = image / 255.0
             camera_frames.append(image * 2.0 - 1.0)
-        first_frame = torch.cat(camera_frames, dim=-1) if len(camera_frames) > 1 else camera_frames[0]
+        first_frame = (
+            torch.cat(camera_frames, dim=-1) if len(camera_frames) > 1 else camera_frames[0]
+        )
         frames = [first_frame.clone() for _ in range(self.num_video_frames)]
         return torch.stack(frames, dim=1)
 
@@ -177,7 +187,10 @@ class FastWAMPreprocessor(BasePreprocessor):
         pads = [ex.get("action_is_pad", None) for ex in examples]
         if all(p is not None for p in pads):
             return torch.stack(
-                [p.bool() if isinstance(p, torch.Tensor) else torch.tensor(p, dtype=torch.bool) for p in pads],
+                [
+                    p.bool() if isinstance(p, torch.Tensor) else torch.tensor(p, dtype=torch.bool)
+                    for p in pads
+                ],
                 dim=0,
             )
         return torch.zeros(action_shape[:2], dtype=torch.bool)
@@ -189,8 +202,12 @@ class FastWAMPreprocessor(BasePreprocessor):
             contexts, masks = [], []
             for path in cache_paths:
                 payload = torch.load(path, map_location="cpu")
-                context = payload.get("context", payload.get("prompt_emb", payload.get("embedding")))
-                mask = payload.get("context_mask", payload.get("mask", payload.get("attention_mask")))
+                context = payload.get(
+                    "context", payload.get("prompt_emb", payload.get("embedding"))
+                )
+                mask = payload.get(
+                    "context_mask", payload.get("mask", payload.get("attention_mask"))
+                )
                 if context is None or mask is None:
                     raise KeyError(f"FastWAM text cache missing context/mask tensors: {path}")
                 contexts.append(context)
@@ -222,6 +239,8 @@ class FastWAMPreprocessor(BasePreprocessor):
                 if legacy_path.exists():
                     path = legacy_path
                 else:
-                    raise FileNotFoundError(f"Missing FastWAM text embedding cache for prompt '{prompt}': {path}")
+                    raise FileNotFoundError(
+                        f"Missing FastWAM text embedding cache for prompt '{prompt}': {path}"
+                    )
             paths.append(path)
         return paths

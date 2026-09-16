@@ -68,13 +68,23 @@ class TransformerLayerErnie(TransformerLayer):
         # The conditional below is to make the logic explicit
         # if submodules.mlp is not a ModuleSpec,we dont have to handle passing additional kwargs
         if isinstance(submodules.mlp, ModuleSpec):
-            if submodules.mlp.module in (MoELayer, GroupedMLP, TEGroupedMLP, SequentialMLP, ErnieMoeLayer):
+            if submodules.mlp.module in (
+                MoELayer,
+                GroupedMLP,
+                TEGroupedMLP,
+                SequentialMLP,
+                ErnieMoeLayer,
+            ):
                 additional_mlp_kwargs["pg_collection"] = pg_collection
             elif submodules.mlp.module in (ErnieMLP, MLP):
-                assert hasattr(pg_collection, "tp"), "TP process group is required for MLP in TransformerLayer"
+                assert hasattr(pg_collection, "tp"), (
+                    "TP process group is required for MLP in TransformerLayer"
+                )
                 additional_mlp_kwargs["tp_group"] = pg_collection.tp
             elif TEFusedMLP is not None and submodules.mlp.module == TEFusedMLP:
-                assert hasattr(pg_collection, "tp"), "TP process group is required for TEFusedMLP in TransformerLayer"
+                assert hasattr(pg_collection, "tp"), (
+                    "TP process group is required for TEFusedMLP in TransformerLayer"
+                )
                 additional_mlp_kwargs["tp_group"] = pg_collection.tp
             else:
                 log_single_rank(
@@ -100,7 +110,10 @@ class TransformerLayerErnie(TransformerLayer):
 
         if self.config.recompute_granularity == "selective":
             if "layernorm" in self.config.recompute_modules:
-                if not isinstance(self.input_layernorm, IdentityOp) and self.config.cuda_graph_impl == "none":
+                if (
+                    not isinstance(self.input_layernorm, IdentityOp)
+                    and self.config.cuda_graph_impl == "none"
+                ):
                     self.recompute_input_layernorm = True
                     if self.config.fp8:
                         self.self_attention.set_for_recompute_input_layernorm()
@@ -162,7 +175,9 @@ class TransformerLayerErnie(TransformerLayer):
         else:
             hidden_states, context = self._forward_attention(*args, **kwargs)
 
-        output = self._forward_mlp(hidden_states, kwargs["context_mask"], kwargs.get("inference_context", None))
+        output = self._forward_mlp(
+            hidden_states, kwargs["context_mask"], kwargs.get("inference_context", None)
+        )
         return output, context
 
     def _forward_mlp(self, hidden_states, context_mask, inference_context=None):
@@ -255,7 +270,9 @@ class TransformerLayerErnie(TransformerLayer):
         if self.recompute_pre_mlp_layernorm:
             # discard the output of the pre-mlp layernorm and register the recompute
             # as a gradient hook of mlp_output_with_bias[0]
-            self.pre_mlp_norm_checkpoint.discard_output_and_register_recompute(mlp_output_with_bias[0])
+            self.pre_mlp_norm_checkpoint.discard_output_and_register_recompute(
+                mlp_output_with_bias[0]
+            )
         nvtx_range_pop(suffix="mlp")
 
         # TODO: could we move `bias_dropout_add_exec_handler` itself
@@ -277,6 +294,8 @@ class TransformerLayerErnie(TransformerLayer):
         # won't result in memory savings (like the data loader, or
         # p2p_communication), it serves to document the origin of this
         # 'view' tensor.
-        output = make_viewless_tensor(inp=hidden_states, requires_grad=hidden_states.requires_grad, keep_graph=True)
+        output = make_viewless_tensor(
+            inp=hidden_states, requires_grad=hidden_states.requires_grad, keep_graph=True
+        )
 
         return output

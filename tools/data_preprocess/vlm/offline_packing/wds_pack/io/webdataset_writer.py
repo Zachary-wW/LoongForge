@@ -109,14 +109,18 @@ def stream_samples_packed_multi_mix_qa(src_dir: Path) -> Iterator[dict]:
 
         if media_type not in {"image", "video", "text"}:
             raise ValueError(
-                f"[{sample_id}] unsupported media_type='{media_type}', expected 'image', 'video', or 'text'"
+                f"[{sample_id}] unsupported media_type='{media_type}', expected 'image', 'video', or 'text'"  # noqa: E501
             )
         if len(prompts) != len(captions):
-            raise ValueError(f"[{sample_id}] prompts/captions length mismatch: {len(prompts)} vs {len(captions)}")
+            raise ValueError(
+                f"[{sample_id}] prompts/captions length mismatch: {len(prompts)} vs {len(captions)}"
+            )
         if media_type == "text":
             media_files = []
         elif len(media_files) != len(prompts):
-            raise ValueError(f"[{sample_id}] media_files length mismatch: {len(media_files)} vs {len(prompts)} prompts")
+            raise ValueError(
+                f"[{sample_id}] media_files length mismatch: {len(media_files)} vs {len(prompts)} prompts"  # noqa: E501
+            )
 
         yield {
             "id": sample_id,
@@ -188,7 +192,7 @@ def _resolve_media_path(
             if len(matches) > 1:
                 chosen = matches[0]
                 LOG.warning(
-                    "Multiple files ending with '%s' found in '%s' for sample '%s'. Selecting '%s'.",
+                    "Multiple files ending with '%s' found in '%s' for sample '%s'. Selecting '%s'.",  # noqa: E501
                     candidate.name,
                     root,
                     sample_id,
@@ -203,7 +207,9 @@ def _resolve_media_path(
             return candidate
 
     search_hint = ", ".join(str(r) for r in search_roots) or "current directory"
-    raise FileNotFoundError(f"Image '{raw_path}' referenced by sample '{sample_id}' not found in {search_hint}")
+    raise FileNotFoundError(
+        f"Image '{raw_path}' referenced by sample '{sample_id}' not found in {search_hint}"
+    )
 
 
 def construct_sample(entry, image_roots: Optional[Sequence[Path]] = None):
@@ -281,7 +287,9 @@ def construct_sample_packed_multi_mix_qa(entry, media_roots: Optional[Sequence[P
     flat_raw = _flatten_media_paths(entry["media_files"])
     flat_norm = _flatten_media_paths(normalized_media_files)
     if len(flat_raw) != len(flat_norm):
-        raise ValueError(f"[{sample_id}] media flatten mismatch: {len(flat_raw)} vs {len(flat_norm)}")
+        raise ValueError(
+            f"[{sample_id}] media flatten mismatch: {len(flat_raw)} vs {len(flat_norm)}"
+        )
 
     sample = {"__key__": sample_id, "__restore_key__": sample_id}
     for raw_name, target_name in zip(flat_raw, flat_norm):
@@ -394,7 +402,7 @@ def convert_to_wds(cfg: PackedWDSConfig):
         construct_fn = construct_sample_packed_multi_mix_qa
     elif cfg.sample_type == "packed_chat_mix":
         raise ValueError(
-            "packed_chat_mix is only supported by the WDS-native offline packing path with data.input_format='wds'."
+            "packed_chat_mix is only supported by the WDS-native offline packing path with data.input_format='wds'."  # noqa: E501
         )
     else:
         stream_fn = stream_samples_caption
@@ -458,7 +466,7 @@ def construct_native_packed_sample(
         sample = samples[sample_id]
         if sample.media_type != media_type:
             raise ValueError(
-                f"Pack {plan['pack_id']} mixes media types: {sample_id} is {sample.media_type}, expected {media_type}"
+                f"Pack {plan['pack_id']} mixes media types: {sample_id} is {sample.media_type}, expected {media_type}"  # noqa: E501
             )
 
         prompts.append(sample.prompt)

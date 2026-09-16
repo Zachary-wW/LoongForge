@@ -61,7 +61,7 @@ WAN22_MODEL_REGISTRY = [
         "model_class": WanVideoDiT,
     },
     {
-        # Example: ModelConfig(model_id="Wan-AI/Wan2.2-TI2V-5B", origin_file_pattern="Wan2.2_VAE.pth")
+        # Example: ModelConfig(model_id="Wan-AI/Wan2.2-TI2V-5B", origin_file_pattern="Wan2.2_VAE.pth")  # noqa: E501
         "model_hash": "e1de6c02cdac79f8b739f4d3698cd216",
         "model_name": "wan_video_vae",
         "model_class": WanVideoVAE38,
@@ -88,7 +88,9 @@ def _validate_dit_config(dit_config: dict[str, Any]) -> dict[str, Any]:
 
     unknown_keys = sorted(set(validated) - allowed_keys)
     if unknown_keys:
-        raise ValueError(f"Unknown keys in `dit_config`: {unknown_keys}. Allowed keys: {sorted(allowed_keys)}")
+        raise ValueError(
+            f"Unknown keys in `dit_config`: {unknown_keys}. Allowed keys: {sorted(allowed_keys)}"
+        )
 
     missing_keys = sorted(required_keys - set(validated))
     if missing_keys:
@@ -122,7 +124,7 @@ def _load_registered_model(
     if matched_config is None:
         raise ValueError(
             f"Cannot detect model type for {model_name}. File: {path}. "
-            f"Model hash: {model_hash}. This standalone package follows DiffSynth hash-based loading."
+            f"Model hash: {model_hash}. This standalone package follows DiffSynth hash-based loading."  # noqa: E501
         )
 
     model_class = matched_config["model_class"]
@@ -143,10 +145,16 @@ def _load_registered_model(
 
 def _resolve_configs(model_id: str, tokenizer_model_id: str, redirect_common_files: bool = True):
     """Build model file configs for Wan2.2 DiT, VAE, text encoder, and tokenizer."""
-    dit_config = ModelConfig(model_id=model_id, origin_file_pattern="diffusion_pytorch_model*.safetensors")
-    text_config = ModelConfig(model_id=model_id, origin_file_pattern="models_t5_umt5-xxl-enc-bf16.pth")
+    dit_config = ModelConfig(
+        model_id=model_id, origin_file_pattern="diffusion_pytorch_model*.safetensors"
+    )
+    text_config = ModelConfig(
+        model_id=model_id, origin_file_pattern="models_t5_umt5-xxl-enc-bf16.pth"
+    )
     vae_config = ModelConfig(model_id=model_id, origin_file_pattern="Wan2.2_VAE.pth")
-    tokenizer_config = ModelConfig(model_id=tokenizer_model_id, origin_file_pattern="google/umt5-xxl/")
+    tokenizer_config = ModelConfig(
+        model_id=tokenizer_model_id, origin_file_pattern="google/umt5-xxl/"
+    )
 
     if redirect_common_files:
         redirect_dict = {
@@ -159,8 +167,12 @@ def _resolve_configs(model_id: str, tokenizer_model_id: str, redirect_common_fil
                 "Wan2.2_VAE.safetensors",
             ),
         }
-        text_config.model_id, text_config.origin_file_pattern = redirect_dict[text_config.origin_file_pattern]
-        vae_config.model_id, vae_config.origin_file_pattern = redirect_dict[vae_config.origin_file_pattern]
+        text_config.model_id, text_config.origin_file_pattern = redirect_dict[
+            text_config.origin_file_pattern
+        ]
+        vae_config.model_id, vae_config.origin_file_pattern = redirect_dict[
+            vae_config.origin_file_pattern
+        ]
     return dit_config, text_config, vae_config, tokenizer_config
 
 

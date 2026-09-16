@@ -42,7 +42,9 @@ def _record_external_cuda_event(
         _CUDA_EVENT_RECORD_EXTERNAL,
     )
     if error:
-        raise RuntimeError(f"cudaEventRecordWithFlags(cudaEventRecordExternal) failed: error={error}")
+        raise RuntimeError(
+            f"cudaEventRecordWithFlags(cudaEventRecordExternal) failed: error={error}"
+        )
 
 
 @torch.no_grad()
@@ -109,7 +111,9 @@ def _clone_validation_batch(batch: Any) -> _GraphValidationBatch:
         if value is None:
             return None
         if not isinstance(value, torch.Tensor):
-            raise RuntimeError(f"Full-iteration CUDA graph validation field {name} must be a tensor.")
+            raise RuntimeError(
+                f"Full-iteration CUDA graph validation field {name} must be a tensor."
+            )
         return value.detach().cpu().clone()
 
     return _GraphValidationBatch(
@@ -134,7 +138,9 @@ def _clone_static(
         storage_memo = {}
     if isinstance(value, torch.Tensor):
         if value.layout != torch.strided:
-            raise RuntimeError(f"Full-iteration CUDA graph static inputs require strided tensors, got {value.layout}.")
+            raise RuntimeError(
+                f"Full-iteration CUDA graph static inputs require strided tensors, got {value.layout}."  # noqa: E501
+            )
         existing = tensor_memo.get(id(value))
         if existing is not None:
             return existing
@@ -160,7 +166,11 @@ def _clone_static(
         tensor_memo[id(value)] = cloned
         return cloned
     if isinstance(value, BatchFeature):
-        return BatchFeature(data={key: _clone_static(item, tensor_memo, storage_memo) for key, item in value.items()})
+        return BatchFeature(
+            data={
+                key: _clone_static(item, tensor_memo, storage_memo) for key, item in value.items()
+            }
+        )
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
         kwargs = {
             field.name: _clone_static(
@@ -184,14 +194,20 @@ def _clone_static(
 class _CopyAliasState:
     src_to_dst_objects: dict[int, int] = dataclasses.field(default_factory=dict)
     dst_to_src_objects: dict[int, int] = dataclasses.field(default_factory=dict)
-    src_to_dst_storages: dict[tuple[str, int], tuple[str, int]] = dataclasses.field(default_factory=dict)
-    dst_to_src_storages: dict[tuple[str, int], tuple[str, int]] = dataclasses.field(default_factory=dict)
+    src_to_dst_storages: dict[tuple[str, int], tuple[str, int]] = dataclasses.field(
+        default_factory=dict
+    )
+    dst_to_src_storages: dict[tuple[str, int], tuple[str, int]] = dataclasses.field(
+        default_factory=dict
+    )
 
     @staticmethod
     def _bind(mapping: dict[Any, Any], key: Any, value: Any, path: str, kind: str) -> None:
         existing = mapping.setdefault(key, value)
         if existing != value:
-            raise RuntimeError(f"Full-iteration CUDA graph {kind} alias contract changed at {path}.")
+            raise RuntimeError(
+                f"Full-iteration CUDA graph {kind} alias contract changed at {path}."
+            )
 
     def validate(self, dst: torch.Tensor, src: torch.Tensor, path: str) -> None:
         """Assert the source/destination alias contract is stable across steps."""
@@ -251,7 +267,7 @@ def _copy_static(
     if isinstance(dst, BatchFeature) and isinstance(src, BatchFeature):
         if dst.keys() != src.keys():
             raise RuntimeError(
-                f"Full-iteration CUDA graph keys changed at {path}: {sorted(dst.keys())} != {sorted(src.keys())}"
+                f"Full-iteration CUDA graph keys changed at {path}: {sorted(dst.keys())} != {sorted(src.keys())}"  # noqa: E501
             )
         for key in dst:
             _copy_static(dst[key], src[key], f"{path}.{key}", alias_state)
@@ -259,7 +275,7 @@ def _copy_static(
     if dataclasses.is_dataclass(dst) and dataclasses.is_dataclass(src):
         if type(dst) is not type(src):
             raise RuntimeError(
-                f"Full-iteration CUDA graph type changed at {path}: {type(dst).__name__} != {type(src).__name__}"
+                f"Full-iteration CUDA graph type changed at {path}: {type(dst).__name__} != {type(src).__name__}"  # noqa: E501
             )
         for field in dataclasses.fields(dst):
             _copy_static(
@@ -271,20 +287,24 @@ def _copy_static(
         return
     if isinstance(dst, (list, tuple)) and isinstance(src, type(dst)):
         if len(dst) != len(src):
-            raise RuntimeError(f"Full-iteration CUDA graph length changed at {path}: {len(dst)} != {len(src)}")
+            raise RuntimeError(
+                f"Full-iteration CUDA graph length changed at {path}: {len(dst)} != {len(src)}"
+            )
         for index, (dst_item, src_item) in enumerate(zip(dst, src)):
             _copy_static(dst_item, src_item, f"{path}[{index}]", alias_state)
         return
     if isinstance(dst, dict) and isinstance(src, dict):
         if dst.keys() != src.keys():
             raise RuntimeError(
-                f"Full-iteration CUDA graph keys changed at {path}: {sorted(dst.keys())} != {sorted(src.keys())}"
+                f"Full-iteration CUDA graph keys changed at {path}: {sorted(dst.keys())} != {sorted(src.keys())}"  # noqa: E501
             )
         for key in dst:
             _copy_static(dst[key], src[key], f"{path}.{key}", alias_state)
         return
     if type(dst) is not type(src) or dst != src:
-        raise RuntimeError(f"Full-iteration CUDA graph metadata changed at {path}: {dst!r} != {src!r}")
+        raise RuntimeError(
+            f"Full-iteration CUDA graph metadata changed at {path}: {dst!r} != {src!r}"
+        )
 
 
 class GrootN1d7FullIterationCudaGraphRunner:
@@ -351,7 +371,7 @@ class GrootN1d7FullIterationCudaGraphRunner:
         self._validate_configuration()
         if self._input_prefetch_enabled and self.ctx.is_main:
             logger.info(
-                "Full-iteration input prefetch enabled: overlap next CPU/H2D batch with the current graph replay."
+                "Full-iteration input prefetch enabled: overlap next CPU/H2D batch with the current graph replay."  # noqa: E501
             )
         if self._time_prefetch_enabled and self.ctx.is_main:
             logger.info(
@@ -377,13 +397,15 @@ class GrootN1d7FullIterationCudaGraphRunner:
         """Return whether the trainer requests the full-iteration CUDA graph."""
         args = trainer.training_args
         return (
-            torch.cuda.is_available() and args.cuda_graph_impl == "local" and args.cuda_graph_scope == "full_iteration"
+            torch.cuda.is_available()
+            and args.cuda_graph_impl == "local"
+            and args.cuda_graph_scope == "full_iteration"
         )
 
     def _validate_configuration(self) -> None:
         if self.training_args.gradient_accumulation_steps != 1:
             raise RuntimeError(
-                "GR00T-N1.7 full-iteration CUDA graph currently requires --gradient-accumulation-steps=1."
+                "GR00T-N1.7 full-iteration CUDA graph currently requires --gradient-accumulation-steps=1."  # noqa: E501
             )
         if self.ctx.is_distributed and self.ctx.world_size > 1:
             if not hasattr(self.trainer.model, "reducer"):
@@ -398,7 +420,7 @@ class GrootN1d7FullIterationCudaGraphRunner:
                 raise RuntimeError("Frozen-backbone graph pipeline requires input prefetch.")
             if any(parameter.requires_grad for parameter in self._backbone().parameters()):
                 raise RuntimeError(
-                    "Frozen-backbone graph pipeline requires every Qwen backbone parameter to have requires_grad=False."
+                    "Frozen-backbone graph pipeline requires every Qwen backbone parameter to have requires_grad=False."  # noqa: E501
                 )
         if self._fused_optimizer_grad_clip:
             if float(self.training_args.clip_grad) <= 0:
@@ -412,8 +434,12 @@ class GrootN1d7FullIterationCudaGraphRunner:
                 f"Optimizer {type(self.trainer.optimizer).__name__} is not capturable. "
                 "Use TEFusedAdamW or TorchFusedAdamW with full-iteration graph mode."
             )
-        if self._fused_optimizer_grad_clip and not hasattr(self.trainer.optimizer, "set_grad_scale"):
-            raise RuntimeError("Fused optimizer gradient clipping requires precision-compatible TEFusedAdamW.")
+        if self._fused_optimizer_grad_clip and not hasattr(
+            self.trainer.optimizer, "set_grad_scale"
+        ):
+            raise RuntimeError(
+                "Fused optimizer gradient clipping requires precision-compatible TEFusedAdamW."
+            )
         self._optimizer_validated = True
 
     def _action_head(self):
@@ -468,7 +494,7 @@ class GrootN1d7FullIterationCudaGraphRunner:
             inputs = batch.to_model_inputs()
         except AttributeError as exc:
             raise TypeError(
-                f"Frozen-backbone graph pipeline expects a batch with to_model_inputs(), got {type(batch).__name__}."
+                f"Frozen-backbone graph pipeline expects a batch with to_model_inputs(), got {type(batch).__name__}."  # noqa: E501
             ) from exc
 
         model = self._groot_model()
@@ -498,7 +524,9 @@ class GrootN1d7FullIterationCudaGraphRunner:
             }
         )
         action_input = BatchFeature(
-            data={key: self._convert_pipeline_value(inputs[key], action_dtype) for key in action_keys}
+            data={
+                key: self._convert_pipeline_value(inputs[key], action_dtype) for key in action_keys
+            }
         )
         return backbone_input, action_input
 
@@ -554,7 +582,7 @@ class GrootN1d7FullIterationCudaGraphRunner:
             raise RuntimeError("Qwen language layers were not found for pipeline progress event.")
         if self._backbone_progress_layer >= len(layers):
             raise RuntimeError(
-                f"Frozen-backbone progress layer is out of range: {self._backbone_progress_layer} >= {len(layers)}."
+                f"Frozen-backbone progress layer is out of range: {self._backbone_progress_layer} >= {len(layers)}."  # noqa: E501
             )
         assert self._backbone_progress_event is not None
 
@@ -599,7 +627,9 @@ class GrootN1d7FullIterationCudaGraphRunner:
             if self._saved_ddp_broadcast_buffers:
                 sync_buffers = getattr(self.trainer.model, "_sync_buffers", None)
                 if not callable(sync_buffers):
-                    raise RuntimeError("Frozen-backbone graph pipeline could not find DDP._sync_buffers().")
+                    raise RuntimeError(
+                        "Frozen-backbone graph pipeline could not find DDP._sync_buffers()."
+                    )
                 sync_buffers()
             assert self._buffer_sync_event is not None
             self._buffer_sync_event.record(self.graph_stream)
@@ -788,7 +818,9 @@ class GrootN1d7FullIterationCudaGraphRunner:
         for index, group in enumerate(self.trainer.optimizer.param_groups):
             value = group["lr"]
             if not isinstance(value, torch.Tensor) or not value.is_cuda:
-                raise RuntimeError(f"Capturable optimizer group {index} LR must be a CUDA tensor, got {value!r}.")
+                raise RuntimeError(
+                    f"Capturable optimizer group {index} LR must be a CUDA tensor, got {value!r}."
+                )
             buffers.append(value)
         self.lr_buffers = buffers
 
@@ -881,7 +913,9 @@ class GrootN1d7FullIterationCudaGraphRunner:
         assert self._time_stream is not None
         with torch.cuda.stream(self._time_stream):
             self._time_prefetch_buffer.copy_(host_buffer, non_blocking=True)
-        self._time_prefetch_host_index = (self._time_prefetch_host_index + 1) % len(self._time_prefetch_host_buffers)
+        self._time_prefetch_host_index = (self._time_prefetch_host_index + 1) % len(
+            self._time_prefetch_host_buffers
+        )
         self._time_prefetch_pending = True
 
     def _consume_prefetched_time_buffer(self) -> None:
@@ -939,7 +973,9 @@ class GrootN1d7FullIterationCudaGraphRunner:
         safe_loss.backward()
         self._clean_nan_gradients()
 
-        params = [parameter for parameter in self.raw_model.parameters() if parameter.grad is not None]
+        params = [
+            parameter for parameter in self.raw_model.parameters() if parameter.grad is not None
+        ]
         if not params:
             raise RuntimeError("Full-iteration CUDA graph found no gradients after backward.")
         max_norm = float(self.training_args.clip_grad)
@@ -1035,7 +1071,9 @@ class GrootN1d7FullIterationCudaGraphRunner:
         )
         self._fill_time_buffer()
         if not any(parameter.grad is not None for parameter in self.raw_model.parameters()):
-            raise RuntimeError("Full-iteration capture requires materialized stable gradient buffers after warmup.")
+            raise RuntimeError(
+                "Full-iteration capture requires materialized stable gradient buffers after warmup."
+            )
         if self._direct_grad_write:
             self._zero_grad(set_to_none=True)
 
@@ -1117,7 +1155,9 @@ class GrootN1d7FullIterationCudaGraphRunner:
         self._prepare_graph_batch(self.static_batch)
         self._fill_time_buffer()
         if not any(parameter.grad is not None for parameter in self.raw_model.parameters()):
-            raise RuntimeError("Full-iteration capture requires materialized stable gradient buffers after warmup.")
+            raise RuntimeError(
+                "Full-iteration capture requires materialized stable gradient buffers after warmup."
+            )
         if self._direct_grad_write:
             self._zero_grad(set_to_none=True)
 

@@ -49,7 +49,9 @@ def _synthetic_context() -> dict:
         "episode_id": "ep0",
         "episode_step": 0,
         "ee_pos": np.array([0.5, -0.3, 0.4], dtype=np.float32),
-        "ee_ori_mat": np.array([[0.9, 0.1, 0.1], [0.1, 0.9, 0.1], [0.1, 0.1, 0.9]], dtype=np.float32),
+        "ee_ori_mat": np.array(
+            [[0.9, 0.1, 0.1], [0.1, 0.9, 0.1], [0.1, 0.1, 0.9]], dtype=np.float32
+        ),
     }
 
 
@@ -70,7 +72,7 @@ def test_registry_keys_are_consistent():
     factory_keys = set(MODEL_FACTORY_REGISTRY)
     builder_keys = set(PAYLOAD_BUILDER_REGISTRY)
     assert factory_keys == builder_keys, (
-        f"factory - builder = {factory_keys - builder_keys}; builder - factory = {builder_keys - factory_keys}"
+        f"factory - builder = {factory_keys - builder_keys}; builder - factory = {builder_keys - factory_keys}"  # noqa: E501
     )
 
 
@@ -184,7 +186,7 @@ def test_yaml_override_respects_type_annotation_whitelist():
 
 
 def test_xvla_ee6d_calvin_shape_and_layout():
-    """CALVIN ee6d encoding emits [tcp_pos(3), euler→rot6d_interleaved(6), grip(1)] padded to 20D."""
+    """CALVIN ee6d encoding emits [tcp_pos(3), euler→rot6d_interleaved(6), grip(1)] padded to 20D."""  # noqa: E501
     from loongforge.embodied.eval.payload_builders.xvla import _encode_ee6d_calvin
 
     robot_obs = np.array(
@@ -214,7 +216,9 @@ def test_xvla_ee6d_calvin_stateful_backfill():
         },
         "robot_obs": robot_obs,
     }
-    canonical = adapter.obs_to_canonical(env_obs, {"instruction": "", "episode_id": "ep", "episode_step": 0})
+    canonical = adapter.obs_to_canonical(
+        env_obs, {"instruction": "", "episode_id": "ep", "episode_step": 0}
+    )
     pb = build_payload_builder("xvla", yaml_model={"state_encoding": "ee6d_calvin", "domain_id": 2})
     pb.reset("ep")
     kwargs1 = pb.build(canonical, {"benchmark_name": "calvin"})
@@ -251,7 +255,9 @@ def test_xvla_ee6d_widowx_initial_shape():
     assert encoded is not None
     assert encoded.shape == (20,)
     np.testing.assert_allclose(encoded[:3], np.array([0.1, 0.2, 0.3]), atol=1e-6)
-    np.testing.assert_allclose(encoded[3:10], np.array([1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]), atol=1e-6)
+    np.testing.assert_allclose(
+        encoded[3:10], np.array([1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]), atol=1e-6
+    )
     np.testing.assert_allclose(encoded[10:], np.zeros(10), atol=1e-6)
 
 
@@ -267,7 +273,9 @@ def test_maniskill_pi05_passthrough_reads_joint_from_state_raw():
             "qvel": np.zeros(9, dtype=np.float32),
         },
     }
-    canonical = adapter.obs_to_canonical(env_obs, {"instruction": "pick up", "episode_id": "ep", "episode_step": 0})
+    canonical = adapter.obs_to_canonical(
+        env_obs, {"instruction": "pick up", "episode_id": "ep", "episode_step": 0}
+    )
     pb = build_payload_builder("pi05", yaml_model={"state_encoding": "passthrough"})
     kwargs = pb.build(canonical, {"benchmark_name": "maniskill"})
     assert kwargs["state"].shape == (8,)
@@ -392,11 +400,15 @@ def test_pi05_aloha_proprio_and_decoder_chunk_cache():
     # Fresh chunk: anchor = adapt_to_pi(joint0). Chunk-based [1, 14] -> [1, 14].
     pi_state0 = adapt_to_pi_decode_state(joint0)
     env0 = decoder(raw.reshape(1, -1), {"pi_state": pi_state0, "is_fresh_chunk": True})[0]
-    expected0 = adapt_to_pi_encode_actions(delta_to_absolute_actions(raw, adapt_to_pi_decode_state(joint0)))
+    expected0 = adapt_to_pi_encode_actions(
+        delta_to_absolute_actions(raw, adapt_to_pi_decode_state(joint0))
+    )
     assert np.allclose(env0, expected0, atol=1e-6)
     # Cache hit with a *different* pi_state: anchor must stay at the fresh-chunk state.
     joint1 = joint0 + 0.2
     pi_state1 = adapt_to_pi_decode_state(joint1)
     env1 = decoder(raw.reshape(1, -1), {"pi_state": pi_state1, "is_fresh_chunk": False})[0]
-    expected1 = adapt_to_pi_encode_actions(delta_to_absolute_actions(raw, adapt_to_pi_decode_state(joint0)))
+    expected1 = adapt_to_pi_encode_actions(
+        delta_to_absolute_actions(raw, adapt_to_pi_decode_state(joint0))
+    )
     assert np.allclose(env1, expected1, atol=1e-6)

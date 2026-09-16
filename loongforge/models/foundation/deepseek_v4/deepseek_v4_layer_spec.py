@@ -169,7 +169,9 @@ def _get_moe_layer_pattern(config: TransformerConfig):
         )
         return config.moe_layer_freq
 
-    raise ValueError(f"Invalid moe_layer_freq: {type(config.moe_layer_freq)}, {config.moe_layer_freq}")
+    raise ValueError(
+        f"Invalid moe_layer_freq: {type(config.moe_layer_freq)}, {config.moe_layer_freq}"
+    )
 
 
 def get_deepseek_v4_decoder_block_and_mtp_spec(

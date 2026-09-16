@@ -82,12 +82,16 @@ class Qwen3VLRotaryEmbedding(Qwen2VLRotaryEmbedding):
     @torch.no_grad()
     def forward(self, position_ids, packed_seq):
         """Returns the frequency"""
-        # Core RoPE block. In contrast to other models, Qwen2_VL has different position ids for thw grids
+        # Core RoPE block. In contrast to other models, Qwen2_VL has different position ids for thw grids  # noqa: E501
         # So we expand the inv_freq to shape (3, ...)
-        inv_freq_expanded = self.inv_freq[None, None, :, None].float().expand(3, position_ids.shape[1], -1, 1)
+        inv_freq_expanded = (
+            self.inv_freq[None, None, :, None].float().expand(3, position_ids.shape[1], -1, 1)
+        )
         position_ids_expanded = position_ids[:, :, None, :].float()
         freqs = (inv_freq_expanded.float() @ position_ids_expanded.float()).transpose(2, 3)
-        freqs = self.apply_interleaved_mrope(freqs, self.mrope_section)  # shape (bs, seq_length, dim)
+        freqs = self.apply_interleaved_mrope(
+            freqs, self.mrope_section
+        )  # shape (bs, seq_length, dim)
         emb = torch.cat((freqs, freqs), dim=-1)
 
         # shape (seq_length, bs, 1, 2 * dim)
@@ -118,7 +122,7 @@ class Qwen3Model(BaseGPTModel):
             is 'rope'. Defaults to 10000.
         seq_len_interpolation_factor (Optional[float], optional): scale of linearly interpolating RoPE for longer
             sequences. The value must be a float larger than 1.0. Defaults to None.
-    """
+    """  # noqa: E501
 
     config_class = Qwen3Config
 
@@ -242,7 +246,8 @@ class Qwen3Model(BaseGPTModel):
             rotary_pos_emb is None
             and self.position_embedding_type == "rope"
             and not self.config.multi_latent_attention
-            and self.config.rotary_emb_func not in ["Qwen2VLRotaryEmbedding", "Qwen3VLRotaryEmbedding"]
+            and self.config.rotary_emb_func
+            not in ["Qwen2VLRotaryEmbedding", "Qwen3VLRotaryEmbedding"]
         ):
             rotary_seq_len = self.rotary_pos_emb.get_rotary_seq_len(
                 inference_params,
@@ -316,7 +321,9 @@ class Qwen3Model(BaseGPTModel):
             rotary_pos_emb=rotary_pos_emb,
         )
 
-        (decoder_input, rotary_pos_emb, rotary_pos_cos, rotary_pos_sin, sequence_len_offset) = preproc_output[:5]
+        (decoder_input, rotary_pos_emb, rotary_pos_cos, rotary_pos_sin, sequence_len_offset) = (
+            preproc_output[:5]
+        )
 
         # Run decoder.
         hidden_states = self.decoder(

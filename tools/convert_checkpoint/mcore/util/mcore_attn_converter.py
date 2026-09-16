@@ -37,7 +37,9 @@ class McoreAttnGateQkvConverter:
             self.kv_dim,
         ]
 
-        q, k, v = torch.split(gqkv.reshape(self.num_key_value_heads, -1, self.hidden_size), split_arg_list, dim=1)
+        q, k, v = torch.split(
+            gqkv.reshape(self.num_key_value_heads, -1, self.hidden_size), split_arg_list, dim=1
+        )
         q_s = torch.chunk(q, tp, dim=0)
         k_s = torch.chunk(k, tp, dim=0)
         v_s = torch.chunk(v, tp, dim=0)
@@ -80,7 +82,10 @@ class McoreMixerAttnConverter:
             qkvz.reshape(
                 self.mixer_num_key_heads,
                 2 * self.mixer_key_head_dim
-                + 2 * self.mixer_value_head_dim * self.mixer_num_value_heads // self.mixer_num_key_heads,
+                + 2
+                * self.mixer_value_head_dim
+                * self.mixer_num_value_heads
+                // self.mixer_num_key_heads,
                 -1,
             ),
             split_size_list,

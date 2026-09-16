@@ -100,7 +100,9 @@ def _calculate_int4_group_scale(weight, quantization_scheme, output_dtype):
     return scale, zero_point
 
 
-def _replace_with_packed_weight(state_dict, weight_key, weight, scale, zero_point, quantization_scheme):
+def _replace_with_packed_weight(
+    state_dict, weight_key, weight, scale, zero_point, quantization_scheme
+):
     from compressed_tensors import PackedQuantizationCompressor
 
     base_key = weight_key[: -len(WEIGHT_SUFFIX)]
@@ -124,9 +126,13 @@ def _replace_with_packed_weight(state_dict, weight_key, weight, scale, zero_poin
 
     state_dict[f"{base_key}{WEIGHT_PACKED_SUFFIX}"] = compressed["weight_packed"].contiguous()
     state_dict[f"{base_key}{WEIGHT_SCALE_SUFFIX}"] = compressed["weight_scale"].contiguous()
-    state_dict[f"{base_key}{WEIGHT_SHAPE_SUFFIX}"] = compressed["weight_shape"].to(torch.int32).contiguous()
+    state_dict[f"{base_key}{WEIGHT_SHAPE_SUFFIX}"] = (
+        compressed["weight_shape"].to(torch.int32).contiguous()
+    )
     if "weight_zero_point" in compressed:
-        state_dict[f"{base_key}{WEIGHT_ZERO_POINT_SUFFIX}"] = compressed["weight_zero_point"].contiguous()
+        state_dict[f"{base_key}{WEIGHT_ZERO_POINT_SUFFIX}"] = compressed[
+            "weight_zero_point"
+        ].contiguous()
     if "weight_g_idx" in compressed:
         state_dict[f"{base_key}{WEIGHT_G_IDX_SUFFIX}"] = compressed["weight_g_idx"].contiguous()
 
@@ -165,11 +171,15 @@ def pack_state_dict_from_official_config(state_dict, config_file, target_regex=N
 
         module_name = weight_key[: -len(WEIGHT_SUFFIX)]
         scale_key = f"{module_name}{WEIGHT_SCALE_SUFFIX}"
-        should_pack = target_re.match(module_name) is not None and not _module_is_ignored(module_name, ignore_rules)
+        should_pack = target_re.match(module_name) is not None and not _module_is_ignored(
+            module_name, ignore_rules
+        )
 
         if should_pack:
             materialized = _materialize_weight(state_dict, weight_key, output_dtype)
-            scale, zero_point = _calculate_int4_group_scale(materialized, quantization_scheme, output_dtype)
+            scale, zero_point = _calculate_int4_group_scale(
+                materialized, quantization_scheme, output_dtype
+            )
             _replace_with_packed_weight(
                 state_dict,
                 weight_key,
@@ -186,7 +196,9 @@ def pack_state_dict_from_official_config(state_dict, config_file, target_regex=N
             state_dict.pop(scale_key, None)
             normalized_fp8 += 1
         elif _is_fp8_tensor(weight):
-            raise KeyError(f"{weight_key} is FP8 but has no {scale_key}; cannot write official BF16 HF weight")
+            raise KeyError(
+                f"{weight_key} is FP8 but has no {scale_key}; cannot write official BF16 HF weight"
+            )
 
     for key in list(state_dict):
         if not key.endswith(WEIGHT_SCALE_SUFFIX):

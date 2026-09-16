@@ -56,7 +56,9 @@ def _compute_vision_position_ids(
 
     if ed_image < ed_video:
         if image_index >= len(image_grid_thw):
-            raise IndexError(f"image_index {image_index} out of range (have {len(image_grid_thw)} image grids)")
+            raise IndexError(
+                f"image_index {image_index} out of range (have {len(image_grid_thw)} image grids)"
+            )
         t, h, w = (
             image_grid_thw[image_index][0],
             image_grid_thw[image_index][1],
@@ -70,7 +72,9 @@ def _compute_vision_position_ids(
         ed = ed_image
     else:
         if video_index >= len(video_grid_thw):
-            raise IndexError(f"video_index {video_index} out of range (have {len(video_grid_thw)} video grids)")
+            raise IndexError(
+                f"video_index {video_index} out of range (have {len(video_grid_thw)} video grids)"
+            )
         t, h, w = (
             video_grid_thw[video_index][0],
             video_grid_thw[video_index][1],
@@ -91,13 +95,25 @@ def _compute_vision_position_ids(
     )
     text_len = ed - st
     st_idx = llm_pos_ids_list[-1].max() + 1 if len(llm_pos_ids_list) > 0 else 0
-    llm_pos_ids_list.append(torch.arange(text_len, device=device).view(1, -1).expand(3, -1) + st_idx)
+    llm_pos_ids_list.append(
+        torch.arange(text_len, device=device).view(1, -1).expand(3, -1) + st_idx
+    )
     range_tensor = torch.arange(llm_grid_t, device=device).view(-1, 1)
     expanded_range = range_tensor.expand(-1, llm_grid_h * llm_grid_w)
     time_tensor = expanded_range * second_per_grid_t * tokens_per_second
     t_index = time_tensor.long().flatten()
-    h_index = torch.arange(llm_grid_h, device=device).view(1, -1, 1).expand(llm_grid_t, -1, llm_grid_w).flatten()
-    w_index = torch.arange(llm_grid_w, device=device).view(1, 1, -1).expand(llm_grid_t, llm_grid_h, -1).flatten()
+    h_index = (
+        torch.arange(llm_grid_h, device=device)
+        .view(1, -1, 1)
+        .expand(llm_grid_t, -1, llm_grid_w)
+        .flatten()
+    )
+    w_index = (
+        torch.arange(llm_grid_w, device=device)
+        .view(1, 1, -1)
+        .expand(llm_grid_t, llm_grid_h, -1)
+        .flatten()
+    )
     llm_pos_ids_list.append(torch.stack([t_index, h_index, w_index]) + text_len + st_idx)
     st = ed + llm_grid_t * llm_grid_h * llm_grid_w
     return st, image_index, video_index, remain_images, remain_videos
@@ -113,7 +129,9 @@ def _compute_text_only_positions(input_ids, attention_mask):
         mrope_position_deltas = max_position_ids + 1 - attention_mask.shape[-1]
     else:
         position_ids = (
-            torch.arange(input_ids.shape[1], device=input_ids.device).view(1, 1, -1).expand(3, input_ids.shape[0], -1)
+            torch.arange(input_ids.shape[1], device=input_ids.device)
+            .view(1, 1, -1)
+            .expand(3, input_ids.shape[0], -1)
         )
         mrope_position_deltas = torch.zeros(
             [input_ids.shape[0], 1],
@@ -192,32 +210,38 @@ class GetRopeIndexOp(OpsProxy):
             st = 0
             remain_images, remain_videos = image_nums, video_nums
             for _ in range(image_nums + video_nums):
-                st, image_index, video_index, remain_images, remain_videos = _compute_vision_position_ids(
-                    input_tokens,
-                    token_set,
-                    st,
-                    image_grid_thw,
-                    video_grid_thw,
-                    second_per_grid_ts,
-                    image_index,
-                    video_index,
-                    remain_images,
-                    remain_videos,
-                    image_token_id,
-                    video_token_id,
-                    spatial_merge_size,
-                    tokens_per_second,
-                    device,
-                    llm_pos_ids_list,
+                st, image_index, video_index, remain_images, remain_videos = (
+                    _compute_vision_position_ids(
+                        input_tokens,
+                        token_set,
+                        st,
+                        image_grid_thw,
+                        video_grid_thw,
+                        second_per_grid_ts,
+                        image_index,
+                        video_index,
+                        remain_images,
+                        remain_videos,
+                        image_token_id,
+                        video_token_id,
+                        spatial_merge_size,
+                        tokens_per_second,
+                        device,
+                        llm_pos_ids_list,
+                    )
                 )
             if st < len(input_tokens):
                 st_idx = llm_pos_ids_list[-1].max() + 1 if len(llm_pos_ids_list) > 0 else 0
                 text_len = len(input_tokens) - st
-                llm_pos_ids_list.append(torch.arange(text_len, device=device).view(1, -1).expand(3, -1) + st_idx)
+                llm_pos_ids_list.append(
+                    torch.arange(text_len, device=device).view(1, -1).expand(3, -1) + st_idx
+                )
             llm_positions = torch.cat(llm_pos_ids_list, dim=1).reshape(3, -1)
             position_ids[..., i, attention_mask[i] == 1] = llm_positions.to(position_ids.device)
             mrope_position_deltas.append(llm_positions.max() + 1 - len(total_input_ids[i]))
-        mrope_position_deltas = torch.tensor(mrope_position_deltas, device=total_input_ids.device).unsqueeze(1)
+        mrope_position_deltas = torch.tensor(
+            mrope_position_deltas, device=total_input_ids.device
+        ).unsqueeze(1)
         return position_ids, mrope_position_deltas
 
 
@@ -226,7 +250,7 @@ class GetWindowIndexOp(OpsProxy):
 
     Signature: get_window_index(grid_thw, window_size, spatial_merge_size,
                                 patch_size, spatial_merge_unit=1) -> (window_index, cu_window_seqlens)
-    """
+    """  # noqa: E501
 
     def _get_cuda_kernel(self):
         """Return the CUDA window-index function when available."""
@@ -265,8 +289,12 @@ class GetWindowIndexOp(OpsProxy):
             index = torch.arange(grid_t * llm_grid_h * llm_grid_w, device=device).reshape(
                 grid_t, llm_grid_h, llm_grid_w
             )
-            pad_h = (vit_merger_window_size - llm_grid_h % vit_merger_window_size) % vit_merger_window_size
-            pad_w = (vit_merger_window_size - llm_grid_w % vit_merger_window_size) % vit_merger_window_size
+            pad_h = (
+                vit_merger_window_size - llm_grid_h % vit_merger_window_size
+            ) % vit_merger_window_size
+            pad_w = (
+                vit_merger_window_size - llm_grid_w % vit_merger_window_size
+            ) % vit_merger_window_size
             num_windows_h = (llm_grid_h + pad_h) // vit_merger_window_size
             num_windows_w = (llm_grid_w + pad_w) // vit_merger_window_size
             index_padded = F.pad(index, (0, pad_w, 0, pad_h), "constant", _PAD_VALUE)
@@ -294,7 +322,9 @@ class GetWindowIndexOp(OpsProxy):
             cu_window_seqlens.extend(cu_seqlens_tmp.tolist())
             window_index_id += int(grid_t) * int(llm_grid_h) * int(llm_grid_w)
         window_index = torch.cat(window_index_list, dim=0)
-        cu_window_seqlens = torch.tensor(cu_window_seqlens, dtype=grid_thw.dtype, device=grid_thw.device)
+        cu_window_seqlens = torch.tensor(
+            cu_window_seqlens, dtype=grid_thw.dtype, device=grid_thw.device
+        )
         return window_index, cu_window_seqlens
 
 

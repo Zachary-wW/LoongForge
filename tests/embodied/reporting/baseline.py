@@ -30,7 +30,7 @@ Comparison strategy (aligned with the main framework's tests):
 - when the regression passes and performance overall improves beyond tolerance,
   automatically update the baseline's performance metrics to this run's better values
   (see update_perf_baseline; accuracy metrics are never auto-updated)
-"""
+"""  # noqa: E501
 
 import json
 import math
@@ -74,7 +74,7 @@ def load_baseline(chip, model_name, training_type):
     Returns:
         the records list under the corresponding training_type; returns None if
         the file does not exist or the key is missing.
-    """
+    """  # noqa: E501
     path = baseline_path(chip, model_name)
     if not os.path.exists(path):
         return None
@@ -97,7 +97,7 @@ def save_baseline(chip, model_name, training_type, records):
 
     Returns:
         the written file path.
-    """
+    """  # noqa: E501
     path = baseline_path(chip, model_name)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     data = {}
@@ -118,7 +118,14 @@ def _rel_diff(actual, expected):
     return abs(actual - expected) / max(abs(expected), 1e-12)
 
 
-def compare(actual_records, baseline_records, accuracy_tol, performance_tol, check_loss_only=False, max_report=10):
+def compare(
+    actual_records,
+    baseline_records,
+    accuracy_tol,
+    performance_tol,
+    check_loss_only=False,
+    max_report=10,
+):
     """Return (failed_metrics, warnings). A non-empty failed_metrics means failure."""
     failed, warnings = [], []
 
@@ -128,12 +135,19 @@ def compare(actual_records, baseline_records, accuracy_tol, performance_tol, che
     if not common_iters:
         return ["No alignable iteration between baseline and actual result"], warnings
     if len(act_by_iter) < len(base_by_iter):
-        failed.append(f"Not enough iterations: actual={len(act_by_iter)} < baseline={len(base_by_iter)}")
+        failed.append(
+            f"Not enough iterations: actual={len(act_by_iter)} < baseline={len(base_by_iter)}"
+        )
 
-    # Set of hard-check metrics: take the union over all baseline records, to avoid a metric never being
-    # checked in later iterations because one iteration lacks a field (e.g. grad_norm missing during warmup).
+    # Set of hard-check metrics: take the union over all baseline records, to avoid a metric never being  # noqa: E501
+    # checked in later iterations because one iteration lacks a field (e.g. grad_norm missing during warmup).  # noqa: E501
     hard_keys = sorted(
-        {k for r in baseline_records for k in r if _is_loss_key(k) or (not check_loss_only and k == "grad_norm")}
+        {
+            k
+            for r in baseline_records
+            for k in r
+            if _is_loss_key(k) or (not check_loss_only and k == "grad_norm")
+        }
     )
     for key in hard_keys:
         for it in common_iters:
@@ -144,7 +158,7 @@ def compare(actual_records, baseline_records, accuracy_tol, performance_tol, che
             if actual is None:
                 failed.append(f"{key}@iter{it}: this metric is missing from the actual log")
             elif not math.isfinite(actual):
-                # NaN/Inf slip past `rel > tol` (NaN comparisons are always False), so guard explicitly.
+                # NaN/Inf slip past `rel > tol` (NaN comparisons are always False), so guard explicitly.  # noqa: E501
                 failed.append(f"{key}@iter{it}: actual is non-finite ({actual!r})")
             elif not math.isfinite(expected):
                 failed.append(f"{key}@iter{it}: baseline is non-finite ({expected!r})")
@@ -173,7 +187,11 @@ def compare(actual_records, baseline_records, accuracy_tol, performance_tol, che
 
     # Performance soft check: average per-iteration time
     def _mean(records_by_iter, key):
-        vals = [records_by_iter[it][key] for it in common_iters[_PERF_WARMUP_ITERS:] if key in records_by_iter[it]]
+        vals = [
+            records_by_iter[it][key]
+            for it in common_iters[_PERF_WARMUP_ITERS:]
+            if key in records_by_iter[it]
+        ]
         return sum(vals) / len(vals) if vals else None
 
     for key, worse_is_larger in _PERF_KEYS:
@@ -187,13 +205,15 @@ def compare(actual_records, baseline_records, accuracy_tol, performance_tol, che
         if rel > performance_tol:
             warnings.append(
                 f"{key}: actual_mean={act_mean:.2f} baseline_mean={base_mean:.2f} "
-                f"degraded {rel * 100:.1f}% > {performance_tol * 100:.0f}% (soft check, warning only)"
+                f"degraded {rel * 100:.1f}% > {performance_tol * 100:.0f}% (soft check, warning only)"  # noqa: E501
             )
 
     return failed, warnings
 
 
-def update_perf_baseline(chip, model_name, training_type, actual_records, baseline_records, performance_tol):
+def update_perf_baseline(
+    chip, model_name, training_type, actual_records, baseline_records, performance_tol
+):
     """Write improved performance metrics after a passing regression.
 
     Args:
@@ -208,13 +228,17 @@ def update_perf_baseline(chip, model_name, training_type, actual_records, baseli
     - all comparable performance metrics show no degradation;
     - and at least one improvement exceeds performance_tol.
     If satisfied, write to disk and return the baseline path, otherwise return None.
-    """
+    """  # noqa: E501
     base_by_iter = {r["iteration"]: r for r in baseline_records}
     act_by_iter = {r["iteration"]: r for r in actual_records}
     common_iters = sorted(set(base_by_iter) & set(act_by_iter))
 
     def _mean(records_by_iter, key):
-        vals = [records_by_iter[it][key] for it in common_iters[_PERF_WARMUP_ITERS:] if key in records_by_iter[it]]
+        vals = [
+            records_by_iter[it][key]
+            for it in common_iters[_PERF_WARMUP_ITERS:]
+            if key in records_by_iter[it]
+        ]
         return sum(vals) / len(vals) if vals else None
 
     improved = False
@@ -237,8 +261,8 @@ def update_perf_baseline(chip, model_name, training_type, actual_records, baseli
     if not improved:
         return None
 
-    # Back up a copy before auto-writing (overwrite into .bak, keeping the most recent one for rollback).
-    # Only rewrite the _PERF_KEYS outside the accuracy metrics; this mechanism prevents noise-induced
+    # Back up a copy before auto-writing (overwrite into .bak, keeping the most recent one for rollback).  # noqa: E501
+    # Only rewrite the _PERF_KEYS outside the accuracy metrics; this mechanism prevents noise-induced  # noqa: E501
     # false improvements from polluting the comparison baseline for later runs.
     path = baseline_path(chip, model_name)
     if os.path.exists(path):

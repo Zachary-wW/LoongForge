@@ -10,9 +10,7 @@ from packaging.version import Version as PkgVersion
 import torch
 from torch import Tensor
 
-_DSA_FUSED_DEPS_HINT = (
-    "dsa_fused requires optional dependencies. Install them with: pip install -r requirements_dsa_fused.txt"
-)
+_DSA_FUSED_DEPS_HINT = "dsa_fused requires optional dependencies. Install them with: pip install -r requirements_dsa_fused.txt"  # noqa: E501
 
 try:
     import triton
@@ -520,7 +518,7 @@ class ApplyMLARotaryEmbQNonInterleavedWithOffset(torch.autograd.Function):
         emb_offset=None,
         sp_offset=0,
     ):
-        """Apply non-interleaved YARN RoPE to MLA query tensor in-place with configurable embedding offset."""
+        """Apply non-interleaved YARN RoPE to MLA query tensor in-place with configurable embedding offset."""  # noqa: E501
         if emb_offset is None:
             emb_offset = qk_head_dim
         max_seqlen = None
@@ -571,7 +569,7 @@ class ApplyMLARotaryEmbQNonInterleavedWithOffset(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad):
-        """Compute backward pass by applying inverse non-interleaved YARN RoPE to the query gradient."""
+        """Compute backward pass by applying inverse non-interleaved YARN RoPE to the query gradient."""  # noqa: E501
         cos, sin = ctx.saved_tensors
         max_seqlen = None
         batch_size = None
@@ -795,8 +793,12 @@ def fused_rope_permute_cat_fwd_kernel_interleaved(
     x_odd_new = x_odd * cos_odd + x_even * sin_odd
 
     out_base = pid_m * stride_out_s + h_offs[:, None] * stride_out_h + d_out
-    tl.store(OUTPUT + out_base + tl.arange(0, half_emb)[None, :] * 2, x_even_new, mask=h_mask[:, None])
-    tl.store(OUTPUT + out_base + tl.arange(0, half_emb)[None, :] * 2 + 1, x_odd_new, mask=h_mask[:, None])
+    tl.store(
+        OUTPUT + out_base + tl.arange(0, half_emb)[None, :] * 2, x_even_new, mask=h_mask[:, None]
+    )
+    tl.store(
+        OUTPUT + out_base + tl.arange(0, half_emb)[None, :] * 2 + 1, x_odd_new, mask=h_mask[:, None]
+    )
 
 
 # ---- Backward kernels ----
@@ -839,7 +841,7 @@ def fused_rope_permute_cat_bwd_kernel_non_interleaved(
     cp_size,
     BLOCK_H: tl.constexpr,
 ):
-    """Backward: split grad_output → inverse-permute grad_q_content + inverse-RoPE grad_q_pos_emb."""
+    """Backward: split grad_output → inverse-permute grad_q_content + inverse-RoPE grad_q_pos_emb."""  # noqa: E501
     pid_m = tl.program_id(axis=0)
     pid_head = tl.program_id(axis=1)
 
@@ -976,8 +978,12 @@ def fused_rope_permute_cat_bwd_kernel_interleaved(
     sin_odd = sin_odd[None, :]
 
     go_base = pid_m * stride_go_s + h_offs[:, None] * stride_go_h + d_out
-    g_even = tl.load(GRAD_OUTPUT + go_base + tl.arange(0, half_emb)[None, :] * 2, mask=h_mask[:, None])
-    g_odd = tl.load(GRAD_OUTPUT + go_base + tl.arange(0, half_emb)[None, :] * 2 + 1, mask=h_mask[:, None])
+    g_even = tl.load(
+        GRAD_OUTPUT + go_base + tl.arange(0, half_emb)[None, :] * 2, mask=h_mask[:, None]
+    )
+    g_odd = tl.load(
+        GRAD_OUTPUT + go_base + tl.arange(0, half_emb)[None, :] * 2 + 1, mask=h_mask[:, None]
+    )
 
     # Inverse interleaved RoPE:
     #   fwd: x_even_new = x_even * cos_even - x_odd * sin_even
@@ -988,8 +994,16 @@ def fused_rope_permute_cat_bwd_kernel_interleaved(
     dx_odd = -g_even * sin_even + g_odd * cos_odd
 
     gpe_base = pid_m * stride_gpe_s + h_offs[:, None] * stride_gpe_h
-    tl.store(GRAD_Q_POS_EMB + gpe_base + tl.arange(0, half_emb)[None, :] * 2, dx_even, mask=h_mask[:, None])
-    tl.store(GRAD_Q_POS_EMB + gpe_base + tl.arange(0, half_emb)[None, :] * 2 + 1, dx_odd, mask=h_mask[:, None])
+    tl.store(
+        GRAD_Q_POS_EMB + gpe_base + tl.arange(0, half_emb)[None, :] * 2,
+        dx_even,
+        mask=h_mask[:, None],
+    )
+    tl.store(
+        GRAD_Q_POS_EMB + gpe_base + tl.arange(0, half_emb)[None, :] * 2 + 1,
+        dx_odd,
+        mask=h_mask[:, None],
+    )
 
 
 class FusedRopePermuteCat(torch.autograd.Function):
@@ -1020,7 +1034,7 @@ class FusedRopePermuteCat(torch.autograd.Function):
         cp_size,
         rotary_interleaved=False,
     ):
-        """Fuse HSD-to-SBHD permutation of q_content, RoPE on q_pos_emb, and concatenation into a single kernel pass."""
+        """Fuse HSD-to-SBHD permutation of q_content, RoPE on q_pos_emb, and concatenation into a single kernel pass."""  # noqa: E501
         if q_pos_emb.ndim == 4:
             s, b, nheads, emb_dim = q_pos_emb.shape
             S = s * b
@@ -1143,7 +1157,7 @@ class FusedRopePermuteCat(torch.autograd.Function):
         if ctx.q_pos_emb_ndim == 4:
             grad_q_pos_emb = grad_q_pos_emb.view(s, b, nheads, emb_dim)
 
-        # Returns: grad for (q_content, q_pos_emb, cos, sin, cu_seqlens_q, cp_rank, cp_size, rotary_interleaved)
+        # Returns: grad for (q_content, q_pos_emb, cos, sin, cu_seqlens_q, cp_rank, cp_size, rotary_interleaved)  # noqa: E501
         return grad_q_content, grad_q_pos_emb, None, None, None, None, None, None
 
 
@@ -1323,7 +1337,11 @@ def rotary_fwd_absorb_kv_kernel_non_interleaved(
     x_left = x_left.expand_dims(0).broadcast_to(BLOCK_H, emb_dim // 2)
     x_right = x_right.expand_dims(0).broadcast_to(BLOCK_H, emb_dim // 2)
 
-    x_left_off = tl.arange(0, BLOCK_H)[:, None] * stride_k_nheads + k_dim + tl.arange(0, emb_dim // 2)[None, :]
+    x_left_off = (
+        tl.arange(0, BLOCK_H)[:, None] * stride_k_nheads
+        + k_dim
+        + tl.arange(0, emb_dim // 2)[None, :]
+    )
     x_right_off = x_left_off + emb_dim // 2
     tl.store(K_ptr + x_left_off, x_left, mask=mask)
     tl.store(K_ptr + x_right_off, x_right, mask=mask)
@@ -1513,7 +1531,11 @@ def rotary_fwd_absorb_kv_kernel_interleaved(
     x_odd_new = x_odd_new.expand_dims(0).broadcast_to(BLOCK_H, emb_dim // 2)
 
     # Store back in interleaved layout
-    x_even_off = tl.arange(0, BLOCK_H)[:, None] * stride_k_nheads + k_dim + tl.arange(0, emb_dim // 2)[None, :] * 2
+    x_even_off = (
+        tl.arange(0, BLOCK_H)[:, None] * stride_k_nheads
+        + k_dim
+        + tl.arange(0, emb_dim // 2)[None, :] * 2
+    )
     x_odd_off = x_even_off + 1
     tl.store(K_ptr + x_even_off, x_even_new, mask=mask)
     tl.store(K_ptr + x_odd_off, x_odd_new, mask=mask)
@@ -2014,7 +2036,7 @@ def padded_flashinfer_topk(logits, topk, sk, *, sorted=True):
         >>> vals, idx = padded_flashinfer_topk(logits, 25, 20)
         >>> vals.shape, idx.shape
         (torch.Size([10, 25]), torch.Size([10, 25]))
-    """
+    """  # noqa: E501
     d = logits.size(-1)
     topk = int(topk)
     if topk <= d:
@@ -2024,7 +2046,9 @@ def padded_flashinfer_topk(logits, topk, sk, *, sorted=True):
     vals, idx = flashinfer.top_k(logits, d, sorted=sorted)
     pad = topk - d
     vals = torch.cat([vals, vals.new_full((*vals.shape[:-1], pad), float("-inf"))], dim=-1)
-    idx = torch.cat([idx, idx.new_full((*idx.shape[:-1], pad), sk)], dim=-1)  # use key length to fill
+    idx = torch.cat(
+        [idx, idx.new_full((*idx.shape[:-1], pad), sk)], dim=-1
+    )  # use key length to fill
     return vals, idx
 
 
@@ -2078,7 +2102,7 @@ class DSADotProductAttentionFunction(torch.autograd.Function):
         out, _, lse, *p_out = flash_mla_sparse_fwd(
             q_flash,  # q: [s_q, h_q, d_qk], bfloat16
             kv_flash,  # kv: [s_kv, h_kv, d_qk], bfloat16
-            indices_flash,  # [s_q, h_kv, topk], int32. Invalid indices should be set to -1 or numbers >= s_kv
+            indices_flash,  # [s_q, h_kv, topk], int32. Invalid indices should be set to -1 or numbers >= s_kv  # noqa: E501
             sm_scale,
             d_v,
             q_start_index_s=chunk_offset,
@@ -2174,7 +2198,9 @@ class DSADotProductAttention(MegatronModule):
         # v_channels is not used.
         # cp_comm_type is not used.
 
-        self.kept_packed_seq_params = set(field.name for field in dataclasses.fields(PackedSeqParams))
+        self.kept_packed_seq_params = set(
+            field.name for field in dataclasses.fields(PackedSeqParams)
+        )
         if get_te_version() < PkgVersion("1.3.0"):
             # TE 1.3.0 introduces precomputing max_seqlen to remove unnecessary kernels and D2H
             # copies (#555)
@@ -2212,13 +2238,15 @@ class DSADotProductAttention(MegatronModule):
         if attn_mask_type is None:
             attn_mask_type = AttnMaskType.causal
 
-        assert attn_mask_type == AttnMaskType.causal or attn_mask_type == AttnMaskType.padding_causal, (
-            "DSADotProductAttention only support causal attention.Please use TEDotProductAttention instead."
+        assert (
+            attn_mask_type == AttnMaskType.causal or attn_mask_type == AttnMaskType.padding_causal
+        ), (
+            "DSADotProductAttention only support causal attention.Please use TEDotProductAttention instead."  # noqa: E501
         )
         assert attention_bias is None, "Attention bias is not supported for DSADotProductAttention."
 
         assert self.config.qk_pos_emb_head_dim == 64, (
-            f"DSADotProductAttention only support qk_pos_emb_head_dim 64, but got {self.config.qk_pos_emb_head_dim}."
+            f"DSADotProductAttention only support qk_pos_emb_head_dim 64, but got {self.config.qk_pos_emb_head_dim}."  # noqa: E501
         )
 
         packed_seq_kwargs = (
@@ -2255,7 +2283,7 @@ class DSADotProductAttention(MegatronModule):
             kv = kv.unsqueeze(2).transpose(0, 1).contiguous()
 
         # indices shape handling depends on qkv_format:
-        #   non-THD: [b, sq, topk] -> unsqueeze(2) -> [b, sq, 1, topk] -> squeeze(0) -> [sq, 1, topk]
+        #   non-THD: [b, sq, topk] -> unsqueeze(2) -> [b, sq, 1, topk] -> squeeze(0) -> [sq, 1, topk]  # noqa: E501
         #   THD:     [total_q, topk] -> unsqueeze(1) -> [total_q, 1, topk]
         assert indices is not None, "DSADotProductAttention need topk_indices."
         if qkv_format == "thd":
@@ -2375,10 +2403,18 @@ class DSAIndexerKernelFunction(torch.autograd.Function):
 
         quantized_q = DSAIndexerKernelFunction.quantizer.quantize(index_q)
         quantized_k = DSAIndexerKernelFunction.quantizer.quantize(index_k)
-        q_fp8 = quantized_q.get_data_tensors(rowwise_data=True, columnwise_data=False).view(torch.float8_e4m3fn)
-        k_fp8 = quantized_k.get_data_tensors(rowwise_data=True, columnwise_data=False).view(torch.float8_e4m3fn)
-        q_scale = quantized_q._rowwise_scale_inv.reshape(index_q.shape[:-1])  # [seq_q, head, 1] -> [seq_q, head]
-        k_scale = quantized_k._rowwise_scale_inv.reshape(index_k.shape[:-1])  # [seq_k, head, 1] -> [seq_k, head]
+        q_fp8 = quantized_q.get_data_tensors(rowwise_data=True, columnwise_data=False).view(
+            torch.float8_e4m3fn
+        )
+        k_fp8 = quantized_k.get_data_tensors(rowwise_data=True, columnwise_data=False).view(
+            torch.float8_e4m3fn
+        )
+        q_scale = quantized_q._rowwise_scale_inv.reshape(
+            index_q.shape[:-1]
+        )  # [seq_q, head, 1] -> [seq_q, head]
+        k_scale = quantized_k._rowwise_scale_inv.reshape(
+            index_k.shape[:-1]
+        )  # [seq_k, head, 1] -> [seq_k, head]
 
         if packed_seq_params is None:
             k_start = torch.zeros(seq_q, dtype=torch.int, device=device)
@@ -2388,37 +2424,55 @@ class DSAIndexerKernelFunction(torch.autograd.Function):
             else:
                 cu_seqlens_kv = packed_seq_params.cu_seqlens_kv
             seqlens = cu_seqlens_kv[1:] - cu_seqlens_kv[:-1]
-            full_seq_ids = torch.repeat_interleave(torch.arange(len(seqlens), device=device, dtype=torch.int), seqlens)
+            full_seq_ids = torch.repeat_interleave(
+                torch.arange(len(seqlens), device=device, dtype=torch.int), seqlens
+            )
             local_seq_ids = full_seq_ids[chunk_offset : chunk_offset + seq_q]
             k_start = cu_seqlens_kv[local_seq_ids]
 
         k_end = torch.arange(seq_q, dtype=torch.int, device=device) + chunk_offset + 1
 
-        weight_scaled = weights * q_scale * softmax_scale  # absorb the `sf_q` and `softmax_scale` into weights
+        weight_scaled = (
+            weights * q_scale * softmax_scale
+        )  # absorb the `sf_q` and `softmax_scale` into weights
 
         if packed_seq_params is None:
             # index_score [sq, sk]
-            index_score = deep_gemm.fp8_mqa_logits(q_fp8, (k_fp8, k_scale), weight_scaled, k_start, k_end)
+            index_score = deep_gemm.fp8_mqa_logits(
+                q_fp8, (k_fp8, k_scale), weight_scaled, k_start, k_end
+            )
         else:
             # index_score [sq, max_seqlen_k]
             max_seqlen_k = 0 if packed_seq_params is None else packed_seq_params.max_seqlen_kv
             index_score = deep_gemm.fp8_mqa_logits(
-                q_fp8, (k_fp8, k_scale), weight_scaled, k_start, k_end, clean_logits=False, max_seqlen_k=max_seqlen_k
+                q_fp8,
+                (k_fp8, k_scale),
+                weight_scaled,
+                k_start,
+                k_end,
+                clean_logits=False,
+                max_seqlen_k=max_seqlen_k,
             )
             # Post-process to clean logits, apply causal mask, k_start is all zeros so omit here
             mask = torch.arange(max_seqlen_k, device="cuda")[None, :] < (k_end - k_start)[:, None]
             index_score = index_score.masked_fill(~mask, float("-inf"))
 
-        index_score_topk, topk_indices = padded_flashinfer_topk(index_score.contiguous(), index_topk, seq_k)
+        index_score_topk, topk_indices = padded_flashinfer_topk(
+            index_score.contiguous(), index_topk, seq_k
+        )
 
         # In sft packing case, index_score is of shape [sq, max_seqlen_kv],
-        # the topk_indices is relative indices within its sequence, convert to global indices by adding k_start
+        # the topk_indices is relative indices within its sequence, convert to global indices by adding k_start  # noqa: E501
         if packed_seq_params is not None:
-            topk_indices = topk_indices + k_start.unsqueeze(1)  # index may exceed sk, sparse_attn will handle that
+            topk_indices = topk_indices + k_start.unsqueeze(
+                1
+            )  # index may exceed sk, sparse_attn will handle that
 
         ctx.softmax_scale = softmax_scale
         ctx.index_topk = index_topk
-        ctx.save_for_backward(q_fp8, k_fp8, q_scale, k_scale, weight_scaled, topk_indices, k_start, k_end)
+        ctx.save_for_backward(
+            q_fp8, k_fp8, q_scale, k_scale, weight_scaled, topk_indices, k_start, k_end
+        )
 
         return index_score_topk, topk_indices
 

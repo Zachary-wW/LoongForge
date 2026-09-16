@@ -40,7 +40,7 @@ class ActionProcessor(nn.Module):
         self.propri_dim = sum([v for k, v in self.agent_pos_config.items()])
 
         print_rank_last(
-            f"self.dof_config: {self.dof_config}; action_dim: {self.action_dim}; self.agent_pos_config: "
+            f"self.dof_config: {self.dof_config}; action_dim: {self.action_dim}; self.agent_pos_config: "  # noqa: E501
             f"{self.agent_pos_config}; propri_dim: {self.propri_dim}"
         )
 
@@ -50,7 +50,9 @@ class ActionProcessor(nn.Module):
 
         if not self.config.use_state_string_representation:
             if self.config.proj_with_mask:
-                self.propri_proj = nn.Linear(self.propri_dim * 2, self.state_hidden_size, bias=False)
+                self.propri_proj = nn.Linear(
+                    self.propri_dim * 2, self.state_hidden_size, bias=False
+                )
             else:
                 self.propri_proj = nn.Linear(self.propri_dim, self.state_hidden_size, bias=False)
 
@@ -67,7 +69,9 @@ class ActionProcessor(nn.Module):
             else:
                 self.w1 = nn.Linear(self.action_dim, self.action_hidden_size, bias=False)
             if not self.config.use_adarms:
-                self.w2 = nn.Linear(self.action_hidden_size * 2, self.action_hidden_size, bias=False)
+                self.w2 = nn.Linear(
+                    self.action_hidden_size * 2, self.action_hidden_size, bias=False
+                )
                 self.w3 = nn.Linear(self.action_hidden_size, self.action_hidden_size, bias=False)
                 self.act_fn = nn.SiLU()
             else:
@@ -99,7 +103,9 @@ class ActionProcessor(nn.Module):
         times = times * self.s
         return times
 
-    def proprioception_proj(self, proprioception, dataset_names=None, dof_mask=None, use_history=False):
+    def proprioception_proj(
+        self, proprioception, dataset_names=None, dof_mask=None, use_history=False
+    ):
         """
         Args:
             proprioception: [batch_size, 1, action_dim]
@@ -137,7 +143,7 @@ class ActionProcessor(nn.Module):
 
         Returns:
             torch.Tensor: processed action representation with shape [batch_size, seq_len, hidden_size]
-        """
+        """  # noqa: E501
         with torch.autocast("cuda", dtype=torch.float32):
             action_chunk = action_chunk.to(dtype=torch.float32)
 
@@ -145,8 +151,8 @@ class ActionProcessor(nn.Module):
             noise = torch.randn_like(action_chunk)
             time_expanded = sample_time.unsqueeze(-1).unsqueeze(-1)
             noisy_action = (
-                1 - time_expanded
-            ) * noise + time_expanded * action_chunk  # denoise from 0 to 1; integration does not need a negative sign
+                (1 - time_expanded) * noise + time_expanded * action_chunk
+            )  # denoise from 0 to 1; integration does not need a negative sign
             flow = action_chunk - noise  # used to compute loss
 
             # 2. sinusoidal positional encoding for timesteps
@@ -154,7 +160,7 @@ class ActionProcessor(nn.Module):
 
             self.noise = noise
             self.noisy_action = noisy_action  # for new x-pred
-            # 3.action_chunk_nosiy + t_pos_emb -> MLP_act_chunk -> action_chunk_nosiy_emb_with_t (dim=trans * chunk)
+            # 3.action_chunk_nosiy + t_pos_emb -> MLP_act_chunk -> action_chunk_nosiy_emb_with_t (dim=trans * chunk)  # noqa: E501
             if dof_mask is not None:
                 noisy_action = torch.cat([noisy_action, dof_mask], dim=-1)
 
@@ -164,7 +170,11 @@ class ActionProcessor(nn.Module):
             self.time_expanded = time_expanded  # for new x-pred
 
             if not self.config.use_adarms:
-                time_embed = time_embed.unsqueeze(1).repeat(1, action_embed.shape[1], 1).to(dtype=self.w2.weight.dtype)
+                time_embed = (
+                    time_embed.unsqueeze(1)
+                    .repeat(1, action_embed.shape[1], 1)
+                    .to(dtype=self.w2.weight.dtype)
+                )
                 concat_embed = torch.cat([action_embed, time_embed], dim=-1)
                 concat_embed = self.w2(concat_embed)
                 action_time_embed = self.w3(self.act_fn(concat_embed))
@@ -247,13 +257,21 @@ class ActionProcessor(nn.Module):
 
             if getattr(self.config, "use_x_pred", False):
                 noisy_action_flat = self.noisy_action.reshape(-1, self.noisy_action.shape[-1])
-                time_expanded_flat = self.time_expanded.expand(-1, self.noisy_action.shape[1], -1).reshape(-1, 1)
-                v_pred = (action_pred - noisy_action_flat) / torch.clamp(1 - time_expanded_flat, min=0.05)
+                time_expanded_flat = self.time_expanded.expand(
+                    -1, self.noisy_action.shape[1], -1
+                ).reshape(-1, 1)
+                v_pred = (action_pred - noisy_action_flat) / torch.clamp(
+                    1 - time_expanded_flat, min=0.05
+                )
                 x_pred = action_pred
             else:
                 v_pred = action_pred
-                time_expanded_flat = self.time_expanded.expand(-1, self.noisy_action.shape[1], -1).reshape(-1, 1)
-                x_pred = (1 - time_expanded_flat) * v_pred + self.noisy_action.reshape(-1, self.noisy_action.shape[-1])
+                time_expanded_flat = self.time_expanded.expand(
+                    -1, self.noisy_action.shape[1], -1
+                ).reshape(-1, 1)
+                x_pred = (1 - time_expanded_flat) * v_pred + self.noisy_action.reshape(
+                    -1, self.noisy_action.shape[-1]
+                )
 
             if getattr(self.config, "use_x_loss", False):
                 loss = self.mse_loss(
@@ -268,6 +286,8 @@ class ActionProcessor(nn.Module):
                 loss = loss * dof_mask
 
             if flow_loss_mask is not None:
-                flow_loss_mask = flow_loss_mask.unsqueeze(-1).reshape(-1, 1).expand(-1, loss.shape[-1])
+                flow_loss_mask = (
+                    flow_loss_mask.unsqueeze(-1).reshape(-1, 1).expand(-1, loss.shape[-1])
+                )
                 loss = loss * flow_loss_mask
         return loss

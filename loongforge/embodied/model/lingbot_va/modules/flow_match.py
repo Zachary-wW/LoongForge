@@ -118,7 +118,9 @@ class LingBotVAFlowMatchScheduler:
 
     def timesteps_from_ids(self, timestep_ids: torch.Tensor):
         """Materialize selected schedule values from a device-local cache."""
-        timesteps = self._cached_tensor("timesteps", self.timesteps, timestep_ids.device, self.timesteps.dtype)
+        timesteps = self._cached_tensor(
+            "timesteps", self.timesteps, timestep_ids.device, self.timesteps.dtype
+        )
         return timesteps[timestep_ids]
 
     @staticmethod
@@ -129,7 +131,9 @@ class LingBotVAFlowMatchScheduler:
 
     def training_weight(self, timestep: torch.Tensor):
         """Look up per-timestep loss weights for training."""
-        ids = torch.argmin((self.timesteps[:, None].to(timestep.device) - timestep[None]).abs(), dim=0)
+        ids = torch.argmin(
+            (self.timesteps[:, None].to(timestep.device) - timestep[None]).abs(), dim=0
+        )
         return self.linear_timesteps_weights.to(timestep.device)[ids]
 
     def training_weight_from_ids(self, timestep_ids: torch.Tensor):

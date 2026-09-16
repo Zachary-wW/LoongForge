@@ -32,7 +32,10 @@ from megatron.core.transformer.transformer_config import TransformerConfig
 
 from loongforge.utils import get_model_config
 
-from loongforge.models.encoder.base_vision_models.base_vision_model import BaseVisionModel, PatchEmbed
+from loongforge.models.encoder.base_vision_models.base_vision_model import (
+    BaseVisionModel,
+    PatchEmbed,
+)
 from .qwen3_vl_config import Qwen3VisionModelConfig
 from ..qwen2_vl_vision_models.adapter import Adapter
 
@@ -194,7 +197,9 @@ class Qwen3VisionModel(BaseVisionModel):
         rotary_pos_emb = self.rot_pos_emb(image_grid_thw)
         rotary_pos_emb = rotary_pos_emb.reshape(seq_len, 1, 1, -1).repeat(1, 1, 1, 2)
 
-        cu_seqlens = torch.repeat_interleave(image_grid_thw[:, 1] * image_grid_thw[:, 2], image_grid_thw[:, 0]).cumsum(
+        cu_seqlens = torch.repeat_interleave(
+            image_grid_thw[:, 1] * image_grid_thw[:, 2], image_grid_thw[:, 0]
+        ).cumsum(
             dim=0,
             # Select dtype based on the following factors:
             #  - FA2 requires that cu_seqlens_q must have dtype int32

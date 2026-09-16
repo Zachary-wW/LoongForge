@@ -178,12 +178,17 @@ class PreProcessNode(ScheduleNode):
         inference_params = None
         if has_encoder_model:
             use_inference_kv_cache = (
-                inference_params is not None and "image_tokens_count" in inference_params.key_value_memory_dict
+                inference_params is not None
+                and "image_tokens_count" in inference_params.key_value_memory_dict
             )
             if use_inference_kv_cache:
                 vision_embeddings = None  # noqa: F841
 
-            if model.add_encoder and mpu.is_pipeline_first_stage() and self.enable_encoder_hetero_dp:
+            if (
+                model.add_encoder
+                and mpu.is_pipeline_first_stage()
+                and self.enable_encoder_hetero_dp
+            ):
                 from loongforge.train.initialize import (
                     get_encoder_dp_size,
                 )
@@ -218,24 +223,26 @@ class PreProcessNode(ScheduleNode):
                         local_packed_seq_params,
                     ) = batch_list[batch_id].values()
 
-                    combined_embeddings, decode_input, visual_pos_masks, deepstack_visual_embeds = model.encoder_model(
-                        input_ids=local_input_ids,
-                        position_ids=local_position_ids,
-                        image_inputs=dict(
-                            images=local_images,
-                            image_grid_thw=local_image_grid_thw,
+                    combined_embeddings, decode_input, visual_pos_masks, deepstack_visual_embeds = (
+                        model.encoder_model(
+                            input_ids=local_input_ids,
+                            position_ids=local_position_ids,
+                            image_inputs=dict(
+                                images=local_images,
+                                image_grid_thw=local_image_grid_thw,
+                            )
+                            if local_images is not None
+                            else None,
+                            video_inputs=dict(
+                                pixel_values_videos=local_pixel_values_videos,
+                                video_grid_thw=local_video_grid_thw,
+                            )
+                            if local_pixel_values_videos is not None
+                            else None,
+                            inference_params=inference_params,
+                            inputs_embeds=input_embeds_list[batch_id],
+                            enable_encoder_hetero_dp=True,
                         )
-                        if local_images is not None
-                        else None,
-                        video_inputs=dict(
-                            pixel_values_videos=local_pixel_values_videos,
-                            video_grid_thw=local_video_grid_thw,
-                        )
-                        if local_pixel_values_videos is not None
-                        else None,
-                        inference_params=inference_params,
-                        inputs_embeds=input_embeds_list[batch_id],
-                        enable_encoder_hetero_dp=True,
                     )
 
                     model.vit_contexts.setdefault(
@@ -246,7 +253,9 @@ class PreProcessNode(ScheduleNode):
                             "local_visual_pos_masks": visual_pos_masks,
                             "local_deepstack_visual_embeds": deepstack_visual_embeds,
                             "local_deepstack_visual_embeds_grads": (
-                                [None for _ in deepstack_visual_embeds] if deepstack_visual_embeds is not None else None
+                                [None for _ in deepstack_visual_embeds]
+                                if deepstack_visual_embeds is not None
+                                else None
                             ),
                         },
                     )
@@ -279,12 +288,19 @@ class PreProcessNode(ScheduleNode):
                                 bwd_grads = [ctx["grads"]]
                                 if ctx["local_deepstack_visual_embeds"] is not None:
                                     for t, g in zip(
-                                        ctx["local_deepstack_visual_embeds"], ctx["local_deepstack_visual_embeds_grads"]
+                                        ctx["local_deepstack_visual_embeds"],
+                                        ctx["local_deepstack_visual_embeds_grads"],
                                     ):
-                                        if t.requires_grad and t.grad_fn is not None and g is not None:
+                                        if (
+                                            t.requires_grad
+                                            and t.grad_fn is not None
+                                            and g is not None
+                                        ):
                                             bwd_tensors.append(t)
                                             bwd_grads.append(g)
-                                torch.autograd.backward(tensors=bwd_tensors, grad_tensors=bwd_grads, retain_graph=False)
+                                torch.autograd.backward(
+                                    tensors=bwd_tensors, grad_tensors=bwd_grads, retain_graph=False
+                                )
                                 del vit_contexts[forward_group_id]
 
                         return hook
@@ -294,10 +310,14 @@ class PreProcessNode(ScheduleNode):
                     )
 
                     if model.config.context_parallel_size > 1:
-                        combined_embeddings = get_inputs_on_this_cp_rank(combined_embeddings, packed_seq_params)
+                        combined_embeddings = get_inputs_on_this_cp_rank(
+                            combined_embeddings, packed_seq_params
+                        )
 
                     if model.config.sequence_parallel:
-                        combined_embeddings = tensor_parallel.scatter_to_sequence_parallel_region(combined_embeddings)
+                        combined_embeddings = tensor_parallel.scatter_to_sequence_parallel_region(
+                            combined_embeddings
+                        )
 
                     # visual positional encoding communication
                     if model.vit_contexts[forward_group_id]["local_visual_pos_masks"] is not None:
@@ -305,20 +325,40 @@ class PreProcessNode(ScheduleNode):
                             group, src, local_rank, forward_group_id, "local_visual_pos_masks"
                         )
                         visual_pos_masks = model.hetero_dp_get_tensor(
-                            group, src, local_rank, forward_group_id, "local_visual_pos_masks", shape, needs_grad=False
+                            group,
+                            src,
+                            local_rank,
+                            forward_group_id,
+                            "local_visual_pos_masks",
+                            shape,
+                            needs_grad=False,
                         )
 
-                    if model.vit_contexts[forward_group_id]["local_deepstack_visual_embeds"] is not None:
+                    if (
+                        model.vit_contexts[forward_group_id]["local_deepstack_visual_embeds"]
+                        is not None
+                    ):
                         len_deepstack_visual_embeds = len(
                             model.vit_contexts[forward_group_id]["local_deepstack_visual_embeds"]
                         )
                         shape = model.hetero_dp_get_tensor_shape(
-                            group, src, local_rank, forward_group_id, "local_deepstack_visual_embeds", idx=0
+                            group,
+                            src,
+                            local_rank,
+                            forward_group_id,
+                            "local_deepstack_visual_embeds",
+                            idx=0,
                         )
                         deepstack_visual_embeds = []
                         for i in range(len_deepstack_visual_embeds):
                             tmp_deepstack_visual_embeds = model.hetero_dp_get_tensor(
-                                group, src, local_rank, forward_group_id, "local_deepstack_visual_embeds", shape, idx=i
+                                group,
+                                src,
+                                local_rank,
+                                forward_group_id,
+                                "local_deepstack_visual_embeds",
+                                shape,
+                                idx=i,
                             )
 
                             def deepstack_visual_embeds_grad_hook_factory(
@@ -328,7 +368,9 @@ class PreProcessNode(ScheduleNode):
                                     ctx = vit_contexts[forward_group_id]
                                     tp_id = mpu.get_tensor_model_parallel_rank()
                                     if tp_id == inner_group_id:
-                                        ctx["local_deepstack_visual_embeds_grads"][idx] = grad.clone()
+                                        ctx["local_deepstack_visual_embeds_grads"][idx] = (
+                                            grad.clone()
+                                        )
 
                                 return hook
 
@@ -370,12 +412,20 @@ class PreProcessNode(ScheduleNode):
                     if _offload_mgr.enabled and local_rank == src_rank:
                         from loongforge.train.full_hetero_cpu_offload import reload_list_item
 
-                        reload_list_item(_offload_mgr, embedding_list[round_num], inner_num, f"emb_r{round_num}")
+                        reload_list_item(
+                            _offload_mgr, embedding_list[round_num], inner_num, f"emb_r{round_num}"
+                        )
 
                     ref_tensor = model.vit_contexts[round_num]["local_embedding"]
-                    local_tensor = embedding_list[round_num][inner_num] if local_rank == src_rank else ref_tensor
+                    local_tensor = (
+                        embedding_list[round_num][inner_num]
+                        if local_rank == src_rank
+                        else ref_tensor
+                    )
 
-                    shape = model.hetero_dp_get_tensor_shape(group, src_rank, local_rank, local_tensor=local_tensor)
+                    shape = model.hetero_dp_get_tensor_shape(
+                        group, src_rank, local_rank, local_tensor=local_tensor
+                    )
                     combined_embeddings = model.hetero_dp_get_tensor(
                         group, src_rank, local_rank, shape=shape, local_tensor=local_tensor
                     )
@@ -393,13 +443,19 @@ class PreProcessNode(ScheduleNode):
 
                         return hook
 
-                    combined_embeddings.register_hook(full_hetero_dp_grad_hook_factory(group, _offload_mgr))
+                    combined_embeddings.register_hook(
+                        full_hetero_dp_grad_hook_factory(group, _offload_mgr)
+                    )
 
                     if model.config.context_parallel_size > 1:
-                        combined_embeddings = get_inputs_on_this_cp_rank(combined_embeddings, packed_seq_params)
+                        combined_embeddings = get_inputs_on_this_cp_rank(
+                            combined_embeddings, packed_seq_params
+                        )
 
                     if model.config.sequence_parallel:
-                        combined_embeddings = tensor_parallel.scatter_to_sequence_parallel_region(combined_embeddings)
+                        combined_embeddings = tensor_parallel.scatter_to_sequence_parallel_region(
+                            combined_embeddings
+                        )
 
                     # Handle visual_pos_masks
                     if model.vit_contexts[round_num]["local_visual_pos_masks"] is not None:
@@ -408,14 +464,21 @@ class PreProcessNode(ScheduleNode):
                             from loongforge.train.full_hetero_cpu_offload import reload_list_item
 
                             reload_list_item(
-                                _offload_mgr, visual_pos_masks_list[round_num], inner_num, f"vpm_r{round_num}"
+                                _offload_mgr,
+                                visual_pos_masks_list[round_num],
+                                inner_num,
+                                f"vpm_r{round_num}",
                             )
 
                         ref_masks = model.vit_contexts[round_num]["local_visual_pos_masks"]
                         local_masks = (
-                            visual_pos_masks_list[round_num][inner_num] if local_rank == src_rank else ref_masks
+                            visual_pos_masks_list[round_num][inner_num]
+                            if local_rank == src_rank
+                            else ref_masks
                         )
-                        shape = model.hetero_dp_get_tensor_shape(group, src_rank, local_rank, local_tensor=local_masks)
+                        shape = model.hetero_dp_get_tensor_shape(
+                            group, src_rank, local_rank, local_tensor=local_masks
+                        )
                         visual_pos_masks = model.hetero_dp_get_tensor(
                             group,
                             src_rank,
@@ -429,10 +492,14 @@ class PreProcessNode(ScheduleNode):
                     if model.vit_contexts[round_num]["local_deepstack_visual_embeds"] is not None:
                         ref_embeds = model.vit_contexts[round_num]["local_deepstack_visual_embeds"]
 
-                        def full_hetero_dp_deepstack_grad_hook_factory(group, round_num, inner_num, i):
+                        def full_hetero_dp_deepstack_grad_hook_factory(
+                            group, round_num, inner_num, i
+                        ):
                             def hook(grad):
                                 if torch.distributed.get_rank(group=group) == 0:
-                                    get_deepstack_grad_list()[round_num][i][inner_num] = grad.clone()
+                                    get_deepstack_grad_list()[round_num][i][inner_num] = (
+                                        grad.clone()
+                                    )
 
                             return hook
 
@@ -440,7 +507,9 @@ class PreProcessNode(ScheduleNode):
                         for i in range(len(ref_embeds)):
                             # Reload deepstack embed from CPU if offloaded
                             if _offload_mgr.enabled and local_rank == src_rank:
-                                from loongforge.train.full_hetero_cpu_offload import reload_list_item
+                                from loongforge.train.full_hetero_cpu_offload import (
+                                    reload_list_item,
+                                )
 
                                 reload_list_item(
                                     _offload_mgr,
@@ -465,23 +534,35 @@ class PreProcessNode(ScheduleNode):
                                 local_tensor=local_embed,
                             )
                             embed.register_hook(
-                                full_hetero_dp_deepstack_grad_hook_factory(group, round_num, inner_num, i)
+                                full_hetero_dp_deepstack_grad_hook_factory(
+                                    group, round_num, inner_num, i
+                                )
                             )
                             deepstack_visual_embeds.append(embed)
 
-            elif model.add_encoder and not self.enable_encoder_hetero_dp and not self.enable_full_hetero_dp:
-                combined_embeddings, decode_input, visual_pos_masks, deepstack_visual_embeds = model.encoder_model(
-                    input_ids=input_ids,
-                    image_inputs=image_inputs,
-                    video_inputs=video_inputs,
-                    inference_params=inference_params,
+            elif (
+                model.add_encoder
+                and not self.enable_encoder_hetero_dp
+                and not self.enable_full_hetero_dp
+            ):
+                combined_embeddings, decode_input, visual_pos_masks, deepstack_visual_embeds = (
+                    model.encoder_model(
+                        input_ids=input_ids,
+                        image_inputs=image_inputs,
+                        video_inputs=video_inputs,
+                        inference_params=inference_params,
+                    )
                 )
 
                 if model.config.context_parallel_size > 1:
-                    combined_embeddings = get_inputs_on_this_cp_rank(combined_embeddings, packed_seq_params)
+                    combined_embeddings = get_inputs_on_this_cp_rank(
+                        combined_embeddings, packed_seq_params
+                    )
 
                 if model.config.sequence_parallel:
-                    combined_embeddings = tensor_parallel.scatter_to_sequence_parallel_region(combined_embeddings)
+                    combined_embeddings = tensor_parallel.scatter_to_sequence_parallel_region(
+                        combined_embeddings
+                    )
 
             if not model.pre_process:
                 combined_embeddings = None
@@ -492,7 +573,9 @@ class PreProcessNode(ScheduleNode):
         if decoder_input is not None:
             pass
         elif model.foundation_model.pre_process:
-            decoder_input = model.foundation_model.embedding(input_ids=input_ids, position_ids=position_ids)
+            decoder_input = model.foundation_model.embedding(
+                input_ids=input_ids, position_ids=position_ids
+            )
         else:
             decoder_input = model.foundation_model.decoder.input_tensor
 
@@ -525,7 +608,11 @@ class PreProcessNode(ScheduleNode):
             )
 
         # (model.config.enable_cuda_graph or model.config.flash_decode)
-        if (model.foundation_model.config.enable_cuda_graph) and rotary_pos_cos is not None and inference_params:
+        if (
+            (model.foundation_model.config.enable_cuda_graph)
+            and rotary_pos_cos is not None
+            and inference_params
+        ):
             sequence_len_offset = torch.tensor(
                 [inference_params.sequence_len_offset] * inference_params.current_batch_size,
                 dtype=torch.int32,
@@ -666,7 +753,9 @@ class TransformerLayerNode(ScheduleNode):
         # Initialize list to store registered dw callables
         self.bwd_dw_callables = []
         if bwd_dw_callables is not None:
-            self.bwd_dw_callables = bwd_dw_callables if isinstance(bwd_dw_callables, list) else [bwd_dw_callables]
+            self.bwd_dw_callables = (
+                bwd_dw_callables if isinstance(bwd_dw_callables, list) else [bwd_dw_callables]
+            )
 
     def detach(self, t):
         """Detaches a tensor and stores it for backward computation."""
@@ -736,10 +825,12 @@ def build_transformer_layer_callables(layer: TransformerLayer):
 
     is_moe = isinstance(layer.mlp, MoELayer)
     enable_deepep = (
-        layer.config.moe_token_dispatcher_type == "flex" and layer.config.moe_flex_dispatcher_backend == "deepep"
+        layer.config.moe_token_dispatcher_type == "flex"
+        and layer.config.moe_flex_dispatcher_backend == "deepep"
     )
     enable_hybridep = (
-        layer.config.moe_token_dispatcher_type == "flex" and layer.config.moe_flex_dispatcher_backend == "hybridep"
+        layer.config.moe_token_dispatcher_type == "flex"
+        and layer.config.moe_flex_dispatcher_backend == "hybridep"
     )
     is_alltoall_dispatcher = is_moe and layer.config.moe_token_dispatcher_type == "alltoall"
 
@@ -785,7 +876,9 @@ def build_transformer_layer_callables(layer: TransformerLayer):
             "dispatched_input" in layer.config.offload_tensors
             or "pre_mlp_layernorm_output" in layer.config.offload_tensors
         ):
-            hidden_states = fine_grained_offloading_group_start(hidden_states, name="dispatched-pre_mlp_layernorm")
+            hidden_states = fine_grained_offloading_group_start(
+                hidden_states, name="dispatched-pre_mlp_layernorm"
+            )
 
         return hidden_states
 
@@ -799,8 +892,8 @@ def build_transformer_layer_callables(layer: TransformerLayer):
 
             def custom_forward(hidden_states):
                 pre_mlp_layernorm_output = layer.pre_mlp_layernorm(hidden_states)
-                local_tokens, probs, metadata_holder["metadata"], _ = layer.mlp.router_and_preprocess(
-                    pre_mlp_layernorm_output
+                local_tokens, probs, metadata_holder["metadata"], _ = (
+                    layer.mlp.router_and_preprocess(pre_mlp_layernorm_output)
                 )
                 return pre_mlp_layernorm_output, local_tokens, probs
 
@@ -822,7 +915,9 @@ def build_transformer_layer_callables(layer: TransformerLayer):
                 with get_fine_grained_offloading_context(layer.offload_mlp_norm):
                     pre_mlp_layernorm_output = layer.pre_mlp_layernorm(hidden_states)
 
-            local_tokens, probs, metadata, _ = layer.mlp.router_and_preprocess(pre_mlp_layernorm_output)
+            local_tokens, probs, metadata, _ = layer.mlp.router_and_preprocess(
+                pre_mlp_layernorm_output
+            )
 
         node.layer_state.dispatch_metadata = metadata
 
@@ -852,7 +947,9 @@ def build_transformer_layer_callables(layer: TransformerLayer):
 
         return local_tokens, probs
 
-    def submodule_dispatch_forward(node: ScheduleNode, local_tokens: torch.Tensor, probs: torch.Tensor):
+    def submodule_dispatch_forward(
+        node: ScheduleNode, local_tokens: torch.Tensor, probs: torch.Tensor
+    ):
         """
         Dispatches tokens to the experts based on the router output.
         """
@@ -891,7 +988,9 @@ def build_transformer_layer_callables(layer: TransformerLayer):
 
         if layer.a2a_overlap_mlp_recompute:
 
-            def custom_forward(dispatched_input, tokens_per_expert, permuted_probs, pre_mlp_layernorm_output):
+            def custom_forward(
+                dispatched_input, tokens_per_expert, permuted_probs, pre_mlp_layernorm_output
+            ):
                 shared_expert_output = layer.mlp.shared_experts_compute(pre_mlp_layernorm_output)
                 expert_output, mlp_bias = layer.mlp.routed_experts_compute(
                     dispatched_input, tokens_per_expert, permuted_probs
@@ -899,13 +998,20 @@ def build_transformer_layer_callables(layer: TransformerLayer):
                 return expert_output, shared_expert_output, mlp_bias
 
             maybe_set_offload_tag("dispatched_input", dispatched_input, layer.config)
-            maybe_set_offload_tag("pre_mlp_layernorm_output", pre_mlp_layernorm_output, layer.config)
+            maybe_set_offload_tag(
+                "pre_mlp_layernorm_output", pre_mlp_layernorm_output, layer.config
+            )
             with get_fine_grained_offloading_context(
                 "dispatched_input" in layer.config.offload_tensors
                 or "pre_mlp_layernorm_output" in layer.config.offload_tensors
             ):
                 expert_output, shared_expert_output, mlp_bias = tensor_parallel.checkpoint(
-                    custom_forward, False, dispatched_input, tokens_per_expert, permuted_probs, pre_mlp_layernorm_output
+                    custom_forward,
+                    False,
+                    dispatched_input,
+                    tokens_per_expert,
+                    permuted_probs,
+                    pre_mlp_layernorm_output,
                 )
         else:
             shared_expert_output = layer.mlp.shared_experts_compute(pre_mlp_layernorm_output)
@@ -964,14 +1070,18 @@ def build_transformer_layer_callables(layer: TransformerLayer):
             metadata.hidden_shape = saved_hidden_shape
         # Only restore alltoall-specific attributes when using alltoall dispatcher.
         if is_alltoall_dispatcher:
-            saved_hidden_shape_before_permute = getattr(node.layer_state, "hidden_shape_before_permute", None)
+            saved_hidden_shape_before_permute = getattr(
+                node.layer_state, "hidden_shape_before_permute", None
+            )
             saved_reversed_local_input_permutation_mapping = getattr(
                 node.layer_state, "reversed_local_input_permutation_mapping", None
             )
             if saved_hidden_shape_before_permute is not None:
                 metadata.hidden_shape_before_permute = saved_hidden_shape_before_permute
             if saved_reversed_local_input_permutation_mapping is not None:
-                metadata.reversed_local_input_permutation_mapping = saved_reversed_local_input_permutation_mapping
+                metadata.reversed_local_input_permutation_mapping = (
+                    saved_reversed_local_input_permutation_mapping
+                )
             # Release the index tensor reference early to allow GC before _release_state()
             node.layer_state.reversed_local_input_permutation_mapping = None
 
@@ -987,7 +1097,9 @@ def build_transformer_layer_callables(layer: TransformerLayer):
             (hidden_states,) = fine_grained_offloading_group_commit(
                 hidden_states, name="mlp_norm", forced_released_tensors=[residual]
             )
-        output = make_viewless_tensor(inp=hidden_states, requires_grad=hidden_states.requires_grad, keep_graph=True)
+        output = make_viewless_tensor(
+            inp=hidden_states, requires_grad=hidden_states.requires_grad, keep_graph=True
+        )
 
         # Need to record residual to comm stream, since it's created on comp stream
         node.layer_state.residual.record_stream(torch.cuda.current_stream())
@@ -1067,9 +1179,16 @@ def build_mtp_layer_callables(layer):
     """
 
     forward_funcs, backward_dw = build_transformer_layer_callables(layer.transformer_layer)
-    attn_forward, post_attn_forward, dispatch_forward, mlp_forward, combine_forward, post_combine_forward, _, _ = (
-        forward_funcs
-    )
+    (
+        attn_forward,
+        post_attn_forward,
+        dispatch_forward,
+        mlp_forward,
+        combine_forward,
+        post_combine_forward,
+        _,
+        _,
+    ) = forward_funcs
     is_moe = isinstance(layer.transformer_layer.mlp, MoELayer)
     assert is_moe, "MTP layer in a2a overlap only supports MoE layer for now."
 
@@ -1081,7 +1200,11 @@ def build_mtp_layer_callables(layer):
             hidden_states = node.chunk_state.mtp_hidden_states[offset]
 
         model = node.chunk_state.model
-        embedding = model.foundation_model.embedding if hasattr(model, "foundation_model") else model.embedding
+        embedding = (
+            model.foundation_model.embedding
+            if hasattr(model, "foundation_model")
+            else model.embedding
+        )
         input_ids, position_ids, decoder_input, hidden_states = layer._get_embeddings(
             input_ids=node.chunk_state.input_ids,
             position_ids=node.chunk_state.position_ids,
@@ -1093,7 +1216,9 @@ def build_mtp_layer_callables(layer):
 
         # MTP Layer Preprocess
         # norm, linear projection and transformer
-        assert node.chunk_state.context is None, "multi token prediction + cross attention is not yet supported."
+        assert node.chunk_state.context is None, (
+            "multi token prediction + cross attention is not yet supported."
+        )
 
         if layer.config.sequence_parallel:
             rng_context = tensor_parallel.get_cuda_rng_tracker().fork()

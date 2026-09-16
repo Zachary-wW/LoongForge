@@ -80,7 +80,9 @@ def build_model(model_cfg) -> nn.Module:
 
     model_type = model_cfg.model_type
     if model_type not in MODEL_REGISTRY:
-        raise KeyError(f"Unknown model_type: '{model_type}'. Registered: {list(MODEL_REGISTRY.keys())}")
+        raise KeyError(
+            f"Unknown model_type: '{model_type}'. Registered: {list(MODEL_REGISTRY.keys())}"
+        )
 
     cls = MODEL_REGISTRY[model_type]
     return cls.from_pretrained(model_cfg)

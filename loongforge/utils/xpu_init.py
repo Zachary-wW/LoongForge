@@ -12,4 +12,6 @@ if os.getenv("XMLIR_MEGATRON_CORE_XPU_PLUGIN") in ("true", "1", "True"):
 
         init_megatron_core_xpu_plugin()
     except ImportError:
-        print("xpu_plugin module not installed, skip Megatron Core LoongForge Plugin initialization")
+        print(
+            "xpu_plugin module not installed, skip Megatron Core LoongForge Plugin initialization"
+        )

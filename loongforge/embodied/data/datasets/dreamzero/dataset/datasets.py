@@ -166,7 +166,9 @@ class DreamZeroLeRobotDataset(
         self.video_backend_kwargs = video_backend_kwargs if video_backend_kwargs is not None else {}
         self.fps = fps
         self.max_chunk_size = max_chunk_size
-        self.transforms = transforms if transforms is not None else ComposedModalityTransform(transforms=[])
+        self.transforms = (
+            transforms if transforms is not None else ComposedModalityTransform(transforms=[])
+        )
         self.discard_bad_trajectories = discard_bad_trajectories
         self.relative_action = relative_action
         self.relative_action_per_horizon = relative_action_per_horizon
@@ -174,7 +176,9 @@ class DreamZeroLeRobotDataset(
         self.use_sample_transform_seed = bool(use_sample_transform_seed)
         self.sample_transform_seed = int(sample_transform_seed)
         self.precomputed_cache_config = (
-            precomputed_cache_config if precomputed_cache_config is not None else DreamZeroPrecomputedCacheConfig()
+            precomputed_cache_config
+            if precomputed_cache_config is not None
+            else DreamZeroPrecomputedCacheConfig()
         )
         self._current_num_chunks: dict[int, int] = {}
         self._full_language_chunk_cache: dict[tuple[int, int], bool] = {}
@@ -191,7 +195,7 @@ class DreamZeroLeRobotDataset(
         self._dreamzero_precomputed_artifact_checked = False
         self._dreamzero_precomputed_artifact: DreamZeroPrecomputedFeatureArtifact | None = None
         self.tag = EmbodimentTag(embodiment_tag)
-        # For dream and lapa, we use the global metadata since the lapa_actions and dream_actions are already normalized
+        # For dream and lapa, we use the global metadata since the lapa_actions and dream_actions are already normalized  # noqa: E501
         if self.tag == EmbodimentTag.DREAM or self.tag == EmbodimentTag.LAPA:
             self.use_global_metadata = True
         self._lerobot_modality_meta = self._get_lerobot_modality_meta()
@@ -203,7 +207,8 @@ class DreamZeroLeRobotDataset(
         # Initialize trajectory info and chunk size early (needed for relative stats calculation)
         self._trajectory_ids, self._trajectory_lengths = self._get_trajectories()
         self._trajectory_index_by_id = {
-            int(trajectory_id): trajectory_index for trajectory_index, trajectory_id in enumerate(self._trajectory_ids)
+            int(trajectory_id): trajectory_index
+            for trajectory_index, trajectory_id in enumerate(self._trajectory_ids)
         }
         self._data_path_pattern = self._get_data_path_pattern()
         self._chunk_size = self._get_chunk_size()
@@ -213,13 +218,19 @@ class DreamZeroLeRobotDataset(
             # Default: apply to all action keys except those containing 'gripper'
             default_action_config = ModalityConfig(delta_indices=[0], modality_keys=[])
             action_keys = self.modality_configs.get("action", default_action_config).modality_keys
-            self.relative_action_keys = [k.replace("action.", "") for k in action_keys if "gripper" not in k.lower()]
+            self.relative_action_keys = [
+                k.replace("action.", "") for k in action_keys if "gripper" not in k.lower()
+            ]
             logger.info("Relative action will be applied to keys: %s", self.relative_action_keys)
         # Load relative action stats if relative_action is enabled
-        self._lerobot_relative_stats_meta = self._get_lerobot_relative_stats_meta() if self.relative_action else {}
+        self._lerobot_relative_stats_meta = (
+            self._get_lerobot_relative_stats_meta() if self.relative_action else {}
+        )
         # Load per-horizon relative action stats if relative_action_per_horizon is enabled
         self._lerobot_relative_horizon_stats_meta = (
-            self._get_lerobot_relative_horizon_stats_meta() if self.relative_action_per_horizon else {}
+            self._get_lerobot_relative_horizon_stats_meta()
+            if self.relative_action_per_horizon
+            else {}
         )
         self._metadata = self._get_metadata()
         self._step_filter = self._get_step_filter()
@@ -304,7 +315,9 @@ class DreamZeroLeRobotDataset(
             dict: The data for the step.
         """
         trajectory_id, base_index = self.all_steps[index]
-        indices = {key: delta_indices + base_index for key, delta_indices in self.delta_indices.items()}
+        indices = {
+            key: delta_indices + base_index for key, delta_indices in self.delta_indices.items()
+        }
         data = self.get_step_data(trajectory_id, indices)
         if self.use_sample_transform_seed:
             seed = self.sample_transform_seed + int(index)
@@ -356,7 +369,9 @@ class DreamZeroLeRobotDataset(
             for key in self.modality_keys[modality]:
                 # Only load the data if the key is in the indices
                 if key in indices:
-                    data[key] = self.get_data_by_modality(trajectory_id, modality, key, indices[key])
+                    data[key] = self.get_data_by_modality(
+                        trajectory_id, modality, key, indices[key]
+                    )
         return data
 
 
@@ -446,9 +461,13 @@ class DreamZeroLeRobotMixtureDataset(Dataset):
             raise ValueError("DreamZeroLeRobotMixtureDataset requires at least one dataset")
         self._dataset_sampling_weights = np.array(dataset_sampling_weights, dtype=np.float64)
         if not np.all(np.isfinite(self._dataset_sampling_weights)):
-            raise ValueError(f"dataset sampling weights must be finite, got {dataset_sampling_weights}")
+            raise ValueError(
+                f"dataset sampling weights must be finite, got {dataset_sampling_weights}"
+            )
         if np.any(self._dataset_sampling_weights < 0):
-            raise ValueError(f"dataset sampling weights must be non-negative, got {dataset_sampling_weights}")
+            raise ValueError(
+                f"dataset sampling weights must be non-negative, got {dataset_sampling_weights}"
+            )
         if self.balance_dataset_weights:
             self._dataset_sampling_weights *= self._dataset_lengths
         dataset_weight_sum = float(self._dataset_sampling_weights.sum())
@@ -466,7 +485,10 @@ class DreamZeroLeRobotMixtureDataset(Dataset):
             trajectory_sampling_weights = np.ones(len(dataset.trajectory_ids))
             if self.balance_trajectory_weights:
                 trajectory_sampling_weights *= np.array(
-                    [len(dataset.step_filter[trajectory_id]) for trajectory_id in dataset.trajectory_ids]
+                    [
+                        len(dataset.step_filter[trajectory_id])
+                        for trajectory_id in dataset.trajectory_ids
+                    ]
                 )
 
             if dataset.discard_bad_trajectories:
@@ -490,7 +512,9 @@ class DreamZeroLeRobotMixtureDataset(Dataset):
                     trajectory_sampling_weights[trajectory_lengths >= min_trajectory_length].sum()
                 )
                 if eligible_weight_sum <= 0.0:
-                    max_trajectory_length = int(trajectory_lengths.max()) if len(trajectory_lengths) > 0 else 0
+                    max_trajectory_length = (
+                        int(trajectory_lengths.max()) if len(trajectory_lengths) > 0 else 0
+                    )
                     raise ValueError(
                         "allow_padding_at_end=False requires at least one sampled "
                         f"trajectory with length >= max_delta_index + 1 "
@@ -564,7 +588,7 @@ class DreamZeroLeRobotMixtureDataset(Dataset):
 
         Returns:
             tuple[DreamZeroLeRobotDataset, int, int]: A tuple of (dataset, trajectory_id, step_index).
-        """
+        """  # noqa: E501
         # return self.sampled_steps[index]
 
         # Set seed
@@ -600,7 +624,9 @@ class DreamZeroLeRobotMixtureDataset(Dataset):
                 assert trajectory_id is not None
 
                 # Sample step
-                assert trajectory_length >= max_delta_index + 1, f"{trajectory_length=}, {max_delta_index=}"
+                assert trajectory_length >= max_delta_index + 1, (
+                    f"{trajectory_length=}, {max_delta_index=}"
+                )
                 allowed_length = trajectory_length - max_delta_index
             # Get the allowed indices from the step filter
             allowed_indices = dataset.step_filter[trajectory_id]
@@ -650,7 +676,9 @@ class DreamZeroLeRobotMixtureDataset(Dataset):
             dict: The data for the trajectory and start index.
         """
         dataset, trajectory_id, step_index = self.sample_step(index)
-        indices = {key: delta_indices + step_index for key, delta_indices in dataset.delta_indices.items()}
+        indices = {
+            key: delta_indices + step_index for key, delta_indices in dataset.delta_indices.items()
+        }
         if self.use_sample_transform_seed:
             seed = self.sample_transform_seed + int(index)
             with _temporary_transform_rng(seed):
@@ -712,7 +740,7 @@ class DreamZeroLeRobotMixtureDataset(Dataset):
 
         Returns:
             A dict of overall statistics per modality.
-        """
+        """  # noqa: E501
         # Normalize the sample weights to sum to 1
         dataset_sampling_weights = np.array(dataset_sampling_weights)
         normalized_weights = dataset_sampling_weights / dataset_sampling_weights.sum()
@@ -775,13 +803,19 @@ class DreamZeroLeRobotMixtureDataset(Dataset):
                 q99_array = np.stack(q99_list, axis=0)
                 if percentile_mixing_method == "weighted_average":
                     # Weighted average along task axis
-                    weighted_q01 = np.average(q01_array, axis=0, weights=normalized_weights).tolist()
-                    weighted_q99 = np.average(q99_array, axis=0, weights=normalized_weights).tolist()
+                    weighted_q01 = np.average(
+                        q01_array, axis=0, weights=normalized_weights
+                    ).tolist()
+                    weighted_q99 = np.average(
+                        q99_array, axis=0, weights=normalized_weights
+                    ).tolist()
                 elif percentile_mixing_method == "min_max":
                     weighted_q01 = np.min(q01_array, axis=0).tolist()
                     weighted_q99 = np.max(q99_array, axis=0).tolist()
                 else:
-                    raise ValueError(f"Invalid percentile mixing method: {percentile_mixing_method}")
+                    raise ValueError(
+                        f"Invalid percentile mixing method: {percentile_mixing_method}"
+                    )
             else:
                 # Handle regular stats (1D arrays)
                 num_dims = len(first_mean)
@@ -828,13 +862,19 @@ class DreamZeroLeRobotMixtureDataset(Dataset):
                 q01_array = np.array(q01_list)
                 q99_array = np.array(q99_list)
                 if percentile_mixing_method == "weighted_average":
-                    weighted_q01 = np.average(q01_array, axis=0, weights=normalized_weights).tolist()
-                    weighted_q99 = np.average(q99_array, axis=0, weights=normalized_weights).tolist()
+                    weighted_q01 = np.average(
+                        q01_array, axis=0, weights=normalized_weights
+                    ).tolist()
+                    weighted_q99 = np.average(
+                        q99_array, axis=0, weights=normalized_weights
+                    ).tolist()
                 elif percentile_mixing_method == "min_max":
                     weighted_q01 = np.min(q01_array, axis=0).tolist()
                     weighted_q99 = np.max(q99_array, axis=0).tolist()
                 else:
-                    raise ValueError(f"Invalid percentile mixing method: {percentile_mixing_method}")
+                    raise ValueError(
+                        f"Invalid percentile mixing method: {percentile_mixing_method}"
+                    )
 
             # Store the overall statistics for the modality
             overall_stats[modality] = {
@@ -861,9 +901,9 @@ class DreamZeroLeRobotMixtureDataset(Dataset):
         merged_metadata = {}
 
         # Check all metadata have the same embodiment tag
-        assert all(metadata.embodiment_tag == metadatas[0].embodiment_tag for metadata in metadatas), (
-            "All metadata must have the same embodiment tag"
-        )
+        assert all(
+            metadata.embodiment_tag == metadatas[0].embodiment_tag for metadata in metadatas
+        ), "All metadata must have the same embodiment tag"
         merged_metadata["embodiment_tag"] = metadatas[0].embodiment_tag
 
         # Merge the dataset statistics
@@ -888,7 +928,9 @@ class DreamZeroLeRobotMixtureDataset(Dataset):
         merged_metadata["modalities"] = {}
         for modality, configs in modality_configs.items():
             # Check that all modality configs correspond to the same tag matches
-            assert len(configs) == 1, f"Multiple modality configs for modality {modality}: {list(configs)}"
+            assert len(configs) == 1, (
+                f"Multiple modality configs for modality {modality}: {list(configs)}"
+            )
             merged_metadata["modalities"][modality] = json.loads(configs.pop())
 
         return DatasetMetadata.model_validate(merged_metadata)

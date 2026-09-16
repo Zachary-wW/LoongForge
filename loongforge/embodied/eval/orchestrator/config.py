@@ -93,8 +93,12 @@ def build_rpc_payload(
     """
     model_kwargs = payload_builder.build(canonical_obs, ctx)
     rpc: Dict[str, Any] = {
-        "episode_id": ctx.get("episode_id", canonical_obs.get("meta", {}).get("episode_id", "default")),
-        "episode_step": int(ctx.get("episode_step", canonical_obs.get("meta", {}).get("episode_step", 0))),
+        "episode_id": ctx.get(
+            "episode_id", canonical_obs.get("meta", {}).get("episode_id", "default")
+        ),
+        "episode_step": int(
+            ctx.get("episode_step", canonical_obs.get("meta", {}).get("episode_step", 0))
+        ),
         "disable_action_cache": bool(disable_action_cache),
         "return_action_chunk": bool(return_action_chunk),
     }
@@ -115,7 +119,9 @@ def load_config(path: str) -> Dict[str, Any]:
     try:
         import yaml
     except ImportError as exc:
-        raise ImportError("YAML config requires PyYAML. Install pyyaml or use a .json config file.") from exc
+        raise ImportError(
+            "YAML config requires PyYAML. Install pyyaml or use a .json config file."
+        ) from exc
     data = yaml.safe_load(text)
     if data is None:
         return {}

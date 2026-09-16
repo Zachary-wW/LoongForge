@@ -9,7 +9,11 @@ import argparse
 import json
 from pathlib import Path
 
-from loongforge.embodied.eval.metrics import write_eval_report, write_suite_summary_csv, write_summary_csv
+from loongforge.embodied.eval.metrics import (
+    write_eval_report,
+    write_suite_summary_csv,
+    write_summary_csv,
+)
 from loongforge.embodied.eval.metrics.results import load_jsonl
 
 
@@ -36,10 +40,14 @@ def main() -> None:
         output_dir = Path(args.output_dir)
         write_summary_csv(output_dir / "summary.csv", records)
     if args.suite_summary:
-        write_suite_summary_csv(args.suite_summary, records, min_episodes=args.min_episodes_per_task)
+        write_suite_summary_csv(
+            args.suite_summary, records, min_episodes=args.min_episodes_per_task
+        )
     else:
         output_dir = Path(args.output_dir)
-        write_suite_summary_csv(output_dir / "suite_summary.csv", records, min_episodes=args.min_episodes_per_task)
+        write_suite_summary_csv(
+            output_dir / "suite_summary.csv", records, min_episodes=args.min_episodes_per_task
+        )
     report = write_eval_report(
         args.results,
         args.output_dir,

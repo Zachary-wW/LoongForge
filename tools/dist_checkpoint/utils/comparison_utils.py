@@ -58,7 +58,11 @@ def load_hf_weights(hf_path: str) -> Dict[str, torch.Tensor]:
 
     # Try safetensors first
     safetensors_files = sorted(
-        [f for f in os.listdir(hf_path) if f.endswith(".safetensors") and not f.startswith("model-")]
+        [
+            f
+            for f in os.listdir(hf_path)
+            if f.endswith(".safetensors") and not f.startswith("model-")
+        ]
     )
 
     if safetensors_files:
@@ -74,7 +78,9 @@ def load_hf_weights(hf_path: str) -> Dict[str, torch.Tensor]:
 
     # Fallback to pytorch_model.bin
     if not weights:
-        pytorch_files = sorted([f for f in os.listdir(hf_path) if f.startswith("pytorch_model") and f.endswith(".bin")])
+        pytorch_files = sorted(
+            [f for f in os.listdir(hf_path) if f.startswith("pytorch_model") and f.endswith(".bin")]
+        )
 
         for pt_file in pytorch_files:
             file_path = hf_path / pt_file
@@ -164,7 +170,9 @@ def compare_checkpoints(
         # Categorize
         if torch.allclose(baseline_tensor.float(), roundtrip_tensor.float(), rtol=rtol, atol=atol):
             metrics.num_exact_matches += 1
-        elif torch.allclose(baseline_tensor.float(), roundtrip_tensor.float(), rtol=1e-3, atol=1e-5):
+        elif torch.allclose(
+            baseline_tensor.float(), roundtrip_tensor.float(), rtol=1e-3, atol=1e-5
+        ):
             metrics.num_close_matches += 1
         else:
             metrics.num_different += 1
@@ -184,7 +192,9 @@ def compare_checkpoints(
     return metrics
 
 
-def save_comparison_report(metrics: ComparisonMetrics, output_path: str, verbose: bool = True) -> None:
+def save_comparison_report(
+    metrics: ComparisonMetrics, output_path: str, verbose: bool = True
+) -> None:
     """
     Save comparison report to JSON
 
@@ -257,7 +267,9 @@ def print_comparison_summary(metrics: ComparisonMetrics) -> None:
 
     if metrics.largest_diffs:
         print("\nLargest value differences:")
-        for key, diff_info in sorted(metrics.largest_diffs.items(), key=lambda x: x[1]["max"], reverse=True)[:5]:
+        for key, diff_info in sorted(
+            metrics.largest_diffs.items(), key=lambda x: x[1]["max"], reverse=True
+        )[:5]:
             print(f"  - {key}: max={diff_info['max']:.2e}, mean={diff_info['mean']:.2e}")
 
     print()
@@ -267,13 +279,24 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Compare two HF checkpoints")
-    parser.add_argument("--baseline", type=str, required=True, help="Path to baseline checkpoint (dir or pkl)")
-    parser.add_argument("--roundtrip", type=str, required=True, help="Path to roundtripped checkpoint (dir or pkl)")
     parser.add_argument(
-        "--output", type=str, default="./comparison_report.json", help="Output path for comparison report"
+        "--baseline", type=str, required=True, help="Path to baseline checkpoint (dir or pkl)"
     )
-    parser.add_argument("--atol", type=float, default=1e-8, help="Absolute tolerance for exact match")
-    parser.add_argument("--rtol", type=float, default=1e-5, help="Relative tolerance for exact match")
+    parser.add_argument(
+        "--roundtrip", type=str, required=True, help="Path to roundtripped checkpoint (dir or pkl)"
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="./comparison_report.json",
+        help="Output path for comparison report",
+    )
+    parser.add_argument(
+        "--atol", type=float, default=1e-8, help="Absolute tolerance for exact match"
+    )
+    parser.add_argument(
+        "--rtol", type=float, default=1e-5, help="Relative tolerance for exact match"
+    )
 
     args = parser.parse_args()
 

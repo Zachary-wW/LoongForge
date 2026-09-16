@@ -117,14 +117,18 @@ def _align_static_graph_buckets_after_warmup(model) -> bool:
         )
         ordered = [state.parameters[index] for index in ready_order]
         sparse = [state.expect_sparse_gradients[index] for index in ready_order]
-        bucket_indices, _ = dist._compute_bucket_assignment_by_size(ordered, limits, sparse, ready_order)
-        from loongforge.embodied.train.trainers.custom.groot_n1_7.groot_ddp_reducer_bucket_control import (
+        bucket_indices, _ = dist._compute_bucket_assignment_by_size(
+            ordered, limits, sparse, ready_order
+        )
+        from loongforge.embodied.train.trainers.custom.groot_n1_7.groot_ddp_reducer_bucket_control import (  # noqa: E501
             initialize_buckets,
         )
 
         initialize_buckets(model.reducer, bucket_indices)
         model._has_rebuilt_buckets = True
-        logger.info("Initialized %d GR00T DDP buckets from first-backward ready order.", len(bucket_indices))
+        logger.info(
+            "Initialized %d GR00T DDP buckets from first-backward ready order.", len(bucket_indices)
+        )
         return True
     finally:
         state.remove_hooks()
@@ -152,7 +156,7 @@ def _select_cuda_graph_runner_type(trainer):
             )
         return GrootN1d7FullIterationCudaGraphRunner
     raise RuntimeError(
-        f"GR00T-N1.7 only supports --cuda-graph-scope=full_iteration; got {training_args.cuda_graph_scope!r}."
+        f"GR00T-N1.7 only supports --cuda-graph-scope=full_iteration; got {training_args.cuda_graph_scope!r}."  # noqa: E501
     )
 
 
@@ -235,7 +239,10 @@ class GrootN1d7Trainer(FinetuneTrainer):
                 metrics[key] = value.detach().cpu().item()
             elif hasattr(value, "item") and value.__class__.__module__.split(".")[0] == "numpy":
                 metrics[key] = value.item()
-        if isinstance(self._train_step_runner, GrootN1d7FullIterationCudaGraphRunner) and self.completed_steps == 1:
+        if (
+            isinstance(self._train_step_runner, GrootN1d7FullIterationCudaGraphRunner)
+            and self.completed_steps == 1
+        ):
             _align_static_graph_buckets_after_warmup(self.model)
 
     def _train_step(self):

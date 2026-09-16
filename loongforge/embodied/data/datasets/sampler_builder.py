@@ -82,7 +82,8 @@ class _BlockShardSampler(Sampler[int]):
         batches = [
             indices[start : start + self.batch_size]
             for start in range(0, len(indices), self.batch_size)
-            if len(indices[start : start + self.batch_size]) == self.batch_size or not self.drop_last
+            if len(indices[start : start + self.batch_size]) == self.batch_size
+            or not self.drop_last
         ]
         for batch_idx, batch in enumerate(batches):
             if batch_idx % self.num_replicas == self.rank:
@@ -94,7 +95,11 @@ class _BlockShardSampler(Sampler[int]):
         local_batches = (total_batches + self.num_replicas - 1 - self.rank) // self.num_replicas
         if not local_batches:
             return 0
-        if self.drop_last or remainder == 0 or (local_batches - 1) * self.num_replicas + self.rank < full_batches:
+        if (
+            self.drop_last
+            or remainder == 0
+            or (local_batches - 1) * self.num_replicas + self.rank < full_batches
+        ):
             return local_batches * self.batch_size
         return (local_batches - 1) * self.batch_size + remainder
 

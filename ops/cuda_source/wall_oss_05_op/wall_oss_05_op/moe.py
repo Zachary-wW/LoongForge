@@ -23,7 +23,7 @@ class PermuteOp(OpsProxy):
     """Reorder tokens by expert assignment for MoE processing.
 
     Signature: permute(tokens, indices, num_out_tokens=None, max_token_num=0) -> (permuted_tokens, sorted_indices)
-    """
+    """  # noqa: E501
 
     def _get_cuda_kernel(self):
         """Return the CUDA-backed MoE permutation function if available."""

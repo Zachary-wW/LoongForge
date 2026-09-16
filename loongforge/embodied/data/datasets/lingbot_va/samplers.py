@@ -41,7 +41,9 @@ class _LingBotBalancedDistributedSampler(Sampler[int]):
         self.seed = int(seed)
         self.balance_group_size = max(1, int(balance_group_size))
         if not hasattr(dataset, "estimate_sample_cost"):
-            raise ValueError("LINGBOT_BALANCED_SAMPLER requires dataset.estimate_sample_cost(index)")
+            raise ValueError(
+                "LINGBOT_BALANCED_SAMPLER requires dataset.estimate_sample_cost(index)"
+            )
         self.shuffle = bool(shuffle)
         self.epoch = 0
         self.block_size = self.num_replicas * self.balance_group_size
@@ -62,7 +64,10 @@ class _LingBotBalancedDistributedSampler(Sampler[int]):
         rank_indices: List[int] = []
         for start in range(0, self.total_size, self.block_size):
             block = indices[start : start + self.block_size]
-            items = [(float(self.dataset.estimate_sample_cost(index)), pos, index) for pos, index in enumerate(block)]
+            items = [
+                (float(self.dataset.estimate_sample_cost(index)), pos, index)
+                for pos, index in enumerate(block)
+            ]
             buckets = self._align_microbatch_costs(self._assign_rank_balanced(items))
             rank_indices.extend(index for _, index, _ in buckets[self.rank])
 
@@ -95,7 +100,9 @@ class _LingBotBalancedDistributedSampler(Sampler[int]):
             tmp_path.write_text(json.dumps(payload, separators=(",", ":")))
             os.replace(tmp_path, out_path)
         except Exception as exc:
-            raise RuntimeError(f"Failed to export LingBot sample order to {export_dir}: {exc}") from exc
+            raise RuntimeError(
+                f"Failed to export LingBot sample order to {export_dir}: {exc}"
+            ) from exc
 
     @staticmethod
     def _align_microbatch_costs(buckets):
@@ -107,7 +114,9 @@ class _LingBotBalancedDistributedSampler(Sampler[int]):
         loads = [0.0] * self.num_replicas
         counts = [0] * self.num_replicas
         for cost, pos, index in sorted(items, key=lambda item: item[0], reverse=True):
-            candidates = [rank for rank in range(self.num_replicas) if counts[rank] < self.balance_group_size]
+            candidates = [
+                rank for rank in range(self.num_replicas) if counts[rank] < self.balance_group_size
+            ]
             dst = min(candidates, key=lambda rank: (loads[rank], counts[rank], rank))
             buckets[dst].append((pos, index, cost))
             loads[dst] += cost

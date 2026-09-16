@@ -122,15 +122,27 @@ def parse_args():
         choices=ConfigManager.get_all_model_tasks(task_dir),
         help="The task we need to run for models.",
     )
-    parser.add_argument("--configs_dir", type=str, default=config_dir, help="The dir we save all configs.")
+    parser.add_argument(
+        "--configs_dir", type=str, default=config_dir, help="The dir we save all configs."
+    )
     parser.add_argument("--tasks_dir", type=str, default=task_dir, help="The dir task.")
     parser.add_argument("--node_nums", type=int, default=1, help="node_nums.")
     parser.add_argument("--gpu_nums", type=int, default=8, help="gpu_nums.")
-    parser.add_argument("--accuracy_relative_tolerance", type=float, default=0.02, help="accuracy_relative_tolerance.")
     parser.add_argument(
-        "--performance_relative_tolerance", type=float, default=0.05, help="performance_relative_tolerance."
+        "--accuracy_relative_tolerance",
+        type=float,
+        default=0.02,
+        help="accuracy_relative_tolerance.",
     )
-    parser.add_argument("--use_nccl", action="store_true", help="Use bccl or nccl for distributed training")
+    parser.add_argument(
+        "--performance_relative_tolerance",
+        type=float,
+        default=0.05,
+        help="performance_relative_tolerance.",
+    )
+    parser.add_argument(
+        "--use_nccl", action="store_true", help="Use bccl or nccl for distributed training"
+    )
     parser.add_argument(
         "--training_type",
         type=str,
@@ -165,7 +177,7 @@ def parse_args():
         type=str,
         default=None,
         help=(
-            "Load all models from a specific subdirectory under optional_configs (e.g., 'internvl3.5', 'qwen2.5_vl')."
+            "Load all models from a specific subdirectory under optional_configs (e.g., 'internvl3.5', 'qwen2.5_vl')."  # noqa: E501
         ),
     )
     parser.add_argument(
@@ -173,9 +185,13 @@ def parse_args():
         type=str,
         nargs="*",
         default=[],
-        help=("Additional models to run from optional_configs (e.g., 'internvl3.5/internvl3.5_30b_a3b')."),
+        help=(
+            "Additional models to run from optional_configs (e.g., 'internvl3.5/internvl3.5_30b_a3b')."  # noqa: E501
+        ),
     )
-    parser.add_argument("--check_loss_only", action="store_true", help="Only check lm_loss, ignore grad_norm.")
+    parser.add_argument(
+        "--check_loss_only", action="store_true", help="Only check lm_loss, ignore grad_norm."
+    )
     parser.add_argument(
         "--chip",
         type=str,
@@ -202,7 +218,9 @@ def parse_args():
         type=str,
         default="skip_completed",
         choices=["skip_completed", "skip_passed"],
-        help=("Resume policy: skip_completed skips all completed models; skip_passed skips only passed models."),
+        help=(
+            "Resume policy: skip_completed skips all completed models; skip_passed skips only passed models."  # noqa: E501
+        ),
     )
 
     args = parser.parse_args()

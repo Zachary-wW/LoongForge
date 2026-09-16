@@ -26,7 +26,7 @@ class CorrectnessCheckTask(BaseTask):
     def __call__(self) -> TaskResut:
         if not self.MODEL_RUNNABLE:
             logger.warn(
-                f"CorrectnessCheckTask current model {self.model_name} does not support CorrectnessCheckTask, "
+                f"CorrectnessCheckTask current model {self.model_name} does not support CorrectnessCheckTask, "  # noqa: E501
                 f"skipping!!!"
             )
             return TaskResut()
@@ -40,24 +40,31 @@ class CorrectnessCheckTask(BaseTask):
                         continue
                     model_name = self.model_name
                     logger.info(
-                        f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] - [{training_type_name}] "
+                        f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] - [{training_type_name}] "  # noqa: E501
                         f"Execution Start ..."
                     )
 
                     # Step1:
                     step1_name = "Step1"
-                    if step1_name in self.model["scenarios"][index][scenario_name][training_type_name]:
-                        if "RUNNABLE_FLAG" not in self.model["scenarios"][index][scenario_name][training_type_name][
-                            step1_name
-                        ] or (
+                    if (
+                        step1_name
+                        in self.model["scenarios"][index][scenario_name][training_type_name]
+                    ):
+                        if "RUNNABLE_FLAG" not in self.model["scenarios"][index][scenario_name][
+                            training_type_name
+                        ][step1_name] or (
                             "RUNNABLE_FLAG"
-                            in self.model["scenarios"][index][scenario_name][training_type_name][step1_name]
-                            and self.model["scenarios"][index][scenario_name][training_type_name][step1_name][
-                                "RUNNABLE_FLAG"
+                            in self.model["scenarios"][index][scenario_name][training_type_name][
+                                step1_name
                             ]
+                            and self.model["scenarios"][index][scenario_name][training_type_name][
+                                step1_name
+                            ]["RUNNABLE_FLAG"]
                             == "true"
                         ):
-                            self.start_loongforge_convert_ckpt(index, step1_name, scenario_name, training_type_name)
+                            self.start_loongforge_convert_ckpt(
+                                index, step1_name, scenario_name, training_type_name
+                            )
                             step1_scenario_lock_file = os.path.join(
                                 self.model["model_lock_file_path"],
                                 scenario_name,
@@ -66,7 +73,9 @@ class CorrectnessCheckTask(BaseTask):
                                 f"{self.rank_name}_lock.txt",
                             )
                             self.wait_async_pod_complete(
-                                step1_scenario_lock_file, model_name, f"{scenario_name}_{step1_name}"
+                                step1_scenario_lock_file,
+                                model_name,
+                                f"{scenario_name}_{step1_name}",
                             )
                             logger.info(
                                 f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] "
@@ -75,15 +84,20 @@ class CorrectnessCheckTask(BaseTask):
 
                     # Step1.5: mcore to hf reverse convert and check
                     step1_5_name = "Step1.5"
-                    if step1_5_name in self.model["scenarios"][index][scenario_name][training_type_name]:
-                        if "RUNNABLE_FLAG" not in self.model["scenarios"][index][scenario_name][training_type_name][
-                            step1_5_name
-                        ] or (
+                    if (
+                        step1_5_name
+                        in self.model["scenarios"][index][scenario_name][training_type_name]
+                    ):
+                        if "RUNNABLE_FLAG" not in self.model["scenarios"][index][scenario_name][
+                            training_type_name
+                        ][step1_5_name] or (
                             "RUNNABLE_FLAG"
-                            in self.model["scenarios"][index][scenario_name][training_type_name][step1_5_name]
-                            and self.model["scenarios"][index][scenario_name][training_type_name][step1_5_name][
-                                "RUNNABLE_FLAG"
+                            in self.model["scenarios"][index][scenario_name][training_type_name][
+                                step1_5_name
                             ]
+                            and self.model["scenarios"][index][scenario_name][training_type_name][
+                                step1_5_name
+                            ]["RUNNABLE_FLAG"]
                             == "true"
                         ):
                             self.start_loongforge_reverse_convert_ckpt(
@@ -97,7 +111,9 @@ class CorrectnessCheckTask(BaseTask):
                                 f"{self.rank_name}_lock.txt",
                             )
                             self.wait_async_pod_complete(
-                                step1_5_scenario_lock_file, model_name, f"{scenario_name}_{step1_5_name}"
+                                step1_5_scenario_lock_file,
+                                model_name,
+                                f"{scenario_name}_{step1_5_name}",
                             )
                             logger.info(
                                 f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] "
@@ -106,18 +122,25 @@ class CorrectnessCheckTask(BaseTask):
 
                     # Step2:
                     step2_name = "Step2"
-                    if step2_name in self.model["scenarios"][index][scenario_name][training_type_name]:
-                        if "RUNNABLE_FLAG" not in self.model["scenarios"][index][scenario_name][training_type_name][
-                            step2_name
-                        ] or (
+                    if (
+                        step2_name
+                        in self.model["scenarios"][index][scenario_name][training_type_name]
+                    ):
+                        if "RUNNABLE_FLAG" not in self.model["scenarios"][index][scenario_name][
+                            training_type_name
+                        ][step2_name] or (
                             "RUNNABLE_FLAG"
-                            in self.model["scenarios"][index][scenario_name][training_type_name][step2_name]
-                            and self.model["scenarios"][index][scenario_name][training_type_name][step2_name][
-                                "RUNNABLE_FLAG"
+                            in self.model["scenarios"][index][scenario_name][training_type_name][
+                                step2_name
                             ]
+                            and self.model["scenarios"][index][scenario_name][training_type_name][
+                                step2_name
+                            ]["RUNNABLE_FLAG"]
                             == "true"
                         ):
-                            self.start_loongforge(index, step2_name, scenario_name, training_type_name)
+                            self.start_loongforge(
+                                index, step2_name, scenario_name, training_type_name
+                            )
                             step2_scenario_lock_file = os.path.join(
                                 self.model["model_lock_file_path"],
                                 scenario_name,
@@ -126,7 +149,9 @@ class CorrectnessCheckTask(BaseTask):
                                 f"{self.rank_name}_lock.txt",
                             )
                             self.wait_async_pod_complete(
-                                step2_scenario_lock_file, model_name, f"{scenario_name}_{step2_name}"
+                                step2_scenario_lock_file,
+                                model_name,
+                                f"{scenario_name}_{step2_name}",
                             )
                             logger.info(
                                 f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] "
@@ -135,18 +160,25 @@ class CorrectnessCheckTask(BaseTask):
 
                     # Step3:
                     step3_name = "Step3"
-                    if step3_name in self.model["scenarios"][index][scenario_name][training_type_name]:
-                        if "RUNNABLE_FLAG" not in self.model["scenarios"][index][scenario_name][training_type_name][
-                            step3_name
-                        ] or (
+                    if (
+                        step3_name
+                        in self.model["scenarios"][index][scenario_name][training_type_name]
+                    ):
+                        if "RUNNABLE_FLAG" not in self.model["scenarios"][index][scenario_name][
+                            training_type_name
+                        ][step3_name] or (
                             "RUNNABLE_FLAG"
-                            in self.model["scenarios"][index][scenario_name][training_type_name][step3_name]
-                            and self.model["scenarios"][index][scenario_name][training_type_name][step3_name][
-                                "RUNNABLE_FLAG"
+                            in self.model["scenarios"][index][scenario_name][training_type_name][
+                                step3_name
                             ]
+                            and self.model["scenarios"][index][scenario_name][training_type_name][
+                                step3_name
+                            ]["RUNNABLE_FLAG"]
                             == "true"
                         ):
-                            self.start_loongforge(index, step3_name, scenario_name, training_type_name)
+                            self.start_loongforge(
+                                index, step3_name, scenario_name, training_type_name
+                            )
                             step3_scenario_lock_file = os.path.join(
                                 self.model["model_lock_file_path"],
                                 scenario_name,
@@ -155,15 +187,17 @@ class CorrectnessCheckTask(BaseTask):
                                 f"{self.rank_name}_lock.txt",
                             )
                             self.wait_async_pod_complete(
-                                step3_scenario_lock_file, model_name, f"{scenario_name}_{step3_name}"
+                                step3_scenario_lock_file,
+                                model_name,
+                                f"{scenario_name}_{step3_name}",
                             )
                             logger.info(
-                                f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] - [{step3_name}] "
+                                f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] - [{step3_name}] "  # noqa: E501
                                 f"Completed \n"
                             )
 
                     logger.info(
-                        f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] - [{training_type_name}] "
+                        f"CorrectnessCheckTask Model [{model_name}] - [{scenario_name}] - [{training_type_name}] "  # noqa: E501
                         f"Execution End \n"
                     )
 

@@ -74,7 +74,9 @@ def _is_cuda_capturing() -> bool:
     return torch.cuda.is_available() and torch.cuda.is_current_stream_capturing()
 
 
-def _make_dynamic_padding_position_ids(attention_mask: torch.Tensor | None) -> torch.LongTensor | None:
+def _make_dynamic_padding_position_ids(
+    attention_mask: torch.Tensor | None,
+) -> torch.LongTensor | None:
     """Build position ids equivalent to dynamic left padding.
 
     Fixed-length CUDA graph batches left-pad ``input_ids`` to a global maximum
@@ -99,7 +101,13 @@ def _make_dynamic_padding_position_ids(attention_mask: torch.Tensor | None) -> t
 
 
 def _flash_attention_mask_no_sync(
-    batch_size, cache_position, kv_length, kv_offset=0, mask_function=None, attention_mask=None, **kwargs
+    batch_size,
+    cache_position,
+    kv_length,
+    kv_offset=0,
+    mask_function=None,
+    attention_mask=None,
+    **kwargs,
 ):
     """Patched flash_attention_mask that skips .all() GPU→CPU sync for CUDA graph compatibility.
 
@@ -114,7 +122,7 @@ def _flash_attention_mask_no_sync(
 
 
 # Prevents GPU→CPU sync in create_causal_mask → flash_attention_mask
-# Deferred: applied only when GRooT model is instantiated (see Eagle3VlForConditionalGeneration.__init__)
+# Deferred: applied only when GRooT model is instantiated (see Eagle3VlForConditionalGeneration.__init__)  # noqa: E501
 _FA2_PATCHES_INSTALLED = False
 
 
@@ -135,8 +143,14 @@ def _get_fa2_buffers(batch_size, seq_len, num_q_heads, num_kv_heads, head_dim, d
         # Pre-compute the constant "total" value as a 1-element tensor for concat
         total_tensor = torch.tensor([total], dtype=torch.int32, device=device)
         _FA2_GRAPH_BUFFERS[key] = {
-            "seq_ids": torch.arange(batch_size, device=device).unsqueeze(1).expand(-1, seq_len).reshape(-1),
-            "pos_in_seq": torch.arange(seq_len, device=device).unsqueeze(0).expand(batch_size, -1).reshape(-1),
+            "seq_ids": torch.arange(batch_size, device=device)
+            .unsqueeze(1)
+            .expand(-1, seq_len)
+            .reshape(-1),
+            "pos_in_seq": torch.arange(seq_len, device=device)
+            .unsqueeze(0)
+            .expand(batch_size, -1)
+            .reshape(-1),
             "sort_key": torch.zeros(total, dtype=torch.int64, device=device),
             "total_tensor": total_tensor,
             "zero_tensor": torch.zeros(1, dtype=torch.int32, device=device),
@@ -168,7 +182,9 @@ def _graph_safe_unpad_and_attend(
     num_q_heads = query_states.shape[2]
 
     # Get pre-allocated buffers (created during warmup, reused during capture)
-    bufs = _get_fa2_buffers(batch_size, kv_seq_len, num_q_heads, num_kv_heads, head_dim, query_states.dtype, device)
+    bufs = _get_fa2_buffers(
+        batch_size, kv_seq_len, num_q_heads, num_kv_heads, head_dim, query_states.dtype, device
+    )
     seq_ids = bufs["seq_ids"]
     pos_in_seq = bufs["pos_in_seq"]
     sort_key = bufs["sort_key"]
@@ -202,9 +218,15 @@ def _graph_safe_unpad_and_attend(
     # This prevents FA2 OOB reads when safe_total == total+1 (all tokens valid).
     # torch.cat produces a NEW tensor each call, so autograd version tracking is correct.
     # The zero_q/zero_kv buffers are pre-allocated (no cudaMalloc during graph capture).
-    packed_q = torch.cat([query_states.reshape(total, num_q_heads, head_dim)[sorted_indices], zero_q], dim=0)
-    packed_k = torch.cat([key_states.reshape(total, num_kv_heads, head_dim)[sorted_indices], zero_kv], dim=0)
-    packed_v = torch.cat([value_states.reshape(total, num_kv_heads, head_dim)[sorted_indices], zero_kv], dim=0)
+    packed_q = torch.cat(
+        [query_states.reshape(total, num_q_heads, head_dim)[sorted_indices], zero_q], dim=0
+    )
+    packed_k = torch.cat(
+        [key_states.reshape(total, num_kv_heads, head_dim)[sorted_indices], zero_kv], dim=0
+    )
+    packed_v = torch.cat(
+        [value_states.reshape(total, num_kv_heads, head_dim)[sorted_indices], zero_kv], dim=0
+    )
 
     # Flash attention on packed sequences (B real + 1 dummy for padding)
     attn_output_packed = flash_attn_varlen_func(
@@ -224,7 +246,9 @@ def _graph_safe_unpad_and_attend(
     attn_output_flat = attn_output_packed[:total][reverse_indices]  # (B*S, H, D)
 
     # Zero out padding positions
-    attn_output_flat = attn_output_flat * flat_mask.unsqueeze(-1).unsqueeze(-1).to(attn_output_flat.dtype)
+    attn_output_flat = attn_output_flat * flat_mask.unsqueeze(-1).unsqueeze(-1).to(
+        attn_output_flat.dtype
+    )
 
     # Reshape back to (B, S, H, D)
     return attn_output_flat.reshape(batch_size, kv_seq_len, num_q_heads, head_dim)
@@ -236,7 +260,7 @@ def _is_graph_mode_active() -> bool:
     Returns True when:
     - Full-iteration or per-microbatch CUDA graph is configured (covers warmup + capture + replay phases)
     - OR we're currently in a CUDA graph capture stream
-    """
+    """  # noqa: E501
     try:
         from loongforge.embodied.train.global_vars import get_training_args
 
@@ -371,7 +395,9 @@ def _maybe_install_fa2_patches():
         return
     if not _is_graph_mode_active():
         return
-    ALL_MASK_ATTENTION_FUNCTIONS._global_mapping["flash_attention_2"] = _flash_attention_mask_no_sync
+    ALL_MASK_ATTENTION_FUNCTIONS._global_mapping["flash_attention_2"] = (
+        _flash_attention_mask_no_sync
+    )
     _install_graph_safe_fa2_patch()
     _FA2_PATCHES_INSTALLED = True
 
@@ -500,7 +526,9 @@ class Eagle3VlForConditionalGeneration(Eagle3VlPreTrainedModel, GenerationMixin)
         self.use_llm_lora = config.use_llm_lora != 0
 
         if self.use_backbone_lora:
-            self.wrap_backbone_lora(r=config.use_backbone_lora, lora_alpha=2 * config.use_backbone_lora)
+            self.wrap_backbone_lora(
+                r=config.use_backbone_lora, lora_alpha=2 * config.use_backbone_lora
+            )
 
         if self.use_llm_lora:
             self.wrap_llm_lora(r=config.use_llm_lora, lora_alpha=2 * config.use_llm_lora)
@@ -662,7 +690,9 @@ class Eagle3VlForConditionalGeneration(Eagle3VlPreTrainedModel, GenerationMixin)
         slices = torch.split(vit_embeds.view(-1, C), lengths, dim=0)
 
         # Convert to [C, H, W]
-        features = [sl.transpose(0, 1).reshape(C, h, w) for sl, (h, w) in zip(slices, shapes, strict=True)]
+        features = [
+            sl.transpose(0, 1).reshape(C, h, w) for sl, (h, w) in zip(slices, shapes, strict=True)
+        ]
 
         # Group by scale and batch unshuffle
         down_feats = [None] * len(features)
@@ -955,7 +985,9 @@ def load_eagle_model(
             print(f"Created Eagle3 model from repo config class: {eagle_path}")
             return model
         except Exception as e:
-            raise RuntimeError(f"Failed to create custom Eagle model from local config at {eagle_path}.") from e
+            raise RuntimeError(
+                f"Failed to create custom Eagle model from local config at {eagle_path}."
+            ) from e
 
     # For other models, try the standard loading approach
     local_model_path = resolve_eagle_local_path(config.model_name, current_file)
@@ -964,22 +996,30 @@ def load_eagle_model(
     if local_model_path is None or not os.path.exists(local_model_path):
         if offline_mode:
             raise FileNotFoundError(
-                f"Eagle local model path not found: model_name={config.model_name}, resolved={local_model_path}"
+                f"Eagle local model path not found: model_name={config.model_name}, resolved={local_model_path}"  # noqa: E501
             )
         # Try to load from HF Hub
         try:
-            model_config = AutoConfig.from_pretrained(config.model_name, trust_remote_code=True, **loading_kwargs)
+            model_config = AutoConfig.from_pretrained(
+                config.model_name, trust_remote_code=True, **loading_kwargs
+            )
             # Set attention implementations
             if hasattr(model_config, "text_config") and model_config.text_config is not None:
-                model_config.text_config._attn_implementation = loading_kwargs.get("attn_implementation", "eager")
+                model_config.text_config._attn_implementation = loading_kwargs.get(
+                    "attn_implementation", "eager"
+                )
             if hasattr(model_config, "vision_config") and model_config.vision_config is not None:
-                model_config.vision_config._attn_implementation = loading_kwargs.get("attn_implementation", "eager")
+                model_config.vision_config._attn_implementation = loading_kwargs.get(
+                    "attn_implementation", "eager"
+                )
             # Create model from config
             model = AutoModel.from_config(model_config, trust_remote_code=True)
             print(f"Created Eagle model from hub config: {config.model_name}")
             return model
         except Exception as e:
-            raise RuntimeError(f"Failed to load Eagle model from HF Hub for '{config.model_name}'.") from e
+            raise RuntimeError(
+                f"Failed to load Eagle model from HF Hub for '{config.model_name}'."
+            ) from e
 
     has_model_files = os.path.exists(os.path.join(local_model_path, "config.json")) and (
         os.path.exists(os.path.join(local_model_path, "model.safetensors"))
@@ -1024,11 +1064,17 @@ def load_eagle_model(
             model_config = AutoConfig.from_pretrained(local_model_path, trust_remote_code=True)
             # Set attention implementations
             if hasattr(model_config, "text_config") and model_config.text_config is not None:
-                model_config.text_config._attn_implementation = loading_kwargs.get("attn_implementation", "eager")
+                model_config.text_config._attn_implementation = loading_kwargs.get(
+                    "attn_implementation", "eager"
+                )
             if hasattr(model_config, "vision_config") and model_config.vision_config is not None:
-                model_config.vision_config._attn_implementation = loading_kwargs.get("attn_implementation", "eager")
+                model_config.vision_config._attn_implementation = loading_kwargs.get(
+                    "attn_implementation", "eager"
+                )
             model = AutoModel.from_config(model_config, trust_remote_code=True)
             print(f"Loaded Eagle from local config (no weights): {local_model_path}")
             return model
         except Exception as e:
-            raise RuntimeError(f"Failed to build Eagle model from local config path: {local_model_path}") from e
+            raise RuntimeError(
+                f"Failed to build Eagle model from local config path: {local_model_path}"
+            ) from e

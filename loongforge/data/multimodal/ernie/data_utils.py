@@ -68,7 +68,9 @@ class ErnieTensorDataset(torch.utils.data.Dataset):
     def __init__(self, args, metadata_path, steps_per_epoch=0):
         self.manual_seed = args.seed
         self.steps_per_epoch = steps_per_epoch
-        self.processor = AutoProcessor.from_pretrained(args.hf_tokenizer_path, trust_remote_code=True)
+        self.processor = AutoProcessor.from_pretrained(
+            args.hf_tokenizer_path, trust_remote_code=True
+        )
         self.file_names = []
 
         with open(metadata_path, "r", encoding="utf-8") as f:

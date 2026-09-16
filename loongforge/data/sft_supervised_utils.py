@@ -93,7 +93,9 @@ def _encode_supervised_example(
         if total_len >= config.sequence_length:
             break
 
-        source_len, target_len = _infer_seqlen(len(source_ids), len(target_ids), config.sequence_length - total_len)
+        source_len, target_len = _infer_seqlen(
+            len(source_ids), len(target_ids), config.sequence_length - total_len
+        )
         source_ids = source_ids[:source_len]
         target_ids = target_ids[:target_len]
         total_len += source_len + target_len
@@ -117,11 +119,15 @@ def _encode_supervised_example(
             # reversed order
             input_ids = source_ids + target_ids + input_ids
             labels = source_label + target_label + labels
-            loss_mask = [0 if t == config.ignore_index else 1 for t in (source_label + target_label)] + loss_mask
+            loss_mask = [
+                0 if t == config.ignore_index else 1 for t in (source_label + target_label)
+            ] + loss_mask
         else:
             input_ids += source_ids + target_ids
             labels += source_label + target_label
-            loss_mask += [0 if t == config.ignore_index else 1 for t in (source_label + target_label)]
+            loss_mask += [
+                0 if t == config.ignore_index else 1 for t in (source_label + target_label)
+            ]
 
     if config.chat_template.efficient_eos:
         # for efficient_eos, we need to add eos token to the end of the last turn
@@ -408,14 +414,20 @@ def _preprocess_supervised_dataset(
                 ], "packing is not supported for images/videos yet."
 
                 if pad_to_multiple_of > 1:
-                    input_ids = _pad_sequence_to_multiple(config, input_ids, pad_to_multiple_of, config.tokenizer.pad)
-                    labels = _pad_sequence_to_multiple(config, labels, pad_to_multiple_of, constants.IGNORE_INDEX)
+                    input_ids = _pad_sequence_to_multiple(
+                        config, input_ids, pad_to_multiple_of, config.tokenizer.pad
+                    )
+                    labels = _pad_sequence_to_multiple(
+                        config, labels, pad_to_multiple_of, constants.IGNORE_INDEX
+                    )
                     loss_mask = _pad_sequence_to_multiple(config, loss_mask, pad_to_multiple_of, 0)
 
                 # prepare for packing
                 _sample_len = len(input_ids)
                 if _sample_len > config.sequence_length:
-                    logger.warning(f"Ignore too long sample with length {_sample_len} > {config.sequence_length}.")
+                    logger.warning(
+                        f"Ignore too long sample with length {_sample_len} > {config.sequence_length}."  # noqa: E501
+                    )
                     continue
 
                 all_input_ids.append(input_ids)
@@ -446,7 +458,9 @@ def _preprocess_supervised_dataset(
             num_chunks = len(chunks)
             # N_g = total response tokens across all chunks of this source
             # sequence (sum of per-chunk loss masks). Shared by every chunk.
-            group_total_tokens = sum(sum(chunk_loss_mask[:chunksize]) for _, _, chunk_loss_mask in chunks)
+            group_total_tokens = sum(
+                sum(chunk_loss_mask[:chunksize]) for _, _, chunk_loss_mask in chunks
+            )
             for chunk_input_ids, chunk_labels, chunk_loss_mask in chunks:
                 model_inputs["input_ids"].append(chunk_input_ids)
                 model_inputs["labels"].append(chunk_labels)
@@ -585,15 +599,27 @@ def convert_to_tokenized_data(
     # The data in the dataset varies in length,
     # which may lead to inconsistent types being inferred (such as int8, int32),
     # resulting in the error "The features can't be aligned." ,
-    # Therefore, it is necessary to specify the output type through features to avoid automatic type inference.
+    # Therefore, it is necessary to specify the output type through features to avoid automatic type inference.  # noqa: E501
     features = datasets.Features()
-    features["input_ids"] = datasets.Sequence(feature=datasets.Value(dtype="int64", id=None), length=-1, id=None)
-    features["labels"] = datasets.Sequence(feature=datasets.Value(dtype="int64", id=None), length=-1, id=None)
-    features["attention_mask"] = datasets.Sequence(feature=datasets.Value(dtype="int64", id=None), length=-1, id=None)
+    features["input_ids"] = datasets.Sequence(
+        feature=datasets.Value(dtype="int64", id=None), length=-1, id=None
+    )
+    features["labels"] = datasets.Sequence(
+        feature=datasets.Value(dtype="int64", id=None), length=-1, id=None
+    )
+    features["attention_mask"] = datasets.Sequence(
+        feature=datasets.Value(dtype="int64", id=None), length=-1, id=None
+    )
     if not config.eod_mask_loss:
-        features["loss_mask"] = datasets.Sequence(feature=datasets.Value(dtype="int64", id=None), length=-1, id=None)
-    features["images"] = datasets.Sequence(datasets.Value(dtype="string", id=None), length=-1, id=None)
-    features["videos"] = datasets.Sequence(datasets.Value(dtype="string", id=None), length=-1, id=None)
+        features["loss_mask"] = datasets.Sequence(
+            feature=datasets.Value(dtype="int64", id=None), length=-1, id=None
+        )
+    features["images"] = datasets.Sequence(
+        datasets.Value(dtype="string", id=None), length=-1, id=None
+    )
+    features["videos"] = datasets.Sequence(
+        datasets.Value(dtype="string", id=None), length=-1, id=None
+    )
     if config.enable_chunkpipe:
         features["chunk_group_size"] = datasets.Value(dtype="int64", id=None)
         features["group_total_tokens"] = datasets.Value(dtype="int64", id=None)

@@ -40,7 +40,7 @@ class LLaMAModel(BaseGPTModel):
             is 'rope'. Defaults to 10000.
         seq_len_interpolation_factor (Optional[float], optional): scale of linearly interpolating RoPE for longer
             sequences. The value must be a float larger than 1.0. Defaults to None.
-    """
+    """  # noqa: E501
 
     config_class = LLaMAConfig
 

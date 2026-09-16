@@ -75,7 +75,9 @@ def _bind_chunkpipe_queue_iter(base_iter, step_g_queue, composite_queue):
         yield batch
 
 
-def build_sft_data_collator(cls: Type[DataCollatorForSupervisedDataset], **kwargs) -> DataCollatorForSupervisedDataset:
+def build_sft_data_collator(
+    cls: Type[DataCollatorForSupervisedDataset], **kwargs
+) -> DataCollatorForSupervisedDataset:
     """build data collator for sft"""
     args = get_args()
     tokenizer = get_tokenizer()
@@ -288,7 +290,9 @@ def build_savable_dataloader_iter(dataloader, preprocessor=None):
                 )
                 if os.path.exists(data_save_name):
                     try:
-                        dataset_state_dict = torch.load(data_save_name, map_location="cpu", weights_only=False)
+                        dataset_state_dict = torch.load(
+                            data_save_name, map_location="cpu", weights_only=False
+                        )
                         train_iter.load_state(dataset_state_dict["dataloader_state_dict"])
                         print_rank_0(
                             f"Restored dataloader state from {data_save_name} "
@@ -297,7 +301,9 @@ def build_savable_dataloader_iter(dataloader, preprocessor=None):
                         restored = True
                         break
                     except Exception as e:
-                        print_rank_0(f"WARNING: Failed to restore dataloader state from {data_save_name}: {e}")
+                        print_rank_0(
+                            f"WARNING: Failed to restore dataloader state from {data_save_name}: {e}"  # noqa: E501
+                        )
 
             if not restored:
                 print_rank_0("No dataloader state found to restore, starting from scratch")
@@ -551,10 +557,10 @@ class ChunkPipeGroupBatchSampler:
 
             # 2. Residual decision.
             # must_synth: N_k < D (q==0) means fewer sequences of chunk size-k than DP ranks.
-            # Without synthesis, all sequences of chunk size-k would be dropped; synthesize to avoid it.
+            # Without synthesis, all sequences of chunk size-k would be dropped; synthesize to avoid it.  # noqa: E501
             must_synth = q == 0
             # threshold_synth: if the residual count exceeds half of all size-k slots
-            # (i.e., more than half of the groups would be dropped without synthesis), trigger synthesis.
+            # (i.e., more than half of the groups would be dropped without synthesis), trigger synthesis.  # noqa: E501
             threshold_synth = r / (q * D + r) > 0.5
 
             if not (must_synth or threshold_synth):
@@ -772,14 +778,15 @@ class ChunkPipeGroupBatchSampler:
         aligned_count = min(step_counts) if step_counts else 0
         assert aligned_count > 0, (
             f"ChunkPipe sampler: 0 complete steps per epoch. "
-            f"total_chunks={len(self.groups)}, step_capacity={self.step_capacity}, DP={self.data_parallel_size}.\n"
+            f"total_chunks={len(self.groups)}, step_capacity={self.step_capacity}, DP={self.data_parallel_size}.\n"  # noqa: E501
             f"Possible causes:\n"
-            f"  1. Dataset too small (need at least {self.step_capacity * self.data_parallel_size} chunks total)\n"
+            f"  1. Dataset too small (need at least {self.step_capacity * self.data_parallel_size} chunks total)\n"  # noqa: E501
             f"  2. --global-batch-size too large (reduces step_capacity={self.step_capacity})\n"
             f"Suggestion: add more data into dataset or reduce --global-batch-size."
         )
         g_total_per_step = [
-            sum(step_gs_per_rank[r][s] for r in range(self.data_parallel_size)) for s in range(aligned_count)
+            sum(step_gs_per_rank[r][s] for r in range(self.data_parallel_size))
+            for s in range(aligned_count)
         ]
         return (
             my_steps[:aligned_count],
@@ -988,7 +995,9 @@ def _build_cylic_iterator(
     else:
         # build distribued sampler for non-streaming dataset
         if args.enable_chunkpipe:
-            num_microbatches = args.global_batch_size // (args.micro_batch_size * mpu.get_data_parallel_world_size())
+            num_microbatches = args.global_batch_size // (
+                args.micro_batch_size * mpu.get_data_parallel_world_size()
+            )
             _batch_sampler = ChunkPipeGroupBatchSampler(
                 dataset,
                 total_samples=len(dataset),
@@ -1048,7 +1057,9 @@ def build_sft_cyclic_iterators(
     """build data iterators for sft"""
     args = get_args()
     train_iter = _build_cylic_iterator(train_ds, args.consumed_train_samples, data_collator)
-    valid_iter = _build_cylic_iterator(valid_ds, 0 if args.skip_train else args.consumed_valid_samples, data_collator)
+    valid_iter = _build_cylic_iterator(
+        valid_ds, 0 if args.skip_train else args.consumed_valid_samples, data_collator
+    )
     test_iter = _build_cylic_iterator(test_ds, 0, data_collator)
     return train_iter, valid_iter, test_iter
 
@@ -1214,14 +1225,16 @@ def get_batch_on_this_tp_rank(data_iterator):
     if tokens_full is not None:
         if sft_chunkpipe_mtp:
             expected_length = base_length + args.mtp_num_layers
-            assert tokens_full.dim() == 2, f"SFT chunkpipe MTP expects 2D tokens, got shape {tuple(tokens_full.shape)}."
+            assert tokens_full.dim() == 2, (
+                f"SFT chunkpipe MTP expects 2D tokens, got shape {tuple(tokens_full.shape)}."
+            )
             assert tokens_full.size(1) == expected_length, (
-                f"SFT chunkpipe MTP expects physical sequence length {expected_length}, got {tokens_full.size(1)}."
+                f"SFT chunkpipe MTP expects physical sequence length {expected_length}, got {tokens_full.size(1)}."  # noqa: E501
             )
             mtp_tokens = tokens_full
             tokens = tokens_full[:, :base_length]
             assert tokens.size(1) == base_length, (
-                f"SFT chunkpipe main tokens must have base length {base_length}, got {tokens.size(1)}."
+                f"SFT chunkpipe main tokens must have base length {base_length}, got {tokens.size(1)}."  # noqa: E501
             )
             mtp_position_ids = _get_position_ids(mtp_tokens)
         position_ids = _get_position_ids(tokens)
@@ -1264,7 +1277,9 @@ def get_batch_on_this_tp_rank(data_iterator):
         loss_mask[labels == tokenizer.pad] = 0.0
         loss_mask[labels == tokenizer.eos] = 0.0
         if sft_chunkpipe_mtp and mtp_labels is not None:
-            mtp_loss_mask = torch.ones(mtp_labels.size(), dtype=torch.float, device=mtp_labels.device)
+            mtp_loss_mask = torch.ones(
+                mtp_labels.size(), dtype=torch.float, device=mtp_labels.device
+            )
             mtp_loss_mask[mtp_labels == constants.IGNORE_INDEX] = 0.0
             mtp_loss_mask[mtp_labels == tokenizer.pad] = 0.0
             mtp_loss_mask[mtp_labels == tokenizer.eos] = 0.0
@@ -1316,7 +1331,7 @@ def get_batch_on_this_tp_rank(data_iterator):
 
         # Determine if this rank should pop the queue:
         # - Non-VPP: only TP rank 0 pops
-        # - VPP: only TP rank 0 AND VP last stage pops，because args.chunkpipe_step_g_queue is last vp_stage,
+        # - VPP: only TP rank 0 AND VP last stage pops，because args.chunkpipe_step_g_queue is last vp_stage,  # noqa: E501
         #           and only last vp_stage will have loss_func calculations
         should_pop = (tp_rank == 0) and ((not is_vpp_enabled) or (vp_stage == (vp_size - 1)))
 
@@ -1351,7 +1366,9 @@ def get_batch_on_this_tp_rank(data_iterator):
                     device=torch.cuda.current_device(),
                 )
             else:
-                comp_tensor = torch.zeros(n_comp, dtype=torch.long, device=torch.cuda.current_device())
+                comp_tensor = torch.zeros(
+                    n_comp, dtype=torch.long, device=torch.cuda.current_device()
+                )
             torch.distributed.broadcast(
                 comp_tensor,
                 mpu.get_tensor_model_parallel_src_rank(),
@@ -1379,7 +1396,11 @@ def get_batch_on_this_cp_rank(batch: Dict[str, Any]):
         # cp_partition_mode='contiguous' contract. All other models keep TE's
         # zigzag (load-balanced) THD layout.
         model_config = get_model_config()
-        cp_partition_mode = "contiguous" if getattr(model_config, "csa_compress_ratios", None) is not None else "zigzag"
+        cp_partition_mode = (
+            "contiguous"
+            if getattr(model_config, "csa_compress_ratios", None) is not None
+            else "zigzag"
+        )
         if packed_seq_params is not None:
             packed_seq_params.cp_partition_mode = cp_partition_mode
         for key, val in batch.items():
@@ -1402,14 +1423,18 @@ def get_batch_on_this_cp_rank(batch: Dict[str, Any]):
                             f"{total_tokens} to be divisible by cp_size={cp_size}."
                         )
                         local_rows = total_tokens // cp_size
-                        batch[key] = val.narrow(seq_dim, cp_rank * local_rows, local_rows).contiguous()
+                        batch[key] = val.narrow(
+                            seq_dim, cp_rank * local_rows, local_rows
+                        ).contiguous()
                         continue
-                    # assert get_accelerator_backend() == "NvidiaGpu", "Only NvidiaGPU supports packed_seq_params."
+                    # assert get_accelerator_backend() == "NvidiaGpu", "Only NvidiaGPU supports packed_seq_params."  # noqa: E501
                     import transformer_engine_torch as tex
 
                     # assume cu_seqlens_q == cu_seqlens_kv
                     cu_seqlens_q = packed_seq_params.cu_seqlens_q
-                    seq_idx_val = tex.thd_get_partitioned_indices(cu_seqlens_q, val.shape[seq_dim], cp_size, cp_rank)
+                    seq_idx_val = tex.thd_get_partitioned_indices(
+                        cu_seqlens_q, val.shape[seq_dim], cp_size, cp_rank
+                    )
                     batch[key] = val.index_select(seq_dim, seq_idx_val)
                 else:
                     val = val.view(
@@ -1418,9 +1443,9 @@ def get_batch_on_this_cp_rank(batch: Dict[str, Any]):
                         val.shape[seq_dim] // (2 * cp_size),
                         *val.shape[(seq_dim + 1) :],
                     )
-                    index = torch.tensor([cp_rank, (2 * cp_size - cp_rank - 1)], device="cpu", pin_memory=True).cuda(
-                        non_blocking=True
-                    )
+                    index = torch.tensor(
+                        [cp_rank, (2 * cp_size - cp_rank - 1)], device="cpu", pin_memory=True
+                    ).cuda(non_blocking=True)
                     val = val.index_select(seq_dim, index)
                     val = val.view(*val.shape[0:seq_dim], -1, *val.shape[(seq_dim + 2) :])
                     batch[key] = val

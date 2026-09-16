@@ -157,7 +157,7 @@ class QwenImageModel(VisionModule):
         zero_cond_t: bool = False,
         **kwargs,
     ):
-        """Run the DiT: patchify latents, condition on prompt+timestep, and return the noise prediction."""
+        """Run the DiT: patchify latents, condition on prompt+timestep, and return the noise prediction."""  # noqa: E501
         latents = self._normalize_latents(latents)
         if prompt_emb.dim() == 2:
             prompt_emb = prompt_emb.unsqueeze(0)
@@ -184,7 +184,13 @@ class QwenImageModel(VisionModule):
 
         if context_latents is not None:
             context_latents = self._normalize_latents(context_latents)
-            img_shapes += [(context_latents.shape[0], context_latents.shape[2] // 2, context_latents.shape[3] // 2)]
+            img_shapes += [
+                (
+                    context_latents.shape[0],
+                    context_latents.shape[2] // 2,
+                    context_latents.shape[3] // 2,
+                )
+            ]
             context_image = rearrange(
                 context_latents,
                 "B C (H P) (W Q) -> B (H W) (C P Q)",

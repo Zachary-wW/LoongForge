@@ -46,7 +46,7 @@ def model_provider(pre_process=True, post_process=True, vp_stage: int = None):
 
     Returns:
         MCoreModel: The returned model
-    """
+    """  # noqa: E501
     args = get_args()
     # model_family = get_model_family(args.model_family)
     model_provider = get_model_provider(args.model_family)
@@ -104,10 +104,14 @@ def get_batch(data_iterator):
         if args.packing_sft_data:
             data_l = tensor_parallel.broadcast_data(["loss_weight"], data, torch.float32)
     elif mpu.is_pipeline_first_stage():
-        data_i = tensor_parallel.broadcast_data(["input_ids", "position_ids", "image_flags"], data, torch.int64)
+        data_i = tensor_parallel.broadcast_data(
+            ["input_ids", "position_ids", "image_flags"], data, torch.int64
+        )
         data_f = tensor_parallel.broadcast_data(["pixel_values"], data, torch.float32)
     elif mpu.is_pipeline_last_stage():
-        data_i = tensor_parallel.broadcast_data(["input_ids", "labels", "image_flags"], data, torch.int64)
+        data_i = tensor_parallel.broadcast_data(
+            ["input_ids", "labels", "image_flags"], data, torch.int64
+        )
         if args.packing_sft_data:
             data_l = tensor_parallel.broadcast_data(["loss_weight"], data, torch.float32)
 
@@ -191,7 +195,9 @@ def forward_step(data_iterator, model):
     if mpu.is_pipeline_last_stage():
         tokenizer = get_tokenizer().tokenizer
         image_token_id = tokenizer.convert_tokens_to_ids("<IMG_CONTEXT>")
-        num_image_token = int((args.force_image_size // args.patch_size) ** 2 * (args.down_sample_ratio**2))
+        num_image_token = int(
+            (args.force_image_size // args.patch_size) ** 2 * (args.down_sample_ratio**2)
+        )
         ignore_flag = filter_ignore_data(input_ids, image_flags, image_token_id, num_image_token)
         if ignore_flag:
             print("filter_ignore_data get True, skip current microbatch...")

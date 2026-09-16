@@ -271,7 +271,9 @@ def resolve_container_runs(
                 and cls.__name__ not in skip_class_names
                 and (keep_class_names is None or cls.__name__ in keep_class_names)
             )
-            starts_new_unit = current_unit and (cls is not current_unit_cls or dominant_dtype != current_unit_dtype)
+            starts_new_unit = current_unit and (
+                cls is not current_unit_cls or dominant_dtype != current_unit_dtype
+            )
             if not eligible or starts_new_unit:
                 if current_unit:
                     units.append(current_unit)
@@ -357,7 +359,9 @@ def resolve_wrap_modules(
     matched = {unwrap_checkpoint_module(m).__class__.__name__ for m in targets.values()}
     missing = module_class_names - matched
     if missing and strict:
-        raise ValueError("FSDP wrap module classes matched no callable boundaries: " + ", ".join(sorted(missing)))
+        raise ValueError(
+            "FSDP wrap module classes matched no callable boundaries: " + ", ".join(sorted(missing))
+        )
 
     return sorted(targets.items(), key=lambda item: item[0].count("."), reverse=True)
 

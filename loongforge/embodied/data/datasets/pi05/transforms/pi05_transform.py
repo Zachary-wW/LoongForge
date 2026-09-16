@@ -1,7 +1,7 @@
 # Copyright 2026 The LoongForge Authors.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Pi05 special per-sample transforms: state discretization, image collation, fallback prompt, tokenization."""
+"""Pi05 special per-sample transforms: state discretization, image collation, fallback prompt, tokenization."""  # noqa: E501
 
 import os
 from typing import Any, Dict, List, Optional
@@ -201,7 +201,9 @@ class Pi05TokenizeTransform(BaseTransform):
         if self._tokenizer is None:
             path = self.tokenizer_path or os.environ.get("TOKENIZER_PATH", "")
             if not path:
-                raise ValueError("Tokenizer path not set. Pass tokenizer_path or set TOKENIZER_PATH env.")
+                raise ValueError(
+                    "Tokenizer path not set. Pass tokenizer_path or set TOKENIZER_PATH env."
+                )
             self._tokenizer = AutoTokenizer.from_pretrained(path)
         return self._tokenizer
 
@@ -270,7 +272,9 @@ def build_pi05_transforms(ctx: TransformBuilderContext):
         )
     )
     transforms.append(Pi05FallbackPromptTransform())
-    transforms.append(Pi05TokenizeTransform(tokenizer_path=tokenizer_path, max_token_len=max_token_len))
+    transforms.append(
+        Pi05TokenizeTransform(tokenizer_path=tokenizer_path, max_token_len=max_token_len)
+    )
     return transforms
 
 

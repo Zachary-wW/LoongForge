@@ -35,7 +35,11 @@ def has_noisy_tokens(modality_data: ModalityData | None) -> bool:
 # DiT: https://github.com/facebookresearch/DiT/blob/main/models.py
 # --------------------------------------------------------
 def get_2d_sincos_pos_embed(
-    embed_dim: int, grid_size_h: int, grid_size_w: int, cls_token: bool = False, extra_tokens: int = 0
+    embed_dim: int,
+    grid_size_h: int,
+    grid_size_w: int,
+    cls_token: bool = False,
+    extra_tokens: int = 0,
 ) -> np.ndarray:
     """Get 2d sincos pos embed."""
     grid_h = np.arange(grid_size_h, dtype=np.float32)
@@ -84,46 +88,64 @@ def get_1d_sincos_pos_embed_from_grid(embed_dim: int, pos: np.ndarray) -> np.nda
 
 
 class FlattenedSinCosPositionEmbedding(nn.Module):
-    # This module creates a flattened sin-cos position embedding for a given number of patches per side.
+    # This module creates a flattened sin-cos position embedding for a given number of patches per side.  # noqa: E501
     # Indices are created for 2D array and flattened into 1D array.
 
     """Module for FlattenedSinCosPositionEmbedding."""
 
-    def __init__(self, max_latent_h: int, max_latent_w: int, hidden_size: int, interpolate_pos: bool = False):
+    def __init__(
+        self, max_latent_h: int, max_latent_w: int, hidden_size: int, interpolate_pos: bool = False
+    ):
         """Initialize the module."""
         super().__init__()
         self.max_latent_h = max_latent_h
         self.max_latent_w = max_latent_w
         self.hidden_size = hidden_size
         self.interpolate_pos = interpolate_pos
-        self.pos_embed = nn.Parameter(torch.zeros(max_latent_h * max_latent_w, hidden_size), requires_grad=False)
+        self.pos_embed = nn.Parameter(
+            torch.zeros(max_latent_h * max_latent_w, hidden_size), requires_grad=False
+        )
         self._init_weights()
 
-    def _get_flattened_position_ids_extrapolate(self, latent_dim_h: int, latent_dim_w: int) -> torch.Tensor:
+    def _get_flattened_position_ids_extrapolate(
+        self, latent_dim_h: int, latent_dim_w: int
+    ) -> torch.Tensor:
         """Get flattened position ids extrapolate."""
         coords_h = torch.arange(0, latent_dim_h)  # [H]
         coords_w = torch.arange(0, latent_dim_w)  # [W]
         pos_ids = (coords_h[:, None] * self.max_latent_w + coords_w).flatten()  # [H*W]
         return pos_ids
 
-    def _get_flattened_position_ids_interpolate(self, latent_dim_h: int, latent_dim_w: int) -> torch.Tensor:
+    def _get_flattened_position_ids_interpolate(
+        self, latent_dim_h: int, latent_dim_w: int
+    ) -> torch.Tensor:
         """Get flattened position ids interpolate."""
-        boundaries = torch.arange(1 / self.max_latent_w, 1.0, 1 / self.max_latent_w)  # [max_latent_w-1]
+        boundaries = torch.arange(
+            1 / self.max_latent_w, 1.0, 1 / self.max_latent_w
+        )  # [max_latent_w-1]
         fractional_coords_h = torch.arange(0, 1 - 1e-6, 1 / latent_dim_h)  # [H]
         fractional_coords_w = torch.arange(0, 1 - 1e-6, 1 / latent_dim_w)  # [W]
         bucket_coords_h = torch.bucketize(fractional_coords_h, boundaries, right=True)  # [H]
         bucket_coords_w = torch.bucketize(fractional_coords_w, boundaries, right=True)  # [W]
-        pos_ids = (bucket_coords_h[:, None] * self.max_latent_w + bucket_coords_w).flatten()  # [H*W]
+        pos_ids = (
+            bucket_coords_h[:, None] * self.max_latent_w + bucket_coords_w
+        ).flatten()  # [H*W]
         return pos_ids
 
-    def _create_flattened_position_ids_packed(self, token_shapes_vision: list[tuple[int, int]]) -> torch.Tensor:
+    def _create_flattened_position_ids_packed(
+        self, token_shapes_vision: list[tuple[int, int]]
+    ) -> torch.Tensor:
         """Create flattened position ids packed."""
         flattened_position_ids = []
         for t, h, w in token_shapes_vision:
             if self.interpolate_pos:
-                flattened_position_ids.append(self._get_flattened_position_ids_interpolate(h, w))  # [H*W]
+                flattened_position_ids.append(
+                    self._get_flattened_position_ids_interpolate(h, w)
+                )  # [H*W]
             else:
-                flattened_position_ids.append(self._get_flattened_position_ids_extrapolate(h, w))  # [H*W]
+                flattened_position_ids.append(
+                    self._get_flattened_position_ids_extrapolate(h, w)
+                )  # [H*W]
         flattened_position_ids_packed = torch.cat(flattened_position_ids, dim=0)  # [N_vision]
         return flattened_position_ids_packed
 
@@ -135,10 +157,14 @@ class FlattenedSinCosPositionEmbedding(nn.Module):
         )
         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float())
 
-    def forward(self, token_shapes_vision: list[tuple[int, int]], fps: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(
+        self, token_shapes_vision: list[tuple[int, int]], fps: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         # First create 2D index array
         """Forward pass."""
-        flattened_position_ids_packed = self._create_flattened_position_ids_packed(token_shapes_vision)  # [N_vision]
+        flattened_position_ids_packed = self._create_flattened_position_ids_packed(
+            token_shapes_vision
+        )  # [N_vision]
         return self.pos_embed[flattened_position_ids_packed]  # [N_vision,hidden_size]
 
 
@@ -205,10 +231,12 @@ class VideoRopePosition3DEmb(nn.Module):
         dim_t = self._dim_t
 
         self.dim_spatial_range = (
-            torch.arange(0, dim_h, 2)[: (dim_h // 2)].float().to(self.dim_spatial_range.device) / dim_h
+            torch.arange(0, dim_h, 2)[: (dim_h // 2)].float().to(self.dim_spatial_range.device)
+            / dim_h
         )
         self.dim_temporal_range = (
-            torch.arange(0, dim_t, 2)[: (dim_t // 2)].float().to(self.dim_spatial_range.device) / dim_t
+            torch.arange(0, dim_t, 2)[: (dim_t // 2)].float().to(self.dim_spatial_range.device)
+            / dim_t
         )
 
     def generate_embeddings(
@@ -234,7 +262,7 @@ class VideoRopePosition3DEmb(nn.Module):
 
         Returns:
             Not specified in the original code snippet.
-        """
+        """  # noqa: E501
         if input_fps is not None:
             tps = input_fps / self.temporal_compression_factor
         else:
@@ -255,7 +283,7 @@ class VideoRopePosition3DEmb(nn.Module):
 
         B, T, H, W = latent_shape
         assert H <= self.max_h and W <= self.max_w, (
-            f"Input dimensions (H={H}, W={W}) exceed the maximum dimensions (max_h={self.max_h}, max_w={self.max_w})"
+            f"Input dimensions (H={H}, W={W}) exceed the maximum dimensions (max_h={self.max_h}, max_w={self.max_w})"  # noqa: E501
         )
 
         # Re-allocate buffer if current video needs more indices than what we have for self.seq
@@ -272,7 +300,7 @@ class VideoRopePosition3DEmb(nn.Module):
         if self.enable_fps_modulation:
             uniform_tps = tps is None or tps.shape == (1,)
             assert uniform_tps or B == 1 or T == 1, (
-                "For video batch, B should be 1 for non-uniform fps. For image batch, T should be 1."
+                "For video batch, B should be 1 for non-uniform fps. For image batch, T should be 1."  # noqa: E501
             )
 
             # apply sequence scaling in temporal dimension
@@ -282,7 +310,7 @@ class VideoRopePosition3DEmb(nn.Module):
             else:
                 # Calculate scaled time indices
                 # Apply start_frame_offset to the time calculation (not frame indices)
-                # This allows one to manipulate the start frame index of embeddings for cross-modality alignment.
+                # This allows one to manipulate the start frame index of embeddings for cross-modality alignment.  # noqa: E501
                 scaled_time = (frame_indices + start_frame_offset) / tps[:1] * self.base_tps  # [T]
                 half_emb_t = torch.outer(scaled_time, temporal_freqs)  # [T,dim_t/2]
         else:
@@ -325,10 +353,14 @@ class VideoRopePosition3DEmb(nn.Module):
             # Extract FPS for this specific video
             video_fps = None
             if fps is not None:
-                assert i < fps.shape[0], f"Index {i} out of bounds for fps tensor of shape {fps.shape}"
+                assert i < fps.shape[0], (
+                    f"Index {i} out of bounds for fps tensor of shape {fps.shape}"
+                )
                 video_fps = fps[i : i + 1]
 
-            embeddings = self.generate_embeddings(shape, input_fps=video_fps, start_frame_offset=start_frame_offset)
+            embeddings = self.generate_embeddings(
+                shape, input_fps=video_fps, start_frame_offset=start_frame_offset
+            )
             embeddings_packed.append(embeddings)
 
         embeddings_packed = torch.cat(embeddings_packed, dim=0)  # [N_vision,head_dim]
@@ -382,18 +414,22 @@ class TimestepEmbedder(nn.Module):
         :return: an (N, D) Tensor of positional embeddings.
         """
         half = dim // 2
-        freqs = torch.exp(-math.log(max_period) * torch.arange(start=0, end=half, dtype=torch.float32) / half).to(
-            device=t.device
-        )  # [D/2]
+        freqs = torch.exp(
+            -math.log(max_period) * torch.arange(start=0, end=half, dtype=torch.float32) / half
+        ).to(device=t.device)  # [D/2]
         args = t[:, None].float() * freqs[None]  # [N,D/2]
         embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)  # [N,D]
         if dim % 2:
-            embedding = torch.cat([embedding, torch.zeros_like(embedding[:, :1])], dim=-1)  # [N,D+1]
+            embedding = torch.cat(
+                [embedding, torch.zeros_like(embedding[:, :1])], dim=-1
+            )  # [N,D+1]
         return embedding
 
     def forward(self, t):
         """Forward pass."""
-        t_freq = self.timestep_embedding(t, self.frequency_embedding_size)  # [N,frequency_embedding_size]
+        t_freq = self.timestep_embedding(
+            t, self.frequency_embedding_size
+        )  # [N,frequency_embedding_size]
         t_emb = self.mlp(t_freq)  # [N,hidden_size]
         return t_emb
 

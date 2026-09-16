@@ -147,17 +147,24 @@ def get_3d_mrope_ids_vae_tokens(
         frame_indices = torch.arange(grid_t, dtype=torch.float32)  # [grid_t]
 
         # Apply FPS scaling: scaled_time = (frame_index + start_frame_offset) / tps * base_tps
-        scaled_t = (frame_indices + start_frame_offset) / tps * base_tps + temporal_offset  # [grid_t]
+        scaled_t = (
+            frame_indices + start_frame_offset
+        ) / tps * base_tps + temporal_offset  # [grid_t]
 
         # Expand temporal indices for all spatial positions
-        t_index = scaled_t.view(-1, 1).expand(-1, grid_h * grid_w).flatten()  # [grid_t*grid_h*grid_w]
+        t_index = (
+            scaled_t.view(-1, 1).expand(-1, grid_h * grid_w).flatten()
+        )  # [grid_t*grid_h*grid_w]
         t_dtype = torch.float32  # noqa: F841
     else:
         # No FPS modulation: use integer frame indices
-        # Apply start_frame_offset for cross-modality alignment (e.g., action tokens start at frame 1)
+        # Apply start_frame_offset for cross-modality alignment (e.g., action tokens start at frame 1)  # noqa: E501
         t_index = (
             (
-                torch.arange(grid_t, dtype=torch.long).view(-1, 1).expand(-1, grid_h * grid_w).flatten()
+                torch.arange(grid_t, dtype=torch.long)
+                .view(-1, 1)
+                .expand(-1, grid_h * grid_w)
+                .flatten()
             )  # [grid_t*grid_h*grid_w]
             + int(temporal_offset)
             + start_frame_offset

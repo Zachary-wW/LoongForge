@@ -99,7 +99,9 @@ class MemoryTracker:
         self.final_memory = self.final_memory_snapshot["allocated"]
 
         self.memory_allocated_diff = self.final_memory - self.initial_memory
-        self.memory_reserved_diff = self.final_memory_snapshot["reserved"] - self.initial_memory_snapshot["reserved"]
+        self.memory_reserved_diff = (
+            self.final_memory_snapshot["reserved"] - self.initial_memory_snapshot["reserved"]
+        )
 
         return {
             "initial_allocated_mb": self.initial_memory,
@@ -149,7 +151,9 @@ class Timer:
 
 @contextmanager
 def profile_checkpoint_operation(
-    operation_name: str = "Checkpoint Operation", track_memory: bool = True, print_rank_0_only: bool = True
+    operation_name: str = "Checkpoint Operation",
+    track_memory: bool = True,
+    print_rank_0_only: bool = True,
 ):
     """
     Context manager to profile checkpoint operations with timing and memory tracking.
@@ -226,7 +230,9 @@ def time_checkpoint_operation(func: F) -> F:
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        with profile_checkpoint_operation(operation_name=f"{func.__name__}", track_memory=True) as stats:  # noqa: F841
+        with profile_checkpoint_operation(
+            operation_name=f"{func.__name__}", track_memory=True
+        ) as stats:  # noqa: F841
             result = func(*args, **kwargs)
         return result
 
@@ -371,11 +377,11 @@ class RankProfiler:
             if memory:
                 mem = memory
                 lines.append(
-                    f"  Memory Allocated: {mem['initial_allocated_mb']:.1f} → {mem['final_allocated_mb']:.1f} MB "
+                    f"  Memory Allocated: {mem['initial_allocated_mb']:.1f} → {mem['final_allocated_mb']:.1f} MB "  # noqa: E501
                     f"(Δ {mem['allocated_diff_mb']:+.1f} MB)"
                 )
                 lines.append(
-                    f"  Memory Reserved: {mem['initial_reserved_mb']:.1f} → {mem['final_reserved_mb']:.1f} MB "
+                    f"  Memory Reserved: {mem['initial_reserved_mb']:.1f} → {mem['final_reserved_mb']:.1f} MB "  # noqa: E501
                     f"(Δ {mem['reserved_diff_mb']:+.1f} MB)"
                 )
 

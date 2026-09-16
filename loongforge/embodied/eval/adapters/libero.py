@@ -68,7 +68,9 @@ class LiberoAdapter(BaseBenchmarkAdapter):
     ) -> None:
         """Initialize the LIBERO adapter."""
         if suite_name not in SUITE_MAX_STEPS:
-            raise ValueError(f"Unknown LIBERO suite {suite_name!r}; choose one of {sorted(SUITE_MAX_STEPS)}")
+            raise ValueError(
+                f"Unknown LIBERO suite {suite_name!r}; choose one of {sorted(SUITE_MAX_STEPS)}"
+            )
         self.suite_name = suite_name
         self.robot_setup = robot_setup
         self.control_hz = control_hz
@@ -102,7 +104,11 @@ class LiberoAdapter(BaseBenchmarkAdapter):
             # Full 2-DoF finger qpos (Panda: [+finger, -finger]); models needing
             # the native 2D gripper state (e.g. GR00T libero_panda) read this.
             "gripper_qpos": np.asarray(gripper_qpos, dtype=np.float32),
-            "ee_ori_mat": (np.asarray(ctrl_ee_ori_mat, dtype=np.float32) if ctrl_ee_ori_mat is not None else None),
+            "ee_ori_mat": (
+                np.asarray(ctrl_ee_ori_mat, dtype=np.float32)
+                if ctrl_ee_ori_mat is not None
+                else None
+            ),
         }
 
         return {
@@ -136,11 +142,17 @@ class LiberoAdapter(BaseBenchmarkAdapter):
             },
         }
 
-    def action_from_canonical(self, canonical_action: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> Any:
+    def action_from_canonical(
+        self, canonical_action: Dict[str, Any], context: Optional[Dict[str, Any]] = None
+    ) -> Any:
         """Run action_from_canonical."""
         if "world_vector" in canonical_action:
-            world_vector = np.asarray(canonical_action["world_vector"], dtype=np.float32).reshape(-1)
-            rotation_delta = np.asarray(canonical_action["rotation_delta"], dtype=np.float32).reshape(-1)
+            world_vector = np.asarray(canonical_action["world_vector"], dtype=np.float32).reshape(
+                -1
+            )
+            rotation_delta = np.asarray(
+                canonical_action["rotation_delta"], dtype=np.float32
+            ).reshape(-1)
             gripper_value = canonical_action["gripper"]
         elif "actions" in canonical_action:
             flat = np.asarray(canonical_action["actions"], dtype=np.float32).reshape(-1)
@@ -148,17 +160,25 @@ class LiberoAdapter(BaseBenchmarkAdapter):
             rotation_delta = flat[3:6]
             gripper_value = flat[6]
         else:
-            raise ValueError("Canonical action must contain either structured fields or `actions` flat array")
+            raise ValueError(
+                "Canonical action must contain either structured fields or `actions` flat array"
+            )
 
         if world_vector.size != 3 or rotation_delta.size != 3:
-            raise ValueError(f"Invalid LIBERO action shape: world={world_vector.shape}, rot={rotation_delta.shape}")
+            raise ValueError(
+                f"Invalid LIBERO action shape: world={world_vector.shape}, rot={rotation_delta.shape}"  # noqa: E501
+            )
 
         gripper = (
             np.asarray([float(gripper_value)], dtype=np.float32)
             if self.continuous_gripper
             else binarize_gripper_open(gripper_value)
         )
-        return np.concatenate([world_vector, rotation_delta, gripper], axis=0).astype(np.float32).tolist()
+        return (
+            np.concatenate([world_vector, rotation_delta, gripper], axis=0)
+            .astype(np.float32)
+            .tolist()
+        )
 
     def get_eval_context(self) -> Dict[str, Any]:
         """Run get_eval_context."""

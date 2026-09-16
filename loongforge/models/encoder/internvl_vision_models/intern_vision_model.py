@@ -160,7 +160,9 @@ class InternVisionModel(BaseMegatronVisionModule):
         # N, W, H * scale, C // scale --> N, H * scale, W, C // scale
         x = x.permute(0, 2, 1, 3).contiguous()
         # N, H * scale, W, C // scale --> N, H * scale, W * scale, C // (scale ** 2)
-        x = x.view(n, int(h * scale_factor), int(w * scale_factor), int(c / (scale_factor * scale_factor)))
+        x = x.view(
+            n, int(h * scale_factor), int(w * scale_factor), int(c / (scale_factor * scale_factor))
+        )
         if self.ps_version == "v1":
             warnings.warn(
                 "In ps_version 'v1', the height and width have not been swapped back, "
@@ -173,7 +175,9 @@ class InternVisionModel(BaseMegatronVisionModule):
     def forward(
         self,
         pixel_values: Optional[torch.FloatTensor] = None,
-        output_hidden_states: Optional[bool] = None,  # TODO add support for return intermediate hidden states
+        output_hidden_states: Optional[
+            bool
+        ] = None,  # TODO add support for return intermediate hidden states
         return_dict: Optional[bool] = None,
         pixel_embeds: Optional[torch.FloatTensor] = None,
         **kwargs,  # Accept additional keyword arguments to handle unexpected parameters
@@ -199,7 +203,7 @@ class InternVisionModel(BaseMegatronVisionModule):
         Raises:
             ValueError: When both pixel_values and pixel_embeds are None
             ValueError: When shape of pixel_values is not 4-dimensional
-        """
+        """  # noqa: E501
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         if pixel_values is None and pixel_embeds is None:
@@ -234,8 +238,12 @@ class InternVisionModel(BaseMegatronVisionModule):
         last_hidden_state = last_hidden_state[:, 1:, :]
         h = w = int(last_hidden_state.shape[1] ** 0.5)
         last_hidden_state = last_hidden_state.reshape(last_hidden_state.shape[0], h, w, -1)
-        last_hidden_state = self.pixel_shuffle(last_hidden_state, scale_factor=self.config.downsample_ratio)
-        output = last_hidden_state.reshape(last_hidden_state.shape[0], -1, last_hidden_state.shape[-1])
+        last_hidden_state = self.pixel_shuffle(
+            last_hidden_state, scale_factor=self.config.downsample_ratio
+        )
+        output = last_hidden_state.reshape(
+            last_hidden_state.shape[0], -1, last_hidden_state.shape[-1]
+        )
         # TODO add support for return intermediate hidden states
         # if not return_dict:
         #     return (last_hidden_state, pooled_output, None)
@@ -258,8 +266,14 @@ class InternVisionModel(BaseMegatronVisionModule):
         pos_emb = self.embeddings.position_embedding
         _, num_positions, embed_dim = pos_emb.shape
         cls_emb = pos_emb[:, :1, :]
-        pos_emb = pos_emb[:, 1:, :].reshape(1, old_size // patch_size, old_size // patch_size, -1).permute(0, 3, 1, 2)
-        pos_emb = F.interpolate(pos_emb.float(), size=new_size // patch_size, mode="bicubic", align_corners=False)
+        pos_emb = (
+            pos_emb[:, 1:, :]
+            .reshape(1, old_size // patch_size, old_size // patch_size, -1)
+            .permute(0, 3, 1, 2)
+        )
+        pos_emb = F.interpolate(
+            pos_emb.float(), size=new_size // patch_size, mode="bicubic", align_corners=False
+        )
         pos_emb = pos_emb.to(cls_emb.dtype).reshape(1, embed_dim, -1).permute(0, 2, 1)
         pos_emb = torch.cat([cls_emb, pos_emb], dim=1)
         self.embeddings.position_embedding = nn.Parameter(pos_emb)

@@ -64,7 +64,9 @@ class DomainAwareLinear(nn.Module):
         B = domain_id.shape[0]
 
         # Retrieve per-sample weights: [B, input_size, output_size]
-        W = self.fc(domain_id).view(B, self.input_size, self.output_size)  # [B,input_size,output_size]
+        W = self.fc(domain_id).view(
+            B, self.input_size, self.output_size
+        )  # [B,input_size,output_size]
 
         # Retrieve per-sample biases: [B, output_size]
         b = self.bias(domain_id).view(B, self.output_size)  # [B,output_size]

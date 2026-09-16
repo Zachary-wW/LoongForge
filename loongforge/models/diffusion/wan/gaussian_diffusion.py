@@ -78,7 +78,9 @@ class LossType(enum.Enum):
         return self == LossType.KL or self == LossType.RESCALED_KL
 
 
-def _warmup_beta(beta_start: float, beta_end: float, num_diffusion_timesteps: int, warmup_frac: float) -> torch.Tensor:
+def _warmup_beta(
+    beta_start: float, beta_end: float, num_diffusion_timesteps: int, warmup_frac: float
+) -> torch.Tensor:
     """
     Beta schedule for a linear warmup from beta_start to beta_end.
     """
@@ -118,7 +120,9 @@ def get_beta_schedule(
     elif beta_schedule == "const":
         betas = beta_end * torch.ones(num_diffusion_timesteps, dtype=torch.float64)
     elif beta_schedule == "jsd":  # 1/T, 1/(T-1), 1/(T-2), ..., 1
-        betas = 1.0 / torch.linspace(num_diffusion_timesteps, 1, num_diffusion_timesteps, dtype=torch.float64)
+        betas = 1.0 / torch.linspace(
+            num_diffusion_timesteps, 1, num_diffusion_timesteps, dtype=torch.float64
+        )
     else:
         raise NotImplementedError(beta_schedule)
     assert betas.shape == (num_diffusion_timesteps,)
@@ -201,8 +205,12 @@ class GaussianDiffusion:
 
         alphas = 1.0 - self.betas
         self.alphas_cumprod = torch.cumprod(alphas, axis=0)
-        self.alphas_cumprod_prev = torch.cat([torch.tensor([1.0], device=self.device), self.alphas_cumprod[:-1]])
-        self.alphas_cumprod_next = torch.cat([self.alphas_cumprod[1:], torch.tensor([0.0], device=self.device)])
+        self.alphas_cumprod_prev = torch.cat(
+            [torch.tensor([1.0], device=self.device), self.alphas_cumprod[:-1]]
+        )
+        self.alphas_cumprod_next = torch.cat(
+            [self.alphas_cumprod[1:], torch.tensor([0.0], device=self.device)]
+        )
         assert self.alphas_cumprod_prev.shape == (self.num_timesteps,)
 
         # calculations for diffusion q(x_t | x_{t-1}) and others
@@ -213,8 +221,10 @@ class GaussianDiffusion:
         self.sqrt_recipm1_alphas_cumprod = torch.sqrt(1.0 / self.alphas_cumprod - 1)
 
         # calculations for posterior q(x_{t-1} | x_t, x_0)
-        self.posterior_variance = self.betas * (1.0 - self.alphas_cumprod_prev) / (1.0 - self.alphas_cumprod)
-        # below: log calculation clipped because the posterior variance is 0 at the beginning of the diffusion chain
+        self.posterior_variance = (
+            self.betas * (1.0 - self.alphas_cumprod_prev) / (1.0 - self.alphas_cumprod)
+        )
+        # below: log calculation clipped because the posterior variance is 0 at the beginning of the diffusion chain  # noqa: E501
         self.posterior_log_variance_clipped = (
             torch.log(
                 torch.cat(
@@ -228,8 +238,12 @@ class GaussianDiffusion:
             else torch.DoubleTensor([])
         )
 
-        self.posterior_mean_coef1 = self.betas * torch.sqrt(self.alphas_cumprod_prev) / (1.0 - self.alphas_cumprod)
-        self.posterior_mean_coef2 = (1.0 - self.alphas_cumprod_prev) * torch.sqrt(alphas) / (1.0 - self.alphas_cumprod)
+        self.posterior_mean_coef1 = (
+            self.betas * torch.sqrt(self.alphas_cumprod_prev) / (1.0 - self.alphas_cumprod)
+        )
+        self.posterior_mean_coef2 = (
+            (1.0 - self.alphas_cumprod_prev) * torch.sqrt(alphas) / (1.0 - self.alphas_cumprod)
+        )
 
     def q_mean_variance(self, x_start, t):
         """
@@ -271,7 +285,9 @@ class GaussianDiffusion:
             + _extract_into_tensor(self.posterior_mean_coef2, t, x_t.shape) * x_t
         )
         posterior_variance = _extract_into_tensor(self.posterior_variance, t, x_t.shape)
-        posterior_log_variance_clipped = _extract_into_tensor(self.posterior_log_variance_clipped, t, x_t.shape)
+        posterior_log_variance_clipped = _extract_into_tensor(
+            self.posterior_log_variance_clipped, t, x_t.shape
+        )
         assert (
             posterior_mean.shape[0]
             == posterior_variance.shape[0]
@@ -346,7 +362,9 @@ class GaussianDiffusion:
         if self.model_mean_type == ModelMeanType.START_X:
             pred_xstart = process_xstart(model_output)
         else:
-            pred_xstart = process_xstart(self._predict_xstart_from_eps(x_t=x, t=t, eps=model_output))
+            pred_xstart = process_xstart(
+                self._predict_xstart_from_eps(x_t=x, t=t, eps=model_output)
+            )
         model_mean, _, _ = self.q_posterior_mean_variance(x_start=pred_xstart, x_t=x, t=t)
 
         assert model_mean.shape == model_log_variance.shape == pred_xstart.shape == x.shape
@@ -435,9 +453,11 @@ class GaussianDiffusion:
             # x0: copy unchanged x values
             # x_noise: add noise to x values
             x0 = x.clone()
-            x_noise = x0 * _extract_into_tensor(self.sqrt_alphas_cumprod, t, x.shape) + torch.randn_like(
-                x
-            ) * _extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, x.shape)
+            x_noise = x0 * _extract_into_tensor(
+                self.sqrt_alphas_cumprod, t, x.shape
+            ) + torch.randn_like(x) * _extract_into_tensor(
+                self.sqrt_one_minus_alphas_cumprod, t, x.shape
+            )
 
             # active noise addition
             mask_t_equall = (mask_t == t.unsqueeze(1))[:, None, :, None, None]
@@ -457,7 +477,9 @@ class GaussianDiffusion:
             model_kwargs=model_kwargs,
         )
         noise = torch.randn_like(x)
-        nonzero_mask = (t != 0).float().view(-1, *([1] * (len(x.shape) - 1)))  # no noise when t == 0
+        nonzero_mask = (
+            (t != 0).float().view(-1, *([1] * (len(x.shape) - 1)))
+        )  # no noise when t == 0
         if cond_fn is not None:
             out["mean"] = self.condition_mean(cond_fn, out, x, t, model_kwargs=model_kwargs)
         sample = out["mean"] + nonzero_mask * torch.exp(0.5 * out["log_variance"]) * noise
@@ -598,11 +620,20 @@ class GaussianDiffusion:
 
         alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
         alpha_bar_prev = _extract_into_tensor(self.alphas_cumprod_prev, t, x.shape)
-        sigma = eta * torch.sqrt((1 - alpha_bar_prev) / (1 - alpha_bar)) * torch.sqrt(1 - alpha_bar / alpha_bar_prev)
+        sigma = (
+            eta
+            * torch.sqrt((1 - alpha_bar_prev) / (1 - alpha_bar))
+            * torch.sqrt(1 - alpha_bar / alpha_bar_prev)
+        )
         # Equation 12.
         noise = torch.randn_like(x)
-        mean_pred = out["pred_xstart"] * torch.sqrt(alpha_bar_prev) + torch.sqrt(1 - alpha_bar_prev - sigma**2) * eps
-        nonzero_mask = (t != 0).float().view(-1, *([1] * (len(x.shape) - 1)))  # no noise when t == 0
+        mean_pred = (
+            out["pred_xstart"] * torch.sqrt(alpha_bar_prev)
+            + torch.sqrt(1 - alpha_bar_prev - sigma**2) * eps
+        )
+        nonzero_mask = (
+            (t != 0).float().view(-1, *([1] * (len(x.shape) - 1)))
+        )  # no noise when t == 0
         sample = mean_pred + nonzero_mask * sigma * noise
         return {"sample": sample, "pred_xstart": out["pred_xstart"]}
 
@@ -634,12 +665,15 @@ class GaussianDiffusion:
         # Usually our model outputs epsilon, but we re-derive it
         # in case we used x_start or x_prev prediction.
         eps = (
-            _extract_into_tensor(self.sqrt_recip_alphas_cumprod, t, x.shape) * x - out["pred_xstart"]
+            _extract_into_tensor(self.sqrt_recip_alphas_cumprod, t, x.shape) * x
+            - out["pred_xstart"]
         ) / _extract_into_tensor(self.sqrt_recipm1_alphas_cumprod, t, x.shape)
         alpha_bar_next = _extract_into_tensor(self.alphas_cumprod_next, t, x.shape)
 
         # Equation 12. reversed
-        mean_pred = out["pred_xstart"] * torch.sqrt(alpha_bar_next) + torch.sqrt(1 - alpha_bar_next) * eps
+        mean_pred = (
+            out["pred_xstart"] * torch.sqrt(alpha_bar_next) + torch.sqrt(1 - alpha_bar_next) * eps
+        )
 
         return {"sample": mean_pred, "pred_xstart": out["pred_xstart"]}
 
@@ -725,7 +759,9 @@ class GaussianDiffusion:
                 yield out
                 img = out["sample"]
 
-    def _vb_terms_bpd(self, model, x_start, x_t, t, clip_denoised=True, model_kwargs=None, mask=None):
+    def _vb_terms_bpd(
+        self, model, x_start, x_t, t, clip_denoised=True, model_kwargs=None, mask=None
+    ):
         """
         Get a term for the variational lower-bound.
         The resulting units are bits (rather than nats, as one might expect).
@@ -734,8 +770,12 @@ class GaussianDiffusion:
                  - 'output': a shape [N] tensor of NLLs or KLs.
                  - 'pred_xstart': the x_0 predictions.
         """
-        true_mean, _, true_log_variance_clipped = self.q_posterior_mean_variance(x_start=x_start, x_t=x_t, t=t)
-        out = self.p_mean_variance(model, x_t, t, clip_denoised=clip_denoised, model_kwargs=model_kwargs)
+        true_mean, _, true_log_variance_clipped = self.q_posterior_mean_variance(
+            x_start=x_start, x_t=x_t, t=t
+        )
+        out = self.p_mean_variance(
+            model, x_t, t, clip_denoised=clip_denoised, model_kwargs=model_kwargs
+        )
         kl = normal_kl(true_mean, true_log_variance_clipped, out["mean"], out["log_variance"])
         kl = mean_flat(kl, mask=mask) / np.log(2.0)
 

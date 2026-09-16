@@ -65,7 +65,9 @@ def _recipe_kwargs(recipe_name: str, recipe_args, te_recipe) -> dict:
     )
     if fp8_format is not None:
         if recipe_name == "mxfp8" and raw_format.lower() == "e5m2":
-            raise ValueError("--fp8-te-format=e5m2 is not supported by MXFP8BlockScaling; use e4m3 or hybrid.")
+            raise ValueError(
+                "--fp8-te-format=e5m2 is not supported by MXFP8BlockScaling; use e4m3 or hybrid."
+            )
         kwargs["fp8_format"] = fp8_format
 
     if recipe_name == "delayed":
@@ -98,7 +100,8 @@ def build_fp8_recipe(recipe_name: str, recipe_args=None):
         class_name = _RECIPE_CLASSES[recipe_name]
     except KeyError:
         raise ValueError(
-            f"Unknown --fp8-recipe {recipe_name!r}; expected one of " + ", ".join(FP8_RECIPE_CHOICES)
+            f"Unknown --fp8-recipe {recipe_name!r}; expected one of "
+            + ", ".join(FP8_RECIPE_CHOICES)
         ) from None
 
     te_recipe = _import_te_recipe()
@@ -106,7 +109,7 @@ def build_fp8_recipe(recipe_name: str, recipe_args=None):
     recipe_cls = getattr(te_recipe, class_name, None)
     if recipe_cls is None:
         raise RuntimeError(
-            f"--fp8-recipe={recipe_name} needs {class_name}, which this TransformerEngine build does not provide."
+            f"--fp8-recipe={recipe_name} needs {class_name}, which this TransformerEngine build does not provide."  # noqa: E501
         )
     recipe_kwargs = _recipe_kwargs(recipe_name, recipe_args, te_recipe)
     unsupported_kwargs = set(recipe_kwargs).difference(inspect.signature(recipe_cls).parameters)

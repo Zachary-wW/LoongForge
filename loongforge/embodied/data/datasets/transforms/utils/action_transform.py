@@ -110,7 +110,9 @@ class ActionTransform(BaseTransform):
                     value = value[: self.action_horizon]
                 elif T < self.action_horizon:
                     if self.padding_strategy == "zero":
-                        pad = torch.zeros(self.action_horizon - T, value.shape[-1], dtype=value.dtype)
+                        pad = torch.zeros(
+                            self.action_horizon - T, value.shape[-1], dtype=value.dtype
+                        )
                     elif self.padding_strategy == "repeat_last":
                         pad = value[-1:].expand(self.action_horizon - T, -1)
                     value = torch.cat([value, pad], dim=0)

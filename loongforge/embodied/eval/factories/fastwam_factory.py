@@ -111,7 +111,9 @@ class FastWAMModelFactory:
 
         ckpt_path = str(Path(server_args.ckpt_path).expanduser()) if server_args.ckpt_path else ""
         resolved_device = torch.device(
-            server_args.device if torch.cuda.is_available() or not server_args.device.startswith("cuda") else "cpu"
+            server_args.device
+            if torch.cuda.is_available() or not server_args.device.startswith("cuda")
+            else "cpu"
         )
 
         model = build_model(model_cfg)
@@ -154,7 +156,9 @@ class FastWAMModelFactory:
             _chunk_execute_steps = _raw_chunk_steps
 
         def _predict_action_wrapper(images, instructions, state=None, dataset_stats=None, **kwargs):
-            result = _orig_predict_action(images, instructions, state=state, dataset_stats=dataset_stats)
+            result = _orig_predict_action(
+                images, instructions, state=state, dataset_stats=dataset_stats
+            )
             # predict_action returns [B, H, 7]; index 0 is batch, not horizon.
             if _chunk_execute_steps > 0 and getattr(result, "ndim", 0) >= 2:
                 if result.ndim == 3 and result.shape[1] > _chunk_execute_steps:

@@ -118,7 +118,9 @@ class DSv4HybridAttention(Attention):
         assert not self.checkpoint_core_attention, (
             "Checkpoint core attention is not supported in DSv4 Hybrid Attention."
         )
-        assert not self.offload_qkv_linear, "Offload qkv linear is not supported in DSv4 Hybrid Attention."
+        assert not self.offload_qkv_linear, (
+            "Offload qkv linear is not supported in DSv4 Hybrid Attention."
+        )
 
         self.query_projection_size = self.config.v_head_dim * self.config.num_attention_heads
 
@@ -128,7 +130,8 @@ class DSv4HybridAttention(Attention):
         self.val_hidden_size = self.config.v_head_dim
 
         self.recompute_up_proj = (
-            self.config.recompute_granularity == "selective" and "mla_up_proj" in self.config.recompute_modules
+            self.config.recompute_granularity == "selective"
+            and "mla_up_proj" in self.config.recompute_modules
         )
         self.qkv_up_checkpoint = None
 
@@ -148,8 +151,12 @@ class DSv4HybridAttention(Attention):
 
         # Match Community RoPE by disabling Yarn and fused Yarn RoPE on these layers.
         self._dsv4_disable_yarn_rope_for_ratio0 = compress_ratio == 0
-        self._dsv4_effective_rope_type = "rope" if self._dsv4_disable_yarn_rope_for_ratio0 else self.config.rope_type
-        self._dsv4_apply_rope_fusion = self.config.apply_rope_fusion and not self._dsv4_disable_yarn_rope_for_ratio0
+        self._dsv4_effective_rope_type = (
+            "rope" if self._dsv4_disable_yarn_rope_for_ratio0 else self.config.rope_type
+        )
+        self._dsv4_apply_rope_fusion = (
+            self.config.apply_rope_fusion and not self._dsv4_disable_yarn_rope_for_ratio0
+        )
         # Community keeps the full qk_pos_emb_head_dim rotary dimension for ratio-0 W layers.
         # Some configs still carry rotary_percent=0.125 for Yarn, which would rotate only 8/64 dims.
         self._dsv4_effective_rotary_percent = (
@@ -177,7 +184,7 @@ class DSv4HybridAttention(Attention):
             )
         else:
             raise ValueError(
-                f"Unsupported RoPE type: {self._dsv4_effective_rope_type}, supported types are 'rope' and 'yarn'"
+                f"Unsupported RoPE type: {self._dsv4_effective_rope_type}, supported types are 'rope' and 'yarn'"  # noqa: E501
             )
 
         core_attn_extra_kwargs = {
@@ -241,7 +248,11 @@ class DSv4HybridAttention(Attention):
             HAVE_TE
             and isinstance(self.linear_proj, TELinear)
             and (
-                (self.config.fp8 and self.config.fp8_recipe != "delayed" and is_te_min_version("2.6.0dev0"))
+                (
+                    self.config.fp8
+                    and self.config.fp8_recipe != "delayed"
+                    and is_te_min_version("2.6.0dev0")
+                )
                 or (self.config.fp4 and is_te_min_version("2.7.0.dev0"))
             )
         ):
@@ -269,10 +280,18 @@ class DSv4HybridAttention(Attention):
         inference_params=None,
     ):
         """Forward pass for DeepSeek-v4 Hybrid Attention"""
-        assert rotary_pos_emb is None, "Rotary position embeddings should not be passed into DSv4HybridAttention."
-        assert attention_bias is None, "Attention bias should not be passed into DSv4HybridAttention."
-        assert rotary_pos_cos is None and rotary_pos_sin is None, "DSv4HybridAttention does not support Flash Decoding"
-        assert not rotary_pos_cos_sin, "Flash-infer rope has not been tested with DSv4HybridAttention."
+        assert rotary_pos_emb is None, (
+            "Rotary position embeddings should not be passed into DSv4HybridAttention."
+        )
+        assert attention_bias is None, (
+            "Attention bias should not be passed into DSv4HybridAttention."
+        )
+        assert rotary_pos_cos is None and rotary_pos_sin is None, (
+            "DSv4HybridAttention does not support Flash Decoding"
+        )
+        assert not rotary_pos_cos_sin, (
+            "Flash-infer rope has not been tested with DSv4HybridAttention."
+        )
         assert inference_context is None and inference_params is None, (
             "Inference is not supported for DSv4HybridAttention."
         )
@@ -286,7 +305,9 @@ class DSv4HybridAttention(Attention):
         # --- Context Parallel: left-boundary window exchange ---
         cp_size = self.pg_collection.cp.size() if self.pg_collection.cp is not None else 1
         use_thd_cp = (
-            cp_size > 1 and packed_seq_params is not None and getattr(packed_seq_params, "qkv_format", None) == "thd"
+            cp_size > 1
+            and packed_seq_params is not None
+            and getattr(packed_seq_params, "qkv_format", None) == "thd"
         )
         boundary_hidden = None
         boundary_kv = None
@@ -302,13 +323,15 @@ class DSv4HybridAttention(Attention):
                 self.pg_collection.cp,
             )
 
-        query, key, value, q_compressed, kv_compressed, boundary_kv = self.get_query_key_value_tensors(
-            hidden_states,
-            key_value_states,
-            position_ids,
-            packed_seq_params,
-            inference_context=inference_context,
-            boundary_hidden=boundary_hidden,
+        query, key, value, q_compressed, kv_compressed, boundary_kv = (
+            self.get_query_key_value_tensors(
+                hidden_states,
+                key_value_states,
+                position_ids,
+                packed_seq_params,
+                inference_context=inference_context,
+                boundary_hidden=boundary_hidden,
+            )
         )
 
         # TODO: Currently, TE can only accept contiguous tensors for MLA
@@ -320,7 +343,9 @@ class DSv4HybridAttention(Attention):
         # core attention computation
         # ==================================
         # Need corresponding TE change
-        core_attn_manager = _ActivationOffloadContext(self.offload_core_attention and self.training, query, "core_attn")
+        core_attn_manager = _ActivationOffloadContext(
+            self.offload_core_attention and self.training, query, "core_attn"
+        )
         with core_attn_manager as query:
             core_attn_out = self.core_attention(
                 query,
@@ -333,7 +358,9 @@ class DSv4HybridAttention(Attention):
                 boundary_hidden=boundary_hidden if use_thd_cp else None,
                 boundary_kv=boundary_kv if use_thd_cp else None,
             )
-        core_attn_out = core_attn_manager.group_offload(core_attn_out, forced_released_tensors=[query, key, value])
+        core_attn_out = core_attn_manager.group_offload(
+            core_attn_out, forced_released_tensors=[query, key, value]
+        )
         if packed_seq_params is not None and packed_seq_params.qkv_format == "thd":
             # reshape to same output shape as unpacked case
             # (t, np, hn) -> (t, b=1, h=np*hn)
@@ -379,7 +406,9 @@ class DSv4HybridAttention(Attention):
                 )
                 rotary_pos_emb = None
                 assert inference_context is None, "Inference with MLA RoPE fusion is not supported"
-                assert fused_mla_rope_inplace is not None, "Fused MLA RoPE apply is not imported successfully"
+                assert fused_mla_rope_inplace is not None, (
+                    "Fused MLA RoPE apply is not imported successfully"
+                )
             else:
                 rotary_pos_emb, mscale = self.rotary_pos_emb(rope_seqlen, packed_seq=packed_seq)
                 # DSv4 reference (DS-Inf) RoPE is pure rotation (norm-preserving). Yarn's
@@ -437,7 +466,9 @@ class DSv4HybridAttention(Attention):
                 inverse=True,
             )
         else:
-            content_part, rot_part = torch.split(core_attn_out, [core_attn_out.size(-1) - pos_dim, pos_dim], dim=-1)
+            content_part, rot_part = torch.split(
+                core_attn_out, [core_attn_out.size(-1) - pos_dim, pos_dim], dim=-1
+            )
             if packed_seq:
                 rot_part = rot_part.squeeze(1)
             rot_part = apply_dsv4_rotary_pos_emb(
@@ -455,15 +486,21 @@ class DSv4HybridAttention(Attention):
         core_attn_out = core_attn_out.view(seq_len, core_attn_out.size(1), -1)
 
         # Grouped output
-        core_attn_out = core_attn_out.view(core_attn_out.size(0), core_attn_out.size(1), self.o_local_groups, -1)
-        wo_a_weight = self.linear_o_group_proj.view(self.o_local_groups, self.config.o_lora_rank, -1)
+        core_attn_out = core_attn_out.view(
+            core_attn_out.size(0), core_attn_out.size(1), self.o_local_groups, -1
+        )
+        wo_a_weight = self.linear_o_group_proj.view(
+            self.o_local_groups, self.config.o_lora_rank, -1
+        )
         core_attn_out = torch.einsum("...gd,grd->...gr", core_attn_out, wo_a_weight)
         core_attn_out = core_attn_out.reshape(*core_attn_out.shape[:-2], -1)
 
         # =================
         # Output. [sq, b, h]
         # =================
-        attn_proj_manager = _ActivationOffloadContext(self.offload_attn_proj, core_attn_out, "attn_proj")
+        attn_proj_manager = _ActivationOffloadContext(
+            self.offload_attn_proj, core_attn_out, "attn_proj"
+        )
         with attn_proj_manager as core_attn_out:
             output, bias = self.linear_proj(core_attn_out)
         output = attn_proj_manager.group_offload(output, forced_released_tensors=[core_attn_out])
@@ -596,7 +633,9 @@ class DSv4HybridSelfAttention(DSv4HybridAttention):
         """
         # s = sequence length, b = batch size, h = hidden size, n = num attention heads
         # Attention heads [s, b, n*h]
-        assert hidden_states.ndim == 3, f"hidden_states should be 3D, [s, b, n*h], got {hidden_states.ndim}D"
+        assert hidden_states.ndim == 3, (
+            f"hidden_states should be 3D, [s, b, n*h], got {hidden_states.ndim}D"
+        )
 
         assert inference_context is None and inference_params is None, (
             "Inference is not supported for DSv4HybridSelfAttention."
@@ -628,7 +667,9 @@ class DSv4HybridSelfAttention(DSv4HybridAttention):
                 )
                 rotary_pos_emb = None
                 assert inference_context is None, "Inference with MLA RoPE fusion is not supported"
-                assert fused_mla_rope_inplace is not None, "Fused MLA RoPE apply is not imported successfully"
+                assert fused_mla_rope_inplace is not None, (
+                    "Fused MLA RoPE apply is not imported successfully"
+                )
             else:
                 rotary_pos_emb, mscale = self.rotary_pos_emb(rotary_seq_len, packed_seq=packed_seq)
                 # DSv4 reference (DS-Inf) RoPE is pure rotation (norm-preserving). Yarn's
@@ -802,7 +843,9 @@ class DSv4HybridSelfAttention(DSv4HybridAttention):
 
                 # q_no_pe: [num_tokens, n, qk_head_dim]
                 # q_pos_emb: [num_tokens, n, qk_pos_emb_head_dim]
-                q_no_pe, q_pos_emb = torch.split(q, [self.config.qk_head_dim, self.config.qk_pos_emb_head_dim], dim=-1)
+                q_no_pe, q_pos_emb = torch.split(
+                    q, [self.config.qk_head_dim, self.config.qk_pos_emb_head_dim], dim=-1
+                )
 
                 # RoPE and query (shared for wkv and latent)
                 # q_pos_emb: [num_tokens, n, qk_pos_emb_head_dim]

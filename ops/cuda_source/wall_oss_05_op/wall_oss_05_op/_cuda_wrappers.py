@@ -423,7 +423,9 @@ class GetRopeIndex:
         workspace = torch.empty(work_space_size, dtype=torch.uint8, device=input_ids.device)
         batch_size = input_ids.size(0)
         seq_len = input_ids.size(1)
-        position_ids = torch.empty((3, batch_size, seq_len), dtype=torch.int64, device=input_ids.device)
+        position_ids = torch.empty(
+            (3, batch_size, seq_len), dtype=torch.int64, device=input_ids.device
+        )
         mrope_deltas = torch.empty((batch_size, 1), dtype=torch.int64, device=input_ids.device)
         get_rope_index_kernel(
             input_ids,
@@ -464,7 +466,9 @@ def get_window_index_cuda(
 
     vit_merger_window_size = window_size // spatial_merge_size // patch_size
 
-    grid_info_tensor = torch.empty((grid_thw.size(0), 6), dtype=grid_thw.dtype, device=grid_thw.device)
+    grid_info_tensor = torch.empty(
+        (grid_thw.size(0), 6), dtype=grid_thw.dtype, device=grid_thw.device
+    )
     global_totals_tensor = torch.zeros((2), dtype=grid_thw.dtype, device=grid_thw.device)
     get_totals_kernel(
         grid_thw,
@@ -486,8 +490,12 @@ def get_window_index_cuda(
         )
 
     window_indices = torch.empty(total_elements, dtype=grid_thw.dtype, device=grid_thw.device)
-    cu_window_seqlens = torch.empty((total_windows + 1), dtype=grid_thw.dtype, device=grid_thw.device)
-    window_counts_tensor = torch.empty((total_windows), dtype=grid_thw.dtype, device=grid_thw.device)
+    cu_window_seqlens = torch.empty(
+        (total_windows + 1), dtype=grid_thw.dtype, device=grid_thw.device
+    )
+    window_counts_tensor = torch.empty(
+        (total_windows), dtype=grid_thw.dtype, device=grid_thw.device
+    )
 
     max_grid_t = metadata.max_grid_t if metadata is not None else grid_thw[:, 0].max().item()
     get_window_index_kernel(
@@ -539,7 +547,9 @@ class PermuteMoETopK(torch.autograd.Function):
 
         # Device check
         if input_act.is_cpu:
-            raise RuntimeError("[Error] The input `input_act` of permute_topK op is on the device: CPU!")
+            raise RuntimeError(
+                "[Error] The input `input_act` of permute_topK op is on the device: CPU!"
+            )
 
         # Data type check
         if indices.dtype != torch.int32:
@@ -577,8 +587,12 @@ class PermuteMoETopK(torch.autograd.Function):
         temp_storage_bytes = get_storage_bytes_kernel(PermuteMoETopK.max_expanded_token_num)
         temp_storage = torch.empty(temp_storage_bytes, dtype=torch.int8, device=input_act.device)
         num_out = num_out_tokens if (num_out_tokens > 0) else (indices.size(0) * num_topK)
-        permuted_output = torch.empty((num_out, input_act.size(1)), dtype=input_act.dtype, device=input_act.device)
-        row_id_map = torch.empty((indices.size(0) * num_topK), dtype=torch.int32, device=input_act.device)
+        permuted_output = torch.empty(
+            (num_out, input_act.size(1)), dtype=input_act.dtype, device=input_act.device
+        )
+        row_id_map = torch.empty(
+            (indices.size(0) * num_topK), dtype=torch.int32, device=input_act.device
+        )
         permute_kernel(
             input_act,
             indices,
@@ -617,7 +631,9 @@ class PermuteMoETopK(torch.autograd.Function):
             dtype=permuted_act_grad.dtype,
             device=permuted_act_grad.device,
         )
-        unpermute_kernel(permuted_act_grad, row_id_map, None, unpermuted_output, num_tokens, num_topK)
+        unpermute_kernel(
+            permuted_act_grad, row_id_map, None, unpermuted_output, num_tokens, num_topK
+        )
 
         return unpermuted_output, None, None, None
 
@@ -647,7 +663,9 @@ class UnpermuteMoETopK(torch.autograd.Function):
 
         # Device check
         if input_act.is_cpu:
-            raise RuntimeError("[Error] The input `input_act` of unpermute_topK op is on the device: CPU!")
+            raise RuntimeError(
+                "[Error] The input `input_act` of unpermute_topK op is on the device: CPU!"
+            )
         if row_id_map.is_cpu:
             row_id_map = row_id_map.cuda()
         if probs is not None and probs.is_cpu:
@@ -678,7 +696,9 @@ class UnpermuteMoETopK(torch.autograd.Function):
         num_topK = probs.size(1) if probs is not None else 1
         unpermute_kernel = _m().unpermute
         num_cols = input_act.size(1)
-        unpermuted_output = torch.empty((num_tokens, num_cols), dtype=input_act.dtype, device=input_act.device)
+        unpermuted_output = torch.empty(
+            (num_tokens, num_cols), dtype=input_act.dtype, device=input_act.device
+        )
         unpermute_kernel(input_act, row_id_map, probs, unpermuted_output, num_tokens, num_topK)
 
         ctx.save_for_backward(input_act, row_id_map, probs)
@@ -711,7 +731,9 @@ class UnpermuteMoETopK(torch.autograd.Function):
                 dtype=torch.float32,
                 device=unpermuted_act_grad.device,
             )
-            unpermute_bwd_kernel(unpermuted_act_grad, input_act, row_id_map, probs, act_grad, prob_grad)
+            unpermute_bwd_kernel(
+                unpermuted_act_grad, input_act, row_id_map, probs, act_grad, prob_grad
+            )
 
         if not ctx.needs_input_grad[2]:
             prob_grad = None
@@ -816,7 +838,9 @@ class _RmsNormExactFunction(Function):
         del sq
         inv = torch.empty_like(var)
         module.rmsnorm_exact_inv(var, inv, eps)
-        out = torch.empty(hidden_states.shape, dtype=hidden_states.dtype, device=hidden_states.device)
+        out = torch.empty(
+            hidden_states.shape, dtype=hidden_states.dtype, device=hidden_states.device
+        )
         module.rmsnorm_exact_fwd_out(hidden_states, inv.reshape(-1), weight, out)
         ctx.save_for_backward(hidden_states, weight, inv)
         return out
@@ -842,7 +866,9 @@ class _RmsNormExactFunction(Function):
         g_sq2 = torch.empty_like(g_inv)
         module.rmsnorm_exact_gsq2(g_inv, inv, g_sq2, n)
         g_sq2 = g_sq2.reshape(-1)
-        dx = torch.empty(hidden_states.shape, dtype=hidden_states.dtype, device=hidden_states.device)
+        dx = torch.empty(
+            hidden_states.shape, dtype=hidden_states.dtype, device=hidden_states.device
+        )
         module.rmsnorm_exact_bwd_dx(grad_out, hidden_states, inv_flat, g_sq2, weight, dx)
         return dx, dw, None
 

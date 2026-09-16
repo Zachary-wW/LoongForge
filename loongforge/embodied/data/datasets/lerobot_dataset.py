@@ -228,7 +228,9 @@ class MultiLeRobotV3Dataset(MultiLeRobotDataset):
         if delta_timestamps_fn is not None:
             delta_timestamps = delta_timestamps_fn(self, info, fps)
         else:
-            delta_timestamps = _build_delta_timestamps(self._strategy_kwargs.get("action_horizon", 50), fps)
+            delta_timestamps = _build_delta_timestamps(
+                self._strategy_kwargs.get("action_horizon", 50), fps
+            )
 
         super().__init__(
             repo_ids=repo_ids,
@@ -241,7 +243,7 @@ class MultiLeRobotV3Dataset(MultiLeRobotDataset):
         )
 
         logger.info(
-            f"MultiLeRobotV3Dataset: repo_ids={repo_ids}, len={len(self)}, fps={fps}, video_backend={video_backend}"
+            f"MultiLeRobotV3Dataset: repo_ids={repo_ids}, len={len(self)}, fps={fps}, video_backend={video_backend}"  # noqa: E501
         )
 
     def __len__(self):
@@ -347,7 +349,9 @@ class LeRobotV2Dataset(Dataset):
             if stats_path.exists():
                 with open(stats_path) as f:
                     raw = json.load(f)
-                self._stats = {k: {sk: torch.tensor(sv) for sk, sv in v.items()} for k, v in raw.items()}
+                self._stats = {
+                    k: {sk: torch.tensor(sv) for sk, sv in v.items()} for k, v in raw.items()
+                }
             else:
                 # v2.1: aggregate from episodes_stats.jsonl
                 self._stats = self._aggregate_episodes_stats()
@@ -427,15 +431,21 @@ class LeRobotV2Dataset(Dataset):
             return self._cached_ep_data
 
         chunk = episode_index // self.chunks_size
-        parquet_path = self.root / "data" / f"chunk-{chunk:03d}" / f"episode_{episode_index:06d}.parquet"
+        parquet_path = (
+            self.root / "data" / f"chunk-{chunk:03d}" / f"episode_{episode_index:06d}.parquet"
+        )
         if not parquet_path.exists():
-            parquet_path = self.root / "data" / f"{chunk:06d}" / f"episode_{episode_index:06d}.parquet"
+            parquet_path = (
+                self.root / "data" / f"{chunk:06d}" / f"episode_{episode_index:06d}.parquet"
+            )
 
         self._cached_ep_data = pd.read_parquet(parquet_path)
         self._cached_ep_idx = episode_index
         return self._cached_ep_data
 
-    def _decode_video_frame(self, video_key: str, episode_index: int, frame_index: int) -> torch.Tensor:
+    def _decode_video_frame(
+        self, video_key: str, episode_index: int, frame_index: int
+    ) -> torch.Tensor:
         """Decode a single video frame. Returns tensor [C, H, W] float32 in [0, 1]."""
         episode_chunk = episode_index // self.chunks_size
         video_path = self.root / self._video_path_tpl.format(
@@ -451,7 +461,9 @@ class LeRobotV2Dataset(Dataset):
         frame = decode_video_frame(str(video_path), timestamp, backend=self.video_backend)
         return torch.from_numpy(frame).permute(2, 0, 1).float() / 255.0
 
-    def _decode_video_frames(self, video_key: str, episode_index: int, frame_indices: List[int]) -> torch.Tensor:
+    def _decode_video_frames(
+        self, video_key: str, episode_index: int, frame_indices: List[int]
+    ) -> torch.Tensor:
         """Decode multiple video frames. Returns tensor [T, C, H, W] float32 in [0, 1]."""
         frames = [self._decode_video_frame(video_key, episode_index, fi) for fi in frame_indices]
         result = torch.stack(frames, dim=0)  # [T, C, H, W]
@@ -469,10 +481,14 @@ class LeRobotV2Dataset(Dataset):
         # Video frames
         ep_len = len(ep_data)
         for vkey in self._video_keys:
-            out_key = vkey if vkey.startswith("observation.images.") else f"observation.images.{vkey}"
+            out_key = (
+                vkey if vkey.startswith("observation.images.") else f"observation.images.{vkey}"
+            )
             if self._observation_delta_indices:
                 # Multi-frame: clamp indices within episode bounds, returns [T, C, H, W]
-                frame_indices = [min(step_idx + d, ep_len - 1) for d in self._observation_delta_indices]
+                frame_indices = [
+                    min(step_idx + d, ep_len - 1) for d in self._observation_delta_indices
+                ]
                 sample[out_key] = self._decode_video_frames(vkey, episode_index, frame_indices)
             elif vkey in ep_data.columns:
                 img_data = ep_data.iloc[step_idx][vkey]
@@ -679,7 +695,9 @@ def _build_lerobot_dataset(
                 **strategy_kwargs,
             )
     else:
-        raise ValueError(f"Unsupported lerobotdataset_version: '{lerobotdataset_version}'. Supported: v2.0, v2.1, v3.0")
+        raise ValueError(
+            f"Unsupported lerobotdataset_version: '{lerobotdataset_version}'. Supported: v2.0, v2.1, v3.0"  # noqa: E501
+        )
 
     return dataset
 

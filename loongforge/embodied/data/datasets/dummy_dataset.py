@@ -47,7 +47,9 @@ class DummyVLADataset(Dataset):
         self.image_size = image_size
         self.num_cameras = num_cameras
 
-        logger.info(f"DummyVLADataset: {num_samples} samples, action_dim={action_dim}, horizon={action_horizon}")
+        logger.info(
+            f"DummyVLADataset: {num_samples} samples, action_dim={action_dim}, horizon={action_horizon}"  # noqa: E501
+        )
 
     def __len__(self) -> int:
         return self.num_samples

@@ -25,7 +25,9 @@ def _free_port() -> int:
 def _serve(port: int) -> None:
     """Run _serve."""
     policy = MockPolicy(action_chunk_size=4)
-    PolicyServer(policy=policy, host="127.0.0.1", port=port, metadata=policy.metadata).serve_forever()
+    PolicyServer(
+        policy=policy, host="127.0.0.1", port=port, metadata=policy.metadata
+    ).serve_forever()
 
 
 def test_mock_server_conformance() -> None:

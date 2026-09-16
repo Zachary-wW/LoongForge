@@ -93,7 +93,9 @@ class ErnieRopeEmbedding(nn.Module):
             :,
             1 : self.head_dim // 2 - self.freq_allocation : 2,
         ]
-        sin_hw = torch.stack([sin_h, sin_w], dim=-1).reshape(sin_h.shape[:-1] + (sin_h.shape[-1] * 2,))
+        sin_hw = torch.stack([sin_h, sin_w], dim=-1).reshape(
+            sin_h.shape[:-1] + (sin_h.shape[-1] * 2,)
+        )
         sin_thw = torch.cat([sin_hw, sin_t], dim=-1)
 
         cos_t = cos[batch_indices, position_ids[..., 0], :, -self.freq_allocation :]
@@ -109,17 +111,23 @@ class ErnieRopeEmbedding(nn.Module):
             :,
             1 : self.head_dim // 2 - self.freq_allocation : 2,
         ]
-        cos_hw = torch.stack([cos_h, cos_w], dim=-1).reshape(cos_h.shape[:-1] + (cos_h.shape[-1] * 2,))
+        cos_hw = torch.stack([cos_h, cos_w], dim=-1).reshape(
+            cos_h.shape[:-1] + (cos_h.shape[-1] * 2,)
+        )
         cos_thw = torch.cat([cos_hw, cos_t], dim=-1)
 
         # sin [θ0,θ1,θ2......θd/2-1] -> sin_pos [θ0,θ0,θ1,θ1,θ2,θ2......θd/2-1,θd/2-1]
         sin_pos = (
-            torch.stack([sin_thw, sin_thw], dim=-1).reshape(sin_thw.shape[:3] + (sin_thw.shape[-1] * 2,))
+            torch.stack([sin_thw, sin_thw], dim=-1).reshape(
+                sin_thw.shape[:3] + (sin_thw.shape[-1] * 2,)
+            )
             # .to(current_device)
         )
         # cos [θ0,θ1,θ2......θd/2-1] -> cos_pos [θ0,θ0,θ1,θ1,θ2,θ2......θd/2-1,θd/2-1]
         cos_pos = (
-            torch.stack([cos_thw, cos_thw], dim=-1).reshape(cos_thw.shape[:3] + (cos_thw.shape[-1] * 2,))
+            torch.stack([cos_thw, cos_thw], dim=-1).reshape(
+                cos_thw.shape[:3] + (cos_thw.shape[-1] * 2,)
+            )
             # .to(current_device)
         )
         return torch.cat([sin_pos, cos_pos])

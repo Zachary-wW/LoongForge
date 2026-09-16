@@ -155,7 +155,9 @@ class LingBotVAInferenceConfig:
             if not inverse_ids or "used_action_channel_ids" in overrides:
                 continue
             sentinel = max(inverse_ids)
-            values["used_action_channel_ids"] = tuple(i for i, channel in enumerate(inverse_ids) if channel < sentinel)
+            values["used_action_channel_ids"] = tuple(
+                i for i, channel in enumerate(inverse_ids) if channel < sentinel
+            )
 
         values.update(overrides)
         if "latent_patch_size" in values:
@@ -165,12 +167,16 @@ class LingBotVAInferenceConfig:
     @property
     def torch_dtype(self) -> torch.dtype:
         """Resolve the ``dtype`` string to the matching ``torch`` dtype."""
-        return {"bfloat16": torch.bfloat16, "float16": torch.float16, "float32": torch.float32}[self.dtype]
+        return {"bfloat16": torch.bfloat16, "float16": torch.float16, "float32": torch.float32}[
+            self.dtype
+        ]
 
     def __post_init__(self) -> None:
         """Reject an unrecognized camera layout (see :data:`_CAMERA_LAYOUTS`)."""
         if self.camera_layout not in _CAMERA_LAYOUTS:
-            raise ValueError(f"unknown camera_layout {self.camera_layout!r}; expected one of {sorted(_CAMERA_LAYOUTS)}")
+            raise ValueError(
+                f"unknown camera_layout {self.camera_layout!r}; expected one of {sorted(_CAMERA_LAYOUTS)}"  # noqa: E501
+            )
 
     @property
     def attention_head_dim(self) -> int:
@@ -284,7 +290,9 @@ class LingBotVAPredictActionModel(nn.Module):
             )
         self._frozen = {
             "vae": wan_codec.load_vae(path, self.dtype, self.config.device, subfolder="vae"),
-            "text_encoder": wan_codec.load_text_encoder(path, self.dtype, self.config.device, subfolder="text_encoder"),
+            "text_encoder": wan_codec.load_text_encoder(
+                path, self.dtype, self.config.device, subfolder="text_encoder"
+            ),
             "tokenizer": wan_codec.load_tokenizer(path, subfolder="tokenizer"),
         }
 
@@ -369,7 +377,9 @@ class LingBotVAPredictActionModel(nn.Module):
             size = (cfg.height, cfg.width)
             if cfg.camera_layout == "robotwin_tshape" and idx > 0:
                 size = (cfg.height // 2, cfg.width // 2)
-            frames.append(prepare_camera_frame(image, size, self.dtype, cfg.device, hflip=cfg.image_hflip))
+            frames.append(
+                prepare_camera_frame(image, size, self.dtype, cfg.device, hflip=cfg.image_hflip)
+            )
         return frames
 
     @torch.no_grad()
@@ -391,8 +401,12 @@ class LingBotVAPredictActionModel(nn.Module):
                 [f[2] for f in obs_frames],
                 self.config.device,
             )
-        per_camera = [[frame[cam] for frame in obs_frames] for cam in range(len(self.config.obs_cam_keys))]
-        return wan_codec.encode_frames_width_concat(state.streaming_vae, per_camera, self.config.device)
+        per_camera = [
+            [frame[cam] for frame in obs_frames] for cam in range(len(self.config.obs_cam_keys))
+        ]
+        return wan_codec.encode_frames_width_concat(
+            state.streaming_vae, per_camera, self.config.device
+        )
 
     def _encode_prompt(self, state, instruction: str) -> None:
         """Encode the task prompt once per episode (plus the empty prompt when using CFG)."""
@@ -441,7 +455,8 @@ class LingBotVAPredictActionModel(nn.Module):
         if latent_input is not None:
             out["latent_res_lst"] = {
                 "noisy_latents": latent_input,
-                "timesteps": torch.ones([latent_input.shape[2]], dtype=torch.float32, device=device) * latent_t,
+                "timesteps": torch.ones([latent_input.shape[2]], dtype=torch.float32, device=device)
+                * latent_t,
                 "grid_id": get_mesh_id_streaming(
                     latent_input.shape[-3] // p[0],
                     latent_input.shape[-2] // p[1],
@@ -460,7 +475,8 @@ class LingBotVAPredictActionModel(nn.Module):
         if action_input is not None:
             out["action_res_lst"] = {
                 "noisy_latents": action_input,
-                "timesteps": torch.ones([action_input.shape[2]], dtype=torch.float32, device=device) * action_t,
+                "timesteps": torch.ones([action_input.shape[2]], dtype=torch.float32, device=device)
+                * action_t,
                 "grid_id": get_mesh_id_streaming(
                     action_input.shape[-3],
                     action_input.shape[-2],
@@ -519,8 +535,12 @@ class LingBotVAPredictActionModel(nn.Module):
         chunk = cfg.frame_chunk_size
         cfg_batch = 2 if self.use_cfg else 1
 
-        latents = torch.randn(1, cfg.latent_out_channels, chunk, latent_h, latent_w, device=device, dtype=self.dtype)
-        actions = torch.randn(1, cfg.action_dim, chunk, cfg.action_per_frame, 1, device=device, dtype=self.dtype)
+        latents = torch.randn(
+            1, cfg.latent_out_channels, chunk, latent_h, latent_w, device=device, dtype=self.dtype
+        )
+        actions = torch.randn(
+            1, cfg.action_dim, chunk, cfg.action_per_frame, 1, device=device, dtype=self.dtype
+        )
 
         timesteps = F.pad(self.scheduler.timesteps, (0, 1), mode="constant", value=0)
         if cfg.video_exec_step != -1:
@@ -531,7 +551,9 @@ class LingBotVAPredictActionModel(nn.Module):
         for i, t in enumerate(timesteps):
             last_step = i == len(timesteps) - 1
             latent_cond = (
-                init_latent[:, :, 0:1].to(self.dtype) if frame_st_id == 0 and init_latent is not None else None
+                init_latent[:, :, 0:1].to(self.dtype)
+                if frame_st_id == 0 and init_latent is not None
+                else None
             )
             streams = self._prepare_stream_inputs(
                 state, latents, None, t, t, latent_cond, None, frame_st_id=frame_st_id
@@ -552,7 +574,9 @@ class LingBotVAPredictActionModel(nn.Module):
                     batch_size=cfg_batch,
                 )
                 if cfg.guidance_scale > 1:
-                    noise_pred = noise_pred[1:] + cfg.guidance_scale * (noise_pred[:1] - noise_pred[1:])
+                    noise_pred = noise_pred[1:] + cfg.guidance_scale * (
+                        noise_pred[:1] - noise_pred[1:]
+                    )
                 else:
                     noise_pred = noise_pred[:1]
                 latents = self.scheduler.step(noise_pred, t, latents)
@@ -583,7 +607,9 @@ class LingBotVAPredictActionModel(nn.Module):
             if not last_step:
                 noise_pred = rearrange(noise_pred, "b (f n) c -> b c f n 1", f=chunk)
                 if cfg.action_guidance_scale > 1:
-                    noise_pred = noise_pred[1:] + cfg.action_guidance_scale * (noise_pred[:1] - noise_pred[1:])
+                    noise_pred = noise_pred[1:] + cfg.action_guidance_scale * (
+                        noise_pred[:1] - noise_pred[1:]
+                    )
                 else:
                     noise_pred = noise_pred[:1]
                 actions = self.action_scheduler.step(noise_pred, t, actions)
@@ -608,7 +634,9 @@ class LingBotVAPredictActionModel(nn.Module):
             latent_input = torch.cat([state.init_latent, latent_input], dim=2)
         action_input = state.executed_actions.to(latent_input)
 
-        streams = self._prepare_stream_inputs(state, latent_input, action_input, frame_st_id=state.frame_st_id)
+        streams = self._prepare_stream_inputs(
+            state, latent_input, action_input, frame_st_id=state.frame_st_id
+        )
         self.transformer(
             self._repeat_for_cfg(state, streams["latent_res_lst"]),
             update_cache=2,

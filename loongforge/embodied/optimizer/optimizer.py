@@ -77,7 +77,9 @@ class _MultiDtypeZeroOptimizer(torch.optim.Optimizer):
     def step(self, closure=None):
         """Copy model gradients to FP32 masters, step, then sync updated weights back."""
         if closure is not None:
-            raise NotImplementedError("_MultiDtypeZeroOptimizer does not support closure-based optimizers.")
+            raise NotImplementedError(
+                "_MultiDtypeZeroOptimizer does not support closure-based optimizers."
+            )
         for opt in self._optimizers:
             opt.step()
         return None
@@ -87,9 +89,11 @@ class _MultiDtypeZeroOptimizer(torch.optim.Optimizer):
         return [opt.state_dict() for opt in self._optimizers]
 
     def load_state_dict(self, state_dict):
-        """Restore each child optimizer from the corresponding state_dict, then refresh param_groups."""
+        """Restore each child optimizer from the corresponding state_dict, then refresh param_groups."""  # noqa: E501
         if len(state_dict) != len(self._optimizers):
-            raise ValueError(f"Expected {len(self._optimizers)} optimizer state dicts, got {len(state_dict)}.")
+            raise ValueError(
+                f"Expected {len(self._optimizers)} optimizer state dicts, got {len(state_dict)}."
+            )
         for opt, opt_state_dict in zip(self._optimizers, state_dict):
             opt.load_state_dict(opt_state_dict)
         self._refresh_public_optimizer_state()
@@ -139,7 +143,9 @@ class _FP32MasterOptimizerAdapter(torch.optim.Optimizer):
 
         self._owned_pairs: list[tuple[nn.Parameter, nn.Parameter]] = []
         self._model_to_master: dict[nn.Parameter, nn.Parameter] = {}
-        master_groups = [self._make_master_group(group) for group in _normalize_param_groups(params)]
+        master_groups = [
+            self._make_master_group(group) for group in _normalize_param_groups(params)
+        ]
 
         self._optimizer = self._base_optimizer_cls(master_groups, **kwargs)
         self._hook_for_profile = None
@@ -182,7 +188,9 @@ class _FP32MasterOptimizerAdapter(torch.optim.Optimizer):
     def step(self, closure=None):
         """Apply one optimizer step after copying model gradients to FP32 master weights."""
         if closure is not None:
-            raise NotImplementedError("_FP32MasterOptimizerAdapter does not support closure-based optimizers.")
+            raise NotImplementedError(
+                "_FP32MasterOptimizerAdapter does not support closure-based optimizers."
+            )
 
         for param, master in self._owned_pairs:
             if param.grad is None:
@@ -224,7 +232,9 @@ class _FP32MasterOptimizerAdapter(torch.optim.Optimizer):
         """Restore rank-local optimizer state and fp32 master weights."""
         master_params = state_dict["master_params"]
         if len(master_params) != len(self._owned_pairs):
-            raise ValueError(f"Expected {len(self._owned_pairs)} fp32 master parameters, got {len(master_params)}.")
+            raise ValueError(
+                f"Expected {len(self._owned_pairs)} fp32 master parameters, got {len(master_params)}."  # noqa: E501
+            )
 
         self._optimizer.load_state_dict(state_dict["optimizer"])
         with torch.no_grad():
@@ -257,7 +267,7 @@ def build_optimizer(model: nn.Module, training_args) -> torch.optim.Optimizer:
     - Select AdamW/Adam/SGD from ``training_args.optimizer``.
     - Use ZeRO-1 to shard optimizer states when ``--zero-optimizer`` is enabled with DDP.
     - Split mixed-dtype parameters into per-dtype ZeRO optimizers to satisfy ZeroRedundancyOptimizer dtype constraints.
-    """
+    """  # noqa: E501
 
     optimizer_name = training_args.optimizer
     if optimizer_name.lower() == "dmuon":
@@ -267,7 +277,9 @@ def build_optimizer(model: nn.Module, training_args) -> torch.optim.Optimizer:
     groups = build_param_groups(model, training_args)
     if optimizer_name not in OPTIMIZER_REGISTRY:
         supported = ", ".join(OPTIMIZER_REGISTRY)
-        raise ValueError(f"Unknown optimizer '{training_args.optimizer}'. Supported optimizers: {supported}.")
+        raise ValueError(
+            f"Unknown optimizer '{training_args.optimizer}'. Supported optimizers: {supported}."
+        )
     optimizer_cls = OPTIMIZER_REGISTRY[optimizer_name]
     if optimizer_cls is None:
         raise ImportError(
@@ -277,11 +289,15 @@ def build_optimizer(model: nn.Module, training_args) -> torch.optim.Optimizer:
 
     kwargs = {"lr": training_args.lr_base, "weight_decay": training_args.weight_decay}
     if optimizer_cls in (torch.optim.AdamW, torch.optim.Adam):
-        kwargs.update(betas=(training_args.adam_beta1, training_args.adam_beta2), eps=training_args.adam_eps)
+        kwargs.update(
+            betas=(training_args.adam_beta1, training_args.adam_beta2), eps=training_args.adam_eps
+        )
         if optimizer_name == "TorchFusedAdamW":
             kwargs["fused"] = True
     elif optimizer_name in ("TEFusedAdamW", "ApexFusedAdamW"):
-        kwargs.update(betas=(training_args.adam_beta1, training_args.adam_beta2), eps=training_args.adam_eps)
+        kwargs.update(
+            betas=(training_args.adam_beta1, training_args.adam_beta2), eps=training_args.adam_eps
+        )
         kwargs["adam_w_mode"] = True
         logger.info("Using %s optimizer", optimizer_name)
 
@@ -337,7 +353,9 @@ def build_optimizer(model: nn.Module, training_args) -> torch.optim.Optimizer:
             if len(param_dtypes) > 1:
                 # Mixed dtype: split param groups by dtype, one ZeRO optimizer per dtype
                 # (mirrors the pattern in mixed_precision_train.py)
-                logger.info(f"Mixed dtype params {param_dtypes}: using per-dtype ZeroRedundancyOptimizer")
+                logger.info(
+                    f"Mixed dtype params {param_dtypes}: using per-dtype ZeroRedundancyOptimizer"
+                )
                 dtype_groups = _split_param_groups_by_dtype(groups)
                 opts = [
                     ZeroRedundancyOptimizer(
@@ -373,7 +391,9 @@ def _as_param_list(params) -> list[nn.Parameter]:
     if isinstance(params, torch.Tensor):
         return [params]
     if isinstance(params, set):
-        raise TypeError("optimizer parameters need to be organized in ordered collections, but got a set.")
+        raise TypeError(
+            "optimizer parameters need to be organized in ordered collections, but got a set."
+        )
     return list(params)
 
 

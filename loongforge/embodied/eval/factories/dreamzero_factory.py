@@ -128,14 +128,20 @@ def _load_q99_stats(metadata_path: str, embodiment_tag: str) -> Tuple[_Q99Stats,
         metadata = json.load(f)
     entry = metadata.get(embodiment_tag) if isinstance(metadata, dict) else None
     if not isinstance(entry, dict):
-        raise ValueError(f"metadata.json at {metadata_path} has no entry for embodiment {embodiment_tag!r}")
+        raise ValueError(
+            f"metadata.json at {metadata_path} has no entry for embodiment {embodiment_tag!r}"
+        )
     stats = entry.get("statistics") or {}
     try:
         state_stats = stats["state"]["state"]
         action_stats = stats["action"]["actions"]
     except (KeyError, TypeError) as exc:
-        raise ValueError(f"metadata.json statistics missing {exc!r} (keys: {sorted(stats)})") from exc
-    return _Q99Stats(state_stats["q01"], state_stats["q99"]), _Q99Stats(action_stats["q01"], action_stats["q99"])
+        raise ValueError(
+            f"metadata.json statistics missing {exc!r} (keys: {sorted(stats)})"
+        ) from exc
+    return _Q99Stats(state_stats["q01"], state_stats["q99"]), _Q99Stats(
+        action_stats["q01"], action_stats["q99"]
+    )
 
 
 class DreamZeroLiberoEvalModel:
@@ -283,7 +289,9 @@ class DreamZeroLiberoEvalModel:
                 raise RuntimeError("DreamZero predict returned an empty action chunk")
         action = queue.popleft()
         if action.shape[0] != self._action_dim:
-            raise ValueError(f"DreamZero action dim {action.shape[0]} != expected {self._action_dim}")
+            raise ValueError(
+                f"DreamZero action dim {action.shape[0]} != expected {self._action_dim}"
+            )
         return action[None, :]
 
 
@@ -304,7 +312,9 @@ class DreamZeroModelFactory:
 
         ckpt_path = str(Path(server_args.ckpt_path).expanduser()) if server_args.ckpt_path else ""
         resolved_device = torch.device(
-            server_args.device if torch.cuda.is_available() or not server_args.device.startswith("cuda") else "cpu"
+            server_args.device
+            if torch.cuda.is_available() or not server_args.device.startswith("cuda")
+            else "cpu"
         )
 
         # The full DreamZero checkpoint (action_head.model.* keys) loads through
@@ -329,7 +339,9 @@ class DreamZeroModelFactory:
             device=resolved_device,
         )
 
-        state_stats, action_stats = _load_q99_stats(server_args.dataset_statistics_path, "libero_sim")
+        state_stats, action_stats = _load_q99_stats(
+            server_args.dataset_statistics_path, "libero_sim"
+        )
         eval_model = DreamZeroLiberoEvalModel(
             infer_model=infer_model,
             state_stats=state_stats,

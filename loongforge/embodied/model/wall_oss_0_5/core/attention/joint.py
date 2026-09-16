@@ -37,8 +37,8 @@ class JointQwen2VLAttention(nn.Module):
         self.layer_idx = layer_idx
         if layer_idx is None:
             logger.warning_once(
-                f"Instantiating {self.__class__.__name__} without passing `layer_idx` is not recommended and will "
-                "to errors during the forward call, if caching is used. Please make sure to provide a `layer_idx` "
+                f"Instantiating {self.__class__.__name__} without passing `layer_idx` is not recommended and will "  # noqa: E501
+                "to errors during the forward call, if caching is used. Please make sure to provide a `layer_idx` "  # noqa: E501
                 "when creating this class."
             )
         if not hasattr(config, "dim_inputs") or not config.dim_inputs:
@@ -46,7 +46,9 @@ class JointQwen2VLAttention(nn.Module):
 
         self.hidden_size = config.hidden_size
         self.num_heads = config.num_attention_heads
-        self.head_dim = getattr(config, "head_dim", config.hidden_size // config.num_attention_heads)
+        self.head_dim = getattr(
+            config, "head_dim", config.hidden_size // config.num_attention_heads
+        )
         self.num_key_value_heads = config.num_key_value_heads
         self.num_key_value_groups = self.num_heads // self.num_key_value_heads
         self.max_position_embeddings = config.max_position_embeddings
@@ -61,13 +63,18 @@ class JointQwen2VLAttention(nn.Module):
             raise NotImplementedError(f"Unsupported model type: {config.model_type}")
         bias_qkv = True
 
-        qkv_out_features = self.num_heads * self.head_dim + 2 * self.num_key_value_heads * self.head_dim
+        qkv_out_features = (
+            self.num_heads * self.head_dim + 2 * self.num_key_value_heads * self.head_dim
+        )
 
         self.qkv_proj_experts = nn.ModuleList(
             [nn.Linear(dim_input, qkv_out_features, bias=bias_qkv) for dim_input in self.dim_inputs]
         )
         self.o_proj_experts = nn.ModuleList(
-            [nn.Linear(self.num_heads * self.head_dim, dim_input, bias=False) for dim_input in self.dim_inputs]
+            [
+                nn.Linear(self.num_heads * self.head_dim, dim_input, bias=False)
+                for dim_input in self.dim_inputs
+            ]
         )
 
         self.rotary_emb = Qwen2_5_VLRotaryEmbedding(config=config)
@@ -135,7 +142,7 @@ class JointQwen2VLAttention(nn.Module):
             masks = [(token_types == expert_idx) for expert_idx in range(len(self.dim_inputs))]
             query_states, key_states, value_states = self._generate_qkv(hidden_states, masks)
 
-        # Because the input can be padded, the absolute sequence length depends on the max position id.
+        # Because the input can be padded, the absolute sequence length depends on the max position id.  # noqa: E501
         cos, sin = position_embeddings
         if self.config.mot_opt:
             kv_dim = self.num_key_value_heads * self.head_dim
@@ -148,12 +155,16 @@ class JointQwen2VLAttention(nn.Module):
                 sin,
                 self.rope_scaling["mrope_section"],
             )
-            query_states, key_states, value_states = torch.split(qkv_states, [q_dim, kv_dim, kv_dim], dim=-1)
+            query_states, key_states, value_states = torch.split(
+                qkv_states, [q_dim, kv_dim, kv_dim], dim=-1
+            )
             query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim)
             key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim)
             value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim)
         else:
-            query_states, key_states = self._apply_rotary_pos_embed(query_states, key_states, cos, sin, unsqueeze_dim=2)
+            query_states, key_states = self._apply_rotary_pos_embed(
+                query_states, key_states, cos, sin, unsqueeze_dim=2
+            )
         query_states = query_states.transpose(1, 2)
         key_states = key_states.transpose(1, 2)
         value_states = value_states.transpose(1, 2)
@@ -165,7 +176,9 @@ class JointQwen2VLAttention(nn.Module):
                 "cache_position": cache_position,
             }  # Specific to RoPE models
             if use_cache:
-                key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
+                key_states, value_states = past_key_value.update(
+                    key_states, value_states, self.layer_idx, cache_kwargs
+                )
             else:
                 # Compatible across transformers versions:
                 # v5.x: DynamicCache uses .layers[idx].keys/.values
@@ -186,7 +199,11 @@ class JointQwen2VLAttention(nn.Module):
         value_states = repeat_kv(value_states, self.num_key_value_groups)
 
         target_dtype = self._projection_dtype
-        if query_states.dtype != target_dtype or key_states.dtype != target_dtype or value_states.dtype != target_dtype:
+        if (
+            query_states.dtype != target_dtype
+            or key_states.dtype != target_dtype
+            or value_states.dtype != target_dtype
+        ):
             query_states = query_states.to(target_dtype)
             key_states = key_states.to(target_dtype)
             value_states = value_states.to(target_dtype)
@@ -195,7 +212,9 @@ class JointQwen2VLAttention(nn.Module):
         if attention_mask is not None:
             if len(attention_mask.shape) == 2:  # [batch_size, seq_len]
                 bsz, seq_len = attention_mask.shape
-                causal_mask = attention_mask.view(bsz, 1, 1, seq_len).expand(bsz, 1, seq_len, seq_len)
+                causal_mask = attention_mask.view(bsz, 1, 1, seq_len).expand(
+                    bsz, 1, seq_len, seq_len
+                )
             elif len(attention_mask.shape) == 3:  # [batch_size, seq_len, seq_len]
                 causal_mask = attention_mask.unsqueeze(1)
             elif len(attention_mask.shape) == 4:  # [batch_size, num_heads, seq_len, seq_len]
@@ -205,7 +224,7 @@ class JointQwen2VLAttention(nn.Module):
 
             causal_mask = causal_mask.to(torch.bool)
 
-        # SDPA with memory-efficient backend is currently (torch==2.1.2) bugged with non-contiguous inputs with custom
+        # SDPA with memory-efficient backend is currently (torch==2.1.2) bugged with non-contiguous inputs with custom  # noqa: E501
         # attn_mask,
         # Reference: https://github.com/pytorch/pytorch/issues/112577.
         if query_states.device.type == "cuda" and attention_mask is not None:
@@ -213,11 +232,11 @@ class JointQwen2VLAttention(nn.Module):
             key_states = key_states.contiguous()
             value_states = value_states.contiguous()
 
-        # We dispatch to SDPA's Flash Attention or Efficient kernels via this `is_causal` if statement instead of an
+        # We dispatch to SDPA's Flash Attention or Efficient kernels via this `is_causal` if statement instead of an  # noqa: E501
         # inline conditional assignment
-        # in SDPA to support both torch.compile's dynamic shapes and full graph options. An inline conditional prevents
+        # in SDPA to support both torch.compile's dynamic shapes and full graph options. An inline conditional prevents  # noqa: E501
         # dynamic shapes from compiling.
-        # The q_len > 1 is necessary to match with AttentionMaskConverter.to_causal_4d that does not create a causal
+        # The q_len > 1 is necessary to match with AttentionMaskConverter.to_causal_4d that does not create a causal  # noqa: E501
         # mask in case q_len == 1.
         is_causal = True if causal_mask is None and q_len > 1 else False
 
@@ -248,7 +267,9 @@ class JointQwen2VLAttention(nn.Module):
             attn_output = attn_output.to(target_dtype)
 
         if self.config.mot_opt:
-            output = self._generate_output_mot_opt(attn_output, token_types, start_indices, end_indices)
+            output = self._generate_output_mot_opt(
+                attn_output, token_types, start_indices, end_indices
+            )
         else:
             output = self._generate_output(attn_output, masks)
 
@@ -257,8 +278,12 @@ class JointQwen2VLAttention(nn.Module):
             with torch.no_grad():
                 action_token_num = int((token_types > 0).sum())
                 action_query_states = query_states[:, :, -action_token_num:]
-                scale = 1.0 / torch.sqrt(torch.tensor(self.head_dim, device=hidden_states.device, dtype=torch.float32))
-                attention_score = torch.matmul(action_query_states, key_states.transpose(-2, -1)) * scale
+                scale = 1.0 / torch.sqrt(
+                    torch.tensor(self.head_dim, device=hidden_states.device, dtype=torch.float32)
+                )
+                attention_score = (
+                    torch.matmul(action_query_states, key_states.transpose(-2, -1)) * scale
+                )
                 mask = causal_mask[:, :, -action_token_num:].expand(
                     -1, attention_score.shape[1], -1, -1
                 )  # Mask only queries used for actions
@@ -345,7 +370,7 @@ class JointQwen2VLAttention(nn.Module):
 
         Returns:
             qkv_states: [B, S, q_dim + 2 * kv_dim]
-        """
+        """  # noqa: E501
 
         total_tokens, _ = hidden_states.shape
         device, dtype = hidden_states.device, hidden_states.dtype
@@ -487,10 +512,10 @@ class JointQwen2VLFlashAttention(JointQwen2VLAttention):
         super().__init__(config, layer_idx)
 
         # TODO: Should be removed once Flash Attention for RoCm is bumped to 2.1.
-        # flash_attn<2.1 generates top-left aligned causal mask, while what is needed here is bottom-right alignement,
-        # that was made default for flash_attn>=2.1. This attribute is used to handle this difference. Reference:
+        # flash_attn<2.1 generates top-left aligned causal mask, while what is needed here is bottom-right alignement,  # noqa: E501
+        # that was made default for flash_attn>=2.1. This attribute is used to handle this difference. Reference:  # noqa: E501
         # https://github.com/Dao-AILab/flash-attention/releases/tag/v2.1.0.
-        # Beware that with flash_attn<2.1, using q_seqlen != k_seqlen (except for the case q_seqlen == 1) produces a
+        # Beware that with flash_attn<2.1, using q_seqlen != k_seqlen (except for the case q_seqlen == 1) produces a  # noqa: E501
         # wrong mask (top-left).
         self._flash_attn_uses_top_left_mask = not is_flash_attn_greater_or_equal_2_10()
         self.deterministic = config.attn_deterministic
@@ -505,7 +530,9 @@ class JointQwen2VLFlashAttention(JointQwen2VLAttention):
         use_cache: bool = False,
         cache_position: Optional[torch.LongTensor] = None,
         token_types: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
+        position_embeddings: Optional[
+            Tuple[torch.Tensor, torch.Tensor]
+        ] = None,  # necessary, but kept here for BC
         start_indices: Optional[torch.Tensor] = None,
         end_indices: Optional[torch.Tensor] = None,
         probs: Optional[torch.Tensor] = None,
@@ -536,7 +563,7 @@ class JointQwen2VLFlashAttention(JointQwen2VLAttention):
             masks = [(token_types == expert_idx) for expert_idx in range(len(self.dim_inputs))]
             query_states, key_states, value_states = self._generate_qkv(hidden_states, masks)
 
-        # Because the input can be padded, the absolute sequence length depends on the max position id.
+        # Because the input can be padded, the absolute sequence length depends on the max position id.  # noqa: E501
         cos, sin = position_embeddings
         if self.config.mot_opt:
             kv_dim = self.num_key_value_heads * self.head_dim
@@ -549,12 +576,16 @@ class JointQwen2VLFlashAttention(JointQwen2VLAttention):
                 sin,
                 self.rope_scaling["mrope_section"],
             )
-            query_states, key_states, value_states = torch.split(qkv_states, [q_dim, kv_dim, kv_dim], dim=-1)
+            query_states, key_states, value_states = torch.split(
+                qkv_states, [q_dim, kv_dim, kv_dim], dim=-1
+            )
             query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim)
             key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim)
             value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim)
         else:
-            query_states, key_states = self._apply_rotary_pos_embed(query_states, key_states, cos, sin, unsqueeze_dim=2)
+            query_states, key_states = self._apply_rotary_pos_embed(
+                query_states, key_states, cos, sin, unsqueeze_dim=2
+            )
 
         if past_key_value is not None:
             cache_kwargs = {
@@ -586,8 +617,8 @@ class JointQwen2VLFlashAttention(JointQwen2VLAttention):
                 target_dtype = self._projection_dtype
 
             logger.warning_once(
-                f"The input hidden states seems to be silently casted in float32, this might be related to"
-                f" the fact you have upcasted embedding or layer norm layers in float32. We will cast back the input in"
+                f"The input hidden states seems to be silently casted in float32, this might be related to"  # noqa: E501
+                f" the fact you have upcasted embedding or layer norm layers in float32. We will cast back the input in"  # noqa: E501
                 f" {target_dtype}."
             )
 
@@ -608,7 +639,9 @@ class JointQwen2VLFlashAttention(JointQwen2VLAttention):
         attn_output = attn_output.reshape(bsz, q_len, self.hidden_size).contiguous()
 
         if self.config.mot_opt:
-            output = self._generate_output_mot_opt(attn_output, token_types, start_indices, end_indices)
+            output = self._generate_output_mot_opt(
+                attn_output, token_types, start_indices, end_indices
+            )
         else:
             output = self._generate_output(attn_output, masks)
 

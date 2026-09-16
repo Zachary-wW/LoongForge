@@ -53,8 +53,16 @@ def apply_rotary_pos_emb_vision(
     cos = (freqs.cos() * mscale).float()
     sin = (freqs.sin() * mscale).float()
 
-    cos = cos.unsqueeze(-2).repeat(1, 1, 2) if cos.dim() == 2 else cos.unsqueeze(-2).repeat(1, 1, 1, 2)
-    sin = sin.unsqueeze(-2).repeat(1, 1, 2) if sin.dim() == 2 else sin.unsqueeze(-2).repeat(1, 1, 1, 2)
+    cos = (
+        cos.unsqueeze(-2).repeat(1, 1, 2)
+        if cos.dim() == 2
+        else cos.unsqueeze(-2).repeat(1, 1, 1, 2)
+    )
+    sin = (
+        sin.unsqueeze(-2).repeat(1, 1, 2)
+        if sin.dim() == 2
+        else sin.unsqueeze(-2).repeat(1, 1, 1, 2)
+    )
 
     # Add batch dimension for broadcasting with t (matches original unsqueeze(0))
     while cos.dim() < t.dim():

@@ -172,7 +172,10 @@ def _compare_shard(
                     }
                 )
                 if verbose:
-                    print(f"  [SHAPE MISMATCH] {key}: baseline={b.shape} vs roundtrip={r.shape}", flush=True)
+                    print(
+                        f"  [SHAPE MISMATCH] {key}: baseline={b.shape} vs roundtrip={r.shape}",
+                        flush=True,
+                    )
                 continue
 
             diff = torch.abs(b - r)
@@ -191,12 +194,18 @@ def _compare_shard(
                     mean_diff = diff.mean().item()
                     std_diff = diff.std().item()
                     print(
-                        f"  [CLOSE] {key}: max={max_diff:.6e}, mean={mean_diff:.6e}, std={std_diff:.6e}, "
+                        f"  [CLOSE] {key}: max={max_diff:.6e}, mean={mean_diff:.6e}, std={std_diff:.6e}, "  # noqa: E501
                         f"shape={tuple(b.shape)}",
                         flush=True,
                     )
-                    print(f"          baseline: min={b.min():.6f}, max={b.max():.6f}, mean={b.mean():.6f}", flush=True)
-                    print(f"          roundtrip: min={r.min():.6f}, max={r.max():.6f}, mean={r.mean():.6f}", flush=True)
+                    print(
+                        f"          baseline: min={b.min():.6f}, max={b.max():.6f}, mean={b.mean():.6f}",  # noqa: E501
+                        flush=True,
+                    )
+                    print(
+                        f"          roundtrip: min={r.min():.6f}, max={r.max():.6f}, mean={r.mean():.6f}",  # noqa: E501
+                        flush=True,
+                    )
             else:
                 num_diff += 1
                 diff_keys.append(key)
@@ -215,12 +224,12 @@ def _compare_shard(
                         "mean_diff": mean_diff,
                         "std_diff": std_diff,
                         "shape": tuple(b.shape),
-                        "baseline_stats": f"min={b.min():.6f}, max={b.max():.6f}, mean={b.mean():.6f}",
-                        "roundtrip_stats": f"min={r.min():.6f}, max={r.max():.6f}, mean={r.mean():.6f}",
+                        "baseline_stats": f"min={b.min():.6f}, max={b.max():.6f}, mean={b.mean():.6f}",  # noqa: E501
+                        "roundtrip_stats": f"min={r.min():.6f}, max={r.max():.6f}, mean={r.mean():.6f}",  # noqa: E501
                     }
                     diff_details.append(detail)
                     print(
-                        f"  [DIFF] {key}: max={max_diff:.6e}, mean={mean_diff:.6e}, std={std_diff:.6e}, "
+                        f"  [DIFF] {key}: max={max_diff:.6e}, mean={mean_diff:.6e}, std={std_diff:.6e}, "  # noqa: E501
                         f"shape={tuple(b.shape)}",
                         flush=True,
                     )
@@ -251,7 +260,9 @@ def _compare_shard(
 # ---------------------------------------------------------------------------
 
 
-def compare_weights(original_path: str, roundtrip_path: str, output_dir: str, num_workers: int = 4) -> dict:
+def compare_weights(
+    original_path: str, roundtrip_path: str, output_dir: str, num_workers: int = 4
+) -> dict:
     """Parallel stream-compare using HF index file.
 
     Uses ThreadPoolExecutor (safe with CUDA-initialized processes, GIL released

@@ -76,7 +76,9 @@ def setup_logging(output_dir: str, rank: int):
 
     sh = logging.StreamHandler()
     sh.setLevel(level)
-    sh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
+    sh.setFormatter(
+        logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+    )
     handlers = [sh]
 
     if rank == 0 and output_dir:
@@ -85,7 +87,11 @@ def setup_logging(output_dir: str, rank: int):
         log_file = os.path.join(log_dir, f"train_{datetime.now():%Y%m%d_%H%M%S}.log")
         fh = logging.FileHandler(log_file, encoding="utf-8")
         fh.setLevel(logging.INFO)
-        fh.setFormatter(logging.Formatter("[%(asctime)s][%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
+        fh.setFormatter(
+            logging.Formatter(
+                "[%(asctime)s][%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+            )
+        )
         handlers.append(fh)
 
     logging.basicConfig(level=level, handlers=handlers, force=True)
@@ -142,7 +148,16 @@ class Profiler:
     Non-profile ranks (or when profiling is disabled) get a no-op instance.
     """
 
-    __slots__ = ("training_args", "ctx", "output_dir", "mode", "_prof", "_nvtx_ctx", "_started", "_active")
+    __slots__ = (
+        "training_args",
+        "ctx",
+        "output_dir",
+        "mode",
+        "_prof",
+        "_nvtx_ctx",
+        "_started",
+        "_active",
+    )
 
     def __init__(self, training_args, ctx, output_dir: str):
         self.training_args = training_args
@@ -182,7 +197,7 @@ class Profiler:
 
         if self.mode == "nsys":
             logger.info(
-                f"nsys profiling enabled on profile_ranks={training_args.profile_ranks}: steps [{start}, {end})"
+                f"nsys profiling enabled on profile_ranks={training_args.profile_ranks}: steps [{start}, {end})"  # noqa: E501
             )
             return
 

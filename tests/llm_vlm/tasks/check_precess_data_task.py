@@ -103,7 +103,9 @@ class PrecessDataCheckTask(BaseTask):
             state_files = glob.glob(os.path.join(train_dir, "state.json"))
             assert len(dataset_info_files) > 0, "No dataset_info files found in " + train_dir
             assert len(state_files) > 0, "No state files found in " + train_dir
-            logger.info(f"LLM SFT preprocess data check passed: found dataset_info.json and state.json in {train_dir}")
+            logger.info(
+                f"LLM SFT preprocess data check passed: found dataset_info.json and state.json in {train_dir}"  # noqa: E501
+            )
 
         elif step_stage == "vlm":
             output_dir = model_config["output_prefix"]
@@ -125,7 +127,7 @@ class PrecessDataCheckTask(BaseTask):
                 f"but JSON has {expected_count} messages"
             )
             logger.info(
-                f"VLM preprocess data check passed: {total_shard_count} samples match {expected_count} messages"
+                f"VLM preprocess data check passed: {total_shard_count} samples match {expected_count} messages"  # noqa: E501
             )
 
         elif step_stage == "offline_packing":
@@ -137,15 +139,21 @@ class PrecessDataCheckTask(BaseTask):
             with open(packing_config_path, "r", encoding="utf-8") as f:
                 packing_config = yaml.safe_load(f)
 
-            packed_wds_dir = model_config.get("packed_wds_dir") or packing_config.get("data", {}).get("packed_wds_dir")
-            assert packed_wds_dir and os.path.exists(packed_wds_dir), f"Packed wds_dir not found: {packed_wds_dir}"
+            packed_wds_dir = model_config.get("packed_wds_dir") or packing_config.get(
+                "data", {}
+            ).get("packed_wds_dir")
+            assert packed_wds_dir and os.path.exists(packed_wds_dir), (
+                f"Packed wds_dir not found: {packed_wds_dir}"
+            )
 
             # Check if .nv-meta directory exists
             nv_meta_dir = os.path.join(packed_wds_dir, ".nv-meta")
             assert os.path.exists(nv_meta_dir), f".nv-meta directory not found in {packed_wds_dir}"
 
             packed_info_yaml_path = os.path.join(nv_meta_dir, ".info.yaml")
-            assert os.path.exists(packed_info_yaml_path), f"Packed .nv-meta/.info.yaml not found in {packed_wds_dir}"
+            assert os.path.exists(packed_info_yaml_path), (
+                f"Packed .nv-meta/.info.yaml not found in {packed_wds_dir}"
+            )
 
             with open(packed_info_yaml_path, "r", encoding="utf-8") as f:
                 packed_info_data = yaml.safe_load(f)
@@ -153,11 +161,17 @@ class PrecessDataCheckTask(BaseTask):
             packed_total_count = sum(packed_shard_counts.values())
 
             # Check total count is not 0
-            assert packed_total_count > 0, f"Packed wds is empty: shard_counts sum is 0 in {packed_info_yaml_path}"
+            assert packed_total_count > 0, (
+                f"Packed wds is empty: shard_counts sum is 0 in {packed_info_yaml_path}"
+            )
 
-            logger.info(f"Offline packing check passed: packed {packed_total_count} samples (nonzero)")
+            logger.info(
+                f"Offline packing check passed: packed {packed_total_count} samples (nonzero)"
+            )
         else:
-            logger.error(f"assert_preprocess_data does not support other {step_stage} mode verification !!!")
+            logger.error(
+                f"assert_preprocess_data does not support other {step_stage} mode verification !!!"
+            )
             sys.exit(1)
 
     def start_loongforge_preprocess_data(self, index, step_stage, scenario_name):
@@ -223,7 +237,9 @@ class PrecessDataCheckTask(BaseTask):
                 return True
             except Exception as exc:
                 error_message = str(exc)
-                logger.error(f"Preprocess data check failed: {model_name} {case_name}, error: {error_message}")
+                logger.error(
+                    f"Preprocess data check failed: {model_name} {case_name}, error: {error_message}"  # noqa: E501
+                )
                 self._record_case_result(
                     model_name,
                     case_name,
@@ -260,17 +276,21 @@ class PrecessDataCheckTask(BaseTask):
                 if scenario_name != "preprocess_data":
                     continue
                 model_name = self.model_name
-                logger.info(f"{self.class_name} Model [{model_name}] - [{scenario_name}] Execution Start ...")
+                logger.info(
+                    f"{self.class_name} Model [{model_name}] - [{scenario_name}] Execution Start ..."  # noqa: E501
+                )
 
                 for key, value in self.model["scenarios"][index][scenario_name].items():
                     # pretrain, sft:
                     step_name = key
                     logger.info(
-                        f"{self.class_name} Model [{model_name}] - [{scenario_name}] - [{step_name}] "
+                        f"{self.class_name} Model [{model_name}] - [{scenario_name}] - [{step_name}] "  # noqa: E501
                         f"Execution Start ..."
                     )
 
-                    runnable_flag = self.model["scenarios"][index][scenario_name][step_name].get("RUNNABLE_FLAG")
+                    runnable_flag = self.model["scenarios"][index][scenario_name][step_name].get(
+                        "RUNNABLE_FLAG"
+                    )
                     if (
                         runnable_flag is None
                         or (isinstance(runnable_flag, str) and runnable_flag.lower() == "true")
@@ -289,14 +309,16 @@ class PrecessDataCheckTask(BaseTask):
                         )
 
                         logger.info(
-                            f"{self.class_name} Model [{model_name}] - [{scenario_name}] - [{step_name}] Completed \n"
+                            f"{self.class_name} Model [{model_name}] - [{scenario_name}] - [{step_name}] Completed \n"  # noqa: E501
                         )
                     else:
                         logger.info(
-                            f"{self.class_name} Model [{model_name}] - [{scenario_name}] - [{step_name}] "
+                            f"{self.class_name} Model [{model_name}] - [{scenario_name}] - [{step_name}] "  # noqa: E501
                             f"RUNNABLE_FLAG is false, skipping.\n"
                         )
 
-                logger.info(f"{self.class_name} Model [{model_name}] - [{scenario_name}] Execution End \n")
+                logger.info(
+                    f"{self.class_name} Model [{model_name}] - [{scenario_name}] Execution End \n"
+                )
 
         return TaskResut()

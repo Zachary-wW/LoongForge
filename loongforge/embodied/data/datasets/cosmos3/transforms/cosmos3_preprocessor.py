@@ -12,7 +12,10 @@ from typing import Any, Dict, List, Optional
 
 import torch
 
-from loongforge.embodied.data.datasets.transforms.collator import BasePreprocessor, register_preprocessor
+from loongforge.embodied.data.datasets.transforms.collator import (
+    BasePreprocessor,
+    register_preprocessor,
+)
 from loongforge.embodied.model.cosmos3.sequence_packing import SequencePlan
 
 
@@ -39,7 +42,9 @@ class Cosmos3Batch:
     episode_indices: Optional[List[torch.Tensor]] = None
     start_frames: Optional[List[torch.Tensor]] = None
     task_indices: Optional[List[torch.Tensor]] = None
-    image_sizes: Optional[List[torch.Tensor]] = None  # per-sample [target_h, target_w, orig_h, orig_w]
+    image_sizes: Optional[List[torch.Tensor]] = (
+        None  # per-sample [target_h, target_w, orig_h, orig_w]
+    )
 
     # Deferred video tail. In this mode the dataset stops after crop/resize and
     # ``videos`` starts out ``None``: ``video_stacks`` holds the pre-ColorJitter
@@ -192,7 +197,8 @@ class Cosmos3Preprocessor(BasePreprocessor):
         # deferred, everything from the jitter onwards runs in DeferredVideoTail.
         video_pipeline = None
         if data_cfg is not None and (
-            getattr(data_cfg, "use_image_augmentation", False) and getattr(data_cfg, "colorjitter_on_gpu", False)
+            getattr(data_cfg, "use_image_augmentation", False)
+            and getattr(data_cfg, "colorjitter_on_gpu", False)
         ):
             video_pipeline = DeferredVideoTail()
         return cls(video_pipeline=video_pipeline)
@@ -200,7 +206,9 @@ class Cosmos3Preprocessor(BasePreprocessor):
     def __call__(self, examples: List[Dict[str, Any]]) -> Cosmos3Batch:
         """Apply transform to each sample and collate into batch."""
         has_action = all(
-            "action" in s and s.get("sequence_plan") is not None and getattr(s["sequence_plan"], "has_action", False)
+            "action" in s
+            and s.get("sequence_plan") is not None
+            and getattr(s["sequence_plan"], "has_action", False)
             for s in examples
         )
         actions = [s["action"] for s in examples] if has_action else None

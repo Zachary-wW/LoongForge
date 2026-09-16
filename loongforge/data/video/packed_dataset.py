@@ -147,7 +147,11 @@ class PackedDataset(IterableDataset):
         input_latents = sample["input_latents"]
         _, _, latent_frames, latent_height, latent_width = input_latents.shape
         patch_frames, patch_height, patch_width = self.PATCH_SIZE
-        return (latent_frames // patch_frames) * (latent_height // patch_height) * (latent_width // patch_width)
+        return (
+            (latent_frames // patch_frames)
+            * (latent_height // patch_height)
+            * (latent_width // patch_width)
+        )
 
     @staticmethod
     def _ceil_to_multiple(n: int, m: int) -> int:
@@ -161,7 +165,9 @@ class PackedDataset(IterableDataset):
         """Pack samples into bins using First-Fit while preserving sample order."""
         seq_lengths = [self._compute_seq_length(s) for s in samples]
         if self.sharding_factor > 0:
-            seq_lengths = [self._ceil_to_multiple(length, self.sharding_factor) for length in seq_lengths]
+            seq_lengths = [
+                self._ceil_to_multiple(length, self.sharding_factor) for length in seq_lengths
+            ]
 
         packed_indices = first_fit(seq_lengths, self.seq_length)
 
@@ -305,7 +311,9 @@ class PackedDataset(IterableDataset):
 
         return result
 
-    def _pad_packed_sequence(self, chunks: List[torch.Tensor], padded_lengths: List[int]) -> torch.Tensor:
+    def _pad_packed_sequence(
+        self, chunks: List[torch.Tensor], padded_lengths: List[int]
+    ) -> torch.Tensor:
         padded_chunks = []
         for chunk, padded_length in zip(chunks, padded_lengths):
             pad_len = padded_length - chunk.shape[0]

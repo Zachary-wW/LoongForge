@@ -55,10 +55,13 @@ class FastWAMDataConfig:
     model_cfg: Any = field(default=None, repr=False, compare=False, hash=False)
 
     def __post_init__(self) -> None:
-        if self.num_video_frames < 2 or (self.num_video_frames - 1) % self.action_video_freq_ratio != 0:
+        if (
+            self.num_video_frames < 2
+            or (self.num_video_frames - 1) % self.action_video_freq_ratio != 0
+        ):
             raise ValueError(
                 f"num_video_frames must satisfy (T-1) % action_video_freq_ratio == 0 and T >= 2, "
-                f"got num_video_frames={self.num_video_frames}, action_video_freq_ratio={self.action_video_freq_ratio}"
+                f"got num_video_frames={self.num_video_frames}, action_video_freq_ratio={self.action_video_freq_ratio}"  # noqa: E501
             )
 
     @property

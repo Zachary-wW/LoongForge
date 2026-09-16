@@ -293,7 +293,9 @@ class DreamZeroPrecomputedFeatureArtifact:
         else:
             manifest_path = Path(cache_dir) / "manifest.json"
         if not manifest_path.exists():
-            raise FileNotFoundError(f"DreamZero precomputed feature manifest is missing: {manifest_path}")
+            raise FileNotFoundError(
+                f"DreamZero precomputed feature manifest is missing: {manifest_path}"
+            )
         with manifest_path.open("r", encoding="utf-8") as f:
             artifact = json.load(f)
         if artifact.get("kind") != DREAMZERO_PRECOMPUTED_FEATURES_KIND:
@@ -305,7 +307,7 @@ class DreamZeroPrecomputedFeatureArtifact:
             output_dir = str(artifact.get("cache", {}).get("output_dir", "")).strip()
             if not output_dir:
                 raise ValueError(
-                    "DreamZero precomputed artifact cache.output_dir is missing and cache_dir was not provided"
+                    "DreamZero precomputed artifact cache.output_dir is missing and cache_dir was not provided"  # noqa: E501
                 )
             cache_dir = output_dir
         cache_dir = Path(cache_dir)
@@ -378,11 +380,15 @@ class DreamZeroPrecomputedFeatureArtifact:
                 continue
             feature_meta = self._feature_meta(name)
             if not bool(feature_meta.get("enabled", False)):
-                raise ValueError(f"precomputed_cache.features.{name}.enabled=true but artifact does not provide {name}")
+                raise ValueError(
+                    f"precomputed_cache.features.{name}.enabled=true but artifact does not provide {name}"  # noqa: E501
+                )
 
         if cache_config.video_latents.enabled:
             expected_layout = str(cache_config.video_latents.layout or "bcthw").strip().lower()
-            artifact_layout = str(self._feature_meta("video_latents").get("layout", "bcthw")).lower()
+            artifact_layout = str(
+                self._feature_meta("video_latents").get("layout", "bcthw")
+            ).lower()
             if artifact_layout != expected_layout:
                 raise ValueError(
                     "DreamZero precomputed video_latents layout mismatch: "
@@ -469,7 +475,7 @@ class DreamZeroPrecomputedFeatureArtifact:
         missing = [key for key in required_keys if key not in artifact_config]
         if missing and require_transform_config:
             raise ValueError(
-                f"DreamZero precomputed artifact config misses transform keys {missing}; current={current}"
+                f"DreamZero precomputed artifact config misses transform keys {missing}; current={current}"  # noqa: E501
             )
 
         for key in (
@@ -551,7 +557,9 @@ class DreamZeroPrecomputedFeatureArtifact:
                 f"current={dataset_len}, manifest={manifest_dataset_len}"
             )
         if require_full_coverage:
-            if processed != selected or (manifest_dataset_len is not None and selected != int(manifest_dataset_len)):
+            if processed != selected or (
+                manifest_dataset_len is not None and selected != int(manifest_dataset_len)
+            ):
                 raise ValueError(
                     "DreamZero precomputed cache does not cover the full dataset: "
                     f"processed={processed}, selected={selected}, "
@@ -565,12 +573,14 @@ class DreamZeroPrecomputedFeatureArtifact:
         artifact_dataset = self.artifact.get("dataset", {})
         if not isinstance(artifact_dataset, dict) or not artifact_dataset.get("files"):
             return
-        artifact_sha = artifact_dataset.get("content_sha256") or dataset_content_sha256(artifact_dataset)
+        artifact_sha = artifact_dataset.get("content_sha256") or dataset_content_sha256(
+            artifact_dataset
+        )
         current_dataset = dataset_fingerprint(dataset_path)
         current_sha = current_dataset.get("content_sha256") or current_dataset.get("sha256")
         if artifact_sha and current_sha and artifact_sha != current_sha:
             raise ValueError(
-                f"DreamZero precomputed cache dataset metadata mismatch: current={current_sha}, manifest={artifact_sha}"
+                f"DreamZero precomputed cache dataset metadata mismatch: current={current_sha}, manifest={artifact_sha}"  # noqa: E501
             )
 
     def validate_success(self, *, check_manifest_hash: bool = True) -> None:
@@ -581,14 +591,22 @@ class DreamZeroPrecomputedFeatureArtifact:
             success_candidates[0],
         )
         if not success_path.exists():
-            raise FileNotFoundError(f"DreamZero precomputed artifact _SUCCESS is missing: checked {success_candidates}")
+            raise FileNotFoundError(
+                f"DreamZero precomputed artifact _SUCCESS is missing: checked {success_candidates}"
+            )
         with success_path.open("r", encoding="utf-8") as f:
             success = json.load(f)
         if not success.get("ok", False):
             raise ValueError(f"DreamZero precomputed artifact _SUCCESS is not ok: {success_path}")
         manifest_sha256 = success.get("manifest_sha256")
-        if check_manifest_hash and manifest_sha256 and sha256_file(self.manifest_path) != manifest_sha256:
-            raise ValueError(f"DreamZero precomputed artifact _SUCCESS manifest_sha256 mismatch: {success_path}")
+        if (
+            check_manifest_hash
+            and manifest_sha256
+            and sha256_file(self.manifest_path) != manifest_sha256
+        ):
+            raise ValueError(
+                f"DreamZero precomputed artifact _SUCCESS manifest_sha256 mismatch: {success_path}"
+            )
 
     def validate_artifact_files(self, *, check_hash: bool = True) -> None:
         """Validate manifest_jsonl/manifest_csv (and tensor shards, if applicable)."""
@@ -614,7 +632,9 @@ class DreamZeroPrecomputedFeatureArtifact:
         )
         missing_index_files = [name for name in required_index_files if name not in index_meta]
         if missing_index_files:
-            raise ValueError(f"DreamZero tensor_shards artifact is missing index files: {missing_index_files}")
+            raise ValueError(
+                f"DreamZero tensor_shards artifact is missing index files: {missing_index_files}"
+            )
         for label, file_info in index_meta.items():
             if not isinstance(file_info, dict):
                 continue
@@ -667,7 +687,9 @@ class DreamZeroPrecomputedFeatureArtifact:
         manifest_jsonl = self.manifest_jsonl_path()
         if manifest_jsonl is None or not manifest_jsonl.exists():
             if strict:
-                raise FileNotFoundError(f"DreamZero precomputed manifest.jsonl is missing: {manifest_jsonl}")
+                raise FileNotFoundError(
+                    f"DreamZero precomputed manifest.jsonl is missing: {manifest_jsonl}"
+                )
             self._manifest_rows_by_path = {}
             return self._manifest_rows_by_path
 
@@ -707,7 +729,9 @@ class DreamZeroPrecomputedFeatureArtifact:
                 break
         if row is None:
             if strict:
-                raise FileNotFoundError(f"DreamZero precomputed sample is absent from manifest.jsonl: {path}")
+                raise FileNotFoundError(
+                    f"DreamZero precomputed sample is absent from manifest.jsonl: {path}"
+                )
             return False
         validate_file_info(path, row, label="sample", check_hash=check_hash)
         return True
@@ -741,7 +765,10 @@ class DreamZeroPrecomputedFeatureArtifact:
         self.validate_dataset_fingerprint(dataset_path)
         if cache_config.validation.require_success or cache_config.strict:
             self.validate_success()
-        if self.storage_format == TENSOR_SHARDS_FORMAT and cache_config.validation.validate_sample_hash:
+        if (
+            self.storage_format == TENSOR_SHARDS_FORMAT
+            and cache_config.validation.validate_sample_hash
+        ):
             raise ValueError(
                 "precomputed_cache.validation.validate_sample_hash is not supported "
                 "for tensor_shards artifacts; use validate_file_hash for shard files"
@@ -763,7 +790,9 @@ class DreamZeroPrecomputedFeatureArtifact:
         if self._tensor_shard_index is not None:
             return self._tensor_shard_index
         if self.storage_format != TENSOR_SHARDS_FORMAT:
-            raise ValueError(f"artifact storage format is {self.storage_format!r}, not tensor_shards")
+            raise ValueError(
+                f"artifact storage format is {self.storage_format!r}, not tensor_shards"
+            )
         dataset_indices = np.load(
             self._tensor_shard_index_path("dataset_indices"),
             mmap_mode="r",
@@ -837,7 +866,9 @@ class DreamZeroPrecomputedFeatureArtifact:
         position = int(np.searchsorted(dataset_indices, int(index), side="left"))
         if position >= len(dataset_indices) or int(dataset_indices[position]) != int(index):
             if strict:
-                raise FileNotFoundError(f"missing DreamZero tensor_shards cache row for index={index}")
+                raise FileNotFoundError(
+                    f"missing DreamZero tensor_shards cache row for index={index}"
+                )
             return None
         if int(shard_index["trajectory_ids"][position]) != int(trajectory_id) or int(
             shard_index["base_indices"][position]

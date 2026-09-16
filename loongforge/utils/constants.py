@@ -62,7 +62,9 @@ class _BaseFamilies(object):
     def names(cls) -> List[str]:
         """Return a list of all string names defined in the class and its subclasses"""
         string_names = [
-            value for name, value in vars(cls).items() if isinstance(value, str) and not name.startswith("__")
+            value
+            for name, value in vars(cls).items()
+            if isinstance(value, str) and not name.startswith("__")
         ]
         return string_names
 

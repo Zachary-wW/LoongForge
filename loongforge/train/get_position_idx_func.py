@@ -9,7 +9,7 @@ from typing import Tuple
 
 
 def get_rope_index_qwen3vl(batch_data):
-    """Different from the original implementation, Qwen3VLMoe use timestamps rather than absolute time position ids."""
+    """Different from the original implementation, Qwen3VLMoe use timestamps rather than absolute time position ids."""  # noqa: E501
 
     model_config = get_model_config()
     spatial_merge_size = 2
@@ -18,7 +18,9 @@ def get_rope_index_qwen3vl(batch_data):
     image_grid_thw = batch_data.get("image_grid_thw", None)
     video_grid_thw = batch_data.get("video_grid_thw", None)
     attention_mask = batch_data.get("attn_mask", None)
-    VISION_START_TOKEN_ID = getattr(getattr(model_config, "image_encoder", None), "vision_start_token_id", 151652)
+    VISION_START_TOKEN_ID = getattr(
+        getattr(model_config, "image_encoder", None), "vision_start_token_id", 151652
+    )
     IMAGE_TOKEN_ID = getattr(getattr(model_config, "image_encoder", None), "image_token_id", 151655)
     VIDEO_TOKEN_ID = getattr(getattr(model_config, "image_encoder", None), "video_token_id", 151656)
 
@@ -93,10 +95,27 @@ def get_rope_index_qwen3vl(batch_data):
 
                 # t_index is always 0 because llm_grid_t is always 1
                 # (we use timestamps to encode the temporal information for videos)
-                t_index = torch.arange(llm_grid_t).view(-1, 1).expand(-1, llm_grid_h * llm_grid_w).flatten()
-                h_index = torch.arange(llm_grid_h).view(1, -1, 1).expand(llm_grid_t, -1, llm_grid_w).flatten()
-                w_index = torch.arange(llm_grid_w).view(1, 1, -1).expand(llm_grid_t, llm_grid_h, -1).flatten()
-                llm_pos_ids_list.append(torch.stack([t_index, h_index, w_index]) + text_len + st_idx)
+                t_index = (
+                    torch.arange(llm_grid_t)
+                    .view(-1, 1)
+                    .expand(-1, llm_grid_h * llm_grid_w)
+                    .flatten()
+                )
+                h_index = (
+                    torch.arange(llm_grid_h)
+                    .view(1, -1, 1)
+                    .expand(llm_grid_t, -1, llm_grid_w)
+                    .flatten()
+                )
+                w_index = (
+                    torch.arange(llm_grid_w)
+                    .view(1, 1, -1)
+                    .expand(llm_grid_t, llm_grid_h, -1)
+                    .flatten()
+                )
+                llm_pos_ids_list.append(
+                    torch.stack([t_index, h_index, w_index]) + text_len + st_idx
+                )
                 st = ed + llm_grid_t * llm_grid_h * llm_grid_w
 
             if st < len(input_tokens):
@@ -105,9 +124,13 @@ def get_rope_index_qwen3vl(batch_data):
                 llm_pos_ids_list.append(torch.arange(text_len).view(1, -1).expand(3, -1) + st_idx)
 
             llm_positions = torch.cat(llm_pos_ids_list, dim=1).reshape(3, -1)
-            position_ids[..., i, attention_mask[i] == 0] = llm_positions.to(position_ids.device)  # 1
+            position_ids[..., i, attention_mask[i] == 0] = llm_positions.to(
+                position_ids.device
+            )  # 1
             mrope_position_deltas.append(llm_positions.max() + 1 - len(total_input_ids[i]))
-        mrope_position_deltas = torch.tensor(mrope_position_deltas, device=input_ids.device).unsqueeze(1)
+        mrope_position_deltas = torch.tensor(
+            mrope_position_deltas, device=input_ids.device
+        ).unsqueeze(1)
         return position_ids, mrope_position_deltas
     else:
         if attention_mask is not None:
@@ -152,7 +175,9 @@ def get_rope_index_internvl(batch_data):
     tmp[is_boi_eoi] = LANGUAGE_TOKEN_TYPE
     # final position ids
     y = torch.zeros_like(x, dtype=torch.long)
-    y[1:] = (tmp[1:] == LANGUAGE_TOKEN_TYPE) | ((tmp[1:] == VISION_TOKEN_TYPE) & (tmp[:-1] == LANGUAGE_TOKEN_TYPE))
+    y[1:] = (tmp[1:] == LANGUAGE_TOKEN_TYPE) | (
+        (tmp[1:] == VISION_TOKEN_TYPE) & (tmp[:-1] == LANGUAGE_TOKEN_TYPE)
+    )
     y = y.cumsum(dim=-1)
     return y, None
 
@@ -247,9 +272,21 @@ def get_mrope_index(batch_data) -> Tuple[torch.Tensor, torch.Tensor]:
                 time_tensor_long = time_tensor.long()
                 t_index = time_tensor_long.flatten()
 
-                h_index = torch.arange(llm_grid_h).view(1, -1, 1).expand(llm_grid_t, -1, llm_grid_w).flatten()
-                w_index = torch.arange(llm_grid_w).view(1, 1, -1).expand(llm_grid_t, llm_grid_h, -1).flatten()
-                llm_pos_ids_list.append(torch.stack([t_index, h_index, w_index]) + text_len + st_idx)
+                h_index = (
+                    torch.arange(llm_grid_h)
+                    .view(1, -1, 1)
+                    .expand(llm_grid_t, -1, llm_grid_w)
+                    .flatten()
+                )
+                w_index = (
+                    torch.arange(llm_grid_w)
+                    .view(1, 1, -1)
+                    .expand(llm_grid_t, llm_grid_h, -1)
+                    .flatten()
+                )
+                llm_pos_ids_list.append(
+                    torch.stack([t_index, h_index, w_index]) + text_len + st_idx
+                )
                 st = ed + llm_grid_t * llm_grid_h * llm_grid_w
 
             if st < len(input_tokens):
@@ -260,7 +297,9 @@ def get_mrope_index(batch_data) -> Tuple[torch.Tensor, torch.Tensor]:
             llm_positions = torch.cat(llm_pos_ids_list, dim=1).reshape(3, -1)
             position_ids[..., i, attention_mask[i] == 0] = llm_positions.to(position_ids.device)
             mrope_position_deltas.append(llm_positions.max() + 1 - len(total_input_ids[i]))
-        mrope_position_deltas = torch.tensor(mrope_position_deltas, device=input_ids.device).unsqueeze(1)
+        mrope_position_deltas = torch.tensor(
+            mrope_position_deltas, device=input_ids.device
+        ).unsqueeze(1)
         return position_ids, mrope_position_deltas
     else:
         if attention_mask is not None:

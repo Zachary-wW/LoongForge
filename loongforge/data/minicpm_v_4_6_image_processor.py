@@ -63,7 +63,9 @@ class MiniCPMV46ImageProcessor:
         self.image_std = list(image_std)
 
     @classmethod
-    def from_pretrained(cls, pretrained_path: str | Path, **overrides: Any) -> "MiniCPMV46ImageProcessor":
+    def from_pretrained(
+        cls, pretrained_path: str | Path, **overrides: Any
+    ) -> "MiniCPMV46ImageProcessor":
         config_path = Path(pretrained_path) / "preprocessor_config.json"
         if not config_path.is_file():
             raise ValueError(
@@ -201,7 +203,10 @@ class MiniCPMV46ImageProcessor:
 
     def __call__(
         self,
-        images: Image.Image | np.ndarray | torch.Tensor | Sequence[Image.Image | np.ndarray | torch.Tensor],
+        images: Image.Image
+        | np.ndarray
+        | torch.Tensor
+        | Sequence[Image.Image | np.ndarray | torch.Tensor],
         *,
         return_tensors: str | None = "pt",
         **kwargs: Any,
@@ -222,7 +227,11 @@ class MiniCPMV46ImageProcessor:
         for raw_image in images:
             image = self._to_tensor(raw_image)
             image_size = tuple(image.shape[-2:])
-            best_grid = self.get_sliced_grid(image_size, max_slice_nums, scale_resolution) if slice_mode else None
+            best_grid = (
+                self.get_sliced_grid(image_size, max_slice_nums, scale_resolution)
+                if slice_mode
+                else None
+            )
 
             source_height, source_width = self.find_best_resize(
                 image_size,
@@ -254,7 +263,9 @@ class MiniCPMV46ImageProcessor:
                         ]
                         image_slice = self._normalize(image_slice)
                         image_pixel_values.append(self._reshape_by_patch(image_slice, patch_size))
-                        image_target_sizes.append([slice_height // patch_size, slice_width // patch_size])
+                        image_target_sizes.append(
+                            [slice_height // patch_size, slice_width // patch_size]
+                        )
 
             per_image_pixel_values.append(image_pixel_values)
             per_image_target_sizes.append(image_target_sizes)

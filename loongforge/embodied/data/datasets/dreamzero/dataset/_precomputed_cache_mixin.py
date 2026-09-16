@@ -46,7 +46,10 @@ class _DreamZeroPrecomputedCacheMixin:
         """Return whether missing/invalid precomputed cache features should raise."""
         cfg = self.precomputed_cache_config
         return bool(
-            cfg.strict or cfg.video_latents.required or cfg.first_frame_latents.required or cfg.prompt_embs.required
+            cfg.strict
+            or cfg.video_latents.required
+            or cfg.first_frame_latents.required
+            or cfg.prompt_embs.required
         )
 
     def _decode_first_video_frame_only(self) -> bool:
@@ -78,7 +81,9 @@ class _DreamZeroPrecomputedCacheMixin:
         )
         return True
 
-    def _precomputed_cache_path(self, index: int, trajectory_id: int, base_index: int) -> Path | None:
+    def _precomputed_cache_path(
+        self, index: int, trajectory_id: int, base_index: int
+    ) -> Path | None:
         """Return the precomputed cache file path for a sample, or None if unset."""
         cfg = self.precomputed_cache_config
         cache_dir = str(cfg.cache_dir or "").strip()
@@ -137,7 +142,9 @@ class _DreamZeroPrecomputedCacheMixin:
 
         cache_dir_raw = str(cfg.cache_dir or "").strip()
         if not cache_dir_raw:
-            raise ValueError("precomputed cache artifact validation requires precomputed_cache.cache_dir")
+            raise ValueError(
+                "precomputed cache artifact validation requires precomputed_cache.cache_dir"
+            )
         artifact = DreamZeroPrecomputedFeatureArtifact.load(
             cache_dir=cache_dir_raw,
             manifest=str(cfg.manifest or "").strip() or None,
@@ -155,7 +162,7 @@ class _DreamZeroPrecomputedCacheMixin:
         _dreamzero_data_log_once(
             "precomputed_artifact_validated",
             "[dreamzero-data] validated precomputed feature artifact "
-            f"{artifact.manifest_path}; coverage={coverage.get('processed')}/{coverage.get('selected')}",
+            f"{artifact.manifest_path}; coverage={coverage.get('processed')}/{coverage.get('selected')}",  # noqa: E501
         )
         return artifact
 
@@ -175,7 +182,7 @@ class _DreamZeroPrecomputedCacheMixin:
         if not found:
             _dreamzero_data_log_once(
                 "precomputed_manifest_row_missing",
-                f"[dreamzero-data] DreamZero precomputed sample is absent from manifest.jsonl: {path}",
+                f"[dreamzero-data] DreamZero precomputed sample is absent from manifest.jsonl: {path}",  # noqa: E501
             )
 
     def _maybe_attach_precomputed_features(
@@ -203,7 +210,9 @@ class _DreamZeroPrecomputedCacheMixin:
         )
         if not any(feature.enabled for _, feature, _ in enabled_features):
             return data
-        if all((not feature.enabled) or feature.batch_key in data for _, feature, _ in enabled_features):
+        if all(
+            (not feature.enabled) or feature.batch_key in data for _, feature, _ in enabled_features
+        ):
             return data
 
         artifact = self._maybe_validate_precomputed_artifact()
@@ -221,7 +230,9 @@ class _DreamZeroPrecomputedCacheMixin:
             path = self._precomputed_cache_path(index, trajectory_id, base_index)
             if path is None:
                 if self._precomputed_cache_strict():
-                    raise ValueError("precomputed_cache.enabled=true requires precomputed_cache.cache_dir")
+                    raise ValueError(
+                        "precomputed_cache.enabled=true requires precomputed_cache.cache_dir"
+                    )
                 return data
             if not path.exists():
                 if self._precomputed_cache_strict():

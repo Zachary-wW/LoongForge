@@ -13,7 +13,9 @@ from typing import Any, Dict, List
 from .results import PathLike, load_jsonl
 
 
-def archive_traces(results_path: PathLike, output_dir: PathLike, run_id: str = "default") -> List[Dict[str, Any]]:
+def archive_traces(
+    results_path: PathLike, output_dir: PathLike, run_id: str = "default"
+) -> List[Dict[str, Any]]:
     """Run archive_traces."""
     records = load_jsonl(results_path)
     trace_root = Path(output_dir) / "traces" / _safe_name(run_id)
@@ -26,10 +28,15 @@ def archive_traces(results_path: PathLike, output_dir: PathLike, run_id: str = "
         if not source.exists():
             continue
         destination_dir = (
-            trace_root / _safe_name(str(record.get("benchmark"))) / _safe_name(str(record.get("task_suite")))
+            trace_root
+            / _safe_name(str(record.get("benchmark")))
+            / _safe_name(str(record.get("task_suite")))
         )
         destination_dir.mkdir(parents=True, exist_ok=True)
-        destination = destination_dir / f"task{record.get('task_id')}_ep{record.get('episode_idx')}{source.suffix}"
+        destination = (
+            destination_dir
+            / f"task{record.get('task_id')}_ep{record.get('episode_idx')}{source.suffix}"
+        )
         shutil.copy2(source, destination)
         manifest.append(
             {

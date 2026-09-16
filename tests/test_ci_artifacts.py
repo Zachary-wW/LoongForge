@@ -13,7 +13,14 @@ def run_redactor(source, target, values):
     env = os.environ.copy()
     env.update(values)
     return subprocess.run(
-        [sys.executable, "ci/redact_ci_artifact.py", "--input", str(source), "--output", str(target)],
+        [
+            sys.executable,
+            "ci/redact_ci_artifact.py",
+            "--input",
+            str(source),
+            "--output",
+            str(target),
+        ],
         env=env,
         capture_output=True,
         text=True,
@@ -23,7 +30,9 @@ def run_redactor(source, target, values):
 
 def run_preflight(tmp_path, values, suite="llm_vlm", build_image="false", extra_env=None):
     config = tmp_path / "ci.env"
-    config.write_text("\n".join(f"{key}={value}" for key, value in values.items()) + "\n", encoding="utf-8")
+    config.write_text(
+        "\n".join(f"{key}={value}" for key, value in values.items()) + "\n", encoding="utf-8"
+    )
     env = os.environ.copy()
     env.update(
         {
@@ -378,7 +387,11 @@ def test_preflight_reports_missing_required_variable_without_value(tmp_path):
         "LOONGFORGE_RUNNER_LOG_ROOT": str(tmp_path / "logs"),
         "TRITON_LIBCUDA_PATH": "/opt/triton/libcuda",
     }
-    for name in ("LOONGFORGE_HOST_DATA_ROOT", "LOONGFORGE_HOST_OUTPUT_ROOT", "LOONGFORGE_RUNNER_LOG_ROOT"):
+    for name in (
+        "LOONGFORGE_HOST_DATA_ROOT",
+        "LOONGFORGE_HOST_OUTPUT_ROOT",
+        "LOONGFORGE_RUNNER_LOG_ROOT",
+    ):
         directory_names = {
             "LOONGFORGE_HOST_DATA_ROOT": "data",
             "LOONGFORGE_HOST_OUTPUT_ROOT": "output",
@@ -406,7 +419,9 @@ def test_preflight_accepts_a_runner_local_contract_without_echoing_values(tmp_pa
         directory.mkdir()
     source = tmp_path / "source"
     (source / "third_party/Loong-Megatron/megatron/core/transformer").mkdir(parents=True)
-    hyper_connection = source / "third_party/Loong-Megatron/megatron/core/transformer/hyper_connection.py"
+    hyper_connection = (
+        source / "third_party/Loong-Megatron/megatron/core/transformer/hyper_connection.py"
+    )
     hyper_connection.write_text("", encoding="utf-8")
     (source / "tests/llm_vlm").mkdir(parents=True)
     (source / "tests/llm_vlm/main.py").write_text("", encoding="utf-8")
@@ -611,7 +626,7 @@ def test_runner_errors_do_not_echo_config_paths(tmp_path):
     source.mkdir()
     config = tmp_path / "builder.env"
     config.write_text(
-        f"LOONGFORGE_ALLOW_PR_IMAGE_BUILD=true\nIMAGE_DOCKERFILE={tmp_path / 'private-missing.Dockerfile'}\n",
+        f"LOONGFORGE_ALLOW_PR_IMAGE_BUILD=true\nIMAGE_DOCKERFILE={tmp_path / 'private-missing.Dockerfile'}\n",  # noqa: E501
         encoding="utf-8",
     )
     env.update(
@@ -685,7 +700,14 @@ def test_internal_source_download_failure_is_explicit_and_redacted(tmp_path):
         }
     )
     result = subprocess.run(
-        ["bash", "docker/fetch_source.sh", "TEST_SOURCE", str(tmp_path / "source"), "source-root", "false"],
+        [
+            "bash",
+            "docker/fetch_source.sh",
+            "TEST_SOURCE",
+            str(tmp_path / "source"),
+            "source-root",
+            "false",
+        ],
         env=env,
         capture_output=True,
         text=True,
@@ -706,7 +728,9 @@ def test_regression_outputs_only_a_stable_relative_artifact_name():
 
 
 def test_candidate_builder_uses_a_trusted_dockerfile_and_scans_the_image():
-    script = Path(".github/scripts/self_runner/build_candidate_image.sh").read_text(encoding="utf-8")
+    script = Path(".github/scripts/self_runner/build_candidate_image.sh").read_text(
+        encoding="utf-8"
+    )
     assert 'trusted_dockerfile="$script_dir/../../../docker/Dockerfile"' in script
     assert "$source_dir/docker/Dockerfile" not in script
     assert '"IMAGE_APT_SOURCES:apt_sources"' in script
@@ -882,7 +906,7 @@ def test_candidate_builder_rejects_proxy_credentials_without_echoing_them(tmp_pa
 def test_regression_clears_stale_workspace_artifacts_between_runs(tmp_path):
     docker = tmp_path / "docker"
     docker.write_text(
-        '#!/usr/bin/env bash\nif [[ "$1" == container && "$2" == inspect ]]; then exit 1; fi\nexit 0\n',
+        '#!/usr/bin/env bash\nif [[ "$1" == container && "$2" == inspect ]]; then exit 1; fi\nexit 0\n',  # noqa: E501
         encoding="utf-8",
     )
     docker.chmod(0o755)
@@ -894,7 +918,9 @@ def test_regression_clears_stale_workspace_artifacts_between_runs(tmp_path):
         directory.mkdir()
     source = tmp_path / "source"
     (source / "third_party/Loong-Megatron/megatron/core/transformer").mkdir(parents=True)
-    hyper_connection = source / "third_party/Loong-Megatron/megatron/core/transformer/hyper_connection.py"
+    hyper_connection = (
+        source / "third_party/Loong-Megatron/megatron/core/transformer/hyper_connection.py"
+    )
     hyper_connection.write_text("", encoding="utf-8")
     (source / "tests/llm_vlm").mkdir(parents=True)
     (source / "tests/llm_vlm/main.py").write_text("", encoding="utf-8")

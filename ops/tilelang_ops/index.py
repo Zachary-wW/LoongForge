@@ -24,7 +24,7 @@ def tensor_cache(
     Returns:
         Callable[..., torch.Tensor]:
             A wrapped version of the input function with single-entry caching.
-    """
+    """  # noqa: E501
     last_args: tuple | None = None
     last_kwargs: dict | None = None
     last_result: Any = None
@@ -75,7 +75,10 @@ def prepare_lens_from_cu_seqlens(
 def prepare_position_ids(cu_seqlens: torch.LongTensor) -> torch.LongTensor:
     """prepare position ids."""
     return torch.cat(
-        [torch.arange(n, dtype=cu_seqlens.dtype, device=cu_seqlens.device) for n in prepare_lens(cu_seqlens).unbind()]
+        [
+            torch.arange(n, dtype=cu_seqlens.dtype, device=cu_seqlens.device)
+            for n in prepare_lens(cu_seqlens).unbind()
+        ]
     )
 
 

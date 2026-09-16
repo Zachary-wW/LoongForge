@@ -44,7 +44,12 @@ def _extract_json(content: Any) -> dict[str, Any]:
 
 
 def review_one(
-    model: Any, processor: Any, request: dict[str, Any], device: Any, max_tokens: int, max_frames: int | None
+    model: Any,
+    processor: Any,
+    request: dict[str, Any],
+    device: Any,
+    max_tokens: int,
+    max_frames: int | None,
 ) -> dict[str, Any]:
     import torch
 
@@ -152,11 +157,24 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", required=True)
     parser.add_argument("--device", default=None, help="default: cuda:0 when CUDA is available")
     parser.add_argument("--max_tokens", type=int, default=256)
-    parser.add_argument("--max_frames", type=int, default=None, help="debug cap; omit to use the model video sampler")
+    parser.add_argument(
+        "--max_frames",
+        type=int,
+        default=None,
+        help="debug cap; omit to use the model video sampler",
+    )
     parser.add_argument("--max_episodes", type=int, default=None)
     return parser
 
 
 if __name__ == "__main__":
     args = build_arg_parser().parse_args()
-    run(args.model_dir, args.requests, args.output, args.max_tokens, args.max_frames, args.max_episodes, args.device)
+    run(
+        args.model_dir,
+        args.requests,
+        args.output,
+        args.max_tokens,
+        args.max_frames,
+        args.max_episodes,
+        args.device,
+    )

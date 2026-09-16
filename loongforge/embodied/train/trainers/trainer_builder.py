@@ -33,6 +33,8 @@ def build_model_trainer(training_args, model_cfg, data_cfg):
 
     trainer_cls = _TRAINER_CLASSES.get(trainer_type)
     if trainer_cls is None:
-        raise ValueError(f"Unknown --trainer-type '{trainer_type}'. Available: {list(_TRAINER_CLASSES.keys())}")
+        raise ValueError(
+            f"Unknown --trainer-type '{trainer_type}'. Available: {list(_TRAINER_CLASSES.keys())}"
+        )
 
     return trainer_cls(training_args, model_cfg, data_cfg)

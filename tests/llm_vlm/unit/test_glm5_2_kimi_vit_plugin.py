@@ -120,10 +120,14 @@ class Glm52KimiVitPluginTest(unittest.TestCase):
         encoder.max_pixels = 2048 * 2048
         encoder._resize_image = lambda image: image
         image_processor = AutoImageProcessor.from_pretrained(processor_path, trust_remote_code=True)
-        processor_cls = get_class_from_dynamic_module("kimi_k25_processor.KimiK25Processor", processor_path)
+        processor_cls = get_class_from_dynamic_module(
+            "kimi_k25_processor.KimiK25Processor", processor_path
+        )
         encoder.processor = processor_cls(image_processor=image_processor, tokenizer=tokenizer)
 
-        image = Image.open(Path(__file__).parent / "datasets/vlm/mllm_demo_data/1.jpg").convert("RGB")
+        image = Image.open(Path(__file__).parent / "datasets/vlm/mllm_demo_data/1.jpg").convert(
+            "RGB"
+        )
         input_ids, _, _, pixel_values, image_grid_thw = encoder.process_sft_vqa(
             "Describe the image.", "A test answer.", image
         )
@@ -266,7 +270,9 @@ class VLMValidationDatasetTest(unittest.TestCase):
                 return_value=None,
             ),
             patch.object(dataloader_provider.energon, "WorkerConfig", return_value=object()),
-            patch.object(dataloader_provider.energon, "get_val_dataset", return_value=dataset) as get_val_dataset,
+            patch.object(
+                dataloader_provider.energon, "get_val_dataset", return_value=dataset
+            ) as get_val_dataset,
         ):
             result = dataloader_provider.get_val_dataset(Mock())
         return result, dataset, get_val_dataset
@@ -295,7 +301,9 @@ class VLMValidationDatasetTest(unittest.TestCase):
             result, dataset, get_val_dataset = self._get_val_dataset(args)
 
         self.assertIs(result, dataset)
-        create_metadataset_yaml.assert_called_once_with(["valid-a", "valid-b"], [0.6, 0.4], split="val")
+        create_metadataset_yaml.assert_called_once_with(
+            ["valid-a", "valid-b"], [0.6, 0.4], split="val"
+        )
         self.assertEqual(get_val_dataset.call_args.args[0], "validation-metadataset.yaml")
 
 
@@ -305,7 +313,9 @@ class MetaDatasetYamlTest(unittest.TestCase):
             tempfile.TemporaryDirectory() as temp_dir,
             patch.object(dataloader_provider.tempfile, "gettempdir", return_value=temp_dir),
         ):
-            train_path = dataloader_provider.create_metadataset_yaml(["train-a"], [1.0], split="train")
+            train_path = dataloader_provider.create_metadataset_yaml(
+                ["train-a"], [1.0], split="train"
+            )
             val_path = dataloader_provider.create_metadataset_yaml(["val-a"], [1.0], split="val")
             self.assertNotEqual(train_path, val_path)
             with open(train_path) as train_file, open(val_path) as val_file:

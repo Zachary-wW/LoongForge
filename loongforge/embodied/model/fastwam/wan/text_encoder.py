@@ -56,7 +56,11 @@ class GELU(nn.Module):
 
     def forward(self, x):
         """Apply the approximate GELU nonlinearity."""
-        return 0.5 * x * (1.0 + torch.tanh(math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))))
+        return (
+            0.5
+            * x
+            * (1.0 + torch.tanh(math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))))
+        )
 
 
 class T5LayerNorm(nn.Module):
@@ -175,7 +179,9 @@ class T5SelfAttention(nn.Module):
         self.attn = T5Attention(dim, dim_attn, num_heads, dropout)
         self.norm2 = T5LayerNorm(dim)
         self.ffn = T5FeedForward(dim, dim_ffn, dropout)
-        self.pos_embedding = None if shared_pos else T5RelativeEmbedding(num_buckets, num_heads, bidirectional=True)
+        self.pos_embedding = (
+            None if shared_pos else T5RelativeEmbedding(num_buckets, num_heads, bidirectional=True)
+        )
 
     def forward(self, x, mask=None, pos_bias=None):
         """Run the T5 block over hidden states."""
@@ -200,7 +206,9 @@ class T5RelativeEmbedding(nn.Module):
     def forward(self, lq, lk):
         """Build relative position bias for query and key lengths."""
         device = self.embedding.weight.device
-        rel_pos = torch.arange(lk, device=device).unsqueeze(0) - torch.arange(lq, device=device).unsqueeze(1)
+        rel_pos = torch.arange(lk, device=device).unsqueeze(0) - torch.arange(
+            lq, device=device
+        ).unsqueeze(1)
         rel_pos = self._relative_position_bucket(rel_pos)
         rel_pos_embeds = self.embedding(rel_pos)
         rel_pos_embeds = rel_pos_embeds.permute(2, 0, 1).unsqueeze(0)
@@ -221,7 +229,9 @@ class T5RelativeEmbedding(nn.Module):
         rel_pos_large = (
             max_exact
             + (
-                torch.log(rel_pos.float() / max_exact) / math.log(self.max_dist / max_exact) * (num_buckets - max_exact)
+                torch.log(rel_pos.float() / max_exact)
+                / math.log(self.max_dist / max_exact)
+                * (num_buckets - max_exact)
             ).long()
         )
         rel_pos_large = torch.min(rel_pos_large, torch.full_like(rel_pos_large, num_buckets - 1))
@@ -270,8 +280,12 @@ class WanTextEncoder(torch.nn.Module):
         self.num_layers = num_layers
         self.num_buckets = num_buckets
         self.shared_pos = shared_pos
-        self.token_embedding = vocab if isinstance(vocab, nn.Embedding) else nn.Embedding(vocab, dim)
-        self.pos_embedding = T5RelativeEmbedding(num_buckets, num_heads, bidirectional=True) if shared_pos else None
+        self.token_embedding = (
+            vocab if isinstance(vocab, nn.Embedding) else nn.Embedding(vocab, dim)
+        )
+        self.pos_embedding = (
+            T5RelativeEmbedding(num_buckets, num_heads, bidirectional=True) if shared_pos else None
+        )
         self.dropout = nn.Dropout(dropout)
         self.blocks = nn.ModuleList(
             [
@@ -342,7 +356,9 @@ class HuggingfaceTokenizer(object):
         return_mask = kwargs.pop("return_mask", False)
         token_kwargs = {"return_tensors": "pt"}
         if self.seq_len is not None:
-            token_kwargs.update({"padding": "max_length", "truncation": True, "max_length": self.seq_len})
+            token_kwargs.update(
+                {"padding": "max_length", "truncation": True, "max_length": self.seq_len}
+            )
         token_kwargs.update(**kwargs)
 
         if isinstance(sequence, str):

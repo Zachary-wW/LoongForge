@@ -127,7 +127,9 @@ def build_model_spec(
 
     model_type = server_args.model_type
     if model_type not in MODEL_FACTORY_REGISTRY:
-        raise SystemExit(f"Unsupported model_type: {model_type!r}. Registered: {sorted(MODEL_FACTORY_REGISTRY.keys())}")
+        raise SystemExit(
+            f"Unsupported model_type: {model_type!r}. Registered: {sorted(MODEL_FACTORY_REGISTRY.keys())}"  # noqa: E501
+        )
 
     model_cfg = build_model_config(model_type, raw_model_dict)
     factory_cls = MODEL_FACTORY_REGISTRY[model_type]

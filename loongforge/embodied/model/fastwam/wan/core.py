@@ -161,7 +161,9 @@ class Wan22Core(torch.nn.Module):
         if input_image.ndim == 3:
             input_image = input_image.unsqueeze(0)
         if input_image.ndim != 4 or input_image.shape[0] != 1 or input_image.shape[1] != 3:
-            raise ValueError(f"`input_image` must have shape [1,3,H,W] or [3,H,W], got {tuple(input_image.shape)}")
+            raise ValueError(
+                f"`input_image` must have shape [1,3,H,W] or [3,H,W], got {tuple(input_image.shape)}"  # noqa: E501
+            )
         image = input_image.to(device=self.device)[0].unsqueeze(1)
         z = self.vae.encode(
             [image],
@@ -217,11 +219,17 @@ class Wan22Core(torch.nn.Module):
         video = sample["video"]
         prompt = sample["prompt"]
         if not isinstance(video, torch.Tensor):
-            raise TypeError(f"`sample['video']` must be a torch.Tensor with shape [B, 3, T, H, W], got {type(video)}")
+            raise TypeError(
+                f"`sample['video']` must be a torch.Tensor with shape [B, 3, T, H, W], got {type(video)}"  # noqa: E501
+            )
         if video.ndim != 5:
-            raise ValueError(f"`sample['video']` must be 5D [B, 3, T, H, W], got shape {tuple(video.shape)}")
+            raise ValueError(
+                f"`sample['video']` must be 5D [B, 3, T, H, W], got shape {tuple(video.shape)}"
+            )
         if video.shape[1] != 3:
-            raise ValueError(f"`sample['video']` channel dimension must be 3, got shape {tuple(video.shape)}")
+            raise ValueError(
+                f"`sample['video']` channel dimension must be 3, got shape {tuple(video.shape)}"
+            )
 
         if isinstance(prompt, str):
             prompt_list = [prompt]
@@ -232,9 +240,13 @@ class Wan22Core(torch.nn.Module):
 
         batch_size, _, num_frames, height, width = video.shape
         if len(prompt_list) != batch_size:
-            raise ValueError(f"Prompt batch mismatch: got len(prompt)={len(prompt_list)} and video batch={batch_size}")
+            raise ValueError(
+                f"Prompt batch mismatch: got len(prompt)={len(prompt_list)} and video batch={batch_size}"  # noqa: E501
+            )
         if height % 16 != 0 or width % 16 != 0:
-            raise ValueError(f"Video spatial dims must be multiples of 16, got H={height}, W={width}")
+            raise ValueError(
+                f"Video spatial dims must be multiples of 16, got H={height}, W={width}"
+            )
         if num_frames % 4 != 1:
             raise ValueError(f"Video T must satisfy T % 4 == 1, got T={num_frames}")
 
@@ -253,12 +265,16 @@ class Wan22Core(torch.nn.Module):
             action = sample["action"]
             if not isinstance(action, torch.Tensor):
                 raise TypeError(
-                    f"`sample['action']` must be a torch.Tensor with shape [B, T, a_dim], got {type(action)}"
+                    f"`sample['action']` must be a torch.Tensor with shape [B, T, a_dim], got {type(action)}"  # noqa: E501
                 )
             if action.ndim != 3:
-                raise ValueError(f"`sample['action']` must be 3D [B, T, a_dim], got shape {tuple(action.shape)}")
+                raise ValueError(
+                    f"`sample['action']` must be 3D [B, T, a_dim], got shape {tuple(action.shape)}"
+                )
             if action.shape[1] <= 0:
-                raise ValueError(f"`sample['action']` temporal dimension must be positive, got {action.shape[1]}")
+                raise ValueError(
+                    f"`sample['action']` temporal dimension must be positive, got {action.shape[1]}"
+                )
             if action.shape[1] % (num_frames - 1) != 0:
                 raise ValueError(
                     "`sample['action']` temporal dimension must be divisible by video transitions "
@@ -307,7 +323,9 @@ class Wan22Core(torch.nn.Module):
         if inputs["first_frame_latents"] is not None:
             pred = pred[:, :, 1:]
             target = target[:, :, 1:]
-        loss_per_sample = F.mse_loss(pred.float(), target.float(), reduction="none").mean(dim=(1, 2, 3, 4))
+        loss_per_sample = F.mse_loss(pred.float(), target.float(), reduction="none").mean(
+            dim=(1, 2, 3, 4)
+        )
         sample_weight = self.train_scheduler.training_weight(timestep).to(
             loss_per_sample.device,
             dtype=loss_per_sample.dtype,
@@ -339,12 +357,14 @@ class Wan22Core(torch.nn.Module):
         if input_image.ndim == 3:
             input_image = input_image.unsqueeze(0)
         if input_image.ndim != 4 or input_image.shape[0] != 1 or input_image.shape[1] != 3:
-            raise ValueError(f"`input_image` must have shape [1,3,H,W] or [3,H,W], got {tuple(input_image.shape)}")
+            raise ValueError(
+                f"`input_image` must have shape [1,3,H,W] or [3,H,W], got {tuple(input_image.shape)}"  # noqa: E501
+            )
         _, _, height, width = input_image.shape
         checked_h, checked_w, checked_t = self._check_resize_height_width(height, width, num_frames)
         if (checked_h, checked_w) != (height, width):
             raise ValueError(
-                f"`input_image` must be resized before infer, expected multiples of 16 but got HxW=({height},{width})"
+                f"`input_image` must be resized before infer, expected multiples of 16 but got HxW=({height},{width})"  # noqa: E501
             )
         if checked_t != num_frames:
             raise ValueError(f"`num_frames` must satisfy T % 4 == 1, got {num_frames}")
@@ -382,8 +402,12 @@ class Wan22Core(torch.nn.Module):
         context_nega = None
         context_nega_mask = None
         if text_cfg_scale != 1.0:
-            context_nega, context_nega_mask = self.encode_prompt("" if negative_prompt is None else negative_prompt)
-        action_nega = torch.zeros_like(action) if (action is not None and action_cfg_scale != 1.0) else None
+            context_nega, context_nega_mask = self.encode_prompt(
+                "" if negative_prompt is None else negative_prompt
+            )
+        action_nega = (
+            torch.zeros_like(action) if (action is not None and action_cfg_scale != 1.0) else None
+        )
 
         infer_timesteps, infer_deltas = self.infer_scheduler.build_inference_schedule(
             num_inference_steps=num_inference_steps,
@@ -411,7 +435,9 @@ class Wan22Core(torch.nn.Module):
                     action=action,
                     fuse_vae_embedding_in_latents=fuse_flag,
                 )
-                noise_pred = noise_pred + (text_cfg_scale - 1.0) * (noise_pred_posi - noise_pred_text_nega)
+                noise_pred = noise_pred + (text_cfg_scale - 1.0) * (
+                    noise_pred_posi - noise_pred_text_nega
+                )
             if action_nega is not None:
                 noise_pred_action_nega = self._model_fn(
                     latents=latents,
@@ -421,7 +447,9 @@ class Wan22Core(torch.nn.Module):
                     action=action_nega,
                     fuse_vae_embedding_in_latents=fuse_flag,
                 )
-                noise_pred = noise_pred + (action_cfg_scale - 1.0) * (noise_pred_posi - noise_pred_action_nega)
+                noise_pred = noise_pred + (action_cfg_scale - 1.0) * (
+                    noise_pred_posi - noise_pred_action_nega
+                )
             latents = self.infer_scheduler.step(noise_pred, step_delta, latents)
             latents[:, :, 0:1] = first_frame_latents
 

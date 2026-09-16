@@ -42,7 +42,9 @@ class LoRALinear(AdapterWrapper):
     class to provide a specific implementation of the forward method.
     """
 
-    def forward(self, x: torch.Tensor, *args: Any, **kwargs: Any) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    def forward(
+        self, x: torch.Tensor, *args: Any, **kwargs: Any
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         """Forward pass that combines the wrapped module output with the adapter output.
 
         Args:
@@ -98,7 +100,7 @@ class TELinearAdapter(te.Linear):
         lora_A_init_method: Initialization method for lora_A (choices: ['xavier', 'uniform']).
         lora_dtype: Weight's dtype, by default will use orig_linear's but if they
                     are quantized weights (e.g. 4bit) needs to be specified explicitly.
-    """
+    """  # noqa: E501
 
     def __init__(
         self,
@@ -152,7 +154,7 @@ class TELinearAdapter(te.Linear):
         self._adapter_enabled = True
 
     def disable_adapter_layers(self) -> None:
-        """Disable the adapter layers, making the forward pass return only the base module output."""
+        """Disable the adapter layers, making the forward pass return only the base module output."""  # noqa: E501
         self._adapter_enabled = False
 
     @torch.no_grad
@@ -177,7 +179,7 @@ class TELinearAdapter(te.Linear):
             lora_A_init_method: Initialization method for lora_A (choices: ['xavier', 'uniform']).
             lora_dtype: Weight's dtype, by default will use orig_linear's but if they
                         are quantized weights (e.g. 4bit) needs to be specified explicitly.
-        """
+        """  # noqa: E501
         obj.dim = dim
         obj.alpha = alpha
         obj.scale = alpha / dim
@@ -318,7 +320,9 @@ class TEFusedLoRALinear(LoRALinear):
 
         # Check wrapped linear class
         if not isinstance(self.to_wrap, (te.Linear, te.LayerNormLinear, torch.nn.Linear)):
-            raise ValueError(f"Unsupported class for wrapped linear ({self.to_wrap.__class__.__name__})")
+            raise ValueError(
+                f"Unsupported class for wrapped linear ({self.to_wrap.__class__.__name__})"
+            )
 
         # Ops in main branch
         main_branch = te.ops.Sequential()
@@ -407,7 +411,9 @@ class TEFusedLoRALinear(LoRALinear):
             dropout_position = self.adapter.dropout_position
             scale = self.adapter.alpha / self.adapter.dim
         else:
-            raise ValueError(f"Unsupported class for LoRA adapter ({self.adapter.__class__.__name__})")
+            raise ValueError(
+                f"Unsupported class for LoRA adapter ({self.adapter.__class__.__name__})"
+            )
 
         # Ops in LoRA branch
         lora_branch = te.ops.Sequential()
@@ -504,7 +510,7 @@ class LinearAdapter(nn.Linear):
         lora_A_init_method: Initialization method for lora_A (choices: ['xavier', 'uniform']).
         lora_dtype: Weight's dtype, by default will use orig_linear's but if they
                    are quantized weights (e.g. 4bit) needs to be specified explicitly.
-    """
+    """  # noqa: E501
 
     def __init__(
         self,
@@ -556,7 +562,7 @@ class LinearAdapter(nn.Linear):
         self._adapter_enabled = True
 
     def disable_adapter_layers(self) -> None:
-        """Disable the adapter layers, making the forward pass return only the base module output."""
+        """Disable the adapter layers, making the forward pass return only the base module output."""  # noqa: E501
         self._adapter_enabled = False
 
     @torch.no_grad
@@ -581,7 +587,7 @@ class LinearAdapter(nn.Linear):
             lora_A_init_method: Initialization method for lora_A (choices: ['xavier', 'uniform']).
             lora_dtype: Weight's dtype, by default will use orig_linear's but if they
                        are quantized weights (e.g. 4bit) needs to be specified explicitly.
-        """
+        """  # noqa: E501
         obj.dim = dim
         obj.alpha = alpha
         obj.scale = alpha / dim
@@ -686,7 +692,9 @@ def patch_linear_module(
     assert not hasattr(orig_linear, "super_fwd"), orig_linear.super_fwd
 
     if isinstance(orig_linear, nn.Linear):
-        LinearAdapter._init_adapter(orig_linear, dim, alpha, dropout, dropout_position, lora_A_init_method, lora_dtype)
+        LinearAdapter._init_adapter(
+            orig_linear, dim, alpha, dropout, dropout_position, lora_A_init_method, lora_dtype
+        )
         cls = orig_linear.__class__
         new_cls = type("PatchedLinearAdapter", (LinearAdapter, cls), {})
     elif orig_linear.__class__ == te.Linear:

@@ -57,8 +57,12 @@ if triton is not None:
         offsets = tl.arange(0, block)
         mask = offsets < n_cols
         base = row * n_cols + offsets
-        scale_base = batch_idx * scale_stride_b + seq_idx * scale_stride_l + offsets * scale_stride_d
-        shift_base = batch_idx * shift_stride_b + seq_idx * shift_stride_l + offsets * shift_stride_d
+        scale_base = (
+            batch_idx * scale_stride_b + seq_idx * scale_stride_l + offsets * scale_stride_d
+        )
+        shift_base = (
+            batch_idx * shift_stride_b + seq_idx * shift_stride_l + offsets * shift_stride_d
+        )
 
         x = tl.load(x_ptr + base, mask=mask, other=0.0).to(tl.float32)
         scale = tl.load(scale_ptr + scale_base, mask=mask, other=0.0).to(tl.float32)
@@ -104,12 +108,18 @@ if triton is not None:
         offsets = tl.arange(0, block)
         mask = offsets < n_cols
         base = row * n_cols + offsets
-        scale_base = batch_idx * scale_stride_b + seq_idx * scale_stride_l + offsets * scale_stride_d
+        scale_base = (
+            batch_idx * scale_stride_b + seq_idx * scale_stride_l + offsets * scale_stride_d
+        )
         grad_scale_base = (
-            batch_idx * grad_scale_stride_b + seq_idx * grad_scale_stride_l + offsets * grad_scale_stride_d
+            batch_idx * grad_scale_stride_b
+            + seq_idx * grad_scale_stride_l
+            + offsets * grad_scale_stride_d
         )
         grad_shift_base = (
-            batch_idx * grad_shift_stride_b + seq_idx * grad_shift_stride_l + offsets * grad_shift_stride_d
+            batch_idx * grad_shift_stride_b
+            + seq_idx * grad_shift_stride_l
+            + offsets * grad_shift_stride_d
         )
 
         grad = tl.load(grad_ptr + base, mask=mask, other=0.0).to(tl.float32)

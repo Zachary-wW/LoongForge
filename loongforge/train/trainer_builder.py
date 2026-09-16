@@ -31,7 +31,7 @@ def register_model_trainer(
         trainig_func: training function.
         override: Whether to overwrite existing training functions for the same model/phase.
                   Default: False (no overwrite).
-    """
+    """  # noqa: E501
 
     def _add_trainer(families, phase, func, override):
         if not isinstance(families, list):
@@ -80,7 +80,7 @@ def build_model_trainer(args):
 
     if args.training_phase not in MODEL_FAMILY_TRAINER_FACTORY[model_family]:
         raise ValueError(
-            f"Loongforge not support {args.training_phase} phase for {args.model_name} (family: {model_family})"
+            f"Loongforge not support {args.training_phase} phase for {args.model_name} (family: {model_family})"  # noqa: E501
         )
 
     trainer = MODEL_FAMILY_TRAINER_FACTORY[model_family][args.training_phase]

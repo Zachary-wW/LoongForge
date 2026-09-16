@@ -74,7 +74,9 @@ class XLMRobertaAttentionBlock(nn.Module):
         # layers
         self.attn = XLMRobertaSelfAttention(dim, num_heads, dropout, eps)
         self.norm1 = nn.LayerNorm(dim, eps=eps)
-        self.ffn = nn.Sequential(nn.Linear(dim, dim * 4), nn.GELU(), nn.Linear(dim * 4, dim), nn.Dropout(dropout))
+        self.ffn = nn.Sequential(
+            nn.Linear(dim, dim * 4), nn.GELU(), nn.Linear(dim * 4, dim), nn.Dropout(dropout)
+        )
         self.norm2 = nn.LayerNorm(dim, eps=eps)
 
     def forward(self, x, mask):
@@ -124,7 +126,10 @@ class XLMRoberta(nn.Module):
 
         # blocks
         self.blocks = nn.ModuleList(
-            [XLMRobertaAttentionBlock(dim, num_heads, post_norm, dropout, eps) for _ in range(num_layers)]
+            [
+                XLMRobertaAttentionBlock(dim, num_heads, post_norm, dropout, eps)
+                for _ in range(num_layers)
+            ]
         )
 
         # norm layer
@@ -187,7 +192,10 @@ def xlm_roberta_large(pretrained=False, return_tokenizer=False, device="cpu", **
 
         # load checkpoint
         model.load_state_dict(
-            torch.load(DOWNLOAD_TO_CACHE("models/xlm_roberta/xlm_roberta_large.pth"), map_location=device), assign=True
+            torch.load(
+                DOWNLOAD_TO_CACHE("models/xlm_roberta/xlm_roberta_large.pth"), map_location=device
+            ),
+            assign=True,
         )
     else:
         # init a model on device
@@ -198,7 +206,9 @@ def xlm_roberta_large(pretrained=False, return_tokenizer=False, device="cpu", **
     if return_tokenizer:
         from sora.data import HuggingfaceTokenizer
 
-        tokenizer = HuggingfaceTokenizer(name="xlm-roberta-large", seq_len=model.text_len, clean="whitespace")
+        tokenizer = HuggingfaceTokenizer(
+            name="xlm-roberta-large", seq_len=model.text_len, clean="whitespace"
+        )
         return model, tokenizer
     else:
         return model
@@ -332,7 +342,9 @@ class AttentionBlock(nn.Module):
 
 
 class AttentionPool(nn.Module):
-    def __init__(self, dim, mlp_ratio, num_heads, activation="gelu", proj_dropout=0.0, norm_eps=1e-5):
+    def __init__(
+        self, dim, mlp_ratio, num_heads, activation="gelu", proj_dropout=0.0, norm_eps=1e-5
+    ):
         assert dim % num_heads == 0
         super().__init__()
         self.dim = dim
@@ -418,11 +430,16 @@ class VisionTransformer(nn.Module):
 
         # embeddings
         gain = 1.0 / math.sqrt(dim)
-        self.patch_embedding = nn.Conv2d(3, dim, kernel_size=patch_size, stride=patch_size, bias=not pre_norm)
+        self.patch_embedding = nn.Conv2d(
+            3, dim, kernel_size=patch_size, stride=patch_size, bias=not pre_norm
+        )
         if pool_type in ("token", "token_fc"):
             self.cls_embedding = nn.Parameter(gain * torch.randn(1, 1, dim))
         self.pos_embedding = nn.Parameter(
-            gain * torch.randn(1, self.num_patches + (1 if pool_type in ("token", "token_fc") else 0), dim)
+            gain
+            * torch.randn(
+                1, self.num_patches + (1 if pool_type in ("token", "token_fc") else 0), dim
+            )
         )
         self.dropout = nn.Dropout(embedding_dropout)
 
@@ -431,7 +448,15 @@ class VisionTransformer(nn.Module):
         self.transformer = nn.Sequential(
             *[
                 AttentionBlock(
-                    dim, mlp_ratio, num_heads, post_norm, False, activation, attn_dropout, proj_dropout, norm_eps
+                    dim,
+                    mlp_ratio,
+                    num_heads,
+                    post_norm,
+                    False,
+                    activation,
+                    attn_dropout,
+                    proj_dropout,
+                    norm_eps,
                 )
                 for _ in range(num_layers)
             ]
@@ -452,7 +477,9 @@ class VisionTransformer(nn.Module):
         # embeddings
         x = self.patch_embedding(x).flatten(2).permute(0, 2, 1)
         if self.pool_type in ("token", "token_fc"):
-            x = torch.cat([self.cls_embedding.expand(b, -1, -1).to(dtype=x.dtype, device=x.device), x], dim=1)
+            x = torch.cat(
+                [self.cls_embedding.expand(b, -1, -1).to(dtype=x.dtype, device=x.device), x], dim=1
+            )
         if interpolation:
             e = pos_interpolate(self.pos_embedding, x.size(1))
         else:
@@ -610,10 +637,16 @@ class CLIP(nn.Module):
     def param_groups(self):
         groups = [
             {
-                "params": [p for n, p in self.named_parameters() if "norm" in n or n.endswith("bias")],
+                "params": [
+                    p for n, p in self.named_parameters() if "norm" in n or n.endswith("bias")
+                ],
                 "weight_decay": 0.0,
             },
-            {"params": [p for n, p in self.named_parameters() if not ("norm" in n or n.endswith("bias"))]},
+            {
+                "params": [
+                    p for n, p in self.named_parameters() if not ("norm" in n or n.endswith("bias"))
+                ]
+            },
         ]
         return groups
 
@@ -703,10 +736,16 @@ class XLMRobertaCLIP(nn.Module):
     def param_groups(self):
         groups = [
             {
-                "params": [p for n, p in self.named_parameters() if "norm" in n or n.endswith("bias")],
+                "params": [
+                    p for n, p in self.named_parameters() if "norm" in n or n.endswith("bias")
+                ],
                 "weight_decay": 0.0,
             },
-            {"params": [p for n, p in self.named_parameters() if not ("norm" in n or n.endswith("bias"))]},
+            {
+                "params": [
+                    p for n, p in self.named_parameters() if not ("norm" in n or n.endswith("bias"))
+                ]
+            },
         ]
         return groups
 
@@ -740,12 +779,20 @@ def _clip(
         checkpoint = f"models/clip/{pretrained_name}"
         if dtype in (torch.float16, torch.bfloat16):
             suffix = "-" + {torch.float16: "fp16", torch.bfloat16: "bf16"}[dtype]
-            if BUCKET is not None and object_exists is not None and object_exists(BUCKET, f"{checkpoint}{suffix}.pth"):
+            if (
+                BUCKET is not None
+                and object_exists is not None
+                and object_exists(BUCKET, f"{checkpoint}{suffix}.pth")
+            ):
                 checkpoint = f"{checkpoint}{suffix}"
         checkpoint += ".pth"
 
         # load
-        model.load_state_dict(torch.load(DOWNLOAD_TO_CACHE(checkpoint), map_location=device), assign=True, strict=False)
+        model.load_state_dict(
+            torch.load(DOWNLOAD_TO_CACHE(checkpoint), map_location=device),
+            assign=True,
+            strict=False,
+        )
     else:
         # init a model on device
         with torch.device(device):
@@ -766,7 +813,9 @@ def _clip(
         # transforms
         transforms = T.Compose(
             [
-                T.Resize((model.image_size, model.image_size), interpolation=T.InterpolationMode.BICUBIC),
+                T.Resize(
+                    (model.image_size, model.image_size), interpolation=T.InterpolationMode.BICUBIC
+                ),
                 T.ToTensor(),
                 T.Normalize(mean=mean, std=std),
             ]
@@ -795,7 +844,9 @@ def _clip(
     return output[0] if len(output) == 1 else output
 
 
-def clip_xlm_roberta_vit_h_14(pretrained=False, pretrained_name="open-clip-xlm-roberta-large-vit-huge-14", **kwargs):
+def clip_xlm_roberta_vit_h_14(
+    pretrained=False, pretrained_name="open-clip-xlm-roberta-large-vit-huge-14", **kwargs
+):
     cfg = dict(
         embed_dim=1024,
         image_size=224,
@@ -828,14 +879,20 @@ class WanImageEncoder(torch.nn.Module):
         super().__init__()
         # init model
         self.model, self.transforms = clip_xlm_roberta_vit_h_14(
-            pretrained=False, return_transforms=True, return_tokenizer=False, dtype=torch.float32, device="cpu"
+            pretrained=False,
+            return_transforms=True,
+            return_tokenizer=False,
+            dtype=torch.float32,
+            device="cpu",
         )
         self.image_encoder_pretrained_path = image_encoder_pretrained_path
 
     def encode_image(self, videos):
         # preprocess
         size = (self.model.image_size,) * 2
-        videos = torch.cat([F.interpolate(u, size=size, mode="bicubic", align_corners=False) for u in videos])
+        videos = torch.cat(
+            [F.interpolate(u, size=size, mode="bicubic", align_corners=False) for u in videos]
+        )
         videos = self.transforms.transforms[-1](videos.mul_(0.5).add_(0.5))
 
         # forward

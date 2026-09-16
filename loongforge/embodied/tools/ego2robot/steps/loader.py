@@ -19,7 +19,7 @@ Usage:
 
 Output:
   Each episode is saved as an .npz file containing all cleaned fields.
-"""
+"""  # noqa: E501
 
 import argparse
 import json
@@ -199,7 +199,9 @@ def matrix_to_pose7(T: np.ndarray) -> np.ndarray:
     return np.concatenate([t, q])
 
 
-def transform_pose_to_head_relative(pose7_seq: np.ndarray, head_pose7_seq: np.ndarray) -> np.ndarray:
+def transform_pose_to_head_relative(
+    pose7_seq: np.ndarray, head_pose7_seq: np.ndarray
+) -> np.ndarray:
     """
     Transform a pose sequence from SLAM world coordinates to head-relative coordinates.
 
@@ -223,7 +225,9 @@ def transform_pose_to_head_relative(pose7_seq: np.ndarray, head_pose7_seq: np.nd
     return result
 
 
-def transform_keypoints_to_head_relative(kp_seq: np.ndarray, head_pose7_seq: np.ndarray) -> np.ndarray:
+def transform_keypoints_to_head_relative(
+    kp_seq: np.ndarray, head_pose7_seq: np.ndarray
+) -> np.ndarray:
     """
     Transform keypoints (N, 63) from world coordinates to head-relative coordinates.
     63 = 21 keypoints × 3 (x, y, z)。
@@ -243,15 +247,21 @@ def transform_keypoints_to_head_relative(kp_seq: np.ndarray, head_pose7_seq: np.
 
 def apply_head_relative_transform(data: dict) -> dict:
     """Apply a head-relative transform to all poses and keypoints.
-    obs_head_pose should become identity after the transform (the field is retained for downstream consistency)."""
+    obs_head_pose should become identity after the transform (the field is retained for downstream consistency)."""  # noqa: E501
     head = data["obs_head_pose"].copy()  # Back up before in-place updates.
 
     data["left_obs_ee_pose"] = transform_pose_to_head_relative(data["left_obs_ee_pose"], head)
     data["right_obs_ee_pose"] = transform_pose_to_head_relative(data["right_obs_ee_pose"], head)
     data["left_obs_wrist_pose"] = transform_pose_to_head_relative(data["left_obs_wrist_pose"], head)
-    data["right_obs_wrist_pose"] = transform_pose_to_head_relative(data["right_obs_wrist_pose"], head)
-    data["left_obs_keypoints"] = transform_keypoints_to_head_relative(data["left_obs_keypoints"], head)
-    data["right_obs_keypoints"] = transform_keypoints_to_head_relative(data["right_obs_keypoints"], head)
+    data["right_obs_wrist_pose"] = transform_pose_to_head_relative(
+        data["right_obs_wrist_pose"], head
+    )
+    data["left_obs_keypoints"] = transform_keypoints_to_head_relative(
+        data["left_obs_keypoints"], head
+    )
+    data["right_obs_keypoints"] = transform_keypoints_to_head_relative(
+        data["right_obs_keypoints"], head
+    )
     # A head pose expressed in its own frame is identity (for downstream consistency).
     data["obs_head_pose"] = transform_pose_to_head_relative(head, head)
 
@@ -279,7 +289,7 @@ def resample_to_target_fps(data: dict, target_fps: float = 30.0) -> dict:
     If the actual FPS differs from the target by more than 1 FPS, resample linearly.
     Pose (7D) translation uses linear interpolation; rotation uses a simplified normalized linear interpolation (NLERP).
     Keypoints (63D) use linear interpolation.
-    """
+    """  # noqa: E501
     actual_fps = estimate_fps(data["timestamps_ns"])
 
     # No processing within tolerance.
@@ -322,7 +332,9 @@ def resample_to_target_fps(data: dict, target_fps: float = 30.0) -> dict:
         data[key] = resampled
 
     # Rebuild timestamps.
-    data["timestamps_ns"] = np.linspace(data["timestamps_ns"][0], data["timestamps_ns"][-1], n_target).astype(np.int64)
+    data["timestamps_ns"] = np.linspace(
+        data["timestamps_ns"][0], data["timestamps_ns"][-1], n_target
+    ).astype(np.int64)
 
     data["total_frames"] = n_target
     data["_resampled_from_fps"] = actual_fps
@@ -384,7 +396,9 @@ def process_episode(episode_path: str, target_fps: float = 30.0) -> Optional[dic
     actual_fps = estimate_fps(data["timestamps_ns"])
     data = resample_to_target_fps(data, target_fps)
     if "_resampled_from_fps" in data:
-        print(f"    Resampled: {actual_fps:.1f}fps → {target_fps:.1f}fps ({data['total_frames']} frames)")
+        print(
+            f"    Resampled: {actual_fps:.1f}fps → {target_fps:.1f}fps ({data['total_frames']} frames)"  # noqa: E501
+        )
     else:
         print(f"    FPS OK: {actual_fps:.1f}fps (~{target_fps:.0f}), no resample needed")
 
@@ -409,7 +423,9 @@ def build_arg_parser():
     """Build the argument parser for the load subcommand."""
     parser = argparse.ArgumentParser(description="Step 1: EgoVerse Episode Loader + Cleaning")
     parser.add_argument("--input_dir", required=True, help="Path to bimanual_sample/ directory")
-    parser.add_argument("--output_dir", required=True, help="Output directory for cleaned .npz files")
+    parser.add_argument(
+        "--output_dir", required=True, help="Output directory for cleaned .npz files"
+    )
     parser.add_argument("--target_fps", type=float, default=30.0, help="Target FPS (default: 30)")
     return parser
 

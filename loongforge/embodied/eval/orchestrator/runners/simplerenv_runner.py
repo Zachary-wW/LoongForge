@@ -20,7 +20,11 @@ from loongforge.embodied.eval.adapters.simplerenv import (
     SIMPLERENV_DEFAULT_MAX_STEPS,
     SimplerEnvAdapter,
 )
-from loongforge.embodied.eval.metrics.results import append_jsonl, write_suite_summary_csv, write_summary_csv
+from loongforge.embodied.eval.metrics.results import (
+    append_jsonl,
+    write_suite_summary_csv,
+    write_summary_csv,
+)
 from loongforge.embodied.eval.orchestrator.config import (
     build_rpc_payload,
     load_config,
@@ -50,13 +54,17 @@ def _build_env(args: argparse.Namespace, adapter: SimplerEnvAdapter) -> Tuple[An
             adapter.env_name,
             obs_mode="rgbd",
             prepackaged_config=True,
-            max_episode_steps=args.max_steps if args.max_steps > 0 else SIMPLERENV_DEFAULT_MAX_STEPS,
+            max_episode_steps=args.max_steps
+            if args.max_steps > 0
+            else SIMPLERENV_DEFAULT_MAX_STEPS,
         )
         return env, adapter.env_name
 
     overlay_path = args.rgb_overlay_path
     if overlay_path is None and args.robot_setup.startswith("widowx"):
-        overlay_path = str(simpler_env_root / "ManiSkill2_real2sim/data/real_inpainting/bridge_sink.png")
+        overlay_path = str(
+            simpler_env_root / "ManiSkill2_real2sim/data/real_inpainting/bridge_sink.png"
+        )
 
     kwargs: Dict[str, Any] = {
         "obs_mode": "rgbd",
@@ -111,33 +119,46 @@ def _get_instruction(env: Any, fallback: str) -> str:
     return fallback
 
 
-def _save_replay(frames: List[np.ndarray], output_dir: str, task_name: str, episode_idx: int, success: bool) -> str:
+def _save_replay(
+    frames: List[np.ndarray], output_dir: str, task_name: str, episode_idx: int, success: bool
+) -> str:
     """Run _save_replay."""
     if not frames:
         raise ValueError("Cannot save replay with no frames")
     status = "success" if success else "fail"
     artifact_dir = pathlib.Path(output_dir) / "artifacts" / "simplerenv" / task_name
-    return _common.write_replay_gif(frames, artifact_dir / f"ep{episode_idx}_{status}.gif", duration=0.2)
+    return _common.write_replay_gif(
+        frames, artifact_dir / f"ep{episode_idx}_{status}.gif", duration=0.2
+    )
 
 
-def _save_trace(trace: List[Dict[str, Any]], output_dir: str, task_name: str, episode_idx: int, success: bool) -> str:
+def _save_trace(
+    trace: List[Dict[str, Any]], output_dir: str, task_name: str, episode_idx: int, success: bool
+) -> str:
     """Run _save_trace."""
     status = "success" if success else "fail"
     artifact_dir = pathlib.Path(output_dir) / "artifacts" / "simplerenv" / task_name
     return _common.write_trace_json(trace, artifact_dir / f"ep{episode_idx}_{status}_trace.json")
 
 
-def _append_replay_frame(adapter: SimplerEnvAdapter, obs: Dict[str, Any], frames: List[np.ndarray]) -> None:
+def _append_replay_frame(
+    adapter: SimplerEnvAdapter, obs: Dict[str, Any], frames: List[np.ndarray]
+) -> None:
     """Run _append_replay_frame."""
     frames.append(np.asarray(obs["image"][adapter.camera_name]["rgb"]))
 
 
-def _ensemble_action(action_history: deque[np.ndarray], current_actions: np.ndarray, alpha: float) -> np.ndarray:
+def _ensemble_action(
+    action_history: deque[np.ndarray], current_actions: np.ndarray, alpha: float
+) -> np.ndarray:
     """Run _ensemble_action."""
     action_history.append(current_actions)
     num_actions = len(action_history)
     current_predictions = np.stack(
-        [pred_actions[index] for index, pred_actions in zip(range(num_actions - 1, -1, -1), action_history)]
+        [
+            pred_actions[index]
+            for index, pred_actions in zip(range(num_actions - 1, -1, -1), action_history)
+        ]
     )
     reference = current_predictions[num_actions - 1]
     dot_product = np.sum(current_predictions * reference, axis=1)
@@ -241,13 +262,17 @@ def run_evaluation(args: argparse.Namespace) -> Dict[str, Any]:
             # encodings (ee6d_widowx) can backfill proprio[:10] = action[:10].
             payload_builder.update_from_response(data)
             if action_decoder_key:
-                env_action = action_decoder(raw_chunk[0:1], {"benchmark_name": "simplerenv"})[0].astype(np.float32)
+                env_action = action_decoder(raw_chunk[0:1], {"benchmark_name": "simplerenv"})[
+                    0
+                ].astype(np.float32)
                 flat_action = raw_chunk[0]
             else:
                 action_chunk = raw_chunk.reshape(-1, 7)
                 flat_action = action_chunk[0]
                 if args.action_ensemble:
-                    flat_action = _ensemble_action(action_history, action_chunk, args.action_ensemble_alpha)
+                    flat_action = _ensemble_action(
+                        action_history, action_chunk, args.action_ensemble_alpha
+                    )
                 env_action = adapter.action_from_canonical({"actions": flat_action})
             obs, reward, done, truncated, info = env.step(env_action)
             steps += 1
@@ -264,7 +289,9 @@ def run_evaluation(args: argparse.Namespace) -> Dict[str, Any]:
                         "done": bool(done),
                         "truncated": bool(truncated),
                         "success": bool(info.get("success", False)),
-                        "inference_latency_ms": response.get("data", {}).get("inference_latency_ms"),
+                        "inference_latency_ms": response.get("data", {}).get(
+                            "inference_latency_ms"
+                        ),
                     }
                 )
 
@@ -381,7 +408,9 @@ def build_argparser() -> argparse.ArgumentParser:
     parser.add_argument("--prepackaged-config", action="store_true")
     parser.add_argument("--sim-freq", type=int, default=500)
     parser.add_argument("--control-freq", type=int, default=5)
-    parser.add_argument("--control-mode", default="arm_pd_ee_target_delta_pose_align2_gripper_pd_joint_pos")
+    parser.add_argument(
+        "--control-mode", default="arm_pd_ee_target_delta_pose_align2_gripper_pd_joint_pos"
+    )
     parser.add_argument("--action-scale", type=float, default=1.0)
     parser.add_argument("--rotation-mode", choices=["euler", "axis_angle"], default="euler")
     parser.add_argument("--disable-action-cache", action="store_true")
@@ -405,9 +434,12 @@ def build_argparser() -> argparse.ArgumentParser:
         default="/workspace/LoongForge-VLA/loongforge/embodied/eval/reports/manual/simplerenv/smoke",
     )
     parser.add_argument("--simplerenv-root", default="")
-    parser.add_argument("--nvidia-lib-dir", default=os.environ.get("NVIDIA_LIB_DIR", "/path/to/nvidia_lib"))
     parser.add_argument(
-        "--nvidia-icd-json", default=os.environ.get("NVIDIA_ICD_JSON", "/path/to/nvidia_lib/10_nvidia.json")
+        "--nvidia-lib-dir", default=os.environ.get("NVIDIA_LIB_DIR", "/path/to/nvidia_lib")
+    )
+    parser.add_argument(
+        "--nvidia-icd-json",
+        default=os.environ.get("NVIDIA_ICD_JSON", "/path/to/nvidia_lib/10_nvidia.json"),
     )
     return parser
 
@@ -418,7 +450,10 @@ def main() -> None:
     if args.config:
         args = _apply_config(args, load_config(args.config))
     if args.simplerenv_root:
-        root_paths = [args.simplerenv_root, str(pathlib.Path(args.simplerenv_root) / "ManiSkill2_real2sim")]
+        root_paths = [
+            args.simplerenv_root,
+            str(pathlib.Path(args.simplerenv_root) / "ManiSkill2_real2sim"),
+        ]
         for path in reversed(root_paths):
             if path not in sys.path:
                 sys.path.insert(0, path)

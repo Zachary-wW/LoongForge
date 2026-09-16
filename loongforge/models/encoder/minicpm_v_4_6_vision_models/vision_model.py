@@ -54,7 +54,9 @@ def _target_sizes_from_grid(image_grid_thw: torch.Tensor) -> torch.Tensor:
     if image_grid_thw is None:
         raise ValueError("MiniCPM-V-4.6 vision forward requires image_grid_thw.")
     if image_grid_thw.dim() != 2 or image_grid_thw.shape[-1] != 3:
-        raise ValueError(f"Expected image_grid_thw with shape [n, 3], got {tuple(image_grid_thw.shape)}.")
+        raise ValueError(
+            f"Expected image_grid_thw with shape [n, 3], got {tuple(image_grid_thw.shape)}."
+        )
     return image_grid_thw[:, 1:].to(dtype=torch.long)
 
 
@@ -64,7 +66,9 @@ def get_vision_nearest_position_ids(
 ) -> torch.Tensor:
     """Nearest-neighbor ids into the learned square position table."""
     device = target_sizes.device
-    boundaries = torch.arange(1 / num_patches_per_side, 1.0, 1 / num_patches_per_side, device=device)
+    boundaries = torch.arange(
+        1 / num_patches_per_side, 1.0, 1 / num_patches_per_side, device=device
+    )
     pos_ids_list = []
     for height, width in target_sizes.tolist():
         height, width = int(height), int(width)
@@ -87,13 +91,17 @@ def get_vision_window_index(
 
     for height, width in target_sizes.tolist():
         grid_t, grid_h, grid_w = 1, int(height), int(width)
-        index = torch.arange(grid_t * grid_h * grid_w, device=target_sizes.device).reshape(grid_t, grid_h, grid_w)
+        index = torch.arange(grid_t * grid_h * grid_w, device=target_sizes.device).reshape(
+            grid_t, grid_h, grid_w
+        )
         pad_h = window_size - grid_h % window_size
         pad_w = window_size - grid_w % window_size
         num_windows_h = (grid_h + pad_h) // window_size
         num_windows_w = (grid_w + pad_w) // window_size
         index_padded = F.pad(index, (0, pad_w, 0, pad_h), "constant", -100)
-        index_padded = index_padded.reshape(grid_t, num_windows_h, window_size, num_windows_w, window_size)
+        index_padded = index_padded.reshape(
+            grid_t, num_windows_h, window_size, num_windows_w, window_size
+        )
         index_padded = index_padded.permute(0, 1, 3, 2, 4).reshape(
             grid_t, num_windows_h * num_windows_w, window_size, window_size
         )
@@ -107,7 +115,9 @@ def get_vision_window_index(
 
     return (
         torch.cat(window_index, dim=0),
-        torch.unique_consecutive(torch.tensor(cu_window_seqlens, device=target_sizes.device, dtype=torch.int32)),
+        torch.unique_consecutive(
+            torch.tensor(cu_window_seqlens, device=target_sizes.device, dtype=torch.int32)
+        ),
     )
 
 
@@ -132,9 +142,11 @@ class MiniCPMV46VisionEmbeddings(nn.Module):
     def forward(self, pixel_values: torch.Tensor, target_sizes: torch.Tensor) -> torch.Tensor:
         if pixel_values.dim() != 4:
             raise ValueError(
-                f"MiniCPM pixel_values must be a processor-packed or BCHW tensor, got {tuple(pixel_values.shape)}."
+                f"MiniCPM pixel_values must be a processor-packed or BCHW tensor, got {tuple(pixel_values.shape)}."  # noqa: E501
             )
-        patch_embeds = self.patch_embedding(pixel_values.to(dtype=self.patch_embedding.weight.dtype))
+        patch_embeds = self.patch_embedding(
+            pixel_values.to(dtype=self.patch_embedding.weight.dtype)
+        )
         embeddings = patch_embeds.flatten(2).transpose(1, 2)
         pos_ids = get_vision_nearest_position_ids(target_sizes, self.num_patches_per_side).to(
             self.position_embedding.weight.device
@@ -277,7 +289,9 @@ class MiniCPMV46ViTWindowAttentionMerger(nn.Module):
         cu_seqlens = cu_seqlens.to(hidden_states.device)
 
         hidden_states = hidden_states[:, window_index, :]
-        hidden_states = self.self_attn(hidden_states, cu_seqlens=cu_seqlens, max_seqlen=window_h * window_w)
+        hidden_states = self.self_attn(
+            hidden_states, cu_seqlens=cu_seqlens, max_seqlen=window_h * window_w
+        )
         hidden_states = hidden_states[:, torch.argsort(window_index), :]
         hidden_states = residual + hidden_states
 
@@ -288,16 +302,20 @@ class MiniCPMV46ViTWindowAttentionMerger(nn.Module):
             height, width = int(height), int(width)
             if height % window_h != 0 or width % window_w != 0:
                 raise ValueError(
-                    f"Patch grid ({height}, {width}) must be divisible by window kernel size {self.window_kernel_size}."
+                    f"Patch grid ({height}, {width}) must be divisible by window kernel size {self.window_kernel_size}."  # noqa: E501
                 )
             num_patches = height * width
             merged_h = height // window_h
             merged_w = width // window_w
             patch = hidden_states[:, offset : offset + num_patches, :]
             offset += num_patches
-            patch_5d = patch.view(1, merged_h, window_h, merged_w, window_w, embed_dim).permute(0, 1, 3, 2, 4, 5)
+            patch_5d = patch.view(1, merged_h, window_h, merged_w, window_w, embed_dim).permute(
+                0, 1, 3, 2, 4, 5
+            )
             flat = patch_5d.reshape(merged_h * merged_w, window_h * window_w * embed_dim)
-            residual = patch_5d.reshape(merged_h * merged_w, window_h * window_w, embed_dim).mean(dim=1)
+            residual = patch_5d.reshape(merged_h * merged_w, window_h * window_w, embed_dim).mean(
+                dim=1
+            )
             hidden_state = self.pre_norm(flat)
             hidden_state, _ = self.linear_1(hidden_state)
             hidden_state = F.gelu(hidden_state, approximate="tanh")
@@ -354,7 +372,9 @@ class MiniCPMV46VisionModel(BaseMegatronVisionModule):
     def get_dummy_input(self, device):
         patch_size = self.config.patch_size
         return (
-            torch.randn((1, 3, patch_size * 2, patch_size * 2), dtype=torch.bfloat16, device=device),
+            torch.randn(
+                (1, 3, patch_size * 2, patch_size * 2), dtype=torch.bfloat16, device=device
+            ),
             torch.tensor([[1, 2, 2]], dtype=torch.int32, device=device),
         )
 
@@ -367,7 +387,9 @@ class MiniCPMV46VisionModel(BaseMegatronVisionModule):
         target_sizes = target_sizes // 2
         max_seqlen = max_seqlen // 4
         cu_seqlens = F.pad(
-            torch.cumsum(target_sizes[:, 0] * target_sizes[:, 1], dim=0, dtype=torch.int32).to(device),
+            torch.cumsum(target_sizes[:, 0] * target_sizes[:, 1], dim=0, dtype=torch.int32).to(
+                device
+            ),
             (1, 0),
         )
         return target_sizes, cu_seqlens, max_seqlen
@@ -405,7 +427,9 @@ class MiniCPMV46VisionModel(BaseMegatronVisionModule):
         )
         return hidden_states
 
-    def forward(self, pixel_values: torch.Tensor, image_grid_thw: torch.Tensor) -> tuple[torch.Tensor, None, list]:
+    def forward(
+        self, pixel_values: torch.Tensor, image_grid_thw: torch.Tensor
+    ) -> tuple[torch.Tensor, None, list]:
         if len(self.encoder.layers) != self.config.num_layers:
             raise RuntimeError(
                 "MiniCPM's intermediate vision merger requires all vision encoder layers "
@@ -418,7 +442,9 @@ class MiniCPMV46VisionModel(BaseMegatronVisionModule):
         # Megatron TransformerLayer uses [sequence, batch, hidden].
         hidden_states = hidden_states.squeeze(0).unsqueeze(1).contiguous()
         cu_seqlens = F.pad(
-            torch.cumsum(target_sizes[:, 0] * target_sizes[:, 1], dim=0, dtype=torch.int32).to(hidden_states.device),
+            torch.cumsum(target_sizes[:, 0] * target_sizes[:, 1], dim=0, dtype=torch.int32).to(
+                hidden_states.device
+            ),
             (1, 0),
         )
         max_seqlen = torch.max(cu_seqlens[1:] - cu_seqlens[:-1])
@@ -433,8 +459,12 @@ class MiniCPMV46VisionModel(BaseMegatronVisionModule):
 
         if use_vit_merger:
             split = self.config.insert_layer_id + 1
-            hidden_states = self._forward_encoder_segment(hidden_states, packed_seq_params, 0, split)
-            hidden_states = self.vit_merger(hidden_states.transpose(0, 1).contiguous(), target_sizes)
+            hidden_states = self._forward_encoder_segment(
+                hidden_states, packed_seq_params, 0, split
+            )
+            hidden_states = self.vit_merger(
+                hidden_states.transpose(0, 1).contiguous(), target_sizes
+            )
             hidden_states = hidden_states.squeeze(0).unsqueeze(1).contiguous()
             target_sizes, cu_seqlens, max_seqlen = self.get_downsampled_inputs(
                 target_sizes=target_sizes,
@@ -452,7 +482,9 @@ class MiniCPMV46VisionModel(BaseMegatronVisionModule):
                 hidden_states, packed_seq_params, split, self.config.num_layers
             )
         else:
-            hidden_states = self._forward_encoder_segment(hidden_states, packed_seq_params, 0, self.config.num_layers)
+            hidden_states = self._forward_encoder_segment(
+                hidden_states, packed_seq_params, 0, self.config.num_layers
+            )
 
         last_hidden_state = self.post_layernorm(hidden_states)
         return last_hidden_state[:, 0, :].contiguous(), target_sizes, []

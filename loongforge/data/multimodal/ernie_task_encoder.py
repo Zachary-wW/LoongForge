@@ -635,7 +635,9 @@ class ErnieTaskEncoder(BaseTaskEncoder):
         )
 
         if total_packed_len > packing_seq_len:
-            raise ValueError(f"Packed sample exceeds max seq length {packing_seq_len}: got {total_packed_len}")
+            raise ValueError(
+                f"Packed sample exceeds max seq length {packing_seq_len}: got {total_packed_len}"
+            )
 
         init_kwargs = dict(
             __key__=",".join([s.__key__ for s in samples]),
@@ -661,7 +663,9 @@ class ErnieTaskEncoder(BaseTaskEncoder):
     # -----------------------------------------------------------------
     # Batching
     # -----------------------------------------------------------------
-    def batch(self, samples: List[Union[ErnieTaskSample, ErnieTaskSamplePacked]]) -> ErnieTaskBatchPacked:
+    def batch(
+        self, samples: List[Union[ErnieTaskSample, ErnieTaskSamplePacked]]
+    ) -> ErnieTaskBatchPacked:
         """Batch samples together, adding ERNIE-specific padded fields."""
         base_batch = super().batch(samples)
 
@@ -689,14 +693,26 @@ class ErnieTaskEncoder(BaseTaskEncoder):
         all_image_type_ids = []
         all_grid_thw = []
         for s in samples:
-            if hasattr(s, "image_type_ids") and s.image_type_ids is not None and len(s.image_type_ids) > 0:
+            if (
+                hasattr(s, "image_type_ids")
+                and s.image_type_ids is not None
+                and len(s.image_type_ids) > 0
+            ):
                 all_image_type_ids.append(s.image_type_ids)
-            if hasattr(s, "image_grid_thw") and s.image_grid_thw is not None and len(s.image_grid_thw) > 0:
+            if (
+                hasattr(s, "image_grid_thw")
+                and s.image_grid_thw is not None
+                and len(s.image_grid_thw) > 0
+            ):
                 all_grid_thw.append(s.image_grid_thw)
         image_type_ids = (
-            torch.cat(all_image_type_ids, dim=0) if all_image_type_ids else torch.tensor([], dtype=torch.int64)
+            torch.cat(all_image_type_ids, dim=0)
+            if all_image_type_ids
+            else torch.tensor([], dtype=torch.int64)
         )
-        image_grid_thw = torch.cat(all_grid_thw, dim=0) if all_grid_thw else torch.zeros(0, 3, dtype=torch.int64)
+        image_grid_thw = (
+            torch.cat(all_grid_thw, dim=0) if all_grid_thw else torch.zeros(0, 3, dtype=torch.int64)
+        )
 
         init_args = vars(base_batch).copy()
         init_args.update(
@@ -763,7 +779,9 @@ class ErnieTaskEncoder(BaseTaskEncoder):
     # -----------------------------------------------------------------
     # Image processing override
     # -----------------------------------------------------------------
-    def process_images(self, samples: List[Union[ErnieTaskSample, ErnieTaskSamplePacked]]) -> torch.Tensor:
+    def process_images(
+        self, samples: List[Union[ErnieTaskSample, ErnieTaskSamplePacked]]
+    ) -> torch.Tensor:
         """Concatenate image patches. ERNIE uses flattened patches, not (C,H,W)."""
         imgs = [img for s in samples if s.imgs is not None for img in s.imgs]
         if len(imgs) > 0:

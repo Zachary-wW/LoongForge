@@ -40,11 +40,13 @@ def reverse_map_checkpoint_keys(
 
     Returns:
         List of shards with reversed keys, preserving original structure
-    """
+    """  # noqa: E501
 
     def _reverse_model_keys(model_dict):
         """Reverse keys for a single model dictionary"""
-        return {transform_key_reverse(key, reverse_mappings): value for key, value in model_dict.items()}
+        return {
+            transform_key_reverse(key, reverse_mappings): value for key, value in model_dict.items()
+        }
 
     if pipeline_parallel_size == 1:
         # Single pipeline parallel case
@@ -88,8 +90,13 @@ def reverse_map_checkpoint_keys(
                         model_key = f"model{vpp_rank}"
                         if model_key in shard:
                             # Handle word embeddings deletion for VPP case
-                            if "encoder_model.text_encoder.word_embeddings.weight" in shard[model_key]:
-                                del shard[model_key]["encoder_model.text_encoder.word_embeddings.weight"]
+                            if (
+                                "encoder_model.text_encoder.word_embeddings.weight"
+                                in shard[model_key]
+                            ):
+                                del shard[model_key][
+                                    "encoder_model.text_encoder.word_embeddings.weight"
+                                ]
                             reversed_models[model_key] = _reverse_model_keys(shard[model_key])
 
                     pp_reversed.append(
@@ -165,15 +172,24 @@ def process_checkpoint_shards(
 
 def parse_args(title=None):
     """Parse all arguments."""
-    parser = argparse.ArgumentParser(description="Reverse checkpoint shard keys using predefined mappings")
+    parser = argparse.ArgumentParser(
+        description="Reverse checkpoint shard keys using predefined mappings"
+    )
     parser.add_argument("--load_omni_ckpt_path", type=str, help="Path to load the omni checkpoint.")
-    parser.add_argument("--save_original_ckpt_path", type=str, help="Path to save the original checkpoint.")
+    parser.add_argument(
+        "--save_original_ckpt_path", type=str, help="Path to save the original checkpoint."
+    )
     # parser.add_argument("--encoder_tensor_model_parallel_size", type=int, default=None,
     #     help="Tensor parallel size for encoder.")
     parser.add_argument(
-        "--decoder_tensor_model_parallel_size", type=int, default=1, help="Tensor parallel size for decoder."
+        "--decoder_tensor_model_parallel_size",
+        type=int,
+        default=1,
+        help="Tensor parallel size for decoder.",
     )  # Use this as tp
-    parser.add_argument("--pipeline_model_parallel_size", type=int, default=1, help="Pipeline parallel size.")
+    parser.add_argument(
+        "--pipeline_model_parallel_size", type=int, default=1, help="Pipeline parallel size."
+    )
     parser.add_argument(
         "--num_virtual_stages_per_pipeline_rank",
         type=int,
@@ -191,13 +207,17 @@ def main():
     model_cfg = load_config(args.config_file)
 
     # In heterogeneous case, only need to use dtp size
-    # etp_size = parallel_param_parser(args, model_cfg, 'tensor_model_parallel_size', 'image_encoder')
+    # etp_size = parallel_param_parser(args, model_cfg, 'tensor_model_parallel_size', 'image_encoder')  # noqa: E501
     if hasattr(args, "decoder_tensor_model_parallel_size"):
         dtp_size = args.decoder_tensor_model_parallel_size
     else:
-        dtp_size = parallel_param_parser(args, model_cfg, "tensor_model_parallel_size", "foundation")
+        dtp_size = parallel_param_parser(
+            args, model_cfg, "tensor_model_parallel_size", "foundation"
+        )
     pp_size = parallel_param_parser(args, model_cfg, "pipeline_model_parallel_size", "foundation")
-    vpp_size = parallel_param_parser(args, model_cfg, "num_virtual_stages_per_pipeline_rank", "foundation")
+    vpp_size = parallel_param_parser(
+        args, model_cfg, "num_virtual_stages_per_pipeline_rank", "foundation"
+    )
 
     # Validate and normalize input path
     input_dir = os.path.abspath(args.load_omni_ckpt_path)

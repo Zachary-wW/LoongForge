@@ -86,7 +86,8 @@ def _run_libero_once(config: Dict[str, Any], config_path: str = "") -> Dict[str,
     server_args = _server_args(config, config_path)
     ensure_libero_config(server_args)
     original = {
-        key: os.environ.get(key) for key in ["MUJOCO_GL", "PYOPENGL_PLATFORM", "LD_LIBRARY_PATH", "LIBERO_CONFIG_PATH"]
+        key: os.environ.get(key)
+        for key in ["MUJOCO_GL", "PYOPENGL_PLATFORM", "LD_LIBRARY_PATH", "LIBERO_CONFIG_PATH"]
     }
     apply_runtime_env(server_args, os.environ)
     server = ManagedServer(server_args)
@@ -126,7 +127,9 @@ def _run_calvin_once(config: Dict[str, Any], config_path: str = "") -> Dict[str,
     if not pathlib.Path(args.calvin_config_path).exists():
         raise FileNotFoundError(f"CALVIN config path not found: {args.calvin_config_path}")
     if not args.eval_sequences_path:
-        raise ValueError("CALVIN eval sequences path must be set by benchmark.eval_sequences_path in YAML")
+        raise ValueError(
+            "CALVIN eval sequences path must be set by benchmark.eval_sequences_path in YAML"
+        )
     if not pathlib.Path(args.eval_sequences_path).exists():
         raise FileNotFoundError(f"CALVIN eval sequences path not found: {args.eval_sequences_path}")
     calvin_models_root = pathlib.Path(args.calvin_config_path).parent
@@ -158,7 +161,10 @@ def _run_simplerenv_once(config: Dict[str, Any], config_path: str = "") -> Dict[
     args.raw_config = config
     simplerenv_runner._ensure_vulkan_runtime(args)
     if args.simplerenv_root:
-        root_paths = [args.simplerenv_root, str(pathlib.Path(args.simplerenv_root) / "ManiSkill2_real2sim")]
+        root_paths = [
+            args.simplerenv_root,
+            str(pathlib.Path(args.simplerenv_root) / "ManiSkill2_real2sim"),
+        ]
         for path in reversed(root_paths):
             if path not in sys.path:
                 sys.path.insert(0, path)
@@ -184,7 +190,9 @@ def _run_robotwin_once(config: Dict[str, Any], config_path: str = "") -> Dict[st
     server_cfg = config.get("server") or {}
     random_init = bool(server_cfg.get("random_init", model.get("random_init", False)))
     if not args.policy_ckpt_path and not random_init:
-        raise ValueError("policy checkpoint must be set by server.ckpt_path in YAML unless server.random_init is true")
+        raise ValueError(
+            "policy checkpoint must be set by server.ckpt_path in YAML unless server.random_init is true"  # noqa: E501
+        )
     if not args.task_name:
         raise ValueError("task name must be set by benchmark.task_name in YAML")
 
@@ -192,7 +200,11 @@ def _run_robotwin_once(config: Dict[str, Any], config_path: str = "") -> Dict[st
     try:
         server.start()
         returncode = robotwin_runner.run_evaluation(args)
-        result = {"benchmark": "robotwin", "returncode": int(returncode), "output_dir": args.output_dir}
+        result = {
+            "benchmark": "robotwin",
+            "returncode": int(returncode),
+            "output_dir": args.output_dir,
+        }
         print(json.dumps(result, ensure_ascii=False, indent=2))
         if returncode != 0:
             raise SystemExit(returncode)
@@ -250,9 +262,16 @@ def main() -> None:
     args = build_argparser().parse_args()
     config_path = str(pathlib.Path(args.config).resolve())
     config = load_config(config_path)
-    results = [_run_once(_timestamped_run_config(sweep_config), config_path) for sweep_config in expand_sweep(config)]
+    results = [
+        _run_once(_timestamped_run_config(sweep_config), config_path)
+        for sweep_config in expand_sweep(config)
+    ]
     if len(results) > 1:
-        print(json.dumps({"n_runs": len(results), "runs": results}, ensure_ascii=False, indent=2, default=str))
+        print(
+            json.dumps(
+                {"n_runs": len(results), "runs": results}, ensure_ascii=False, indent=2, default=str
+            )
+        )
 
 
 if __name__ == "__main__":

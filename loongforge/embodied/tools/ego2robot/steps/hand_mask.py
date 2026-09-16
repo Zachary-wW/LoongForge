@@ -20,7 +20,7 @@ Strategy:
 
 Usage:
   python cli.py mask --zarr_dir data_input/egoverse/narrow_tabletop --output_dir data_output/03_mask
-"""
+"""  # noqa: E501
 
 import argparse
 import os
@@ -235,7 +235,9 @@ class SAM3Segmenter:
         if masks.size == 0 or scores.size == 0:
             return np.zeros((height, width), dtype=np.uint8)
         if masks.shape[-2:] != (height, width):
-            raise ValueError(f"SAM3 returned mask shape {masks.shape}, expected (*, {height}, {width})")
+            raise ValueError(
+                f"SAM3 returned mask shape {masks.shape}, expected (*, {height}, {width})"
+            )
         return masks.reshape(-1, height, width).any(axis=0).astype(np.uint8)
 
     @staticmethod
@@ -384,7 +386,7 @@ class SAM3VideoSegmenter:
                         continue
                     if masks.shape[-2:] != (frame_height, frame_width):
                         raise ValueError(
-                            f"SAM3 video returned mask shape {masks.shape}, expected (*, {frame_height}, {frame_width})"
+                            f"SAM3 video returned mask shape {masks.shape}, expected (*, {frame_height}, {frame_width})"  # noqa: E501
                         )
                     all_masks[frame_idx] = masks.astype(bool).any(axis=0).astype(np.uint8)
 
@@ -418,7 +420,10 @@ class SAM3VideoSegmenter:
         arm_masks = empty.copy()
 
         chunk_step = self.CHUNK_SIZE - self.CHUNK_OVERLAP
-        chunk_ranges = [(start, min(start + self.CHUNK_SIZE, num_frames)) for start in range(0, num_frames, chunk_step)]
+        chunk_ranges = [
+            (start, min(start + self.CHUNK_SIZE, num_frames))
+            for start in range(0, num_frames, chunk_step)
+        ]
 
         def groups_for(anchor):
             if prompt_groups_by_frame is None:
@@ -426,7 +431,9 @@ class SAM3VideoSegmenter:
             return prompt_groups_by_frame.get(anchor, prompt_groups)
 
         if mask_mode in ("both", "person"):
-            print(f"  Temporal track: text prompt {body_prompt!r}, anchor=middle, chunks={len(chunk_ranges)}")
+            print(
+                f"  Temporal track: text prompt {body_prompt!r}, anchor=middle, chunks={len(chunk_ranges)}"  # noqa: E501
+            )
             for frame_start, frame_end in chunk_ranges:
                 anchor = (frame_start + frame_end - 1) // 2
                 person_masks |= self._propagate_prompt(
@@ -446,7 +453,9 @@ class SAM3VideoSegmenter:
                 anchor = (frame_start + frame_end - 1) // 2
                 groups = groups_for(anchor)
                 boxes = [
-                    self._center_to_xywh(SAM3Segmenter._prompt_box(points, frame_width, frame_height))
+                    self._center_to_xywh(
+                        SAM3Segmenter._prompt_box(points, frame_width, frame_height)
+                    )
                     for points, _labels in groups
                 ]
                 # SAM3 requires exactly one visual box for an initial prompt.
@@ -535,7 +544,9 @@ def _paper_mask_postprocess(masks):
     close_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     closed = np.zeros_like(masks, dtype=np.uint8)
     for t in range(len(masks)):
-        closed[t] = (cv2.morphologyEx(masks[t] * 255, cv2.MORPH_CLOSE, close_kernel) > 0).astype(np.uint8)
+        closed[t] = (cv2.morphologyEx(masks[t] * 255, cv2.MORPH_CLOSE, close_kernel) > 0).astype(
+            np.uint8
+        )
     return closed
 
 
@@ -574,7 +585,11 @@ def process_episode(
     from steps.config import dataset_intrinsics_k, fallback_episode_attrs
 
     ep_attrs, _borrow_src = fallback_episode_attrs(zarr_path)
-    K = dataset_intrinsics_k(ep_attrs, camera="front_1", img_shape=(H, W)) if ep_attrs is not None else None
+    K = (
+        dataset_intrinsics_k(ep_attrs, camera="front_1", img_shape=(H, W))
+        if ep_attrs is not None
+        else None
+    )
     if K is None:
         print("  ⚠️ No usable intrinsics for front_1, skipping")
         return
@@ -624,7 +639,9 @@ def process_episode(
 
     # SAM3 video inference needs a numeric frame directory. Reuse the original
     # JPEG bytes so staging does not decode/re-encode the episode.
-    with tempfile.TemporaryDirectory(prefix=f".sam3_video_{ep_name}_", dir=output_dir) as stage_root:
+    with tempfile.TemporaryDirectory(
+        prefix=f".sam3_video_{ep_name}_", dir=output_dir
+    ) as stage_root:
         frame_dir = Path(stage_root) / "frames"
         frame_dir.mkdir()
         for t in range(total_frames):
@@ -647,7 +664,7 @@ def process_episode(
     expected_shape = (total_frames, H, W)
     if person_masks.shape != expected_shape or arm_masks.shape != expected_shape:
         raise ValueError(
-            f"SAM3 video returned person={person_masks.shape}, arm={arm_masks.shape}, expected {expected_shape}"
+            f"SAM3 video returned person={person_masks.shape}, arm={arm_masks.shape}, expected {expected_shape}"  # noqa: E501
         )
 
     all_masks = np.zeros(expected_shape, dtype=np.uint8)
@@ -660,7 +677,9 @@ def process_episode(
         )
         for mask_seq in (person_masks, arm_masks):
             for frame_idx in range(total_frames):
-                mask_seq[frame_idx] = (cv2.dilate(mask_seq[frame_idx] * 255, kernel) > 0).astype(np.uint8)
+                mask_seq[frame_idx] = (cv2.dilate(mask_seq[frame_idx] * 255, kernel) > 0).astype(
+                    np.uint8
+                )
 
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     video_path = os.path.join(ep_out, "mask_overlay.mp4")
@@ -685,7 +704,9 @@ def process_episode(
         person_only = (person_masks[t] > 0) & (arm_masks[t] == 0)
         arm_only = (arm_masks[t] > 0) & (person_masks[t] == 0)
         both = (person_masks[t] > 0) & (arm_masks[t] > 0)
-        overlay[person_only] = (overlay[person_only] * 0.4 + np.array([0, 0, 200]) * 0.6).astype(np.uint8)
+        overlay[person_only] = (overlay[person_only] * 0.4 + np.array([0, 0, 200]) * 0.6).astype(
+            np.uint8
+        )
         overlay[arm_only] = (overlay[arm_only] * 0.4 + np.array([0, 200, 0]) * 0.6).astype(np.uint8)
         overlay[both] = (overlay[both] * 0.4 + np.array([200, 0, 200]) * 0.6).astype(np.uint8)
         # Draw the mask boundaries.
@@ -694,12 +715,20 @@ def process_episode(
 
         combined = np.hstack([bgr, overlay])
         cv2.putText(
-            combined, f"frame {t}/{total_frames}", (10, H - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1
+            combined,
+            f"frame {t}/{total_frames}",
+            (10, H - 10),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (255, 255, 255),
+            1,
         )
         writer.write(combined)
 
         if t % 20 == 0:
-            print(f"    frame {t}/{total_frames} mask_area={all_masks[t].sum() / (H * W) * 100:.1f}%")
+            print(
+                f"    frame {t}/{total_frames} mask_area={all_masks[t].sum() / (H * W) * 100:.1f}%"
+            )
 
     writer.release()
     try:
@@ -738,7 +767,9 @@ def build_arg_parser():
         default=0,
         help="Optional extra dilation after Ego2Robot mask cleanup (default: 0)",
     )
-    parser.add_argument("--body_prompt", default="person", help="SAM3 text prompt for visible human body")
+    parser.add_argument(
+        "--body_prompt", default="person", help="SAM3 text prompt for visible human body"
+    )
     parser.add_argument(
         "--mask_mode",
         choices=("both", "person", "arms"),
@@ -751,7 +782,9 @@ def build_arg_parser():
         help="Deprecated alias for --mask_mode arms",
     )
     parser.add_argument("--episodes", nargs="*", default=None)
-    parser.add_argument("--max_frames", type=int, default=None, help="cap frames per episode (smoke test)")
+    parser.add_argument(
+        "--max_frames", type=int, default=None, help="cap frames per episode (smoke test)"
+    )
     return parser
 
 
@@ -766,7 +799,9 @@ def run(args):
 
     sam3_checkpoint = config.resolve_sam3_checkpoint(args.sam3_checkpoint)
     if sam3_checkpoint is None:
-        print("ERROR: Cannot find SAM3 checkpoint. Provide --sam3_checkpoint or set EGO2ROBOT_SAM3_CKPT")
+        print(
+            "ERROR: Cannot find SAM3 checkpoint. Provide --sam3_checkpoint or set EGO2ROBOT_SAM3_CKPT"  # noqa: E501
+        )
         sys.exit(1)
     print(f"SAM3 checkpoint: {sam3_checkpoint}")
 

@@ -88,7 +88,7 @@ class RoboTwinLingBotVAEeQuatDecoder(ActionDecoder):
         chunk = np.asarray(actions, dtype=np.float32).reshape(-1, actions.shape[-1])
         if chunk.shape[-1] < ROBOTWIN_EE_QUAT_ACTION_DIM:
             raise ValueError(
-                f"lingbot_va RoboTwin decoder requires {ROBOTWIN_EE_QUAT_ACTION_DIM}D actions, got {chunk.shape[-1]}D"
+                f"lingbot_va RoboTwin decoder requires {ROBOTWIN_EE_QUAT_ACTION_DIM}D actions, got {chunk.shape[-1]}D"  # noqa: E501
             )
         if self._initial_endpose is None:
             endpose = ctx.get("endpose")

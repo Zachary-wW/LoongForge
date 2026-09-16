@@ -41,7 +41,7 @@ class TransformerLayerInternVisionSubmodules(TransformerLayerSubmodules):
             Defaults to IdentityOp.
         moe_mlp (Union[ModuleSpec, type], optional): Specification or type of the MLP module for MoE.
             Defaults to IdentityOp.
-    """
+    """  # noqa: E501
 
     post_attention_layerscale: nn.Parameter = LayerScale
     post_mlp_layerscale: nn.Parameter = LayerScale
@@ -74,9 +74,13 @@ class TransformerLayerIntern(TransformerLayer):
 
         Raises:
             ValueError: If the `submodules` argument is not a valid type.
-        """
+        """  # noqa: E501
         super(TransformerLayerIntern, self).__init__(
-            config=config, submodules=submodules, layer_number=layer_number, hidden_dropout=hidden_dropout, **kwargs
+            config=config,
+            submodules=submodules,
+            layer_number=layer_number,
+            hidden_dropout=hidden_dropout,
+            **kwargs,
         )
 
         self.post_attention_layerscale = build_module(
@@ -109,7 +113,9 @@ class TransformerLayerIntern(TransformerLayer):
         # Optional Input Layer norm
         if self.recompute_input_layernorm:
             self.input_layernorm_checkpoint = tensor_parallel.CheckpointWithoutOutput()
-            input_layernorm_output = self.input_layernorm_checkpoint.checkpoint(self.input_layernorm, hidden_states)
+            input_layernorm_output = self.input_layernorm_checkpoint.checkpoint(
+                self.input_layernorm, hidden_states
+            )
         else:
             input_layernorm_output = self.input_layernorm(hidden_states)
 
@@ -133,7 +139,9 @@ class TransformerLayerIntern(TransformerLayer):
 
         attention_output_with_bias = (
             self.post_attention_layerscale(
-                (attention_output + attention_bias) if attention_bias is not None else attention_output
+                (attention_output + attention_bias)
+                if attention_bias is not None
+                else attention_output
             ),
             None,
         )
@@ -175,7 +183,9 @@ class TransformerLayerIntern(TransformerLayer):
         # Optional Layer norm post the cross-attention.
         if self.recompute_pre_mlp_layernorm:
             self.pre_mlp_norm_checkpoint = tensor_parallel.CheckpointWithoutOutput()
-            pre_mlp_layernorm_output = self.pre_mlp_norm_checkpoint.checkpoint(self.pre_mlp_layernorm, hidden_states)
+            pre_mlp_layernorm_output = self.pre_mlp_norm_checkpoint.checkpoint(
+                self.pre_mlp_layernorm, hidden_states
+            )
         else:
             pre_mlp_layernorm_output = self.pre_mlp_layernorm(hidden_states)
 
@@ -188,7 +198,9 @@ class TransformerLayerIntern(TransformerLayer):
             self.pre_mlp_norm_checkpoint.discard_output_and_register_recompute(mlp_output)
 
         mlp_output_with_bias = (
-            self.post_mlp_layerscale((mlp_output + mlp_bias) if mlp_bias is not None else mlp_output),
+            self.post_mlp_layerscale(
+                (mlp_output + mlp_bias) if mlp_bias is not None else mlp_output
+            ),
             None,
         )
 
@@ -205,7 +217,9 @@ class TransformerLayerIntern(TransformerLayer):
         # won't result in memory savings (like the data loader, or
         # p2p_communication), it serves to document the origin of this
         # 'view' tensor.
-        output = make_viewless_tensor(inp=hidden_states, requires_grad=hidden_states.requires_grad, keep_graph=True)
+        output = make_viewless_tensor(
+            inp=hidden_states, requires_grad=hidden_states.requires_grad, keep_graph=True
+        )
 
         # CUDA graph requires returned values to be Tensors
         if self.config.external_cuda_graph and self.training:

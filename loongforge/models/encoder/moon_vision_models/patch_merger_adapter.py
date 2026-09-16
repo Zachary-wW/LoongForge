@@ -80,7 +80,9 @@ class PatchMergerMLP(BaseMegatronModule):
         if hasattr(config, "freeze") and config.freeze:
             self.freeze()
 
-    def forward(self, x: Union[torch.Tensor, list, tuple], window_index: torch.LongTensor = None) -> torch.Tensor:
+    def forward(
+        self, x: Union[torch.Tensor, list, tuple], window_index: torch.LongTensor = None
+    ) -> torch.Tensor:
         """Forward pass."""
 
         # Support list/tuple input
@@ -89,7 +91,9 @@ class PatchMergerMLP(BaseMegatronModule):
 
         return self._forward_single(x, window_index)
 
-    def _forward_single(self, x: torch.Tensor, window_index: torch.LongTensor = None) -> torch.Tensor:
+    def _forward_single(
+        self, x: torch.Tensor, window_index: torch.LongTensor = None
+    ) -> torch.Tensor:
         """Forward pass for single tensor."""
         B = x.shape[0]
 

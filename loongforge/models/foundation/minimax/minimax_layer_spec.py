@@ -137,7 +137,9 @@ def get_minimax_decoder_block_and_mtp_spec(
         config.moe_layer_freq = list(config.moe_layer_freq)
 
     if isinstance(config.moe_layer_freq, int):
-        moe_layer_pattern = [1 if (i % config.moe_layer_freq == 0) else 0 for i in range(config.num_layers)]
+        moe_layer_pattern = [
+            1 if (i % config.moe_layer_freq == 0) else 0 for i in range(config.num_layers)
+        ]
     elif isinstance(config.moe_layer_freq, list):
         moe_layer_pattern = config.moe_layer_freq
         assert len(moe_layer_pattern) == config.num_layers, (
@@ -146,7 +148,9 @@ def get_minimax_decoder_block_and_mtp_spec(
             f"current moe layer pattern: {config.moe_layer_freq}"
         )
     else:
-        raise ValueError(f"Invalid moe_layer_freq: {type(config.moe_layer_freq)}, {config.moe_layer_freq}")
+        raise ValueError(
+            f"Invalid moe_layer_freq: {type(config.moe_layer_freq)}, {config.moe_layer_freq}"
+        )
 
     # Create the layer specs for the model.
     layer_specs = []

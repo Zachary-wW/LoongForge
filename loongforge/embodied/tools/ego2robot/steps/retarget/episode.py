@@ -163,7 +163,9 @@ def repair_branch_jumps(
         if use_legacy_dls:
             # Legacy branch repair kept the DLS solver's stricter default
             # orientation stopping tolerance (0.15), then accepted 0.25 here.
-            q, _, ep_, er_ = ik_solver(model, arm_qadr, arm_vadr, arm_ids, ee_ref, p_b, R_b, q_init=q0, tol_pos=tol_pos)
+            q, _, ep_, er_ = ik_solver(
+                model, arm_qadr, arm_vadr, arm_ids, ee_ref, p_b, R_b, q_init=q0, tol_pos=tol_pos
+            )
         else:
             q, _, ep_, er_ = ik_solver(
                 model,
@@ -249,7 +251,8 @@ def interp_failed_frames(qpos_all, ik_position_ok, l_qadr, r_qadr, branch_jump_t
             endpoints_cross_branches = (
                 branch_jump_thresh > 0.0
                 and hi_t[i] != lo_t[i]
-                and np.max(np.abs(qpos_all[hi_t[i], qadr] - qpos_all[lo_t[i], qadr])) > branch_jump_thresh
+                and np.max(np.abs(qpos_all[hi_t[i], qadr] - qpos_all[lo_t[i], qadr]))
+                > branch_jump_thresh
             )
             if endpoints_cross_branches:
                 # A linear blend between two valid but incompatible IK
@@ -257,7 +260,9 @@ def interp_failed_frames(qpos_all, ik_position_ok, l_qadr, r_qadr, branch_jump_t
                 # preceding branch until a later frame is solved explicitly.
                 qpos_all[t, qadr] = qpos_all[lo_t[i], qadr]
             else:
-                qpos_all[t, qadr] = (1.0 - weight) * qpos_all[lo_t[i], qadr] + weight * qpos_all[hi_t[i], qadr]
+                qpos_all[t, qadr] = (1.0 - weight) * qpos_all[lo_t[i], qadr] + weight * qpos_all[
+                    hi_t[i], qadr
+                ]
             n_fixed += 1
     return n_fixed
 
@@ -307,7 +312,9 @@ def process_episode(
     spec = spec or get_robot_spec("panda")
     base_pullback = float(base_pullback or 0.0)
     if not np.isfinite(base_pullback) or base_pullback < 0.0:
-        raise ValueError(f"base_pullback must be a finite non-negative distance, got {base_pullback}")
+        raise ValueError(
+            f"base_pullback must be a finite non-negative distance, got {base_pullback}"
+        )
     base_search_mode = str(base_search_mode).lower()
     if base_search_mode not in {"original", "balanced", "slow", "fast"}:
         raise ValueError(f"unknown base search mode: {base_search_mode}")
@@ -380,15 +387,19 @@ def process_episode(
         orientation_sigma=target_orientation_sigma,
         width_max=spec.gripper_max,
     )
-    left_p, left_R = target_ref_pose(spec, left_tcp_p, left_tcp_R, spec.tcp_rot_site_left, opening_width=left_w)
-    right_p, right_R = target_ref_pose(spec, right_tcp_p, right_tcp_R, spec.tcp_rot_site_right, opening_width=right_w)
+    left_p, left_R = target_ref_pose(
+        spec, left_tcp_p, left_tcp_R, spec.tcp_rot_site_left, opening_width=left_w
+    )
+    right_p, right_R = target_ref_pose(
+        spec, right_tcp_p, right_tcp_R, spec.tcp_rot_site_right, opening_width=right_w
+    )
 
     # 2. Nominal camera-facing frame; the paper search varies translation and
     # orientation around it independently for both arms.
     fwd = head_forward_flat(head)
     _, nominal_R_base = base_frame(fwd)
     camera_pos = np.mean(head[:, :3], axis=0)
-    # Reuse the single-arm model for base_search and later IK; the dual-arm model is for rendering only.
+    # Reuse the single-arm model for base_search and later IK; the dual-arm model is for rendering only.  # noqa: E501
     arm_ids, arm_qadr, arm_vadr = name_to_dof(single, spec.arm_joints)
     ee_ref_single = resolve_ee_ref(single, spec)
     mink_context = (
@@ -403,7 +414,9 @@ def process_episode(
         if use_mink_ik
         else None
     )
-    mink_position_context = MinkIKContext(single, arm_ids, ee_ref_single, orientation_cost=0.0) if use_mink_ik else None
+    mink_position_context = (
+        MinkIKContext(single, arm_ids, ee_ref_single, orientation_cost=0.0) if use_mink_ik else None
+    )
     support_surface = None
     if spec.scene_support_surface:
         if depth_mode != "depth-aware":
@@ -413,7 +426,9 @@ def process_episode(
         else:
             scene_depth, scene_depth_metadata = load_scene_depth(scene_depth_path)
             ep_attrs, _ = config.fallback_episode_attrs(str(Path(zarr_dir) / ep))
-            K = config.dataset_intrinsics_k(ep_attrs or {}, camera="front_1", img_shape=scene_depth.shape[1:])
+            K = config.dataset_intrinsics_k(
+                ep_attrs or {}, camera="front_1", img_shape=scene_depth.shape[1:]
+            )
             if K is None:
                 print(f"    [{ep}] scene support fallback: camera intrinsics unavailable")
             else:
@@ -436,9 +451,15 @@ def process_episode(
                         f"points={support_surface['inlier_count']}, "
                         f"base_min_z={support_surface['base_min_z']:.4f}m"
                     )
-    shared_base_height = float(np.mean(np.concatenate([left_p[:, 2], right_p[:, 2]]))) if spec.coplanar_bases else None
+    shared_base_height = (
+        float(np.mean(np.concatenate([left_p[:, 2], right_p[:, 2]])))
+        if spec.coplanar_bases
+        else None
+    )
     shared_base_forward = (
-        float(np.mean(np.concatenate([left_p @ fwd, right_p @ fwd]))) if spec.aligned_base_depths else None
+        float(np.mean(np.concatenate([left_p @ fwd, right_p @ fwd])))
+        if spec.aligned_base_depths
+        else None
     )
 
     left_candidates, left_kf_idx = search_base_pose(
@@ -536,7 +557,9 @@ def process_episode(
         pull_dir[2] = 0.0
         pull_norm = np.linalg.norm(pull_dir)
         if pull_norm < 1e-8:
-            raise ValueError("cannot apply base_pullback: head viewing direction has no horizontal component")
+            raise ValueError(
+                "cannot apply base_pullback: head viewing direction has no horizontal component"
+            )
         pull = pull_dir / pull_norm * base_pullback
         head_pts = head[:, :3]
         before = min(
@@ -547,7 +570,9 @@ def process_episode(
         right_base_pos = right_base_pos + pull
         if support_surface is not None:
             left_base_pos, left_support_gap = _snap_base_to_support(left_base_pos, support_surface)
-            right_base_pos, right_support_gap = _snap_base_to_support(right_base_pos, support_surface)
+            right_base_pos, right_support_gap = _snap_base_to_support(
+                right_base_pos, support_surface
+            )
             max_gap = max(left_support_gap, right_support_gap)
             if max_gap > support_surface["max_local_gap"]:
                 print(
@@ -574,7 +599,9 @@ def process_episode(
     if not np.isfinite(fy) or fy <= 0.0:
         raise ValueError(f"fy must be a finite positive focal length, got {fy}")
     fovy = float(np.degrees(2.0 * np.arctan((height / 2.0) / fy)))
-    dual = build_dual_model(left_base_pos, left_base_quat, right_base_pos, right_base_quat, fovy, spec)
+    dual = build_dual_model(
+        left_base_pos, left_base_quat, right_base_pos, right_base_quat, fovy, spec
+    )
     cam_id = mujoco.mj_name2id(dual, mujoco.mjtObj.mjOBJ_CAMERA, "ego")
 
     # DOF indices in the dual-arm model (left_/right_ prefixes).
@@ -607,10 +634,20 @@ def process_episode(
     # Warm-start single-arm IK frame by frame to avoid jitter from switching IK branches.
     if not use_mink_ik:
         warm_l = _prewarm_dls(
-            single, arm_qadr, arm_vadr, arm_ids, ee_ref_single, left_R_base.T @ (left_p[0] - left_base_pos)
+            single,
+            arm_qadr,
+            arm_vadr,
+            arm_ids,
+            ee_ref_single,
+            left_R_base.T @ (left_p[0] - left_base_pos),
         )
         warm_r = _prewarm_dls(
-            single, arm_qadr, arm_vadr, arm_ids, ee_ref_single, right_R_base.T @ (right_p[0] - right_base_pos)
+            single,
+            arm_qadr,
+            arm_vadr,
+            arm_ids,
+            ee_ref_single,
+            right_R_base.T @ (right_p[0] - right_base_pos),
         )
     else:
         # Let the first full-pose solve start without a hard continuity bound.
@@ -683,7 +720,9 @@ def process_episode(
         def continuous_with_warm(q):
             if warm is None or mink_continuity_max_step <= 0.0:
                 return True
-            return bool(np.max(np.abs(q[arm_qadr] - warm[arm_qadr])) <= mink_continuity_max_step + 1e-6)
+            return bool(
+                np.max(np.abs(q[arm_qadr] - warm[arm_qadr])) <= mink_continuity_max_step + 1e-6
+            )
 
         # Position is genuinely unresolved on the current branch. Only now
         # allow the robust full-pose solver and DLS to act as recovery paths.
@@ -735,11 +774,15 @@ def process_episode(
         p_base_l = left_R_base.T @ (left_p[t] - left_base_pos)
         R_base_l = left_R_base.T @ left_R[t]
         # Solve with the single-arm model, then write results to the matching dual-model qadr.
-        q_l, okl, epl, erl, fallback_l, branch_l, dls_l, refined_l = solve_trajectory_ik(p_base_l, R_base_l, warm_l)
+        q_l, okl, epl, erl, fallback_l, branch_l, dls_l, refined_l = solve_trajectory_ik(
+            p_base_l, R_base_l, warm_l
+        )
         # right
         p_base_r = right_R_base.T @ (right_p[t] - right_base_pos)
         R_base_r = right_R_base.T @ right_R[t]
-        q_r, okr, epr, err, fallback_r, branch_r, dls_r, refined_r = solve_trajectory_ik(p_base_r, R_base_r, warm_r)
+        q_r, okr, epr, err, fallback_r, branch_r, dls_r, refined_r = solve_trajectory_ik(
+            p_base_r, R_base_r, warm_r
+        )
         warm_l = q_l.copy()
         warm_r = q_r.copy()
 
@@ -771,8 +814,8 @@ def process_episode(
         f"    IK {ik_label} {ik_task_dim}D task: "
         f"both_position_ok={both_position_ok:.1%} "
         f"both_pose_ok={both_pose_ok:.1%} "
-        f"pos_err L={ik_err_pos[:, 0].mean() * 1000:.1f}mm R={ik_err_pos[:, 1].mean() * 1000:.1f}mm "
-        f"rot_err L={np.degrees(ik_err_rot[:, 0].mean()):.1f}° R={np.degrees(ik_err_rot[:, 1].mean()):.1f}°"
+        f"pos_err L={ik_err_pos[:, 0].mean() * 1000:.1f}mm R={ik_err_pos[:, 1].mean() * 1000:.1f}mm "  # noqa: E501
+        f"rot_err L={np.degrees(ik_err_rot[:, 0].mean()):.1f}° R={np.degrees(ik_err_rot[:, 1].mean()):.1f}°"  # noqa: E501
     )
     if np.any(ik_position_fallback):
         print(
@@ -841,7 +884,9 @@ def process_episode(
         ik_position_ok[:, 0] = position_ok_l
         ik_position_ok[:, 1] = position_ok_r
         both_pose_ok2 = ik_pose_ok.all(axis=1).mean()
-        print(f"    branch-repair: fixed L={n_fix_l} R={n_fix_r} frames → both_pose_ok={both_pose_ok2:.1%}")
+        print(
+            f"    branch-repair: fixed L={n_fix_l} R={n_fix_r} frames → both_pose_ok={both_pose_ok2:.1%}"  # noqa: E501
+        )
 
     # The final robust IK can choose a different valid branch than the
     # sparse base-pair screen.  Validate the actual rendered qpos and retry
@@ -931,8 +976,14 @@ def process_episode(
     w_final = cv2.VideoWriter(out_final, fourcc, fps, (W, H))
     out_mask = str(out_dir / f"{ep}_arm_mask.mp4")
     w_mask = cv2.VideoWriter(out_mask, fourcc, fps, (W, H))
-    wrist_cam_ids = {name: mujoco.mj_name2id(dual, mujoco.mjtObj.mjOBJ_CAMERA, name) for name in ("wrist_l", "wrist_r")}
-    w_wrist = {name: cv2.VideoWriter(str(out_dir / f"{ep}_{name}.mp4"), fourcc, fps, (W, H)) for name in wrist_cam_ids}
+    wrist_cam_ids = {
+        name: mujoco.mj_name2id(dual, mujoco.mjtObj.mjOBJ_CAMERA, name)
+        for name in ("wrist_l", "wrist_r")
+    }
+    w_wrist = {
+        name: cv2.VideoWriter(str(out_dir / f"{ep}_{name}.mp4"), fourcc, fps, (W, H))
+        for name in wrist_cam_ids
+    }
     video_writers = {"robot_on_bg": w_final, "arm_mask": w_mask, **w_wrist}
     failed_writers = [name for name, writer in video_writers.items() if not writer.isOpened()]
     if failed_writers:
@@ -987,7 +1038,12 @@ def process_episode(
             mask = cv2.resize(mask.astype(np.float32), (W, H), interpolation=cv2.INTER_LINEAR) > 0.5
         # Closing removes isolated one-pixel z-fight holes in the instance
         # mask, matching the old compositing path.
-        mask = cv2.morphologyEx(mask.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8), iterations=1) > 0
+        mask = (
+            cv2.morphologyEx(
+                mask.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8), iterations=1
+            )
+            > 0
+        )
         if robot_depth is not None and robot_depth.shape[:2] != (H, W):
             robot_depth = cv2.resize(robot_depth, (W, H), interpolation=cv2.INTER_NEAREST)
         robot_bgr = cv2.cvtColor(robot_rgb, cv2.COLOR_RGB2BGR)
@@ -1011,9 +1067,17 @@ def process_episode(
             w_wrist[name].write(cv2.cvtColor(wrist_rgb, cv2.COLOR_RGB2BGR))
         if w_debug is not None:
             panel = np.hstack([bg_frames[t], composed])
-            cv2.putText(panel, "INPAINT-BG", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
             cv2.putText(
-                panel, f"{spec.name.upper()}-DUAL", (W + 10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2
+                panel, "INPAINT-BG", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2
+            )
+            cv2.putText(
+                panel,
+                f"{spec.name.upper()}-DUAL",
+                (W + 10, 25),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (0, 255, 255),
+                2,
             )
             w_debug.write(panel)
         if (t + 1) % 100 == 0:
@@ -1049,14 +1113,17 @@ def process_episode(
         support_metadata = {
             "scene_support_applied": np.asarray(support_surface is not None),
             "scene_support_plane": np.asarray(
-                support_surface["coefficients"] if support_surface is not None else [np.nan, np.nan, np.nan],
+                support_surface["coefficients"]
+                if support_surface is not None
+                else [np.nan, np.nan, np.nan],
                 dtype=np.float32,
             ),
             "scene_support_rmse": np.asarray(
                 support_surface["rmse"] if support_surface is not None else np.nan, dtype=np.float32
             ),
             "base_visual_min_z": np.asarray(
-                support_surface["base_min_z"] if support_surface is not None else np.nan, dtype=np.float32
+                support_surface["base_min_z"] if support_surface is not None else np.nan,
+                dtype=np.float32,
             ),
         }
     np.savez_compressed(
@@ -1064,7 +1131,9 @@ def process_episode(
         qpos=qpos_all,
         state=state_qpos,
         robot_type=np.asarray(spec.name),
-        state_names=np.asarray([f"left_{n}" for n in spec.state_names] + [f"right_{n}" for n in spec.state_names]),
+        state_names=np.asarray(
+            [f"left_{n}" for n in spec.state_names] + [f"right_{n}" for n in spec.state_names]
+        ),
         # ``ik_ok`` remains a compatibility alias for callers
         # that historically interpreted it as full-pose IK.
         ik_ok=ik_pose_ok,

@@ -124,9 +124,9 @@ class XVLA(PreTrainedModel):
 
         all_feats = self.vlm._encode_image(flat_images)  # [B*V, N, D]
         N, D = all_feats.shape[1:]
-        image_features = torch.where(flat_mask.view(-1, 1, 1), all_feats, all_feats.new_zeros(())).view(
-            B, V, N, D
-        )  # [B, V, N, D]
+        image_features = torch.where(
+            flat_mask.view(-1, 1, 1), all_feats, all_feats.new_zeros(())
+        ).view(B, V, N, D)  # [B, V, N, D]
 
         inputs_embeds = self.vlm.get_input_embeddings()(input_ids)  # [B, L, D]
 
@@ -171,7 +171,9 @@ class XVLA(PreTrainedModel):
         enc = self.forward_vlm(input_ids, image_input, image_mask)
 
         B = input_ids.shape[0]
-        t = (torch.rand(1, device=input_ids.device) + torch.arange(B, device=input_ids.device) / B) % (1 - 1e-5)
+        t = (
+            torch.rand(1, device=input_ids.device) + torch.arange(B, device=input_ids.device) / B
+        ) % (1 - 1e-5)
 
         action_noisy = torch.randn_like(action) * t.view(-1, 1, 1) + action * (1 - t).view(-1, 1, 1)
 
@@ -441,7 +443,7 @@ class XVLAPolicy(torch.nn.Module):
         Returns:
             ndarray of shape ``[B, num_actions, dim_action]``.
         """
-        # XVLA does not consume dataset_stats because action normalization is handled by action_space.
+        # XVLA does not consume dataset_stats because action normalization is handled by action_space.  # noqa: E501
         del dataset_stats
         self.eval()
         device = next(self.parameters()).device
@@ -455,7 +457,9 @@ class XVLAPolicy(torch.nn.Module):
         if not isinstance(instructions, (list, tuple)):
             instructions = [instructions]
         if len(instructions) != B:
-            raise ValueError(f"predict_action: got {B} image samples but {len(instructions)} instructions.")
+            raise ValueError(
+                f"predict_action: got {B} image samples but {len(instructions)} instructions."
+            )
 
         image_tf = self._get_image_transform()
         pil_batch = [[image_tf._to_pil(im) for im in views] for views in images]
@@ -476,7 +480,9 @@ class XVLAPolicy(torch.nn.Module):
             if state.dim() == 1:
                 state = state.unsqueeze(0)
             if state.shape[0] != B:
-                raise ValueError(f"predict_action: state batch {state.shape[0]} != images batch {B}.")
+                raise ValueError(
+                    f"predict_action: state batch {state.shape[0]} != images batch {B}."
+                )
             cur = state.shape[-1]
             if cur < dim_proprio:
                 state = torch.nn.functional.pad(state, (0, dim_proprio - cur))
@@ -485,7 +491,11 @@ class XVLAPolicy(torch.nn.Module):
             proprio = state.to(device)
 
         domain_value = resolve_domain_id(getattr(self.config, "robot_type", ""))
-        domain_id = torch.full((B,), domain_value, dtype=torch.long, device=device) if domain_id is None else domain_id
+        domain_id = (
+            torch.full((B,), domain_value, dtype=torch.long, device=device)
+            if domain_id is None
+            else domain_id
+        )
 
         actions = self.model.generate_actions(
             input_ids=input_ids,
@@ -507,12 +517,16 @@ class XVLAPolicy(torch.nn.Module):
             cfg = XVLAConfig()
             pretrained_path = str(config_or_path)
         else:
-            outer_config = config_or_path if isinstance(config_or_path, dict) else vars(config_or_path)
+            outer_config = (
+                config_or_path if isinstance(config_or_path, dict) else vars(config_or_path)
+            )
             config_block = outer_config["model"] if "model" in outer_config else outer_config
             config_block = config_block if isinstance(config_block, dict) else vars(config_block)
 
             cfg = XVLAConfig(**config_block)
-            pretrained_path = outer_config["pretrained_path"] if "pretrained_path" in outer_config else None
+            pretrained_path = (
+                outer_config["pretrained_path"] if "pretrained_path" in outer_config else None
+            )
 
         policy = cls(cfg)
         if processor_path:
@@ -535,7 +549,9 @@ class XVLAPolicy(torch.nn.Module):
         # Remember the checkpoint directory so lazily-built processors
         # (tokenizer / image_processor) can be loaded from it later.
         self._processor_path = (
-            str(path.parent if path.is_file() else path) if self._processor_path is None else self._processor_path
+            str(path.parent if path.is_file() else path)
+            if self._processor_path is None
+            else self._processor_path
         )
         safetensors_file = path / "model.safetensors" if path.is_dir() else path
         load_kwargs = {"device": str(device)} if device is not None else {}
@@ -543,9 +559,13 @@ class XVLAPolicy(torch.nn.Module):
 
         # Align checkpoint keys with this policy's "model." wrapper prefix.
         own_keys = set(self.state_dict().keys())
-        needs_prefix = any((not k.startswith("model.")) and (f"model.{k}" in own_keys) for k in state_dict)
+        needs_prefix = any(
+            (not k.startswith("model.")) and (f"model.{k}" in own_keys) for k in state_dict
+        )
         if needs_prefix:
-            state_dict = {(k if k.startswith("model.") else f"model.{k}"): v for k, v in state_dict.items()}
+            state_dict = {
+                (k if k.startswith("model.") else f"model.{k}"): v for k, v in state_dict.items()
+            }
 
         # Florence2 shares one embedding table across `model.shared` and the
         # encoder's `embed_tokens` (see Florence2LanguageModel._tie_weights).
