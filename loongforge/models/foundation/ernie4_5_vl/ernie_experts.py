@@ -26,6 +26,7 @@ from megatron.core.fusions.fused_bias_swiglu import bias_swiglu_impl, weighted_b
 from megatron.core.transformer.spec_utils import ModuleSpec, build_module
 from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.core.utils import (
+    is_te_min_version,
     nvtx_range_pop,
     nvtx_range_push,
 )
@@ -34,7 +35,6 @@ from megatron.core import tensor_parallel
 from megatron.core.transformer.mlp import MLP, apply_swiglu_sharded_factory
 from megatron.core.transformer.moe.experts import SequentialMLP as MegaSequentialMLP
 from megatron.core.process_groups_config import ProcessGroupCollection
-from loongforge.utils import is_te_min_version
 
 try:
     import transformer_engine  # pylint: disable=unused-import  # noqa: F401

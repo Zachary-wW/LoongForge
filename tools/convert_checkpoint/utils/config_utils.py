@@ -24,7 +24,7 @@ from convert_checkpoint.common.common_checkpoint import (
     VISION_MAP,
     VISION_WORD_EMBEDDINGS,
     WEIGHT,
-    WORD_EMBEDDINGS,
+    WORD_EMBEDDINGS
 )
 
 
@@ -42,9 +42,9 @@ def load_config(config_path, config_name=None, hydra_overrides=None):
     """
     # Convert to absolute path
     config_path = os.path.abspath(config_path)
-
+    
     # Handle full file path case
-    if config_path.endswith(".yaml"):
+    if config_path.endswith('.yaml'):
         config_dir = os.path.dirname(config_path)
         config_name = os.path.basename(config_path)[:-5]  # remove .yaml
     else:
@@ -64,7 +64,6 @@ def load_config(config_path, config_name=None, hydra_overrides=None):
 
     return cfg
 
-
 def parse_at_configs(yaml_lines):
     """
     Parse configuration lines with @ symbol in YAML to extract key-value pairs.
@@ -83,23 +82,22 @@ def parse_at_configs(yaml_lines):
     result = {}
     for line in yaml_lines:
         line = line.strip()
-        if line.startswith("- ") and "@" in line and ":" in line:
+        if line.startswith('- ') and '@' in line and ':' in line:
             # Remove the leading "- "
             config_str = line[2:].strip()
             # Split key and value
-            key_part, value = config_str.split(":", 1)
+            key_part, value = config_str.split(':', 1)
             key_part = key_part.strip()
             value = value.strip()
             # Extract the part before @ as the key
-            if "@" in key_part:
-                config_key = key_part.split("@")[0].split("/")[-1]
+            if '@' in key_part:
+                config_key = key_part.split('@')[0].split('/')[-1]
                 result[config_key.strip()] = value
     return result
 
-
 def parallel_param_parser(args, model_cfg, parallel_param, module_type):
-    parallel_param_name = "model." + module_type + "." + parallel_param
-    if OmegaConf.select(model_cfg, parallel_param_name):  # Returns None if not exists
+    parallel_param_name = 'model.'+module_type + '.' + parallel_param
+    if OmegaConf.select(model_cfg, parallel_param_name): # Returns None if not exists
         parallel_size = model_cfg.model[module_type][parallel_param]
         setattr(args, parallel_param, parallel_size)
     elif hasattr(args, parallel_param):
@@ -109,63 +107,62 @@ def parallel_param_parser(args, model_cfg, parallel_param, module_type):
 
     return parallel_size
 
-
 def update_overwrite(model_cfg, module_cfg, module_type):
     for key in module_cfg.data.module.keys():
         try:
-            module_cfg.data.module[key] = model_cfg["model"][module_type][key]
+            module_cfg.data.module[key] = model_cfg['model'][module_type][key]
         except Exception:
             continue
 
-
-prefix_mapping = {"vision_model": "encoder_model.image_encoder", "adapter": "encoder_model.image_projector"}
-
+prefix_mapping = {'vision_model': 'encoder_model.image_encoder',
+                  'adapter': 'encoder_model.image_projector'}
 
 def get_adapter_config(config_file, convert_file):
-    with open(config_file, "r") as f:
+    with open(config_file, 'r') as f:
         module_names = parse_at_configs(f.readlines())
-    module_type = convert_file.split("/")[-3]
-    name_map = load_config(convert_file, hydra_overrides={module_type + "@module=" + module_names[module_type]})
+    module_type = convert_file.split('/')[-3]
+    name_map = load_config(convert_file, hydra_overrides = {module_type+'@module='+module_names[module_type]})
     adapter_name_map = {}
     for k1, k2 in name_map.items():
-        if k1 != "name_map" and k1 != "module":
+        if k1 != 'name_map' and k1 != 'module':
             adapter_name_map[k1] = k2
 
     return adapter_name_map
 
-
 def get_vision_patch_config(config_file, convert_file):
-    with open(config_file, "r") as f:
-        module_names = parse_at_configs(f.readlines())
-    module_type = convert_file.split("/")[-3]
-    cfg = load_config(convert_file, hydra_overrides={module_type + "@module=" + module_names[module_type]})
+    with open(config_file, 'r') as f:
+            module_names = parse_at_configs(f.readlines())
+    module_type = convert_file.split('/')[-3]
+    cfg = load_config(convert_file, hydra_overrides = {module_type+'@module='+module_names[module_type]})
 
     return cfg.vision_patch
 
-
 def parse_yaml_config(config_file, convert_file):
     c_config = CommonConfig()
-    with open(config_file, "r") as f:
+    with open(config_file, 'r') as f:
         module_names = parse_at_configs(f.readlines())
-    module_type = convert_file.split("/")[-3]
+    module_type = convert_file.split('/')[-3]
     # Filter out PEFT config keys (e.g., 'lora') which are not model module types
-    module_keys = [k for k in module_names.keys() if k not in ["lora"]]
-    if len(module_keys) == 0:  # llm
-        config_name = config_file.split("/")[-1].split(".")[0]
-        cfg = load_config(convert_file, hydra_overrides={module_type + "@module=" + config_name})
-    else:  # omni vlm
-        cfg = load_config(convert_file, hydra_overrides={module_type + "@module=" + module_names[module_type]})
+    module_keys = [k for k in module_names.keys() if k not in ['lora']]
+    if len(module_keys) == 0: # llm
+        # Keep dots in config basenames (e.g. ``glm5.3_flash.yaml``). Splitting
+        # on every dot would incorrectly resolve this file as the ``glm5`` config.
+        config_name = os.path.splitext(os.path.basename(config_file))[0]
+        cfg = load_config(
+            convert_file, hydra_overrides={module_type + "@module=" + config_name}
+        )
+    else: # omni vlm
+        cfg = load_config(convert_file, hydra_overrides = {module_type+'@module='+module_names[module_type]})
     OmegaConf.set_struct(cfg, False)
 
     model_cfg = load_config(config_file)
-    if module_type != "image_encoder":
-        module_type = "foundation"
+    if module_type != 'image_encoder':
+        module_type = 'foundation'
 
     c_config.load_convert_data(cfg)
 
     update_overwrite(model_cfg, c_config, module_type)
     return c_config
-
 
 def get_yaml_config(config_file, convert_file, adapter_convert_file=None, for_vlm=False):
     c_config = parse_yaml_config(config_file, convert_file)
@@ -178,16 +175,13 @@ def get_yaml_config(config_file, convert_file, adapter_convert_file=None, for_vl
 
     return convert_vlm_config(c_config, adapter=adapter, vision_patch=vision_patch, for_vlm=for_vlm)
 
-
 def convert_vlm_config(c_config, adapter=None, vision_patch=None, for_vlm=False):
     if adapter is not None:
         c_config = replace_vlm_config(c_config, adapter, vision_patch)
     if for_vlm:
-        prefixed_names = (
-            [LAYER_PREFIX]
-            + FIRST_LAYER_NAMES
-            + [name for name in LAST_LAYER_NAMES if name not in LAYER_LOCAL_LAST_NAMES]
-        )
+        prefixed_names = [LAYER_PREFIX] + FIRST_LAYER_NAMES + [
+            name for name in LAST_LAYER_NAMES if name not in LAYER_LOCAL_LAST_NAMES
+        ]
         for name in prefixed_names:
             if name not in c_config.get("name_map")["mcore"]:
                 continue
@@ -212,12 +206,11 @@ def convert_vlm_config(c_config, adapter=None, vision_patch=None, for_vlm=False)
 
         word_embeddings = c_config.get("name_map")["mcore"].get(WORD_EMBEDDINGS, None)
         if word_embeddings == "foundation_model.embedding.word_embeddings":
-            c_config.get("name_map")["huggingface"][VISION_WORD_EMBEDDINGS] = c_config.get("name_map")["huggingface"][
-                WORD_EMBEDDINGS
-            ]
+            c_config.get("name_map")["huggingface"][VISION_WORD_EMBEDDINGS] = (
+                c_config.get("name_map")["huggingface"][WORD_EMBEDDINGS]
+            )
             c_config.get("name_map")["mcore"][VISION_WORD_EMBEDDINGS] = "encoder_model.text_encoder.word_embeddings"
     return c_config
-
 
 def replace_vlm_config(c_config, adapter, vision_patch):
     name_map = {}
@@ -230,11 +223,17 @@ def replace_vlm_config(c_config, adapter, vision_patch):
         # module can consume.
         if k1.startswith(("adapter.linear_fc1", "adapter.linear_fc2", "adapter.post_norm")):
             extra_data = False
-        name_map[k1] = {LAYER_NAME: k2, LAYER_EXTRA_DATA: extra_data}
+        name_map[k1] = {
+            LAYER_NAME: k2,
+            LAYER_EXTRA_DATA: extra_data
+        }
     for k1, k2 in vision_patch.items():
         if k1 in name_map:
             continue
-        name_map[k1] = {LAYER_NAME: k2, LAYER_EXTRA_DATA: False}
+        name_map[k1] = {
+            LAYER_NAME: k2,
+            LAYER_EXTRA_DATA: False
+        }
     c_config.get("name_map")["vision_patch"] = None
 
     hf_dict = {}
@@ -248,16 +247,16 @@ def replace_vlm_config(c_config, adapter, vision_patch):
         hf_is_direct = True
         mcore_is_direct = True
         mcore_is_layernorm = False
-        old_prefix, rest = mcore_name.split(".", 1)
+        old_prefix, rest = mcore_name.split('.', 1)
         new_prefix = prefix_mapping.get(old_prefix)
         if new_prefix:
             mcore_name = f"{new_prefix}.{rest}"
         for suffix in key_suffixes:
             if value[LAYER_NAME].endswith(suffix):
-                hf_name = value[LAYER_NAME][: -len(suffix)]
+                hf_name = value[LAYER_NAME][:-len(suffix)]
                 hf_is_direct = False
             if key.endswith(suffix):
-                mcore_name = mcore_name[: -len(suffix)]
+                mcore_name = mcore_name[:-len(suffix)]
                 mcore_is_direct = False
                 if suffix in [f".{LAYERNORM_WEIGHT}", f".{LAYERNORM_BIAS}"]:
                     mcore_is_layernorm = True
@@ -274,14 +273,14 @@ def replace_vlm_config(c_config, adapter, vision_patch):
             }
             hf_dict[hf_name] = True
 
-    replace_prefix_keys = (
-        [LAYER_PREFIX] + FIRST_LAYER_NAMES + [name for name in LAST_LAYER_NAMES if name not in LAYER_LOCAL_LAST_NAMES]
-    )
+    replace_prefix_keys = [LAYER_PREFIX] + FIRST_LAYER_NAMES + [
+        name for name in LAST_LAYER_NAMES if name not in LAYER_LOCAL_LAST_NAMES
+    ]
     for key in replace_prefix_keys:
         mcore_key = c_config.get("name_map")["mcore"].get(key, None)
         if mcore_key is None:
             continue
-        old_prefix, rest = mcore_key.split(".", 1)
+        old_prefix, rest = mcore_key.split('.', 1)
         new_prefix = prefix_mapping.get(old_prefix)
         if new_prefix:
             new_key = f"{new_prefix}.{rest}"
