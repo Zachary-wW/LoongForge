@@ -25,7 +25,6 @@
   <a href="#models"><img src="https://img.shields.io/badge/📦_Models-40%2B_ready_to_run-7C3AED" alt="40+ 开箱即用的模型示例"></a>
   <img src="https://img.shields.io/badge/🖥_Hardware-NVIDIA%2BKunlun-EC4899" alt="同时支持 NVIDIA GPU 与昆仑芯 XPU">
   <img src="https://img.shields.io/badge/🏭_Production-5000%2B_XPUs-DB2777" alt="生产验证，最大规模 5,000+ XPU">
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-green?logo=apache&logoColor=white" alt="开源协议：Apache-2.0"></a>
 </p>
 
 <p align="center">

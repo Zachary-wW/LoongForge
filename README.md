@@ -25,7 +25,6 @@
   <a href="#models"><img src="https://img.shields.io/badge/📦_Models-40%2B_ready_to_run-7C3AED" alt="40+ ready-to-run model examples"></a>
   <img src="https://img.shields.io/badge/🖥_Hardware-NVIDIA%2BKunlun-EC4899" alt="Runs on NVIDIA GPUs and Kunlun XPUs">
   <img src="https://img.shields.io/badge/🏭_Production-5000%2B_XPUs-DB2777" alt="Proven in production with runs up to 5,000+ XPUs">
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-green?logo=apache&logoColor=white" alt="License: Apache-2.0"></a>
 </p>
 
 <p align="center">
