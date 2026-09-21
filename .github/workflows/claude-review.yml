@@ -240,71 +240,29 @@ jobs:
 
       - name: Mint Claude GitHub App token
         id: claude-token
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
-        with:
-          script: |
-            const oidcToken = await core.getIDToken('claude-code-github-action');
-            const exchangePayload = {
-              permissions: {
-                contents: 'write',
-                pull_requests: 'write',
-                issues: 'write',
-              },
-            };
-            let lastFailure = 'unknown error';
-            for (let attempt = 1; attempt <= 3; attempt += 1) {
-              try {
-                // github.request uses actions/github-script's proxy-aware
-                // transport. Node's global fetch ignores HTTP_PROXY on the
-                // self-hosted runner and cannot reach api.anthropic.com.
-                const response = await github.request({
-                  method: 'POST',
-                  url: 'https://api.anthropic.com/api/github/github-app-token-exchange',
-                  headers: {
-                    authorization: `Bearer ${oidcToken}`,
-                    accept: 'application/json',
-                    'content-type': 'application/json',
-                  },
-                  data: exchangePayload,
-                });
-                const payload = response.data;
-                const token = payload.token || payload.app_token;
-                if (!token) {
-                  core.setFailed('Claude GitHub App token exchange returned no token.');
-                  return;
-                }
-                core.setSecret(token);
-                core.setOutput('token', token);
-                return;
-              } catch (error) {
-                const status = error && typeof error === 'object' && 'status' in error
-                  ? error.status
-                  : null;
-                const response = error && typeof error === 'object' &&
-                  'response' in error ? error.response : null;
-                const responseData = response && response.data;
-                const errorCode = responseData && responseData.error &&
-                  responseData.error.details && responseData.error.details.error_code;
-                const errorMessage = responseData && responseData.error &&
-                  responseData.error.message ||
-                  responseData && responseData.message ||
-                  (error instanceof Error ? error.message : String(error));
-                lastFailure = [
-                  status ? `HTTP ${status}` : null,
-                  errorCode || null,
-                  errorMessage || null,
-                ].filter(Boolean).join(': ');
-                const retryable = !status || status === 408 ||
-                  status === 429 || status >= 500;
-                if (!retryable) {
-                  break;
-                }
-              }
-              if (attempt < 3) {
-                await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
-              }
-            }
-            core.setFailed(`Claude GitHub App token exchange failed: ${lastFailure}`);
+        shell: bash
+        env:
+          OIDC_AUDIENCE: claude-code-github-action
+        run: |
+          set -euo pipefail
+          encoded_audience="$(jq -rn --arg value "$OIDC_AUDIENCE" '$value | @uri')"
+          oidc_response="$(curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-all-errors --connect-timeout 10 --max-time 30 \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")"
+          oidc_token="$(printf '%s' "$oidc_response" | jq -er '.value')"
+          echo "::add-mask::$oidc_token"
+
+          exchange_response="$(curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-all-errors --connect-timeout 10 --max-time 30 \
+            -X POST \
+            -H "Authorization: Bearer $oidc_token" \
+            -H 'Content-Type: application/json' \
+            --data '{"permissions":{"contents":"write","pull_requests":"write","issues":"write"}}' \
+            'https://api.anthropic.com/api/github/github-app-token-exchange')"
+          app_token="$(printf '%s' "$exchange_response" | jq -er '.token // .app_token')"
+          echo "::add-mask::$app_token"
+          echo "token=$app_token" >> "$GITHUB_OUTPUT"
 
       - name: Claude Code Review
         id: claude
