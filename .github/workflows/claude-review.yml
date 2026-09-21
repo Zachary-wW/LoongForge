@@ -280,9 +280,20 @@ jobs:
                 const status = error && typeof error === 'object' && 'status' in error
                   ? error.status
                   : null;
-                lastFailure = status
-                  ? `HTTP ${status}`
-                  : error instanceof Error ? error.message : String(error);
+                const response = error && typeof error === 'object' &&
+                  'response' in error ? error.response : null;
+                const responseData = response && response.data;
+                const errorCode = responseData && responseData.error &&
+                  responseData.error.details && responseData.error.details.error_code;
+                const errorMessage = responseData && responseData.error &&
+                  responseData.error.message ||
+                  responseData && responseData.message ||
+                  (error instanceof Error ? error.message : String(error));
+                lastFailure = [
+                  status ? `HTTP ${status}` : null,
+                  errorCode || null,
+                  errorMessage || null,
+                ].filter(Boolean).join(': ');
                 const retryable = !status || status === 408 ||
                   status === 429 || status >= 500;
                 if (!retryable) {
