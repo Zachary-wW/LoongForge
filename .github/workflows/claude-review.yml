@@ -13,9 +13,10 @@ permissions:
   pull-requests: write
   issues: write
   actions: read
-  # Required for the claude[bot] identity: the workflow exchanges this OIDC
-  # token for one Claude GitHub App installation token and reuses it for both
-  # the action and the final verdict comment.
+  # claude-code-action exchanges this OIDC token for a Claude GitHub App
+  # installation token itself, so every comment is posted as claude[bot].
+  # Do NOT pass github_token to the action: a provided token short-circuits
+  # the app-token exchange and comments degrade to github-actions[bot].
   id-token: write
 
 # GitHub keeps at most one running and one pending review per PR. A newer
@@ -46,9 +47,20 @@ jobs:
         contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)
       )
     runs-on: ${{ fromJSON(vars.CI_REVIEW_RUNNER) }}
-    # Reviews of large PRs are agentic and can legitimately take an hour;
-    # CLAUDE_CODE_EXECUTABLE skips the per-run binary install.
-    timeout-minutes: 90
+    # A full review of a large PR is agentic; 30 minutes is the observed
+    # ceiling with a healthy gateway. The job timeout is the hard limit.
+    timeout-minutes: 30
+    env:
+      # Egress on the self-hosted runner is split: the internal
+      # Anthropic-compatible gateway (ANTHROPIC_BASE_URL) is reachable
+      # directly, while GitHub, npm and the Anthropic token endpoint require
+      # the corporate proxy. git, curl, bun and the Claude CLI all honor
+      # these variables; NO_PROXY keeps gateway traffic off the proxy (the
+      # proxy only carries external traffic). Uppercase only: GitHub's env
+      # mapping is case-insensitive, so mixed-case duplicates are invalid.
+      HTTPS_PROXY: ${{ secrets.CI_HTTPS_PROXY }}
+      HTTP_PROXY: ${{ secrets.CI_HTTPS_PROXY }}
+      NO_PROXY: ${{ secrets.CI_NO_PROXY }}
     steps:
       - name: Trust workspace (self-hosted runner)
         # The runner process runs as root but _work/ may contain files created
@@ -57,6 +69,37 @@ jobs:
           mkdir -p "$RUNNER_TEMP/runner-home/.claude/downloads"
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           HOME="$RUNNER_TEMP/runner-home" git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Verify review network path
+        # Fail in seconds (no model tokens) when the proxy secrets are
+        # missing or the gateway/GitHub are unreachable, instead of hanging
+        # tens of minutes later in a dependency install or model call.
+        shell: bash
+        env:
+          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HTTPS_PROXY:-}" ]; then
+            echo "::error::HTTPS_PROXY is empty. Set the CI_HTTPS_PROXY and CI_NO_PROXY repository secrets (see job env)."
+            exit 1
+          fi
+          if [ -z "${ANTHROPIC_BASE_URL:-}" ]; then
+            echo "::error::ANTHROPIC_BASE_URL is empty. Set the ANTHROPIC_BASE_URL repository secret."
+            exit 1
+          fi
+          gw_code="$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 10 --max-time 20 --retry 2 --retry-all-errors "$ANTHROPIC_BASE_URL" || true)"
+          if [ "$gw_code" != "200" ]; then
+            echo "::error::Anthropic gateway not reachable through the split network path (HTTP ${gw_code:-none}). Check CI_NO_PROXY covers the gateway host."
+            exit 1
+          fi
+          # The corporate proxy has transient dead windows; retry before
+          # declaring the path broken.
+          gh_code="$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 10 --max-time 20 --retry 3 --retry-all-errors --retry-delay 3 https://api.github.com || true)"
+          if [ "$gh_code" = "000" ] || [ -z "$gh_code" ]; then
+            echo "::error::api.github.com not reachable through the proxy. Check CI_HTTPS_PROXY."
+            exit 1
+          fi
+          echo "Network path OK: gateway ${gw_code}, api.github.com ${gh_code}."
 
       - name: Prepare Claude dependency cache
         shell: bash
@@ -67,47 +110,13 @@ jobs:
           mkdir -p "$cache_root"
           echo "BUN_INSTALL_CACHE_DIR=$cache_root" >> "$GITHUB_ENV"
 
-      - name: Preflight Claude structured output
-        if: ${{ vars.CLAUDE_CODE_EXECUTABLE != '' }}
-        shell: bash
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
-          CLAUDE_CODE_EXECUTABLE: ${{ vars.CLAUDE_CODE_EXECUTABLE }}
-          CLAUDE_REVIEW_MODEL: ${{ vars.CLAUDE_REVIEW_MODEL }}
-          HOME: ${{ runner.temp }}/runner-home
-        run: |
-          set -euo pipefail
-          start_time="$(date +%s)"
-          set +e
-          probe_output="$(timeout 60 "$CLAUDE_CODE_EXECUTABLE" \
-            -p 'Return only an object whose ok field is true. Do not use tools.' \
-            --bare \
-            --no-session-persistence \
-            --permission-mode dontAsk \
-            --tools '' \
-            --model "$CLAUDE_REVIEW_MODEL" \
-            --output-format json \
-            --json-schema '{"type":"object","properties":{"ok":{"type":"boolean","const":true}},"required":["ok"],"additionalProperties":false}' \
-            2>&1)"
-          probe_status=$?
-          set -e
-          elapsed_seconds=$(( $(date +%s) - start_time ))
-          probe_json="$(printf '%s\n' "$probe_output" | awk '/^[[:space:]]*\{/{json=$0} END{printf "%s", json}')"
-          probe_summary="$(printf '%s' "$probe_json" | jq -c \
-            '{type,subtype,is_error,num_turns,has_structured_output:has("structured_output"),errors:(.errors // null)}' \
-            2>/dev/null || printf '%s' 'non-json output')"
-          if [ "$probe_status" -ne 0 ] || ! printf '%s' "$probe_json" | jq -e '.structured_output.ok == true' >/dev/null 2>&1; then
-            echo "::error::Claude structured-output preflight failed after ${elapsed_seconds}s: ${probe_summary}"
-            exit 1
-          fi
-          echo "Claude structured-output preflight passed in ${elapsed_seconds}s"
-
       - name: Resolve immutable PR revisions
         id: pr
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
-          retries: 2
+          # The corporate proxy has transient dead windows; octokit-level
+          # retries absorb them.
+          retries: 4
           retry-exempt-status-codes: 400,401,403,404,422
           script: |
             const fs = require('fs');
@@ -238,31 +247,27 @@ jobs:
           git diff --find-renames --no-ext-diff --no-textconv \
             "$MERGE_BASE_SHA" "$HEAD_SHA" -- > "$DIFF_FILE"
 
-      - name: Mint Claude GitHub App token
-        id: claude-token
+      - name: Restore action dependencies
+        # The runner re-downloads and re-extracts claude-code-action on every
+        # job, which wipes node_modules; the action's `bun install` would then
+        # re-download 163 packages through the corporate proxy (minutes to
+        # hours depending on proxy health). Seed node_modules from a
+        # persistent copy on the runner so the install is a no-op. The SHA
+        # below must match the `uses:` pin of the Claude Code Review step.
+        if: ${{ vars.CLAUDE_ACTION_DEPS_DIR != '' }}
         shell: bash
         env:
-          OIDC_AUDIENCE: claude-code-github-action
+          CLAUDE_ACTION_DEPS_DIR: ${{ vars.CLAUDE_ACTION_DEPS_DIR }}
         run: |
           set -euo pipefail
-          encoded_audience="$(jq -rn --arg value "$OIDC_AUDIENCE" '$value | @uri')"
-          oidc_response="$(curl --fail-with-body --silent --show-error \
-            --retry 2 --retry-all-errors --connect-timeout 10 --max-time 30 \
-            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}")"
-          oidc_token="$(printf '%s' "$oidc_response" | jq -er '.value')"
-          echo "::add-mask::$oidc_token"
-
-          exchange_response="$(curl --fail-with-body --silent --show-error \
-            --retry 2 --retry-all-errors --connect-timeout 10 --max-time 30 \
-            -X POST \
-            -H "Authorization: Bearer $oidc_token" \
-            -H 'Content-Type: application/json' \
-            --data '{"permissions":{"contents":"write","pull_requests":"write","issues":"write"}}' \
-            'https://api.anthropic.com/api/github/github-app-token-exchange')"
-          app_token="$(printf '%s' "$exchange_response" | jq -er '.token // .app_token')"
-          echo "::add-mask::$app_token"
-          echo "token=$app_token" >> "$GITHUB_OUTPUT"
+          action_dir="$(dirname "$(dirname "$GITHUB_WORKSPACE")")/_actions/anthropics/claude-code-action/6b082c41935b4c8a3b8b0ef85ba4ba4d9eeb8975"
+          if [ -f "$action_dir/package.json" ] && [ -d "$CLAUDE_ACTION_DEPS_DIR/node_modules" ]; then
+            mkdir -p "$action_dir/node_modules"
+            cp -a "$CLAUDE_ACTION_DEPS_DIR/node_modules/." "$action_dir/node_modules/"
+            echo "Seeded action dependencies into $action_dir"
+          else
+            echo "::warning::Persistent action dependencies not found; bun install will download from the registry"
+          fi
 
       - name: Claude Code Review
         id: claude
@@ -270,25 +275,24 @@ jobs:
         env:
           ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
           HOME: ${{ runner.temp }}/runner-home
-          # The gateway behind ANTHROPIC_BASE_URL has no channel for the CLI's
-          # default claude-* model IDs. Pass the review model through every
-          # resolution path the CLI and action use, so the request cannot fall
-          # back to an unmapped default (which the gateway rejects with 503).
+          # The gateway behind ANTHROPIC_BASE_URL has no channel for the
+          # CLI's default claude-* model IDs. Pass the review model through
+          # every resolution path the CLI and action use, so the request
+          # cannot fall back to an unmapped default (which the gateway
+          # rejects with 503).
           ANTHROPIC_MODEL: ${{ vars.CLAUDE_REVIEW_MODEL }}
           ANTHROPIC_DEFAULT_OPUS_MODEL: ${{ vars.CLAUDE_REVIEW_MODEL }}
           ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ vars.CLAUDE_REVIEW_MODEL }}
           ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ vars.CLAUDE_REVIEW_MODEL }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # Pass the Claude App token explicitly so the action does not use or
-          # revoke the workflow token, and all GitHub writes use claude[bot].
-          github_token: ${{ steps.claude-token.outputs.token }}
           base_branch: ${{ steps.pr.outputs.base_ref }}
           track_progress: false
-          # Set this repository variable only when the executable is already
-          # installed on every runner selected by CI_REVIEW_RUNNER. An empty
-          # value keeps the action's pinned automatic installation path.
+          # Executables are pre-installed on every runner selected by
+          # CI_REVIEW_RUNNER; passing them skips the action's per-run
+          # downloads (the runner cannot reach bun.sh directly).
           path_to_claude_code_executable: ${{ vars.CLAUDE_CODE_EXECUTABLE || '' }}
+          path_to_bun_executable: ${{ vars.BUN_EXECUTABLE || '' }}
           # The prompt invokes the repository's trusted code-review skill
           # natively; everything else is context the restricted toolset
           # cannot fetch itself (no shell, no PR-read API tool) plus the
@@ -324,7 +328,7 @@ jobs:
           # that swallows every argument after it (the CLI then falls back to
           # its default model, which the gateway has no channel for). Keep this
           # block free of '#' characters; document it here in YAML instead.
-          # The 90-minute job timeout is the hard limit. In this provider,
+          # The job timeout is the hard limit. In this provider,
           # --max-turns can reject an otherwise successful result post hoc.
           # CLAUDE_REVIEW_MODEL must be an ID accepted by ANTHROPIC_BASE_URL.
           claude_args: |
@@ -350,27 +354,10 @@ jobs:
           fi
           # Keep public logs to stable SDK metadata. The execution file also
           # contains model/tool content and must not be dumped to the log.
-          node - "$EXECUTION_FILE" <<'NODE'
-          const fs = require('node:fs');
-          const file = process.argv[2];
-          const messages = JSON.parse(fs.readFileSync(file, 'utf8'));
-          const results = messages.filter((message) => message && message.type === 'result');
-          if (!results.length) {
-            console.log('Claude result metadata: unavailable');
-            process.exit(0);
-          }
-          for (const result of results) {
-            console.log(JSON.stringify({
-              subtype: result.subtype,
-              is_error: result.is_error,
-              num_turns: result.num_turns,
-              duration_ms: result.duration_ms,
-              duration_api_ms: result.duration_api_ms,
-              api_error_status: result.api_error_status || null,
-              terminal_reason: result.terminal_reason || null,
-            }));
-          }
-          NODE
+          # jq instead of node: the runner's system node is too old for
+          # optional chaining.
+          jq -c 'select(.type == "result") | {subtype, is_error, num_turns, duration_ms, duration_api_ms, api_error_status, terminal_reason}' \
+            "$EXECUTION_FILE" 2>/dev/null || echo "Claude result metadata: unparsable"
 
       - name: Post top-level verdict
         if: ${{ steps.claude.outcome == 'success' }}
@@ -380,7 +367,9 @@ jobs:
           PR_NUMBER: ${{ steps.pr.outputs.number }}
           REVIEW_OUTPUT: ${{ steps.claude.outputs.structured_output }}
         with:
-          github-token: ${{ steps.claude-token.outputs.token }}
+          # The action exposes the Claude GitHub App token it minted as an
+          # output, so the verdict is posted as claude[bot] too.
+          github-token: ${{ steps.claude.outputs.github_token }}
           script: |
             const output = JSON.parse(process.env.REVIEW_OUTPUT || '{}');
             const body = output.verdict_comment?.trim();
