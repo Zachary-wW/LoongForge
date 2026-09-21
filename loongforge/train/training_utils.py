@@ -51,6 +51,9 @@ from megatron.core.transformer.module import Float16Module
 from megatron.core.enums import ModelType
 from megatron.core import tensor_parallel
 from megatron.training.utils import to_empty_if_meta_device
+from megatron.training.training import (  # re-pointed: community v0.19.2 impl
+    compute_throughputs_and_append_to_progress_log,
+)
 from megatron.core.distributed import (
     DistributedDataParallelConfig,
     TorchFullyShardedDataParallelConfig,
@@ -1247,45 +1250,6 @@ def setup_model_and_optimizer(
         exit()
 
     return model, ema, optimizer, opt_param_scheduler, peft_class
-
-
-def compute_throughputs_and_append_to_progress_log(
-    iteration, num_floating_point_operations_so_far
-):
-    """Compute throughputs and append to progress log."""
-    args = get_args()
-    if args.save is None:
-        return
-
-    # Compute job throughput.
-    # args.num_floating_point_operations_so_far keeps track of floating-point operations
-    # completed at the start of job.
-    global _TRAIN_START_TIME
-    job_throughput = (
-        num_floating_point_operations_so_far - args.num_floating_point_operations_so_far
-    ) / ((time.time() - _TRAIN_START_TIME) * 10**12 * args.world_size)
-
-    # Compute cumulative throughput since jobs of this world size were launched.
-    # `get_start_time_from_progress_log` returns start time and number of floating-point
-    # operations of first job of this world size.
-    start_time, start_num_floating_point_operations = get_start_time_from_progress_log()
-    elapsed_time = (datetime.now() - start_time).total_seconds()
-    cumulative_throughput = (
-        num_floating_point_operations_so_far - start_num_floating_point_operations
-    ) / (elapsed_time * 10**12 * args.world_size)
-
-    tokens_so_far = args.consumed_train_samples * args.seq_length
-    saved_ckpt_prefix = (
-        "Saving async checkpoint" if args.async_save else "Saved checkpoint"
-    )
-    append_to_progress_log(
-        f"{saved_ckpt_prefix}\tIteration: {iteration}\t"
-        f"Job throughput: {job_throughput:.1f} TFLOP/s/GPU\t"
-        f"Cumulative throughput: {cumulative_throughput:.1f} TFLOP/s/GPU\t"
-        f"Floating-point operations: {num_floating_point_operations_so_far:.2e}\t"
-        f"Tokens (in billions): {tokens_so_far / 10**9:.2f}"
-    )
-
 
 def save_checkpoint_and_time(
     iteration,
