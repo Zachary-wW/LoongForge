@@ -93,10 +93,11 @@ jobs:
           probe_status=$?
           set -e
           elapsed_seconds=$(( $(date +%s) - start_time ))
-          probe_summary="$(printf '%s' "$probe_output" | jq -c \
+          probe_json="$(printf '%s\n' "$probe_output" | awk '/^[[:space:]]*\{/{json=$0} END{printf "%s", json}')"
+          probe_summary="$(printf '%s' "$probe_json" | jq -c \
             '{type,subtype,is_error,num_turns,has_structured_output:has("structured_output"),errors:(.errors // null)}' \
             2>/dev/null || printf '%s' 'non-json output')"
-          if [ "$probe_status" -ne 0 ] || ! printf '%s' "$probe_output" | jq -e '.structured_output.ok == true' >/dev/null 2>&1; then
+          if [ "$probe_status" -ne 0 ] || ! printf '%s' "$probe_json" | jq -e '.structured_output.ok == true' >/dev/null 2>&1; then
             echo "::error::Claude structured-output preflight failed after ${elapsed_seconds}s: ${probe_summary}"
             exit 1
           fi
