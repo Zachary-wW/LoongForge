@@ -195,7 +195,7 @@ def get_batch(data_iterator):
         should_load_data = data_iterator is not None
     else:
         should_broadcast_batch = data_iterator is not None and mpu.get_context_parallel_world_size() > 1
-        cp_src_rank = mpu.get_context_parallel_src_rank()
+        cp_src_rank = mpu.get_context_parallel_global_ranks()[0]
         should_load_data = data_iterator is not None and torch.distributed.get_rank() == cp_src_rank
         if data_iterator is not None and not should_load_data:
             data_iterator = None
