@@ -28,17 +28,19 @@
 </p>
 
 <p align="center">
+  <a href="https://baidu-baige.github.io/LoongForge/"><b>🌐 Website</b></a>
+  &nbsp;·&nbsp;
   <a href="https://loongforge.readthedocs.io/en/latest/index.html"><b>📖 Docs</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://baidu-baige.github.io/LoongForge/blog/"><b>✍️ Blog</b></a>
   &nbsp;·&nbsp;
   <a href="#quickstart"><b>⚡ Quick Start</b></a>
   &nbsp;·&nbsp;
-  <a href="./examples/"><b>🧪 Recipes</b></a>
+  <a href="#performance"><b>📊 Performance</b></a>
   &nbsp;·&nbsp;
-  <a href="#performance"><b>📊 Benchmarks</b></a>
+  <a href="#models"><b>🏛️ Supported Models</b></a>
   &nbsp;·&nbsp;
-  <a href="#models"><b>🏛️ Model Support</b></a>
-  &nbsp;·&nbsp;
-  <a href="https://baidu-baige.github.io/LoongForge/"><b>🌐 Website</b></a>
+  <a href="#contact"><b>💬 Contact Us</b></a>
 </p>
 
 ---
@@ -66,187 +68,6 @@
 
 > 🐉 LoongForge is named after the traditional Chinese **loong boat (龙舟)**, a symbol of coordinated power and forward momentum.
 
-<a id="quickstart"></a>
-## ⚡ Quick Start
-
-Start with one of the four examples below: **set up the environment → prepare weights and data → launch training**. Each example names the inputs it needs and the repository script it runs.
-
-### 1. Set up the environment
-
-**NVIDIA GPU:** use Linux with a compatible NVIDIA driver, Docker, and NVIDIA Container Toolkit. Build the unified image from this checkout so its code and dependencies match:
-
-```bash
-git clone --recurse-submodules https://github.com/baidu-baige/LoongForge.git
-# Run the build from the parent directory of LoongForge.
-docker build --build-arg COMPILE_ENV=hopper \
-  -t loongforge:local -f LoongForge/docker/Dockerfile .
-mkdir -p loongforge-workspace
-docker run --gpus all --ipc=host -it --rm \
-  -v "$(pwd)/loongforge-workspace:/workspace/workspace" \
-  -w /workspace/LoongForge loongforge:local bash
-```
-
-Set `COMPILE_ENV` to `ampere`, `hopper`, or `blackwell` for your GPU. Versioned [prebuilt images](https://hub.docker.com/u/loongforge) are also available; use the recipes bundled with the chosen image.
-
-For source installation, follow the [installation guide](https://loongforge.readthedocs.io/en/latest/get_started/installation.html), including PyTorch, the patched TransformerEngine, and model-specific dependencies.
-
-**Kunlun XPU:** use the [XPU installation guide](https://loongforge.readthedocs.io/en/latest/kunlun_tutorial/install_p800.html) and [`examples_xpu/`](./examples_xpu/) recipes.
-
-Run the remaining commands **inside the container, from `/workspace/LoongForge`**. With a source installation, run them from your repository root and set `RUN_ROOT` to a writable workspace. The mounted workspace keeps downloads, logs, and checkpoints after the container exits.
-
-```bash
-export LOONGFORGE_PATH="$PWD"
-export MEGATRON_PATH="$LOONGFORGE_PATH/third_party/Loong-Megatron"
-export PYTHONPATH="$MEGATRON_PATH:$LOONGFORGE_PATH:${PYTHONPATH:-}"
-export RUN_ROOT=/workspace/workspace
-mkdir -p "$RUN_ROOT"
-```
-
-### 2. Pick an example
-
-These are **single-node, 8-GPU recipes**. Memory needs depend on the model, sequence length, and batch size; check the launcher before running on a different setup. The two Qwen launchers set `GPUS_PER_NODE=8` inside the script; Pi0.5 accepts `GPUS_PER_NODE` and Wan accepts `GPUS` as environment overrides.
-
-| Task | Example on this page | Required inputs |
-| --- | --- | --- |
-| LLM instruction tuning | [Qwen2.5-0.5B](#example-llm) | HF weights → MCore checkpoint; Alpaca JSON |
-| VLM instruction tuning | [Qwen2.5-VL-3B](#example-vlm) | HF weights → MCore checkpoint; image/text WebDataset with Energon metadata |
-| VLA fine-tuning | [Pi0.5](#example-vla) | Pi0.5 weights; PaliGemma tokenizer; LeRobot v3.0 data |
-| Video diffusion training | [Wan2.2 I2V-A14B](#example-diffusion) | High/low-noise MCore checkpoints; preprocessed video latents |
-
-<a id="example-llm"></a>
-### Example A: instruction-tune Qwen2.5-0.5B
-
-Download the model and an Alpaca-format dataset (`instruction`, `input`, `output`). The tokenizer is included with the model:
-
-```bash
-hf download Qwen/Qwen2.5-0.5B-Instruct \
-  --local-dir "$RUN_ROOT/models/Qwen2.5-0.5B-Instruct"
-hf download yahma/alpaca-cleaned --repo-type dataset \
-  --include alpaca_data_cleaned.json --local-dir "$RUN_ROOT/data/alpaca"
-```
-
-Convert the HF weights to MCore with tensor and pipeline parallel sizes of 1, matching the training recipe:
-
-```bash
-python tools/convert_checkpoint/module_convertor/model.py \
-  --load_platform=huggingface --save_platform=mcore \
-  --config_file configs/models/qwen2.5/qwen2_5_0_5b.yaml \
-  --convert_file configs/models/qwen2.5/ckpt_convert/qwen2_5_convert_llm.yaml \
-  --tensor_model_parallel_size=1 --pipeline_model_parallel_size=1 \
-  --load_ckpt_path "$RUN_ROOT/models/Qwen2.5-0.5B-Instruct" \
-  --save_ckpt_path "$RUN_ROOT/checkpoints/qwen2.5-0.5b" \
-  --safetensors --no_save_optim --no_load_optim
-
-DATA_PATH="$RUN_ROOT/data/alpaca/alpaca_data_cleaned.json" \
-TOKENIZER_PATH="$RUN_ROOT/models/Qwen2.5-0.5B-Instruct" \
-CHECKPOINT_PATH="$RUN_ROOT/checkpoints/qwen2.5-0.5b" \
-TENSORBOARD_PATH="$RUN_ROOT/logs/qwen2.5-0.5b" \
-bash examples/qwen2.5/finetuning/sft_qwen2.5_0.5b.sh
-```
-
-The launcher runs 5,000 steps and saves every 500 steps into `CHECKPOINT_PATH`; TensorBoard logs go to `TENSORBOARD_PATH`. For a shorter run, edit `--train-iters`, `--lr-decay-iters`, and `--save-interval` in the launcher. See the [LLM SFT guide](https://loongforge.readthedocs.io/en/latest/llm_tutorial/quick_start_llm_sft.html) for custom data schemas and packing.
-
-<a id="example-vlm"></a>
-### Example B: instruction-tune Qwen2.5-VL-3B
-
-<details>
-<summary><b>Prepare image/text data and launch VLM SFT</b></summary>
-
-Prepare `Qwen/Qwen2.5-VL-3B-Instruct` weights and image/text conversations as WebDataset shards with Energon metadata. The [VLM data guide](https://loongforge.readthedocs.io/en/latest/vlm_tutorial/dataset_conversion.html) covers conversion from your source data.
-
-Edit `LOAD` and `SAVE` in the [Qwen2.5-VL conversion script](./examples/qwen2.5_vl/checkpoint_convert/convert_qwen2.5_vl_3b_hf_to_mcore.sh) to your HF input and MCore output directories, retaining `ETP=1`, `DTP=1`, and `PP=1`. Then run:
-
-```bash
-bash examples/qwen2.5_vl/checkpoint_convert/convert_qwen2.5_vl_3b_hf_to_mcore.sh
-
-# Replace the three input paths with the artifacts prepared above.
-DATA_PATH=/path/to/multimodal_wds \
-TOKENIZER_PATH=/path/to/Qwen2.5-VL-3B-Instruct \
-CHECKPOINT_PATH=/path/to/qwen2.5-vl-3b-mcore \
-TENSORBOARD_PATH="$RUN_ROOT/logs/qwen2.5-vl-3b" \
-bash examples/qwen2.5_vl/sft/sft_qwen2_5_vl_3b.sh
-```
-
-This recipe freezes the image encoder. It uses `CHECKPOINT_PATH` for both loading and saving; set `--train-iters`, `--lr-decay-iters`, and `--save-interval` in the launcher for your run (defaults: 50,000 / 50,000 / 10,000,000). See the [VLM SFT guide](https://loongforge.readthedocs.io/en/latest/vlm_tutorial/quick_start_vlm_sft.html) for conversation formats and packing.
-
-</details>
-
-<a id="example-vla"></a>
-### Example C: fine-tune Pi0.5 on LIBERO
-
-<details>
-<summary><b>Download LeRobot data and run a 20-step VLA example</b></summary>
-
-Pi0.5 loads HF weights directly and reads LeRobot v3.0 data online. Download the weights, tokenizer, and dataset; the PaliGemma tokenizer requires accepted model access and `hf auth login`:
-
-```bash
-hf download lerobot/pi05_base --local-dir "$RUN_ROOT/models/pi05_base"
-hf download google/paligemma-3b-pt-224 \
-  --include 'tokenizer*' 'special_tokens_map.json' 'added_tokens.json' 'config.json' \
-  --local-dir "$RUN_ROOT/models/paligemma-3b-pt-224"
-hf download lerobot/libero_10 --repo-type dataset \
-  --local-dir "$RUN_ROOT/data/libero_10"
-
-TOKENIZER_PATH="$RUN_ROOT/models/paligemma-3b-pt-224" \
-CHECKPOINT_PATH="$RUN_ROOT/models/pi05_base" \
-DATA_PATH="$RUN_ROOT/data/libero_10" \
-OUTPUT_DIR="$RUN_ROOT/outputs/pi05" \
-GPUS_PER_NODE=8 TRAIN_ITERS=20 SAVE_INTERVAL=20 \
-bash examples/embodied/pi05/run_pi05_ddp_finetune.sh
-```
-
-This short run checks the training setup; increase `TRAIN_ITERS` for fine-tuning. Training outputs go under `OUTPUT_DIR`, with TensorBoard logs in `OUTPUT_DIR/tensorboard`. The [Pi0.5 tutorial](https://loongforge.readthedocs.io/en/latest/embodied_tutorial/quick_start_pi05.html) covers FSDP, ZeRO-1, and policy evaluation. For world-action models, start with the [DreamZero tutorial](https://loongforge.readthedocs.io/en/latest/embodied_tutorial/quick_start_dreamzero.html).
-
-</details>
-
-<a id="example-diffusion"></a>
-### Example D: train Wan2.2 for image-to-video generation
-
-<details>
-<summary><b>Preprocess video data and launch diffusion training</b></summary>
-
-Prepare `Wan-AI/Wan2.2-I2V-A14B` weights and a video dataset with `metadata.csv` columns `video,prompt`. Follow the [Wan preparation guide](https://loongforge.readthedocs.io/en/latest/wan_tutorial/quick_start_wan_training.html) to install the preprocessing dependency (`diffsynth==1.1.8`) and convert both high-noise and low-noise checkpoints to MCore. Then preprocess the videos and launch:
-
-```bash
-LOONGFORGE_ROOT="$LOONGFORGE_PATH" \
-DATASET_BASE_PATH=/path/to/video_dataset \
-DATASET_METADATA_PATH=/path/to/video_dataset/metadata.csv \
-WAN22_MODEL_ROOT=/path/to/Wan2.2-I2V-A14B \
-bash examples/wan/preprocess.sh wan2.2 "$RUN_ROOT/data/wan-preprocessed"
-
-DATASET_PATH="$RUN_ROOT/data/wan-preprocessed" \
-HIGH_NOISE_CHECKPOINT_PATH=/path/to/high_noise_mcore \
-LOW_NOISE_CHECKPOINT_PATH=/path/to/low_noise_mcore \
-TENSORBOARD_PATH="$RUN_ROOT/logs/wan2.2" \
-GPUS=8 \
-bash examples/wan/pretrain_wan2.2_i2v_a14b.sh
-```
-
-The launcher trains the high-noise and low-noise models sequentially and uses each checkpoint directory for both loading and saving. Adjust the training steps and save interval in the launcher for your run.
-
-</details>
-
-### 3. Continue with your own workload
-
-| What you want to do | Where to start |
-| --- | --- |
-| Pretrain on your own corpus | [LLM pretraining](https://loongforge.readthedocs.io/en/latest/llm_tutorial/quick_start_llm_pretrain.html) or [VLM pretraining](https://loongforge.readthedocs.io/en/latest/vlm_tutorial/quick_start_vlm_pretrain.html) |
-| Change models or parallelism | Browse [`examples/`](./examples/) and the matching [`configs/models/`](./configs/models/); each launcher contains its parallelism and batch settings |
-| Load or export weights | [`tools/convert_checkpoint/`](./tools/convert_checkpoint/) and each model's `checkpoint_convert/` recipes |
-| Train on Kunlun XPU | [XPU tutorials](https://loongforge.readthedocs.io/en/latest/kunlun_tutorial/README.html) and [`examples_xpu/`](./examples_xpu/) |
-
-<a id="performance"></a>
-## 📊 Performance
-
-Training throughput speedups over mainstream open-source baselines — each model and its baseline were benchmarked on the same machine type with the same training hyperparameters:
-
-<p align="center">
-  <img alt="LoongForge benchmark speedups over open-source baselines — from 1.45x on Qwen3-VL up to 5.04x on DeepSeek-V3.2 Lite" src="./docs/assets/images/benchmark_speedup.png" width="860" />
-</p>
-
-> DeepSeek-V3.2 Lite reflects DSA operator-level optimizations and was validated on a reduced-layer configuration due to test-bed scale limits.<br>
-> Numbers were measured at a point in time and may evolve as implementations change on both sides.
-
 ## 🏗️ Architecture
 
 Since optimal training strategies differ across model families and scales, LoongForge adopts a multi-backend architecture.
@@ -261,6 +82,35 @@ Since optimal training strategies differ across model families and scales, Loong
 
 - **Megatron Stack** — For LLMs, VLMs, and diffusion models. Powered by a [patched Megatron-LM](https://github.com/baidu-baige/Loong-Megatron) and extended with MoE parallelism, per-component heterogeneous parallelism, long-sequence optimizations, etc.
 - **Torch-Native Stack** — For embodied models (VLA and WAM). A standalone [torch-native subsystem](./loongforge/embodied) featuring **DDP / ZeRO-1 / FSDP / HSDP**, with deep optimizations for representative models across I/O, communication strategy, kernel efficiency, etc.
+
+## 🔥 Latest News
+
+- **[2026/09]** ✨ Added training support for **[GLM-5.3-flash](./examples/glm5_next/)**.
+- **[2026/09]** ✨ Added **[Kimi-K3](./examples/kimi_k3/)** BF16 training support for both LLMs and VLMs.
+- **[2026/09]** ⚡ Added an optimized **[DreamZero Wan2.2-5B FSDP recipe](./examples/embodied/dreamzero/run_dreamzero_wan22_5b_full_fsdp_finetune.sh)** with cache-aware data loading, compiled attention blocks, frozen-module handling, and FSDP2 Delta-FP8 Param AllGather.
+- **[2026/08]** 🤖 Added VLA training support for **[Wall-OSS-0.5](./examples/embodied/wall_oss_0_5/)**, with custom fused operators for higher training throughput.
+- **[2026/08]** 📄 Released the **[TAOT paper](https://arxiv.org/abs/2608.03676)** — topology-aware dynamic expert replica placement that tackles expert-parallel (**EP**) load imbalance in **MoE** training, cutting overhead by up to **74%** over industry solutions, with **1.43× speedup** measured on a real training case. [[blog](https://baidu-baige.github.io/LoongForge/blog/2026-08-taot-topology-aware-expert-placement.html)]
+- **[2026/08]** ✨ Added training support for **GLM-5.2**, along with a **[GLM-5.2 + MoonViT](./configs/models/glm5.2_vit/)** custom-composition [example](./examples/glm5.2_vit/) for extending GLM with multimodal capabilities.
+- **[2026/08]** ✨ Added training support for **MiniCPM-V-4.6** and **Qwen3.8-27B**.
+- **[2026/08]** 🧪 Introduced a unified [**evaluation module**](./loongforge/embodied/eval/) for the embodied stack, currently covering **Pi0.5 / xVLA / GR00T**, with more models on the way.
+- **[2026/07]** 🐳 Unified the **prebuilt Docker images** — all model families (LLM / VLM / VLA / Diffusion) now share a single image.
+- **[2026/07]** 🤖 Released **[LoongForge-Embodied](./loongforge/embodied)**, a torch-native DDP/FSDP training subsystem for embodied models (Pi0.5, GR00T-N1.6/N1.7, xVLA, LingBot-VA, FastWAM, DreamZero, and Cosmos3), with up to **4.38× speedup**. [[blog](https://baidu-baige.github.io/LoongForge/blog/2026-07-announcing-loongforge-embodied.html)]
+- **[2026/07]** ✨ Added training support for **Qwen-Image-Edit-2511**.
+- **[2026/07]** ✨ Added training support for **DeepSeek-V4-Flash / DeepSeek-V4-Pro**.
+
+<details>
+<summary><b>📅 More</b></summary>
+
+- **[2026/06]** 🤖 Expanded VLA coverage with **GR00T N1.6**; **2.3× speedup** on GR00T training. [[blog](https://baidu-baige.github.io/LoongForge/blog/2026-06-loongforge-groot-n16-acceleration.html)]
+- **[2026/05]** ⚡ Accelerated **Wan 2.2** training by **116%**, and added CP and data packing support.
+- **[2026/05]** ✨ Added training support for **Kimi K2.5 / K2.6**, and introduced **INT4 / NVFP4** PTQ.
+- **[2026/05]** 🎉 **v0.1.0** — first official tagged release of LoongForge.
+- **[2026/05]** 🌟 Powered the training and public release of **LLaVA-OneVision-2.0**.
+- **[2026/04]** 🧩 Added training support for **MiniMax-M2.7** on both NVIDIA GPU and Kunlun XPU.
+- **[2026/04]** 🚀 LoongForge source code publicly available on GitHub. [[blog](https://baidu-baige.github.io/LoongForge/blog/2026-04-announcing-loongforge.html)]
+- **[2025/10]** 🌟 Powered the training and public release of **LLaVA-OneVision-1.5** under **AIAK-Training-LLM**, the predecessor of LoongForge. [[blog](https://baidu-baige.github.io/LoongForge/blog/2025-10-llava-onevision-case-study.html)]
+
+</details>
 
 ## ✨ Key Features
 
@@ -294,20 +144,70 @@ Since optimal training strategies differ across model families and scales, Loong
 
 > 📖 Deep-dive: [LLM](https://loongforge.readthedocs.io/en/latest/llm_tutorial/features_index.html) · [VLM](https://loongforge.readthedocs.io/en/latest/vlm_tutorial/features_index.html) · [Embodied Model](https://loongforge.readthedocs.io/en/latest/embodied_tutorial/overview.html)
 
+<a id="performance"></a>
+## 📊 Performance
+
+Training throughput speedups over mainstream open-source baselines — each model and its baseline were benchmarked on the same machine type with the same training hyperparameters:
+
+<p align="center">
+  <img alt="LoongForge benchmark speedups over open-source baselines — from 1.45x on Qwen3-VL up to 5.04x on DeepSeek-V3.2 Lite" src="./docs/assets/images/benchmark_speedup.png" width="860" />
+</p>
+
+> DeepSeek-V3.2 Lite reflects DSA operator-level optimizations and was validated on a reduced-layer configuration due to test-bed scale limits.<br>
+> Numbers were measured at a point in time and may evolve as implementations change on both sides.
+
+<a id="quickstart"></a>
+## ⚡ Quick Start
+
+### 1. Start the Docker environment
+
+On a Linux host with NVIDIA GPUs, a compatible driver, Docker, and NVIDIA Container Toolkit, pull a [published image](https://hub.docker.com/u/loongforge) that includes the DreamZero example below. Replace `<version>` with its tag. The local `dreamzero/` directory holds weights, data, and training outputs:
+
+```bash
+LOONGFORGE_VERSION='<version>'
+docker pull "loongforge/loongforge:${LOONGFORGE_VERSION}"
+mkdir -p dreamzero
+docker run --gpus all --ipc=host -it --rm \
+  -v "$(pwd)/dreamzero:/workspace/dreamzero" \
+  -w /workspace/LoongForge \
+  "loongforge/loongforge:${LOONGFORGE_VERSION}" bash
+```
+
+For source installation or Kunlun XPU, see the [GPU installation guide](https://loongforge.readthedocs.io/en/latest/get_started/installation.html) or [XPU installation guide](https://loongforge.readthedocs.io/en/latest/kunlun_tutorial/install_p800.html).
+
+### 2. Try DreamZero LoRA fine-tuning
+
+Try the model family featured in the video above with **DreamZero Wan2.2-5B LoRA**, using a single node with **8 GPUs and FSDP**. This short example checks the training setup; it does not reproduce the video's throughput benchmark.
+
+Follow the [DreamZero preparation guide](https://loongforge.readthedocs.io/en/latest/embodied_tutorial/quick_start_dreamzero.html) to download the Wan2.2-TI2V-5B weights (including the tokenizer), the CLIP encoder from Wan2.1, and the DreamZero DROID dataset in LeRobot v2 format. Place them in the mounted directory, then run **inside the container**:
+
+```bash
+cd /workspace/LoongForge
+export WAN22_CKPT_DIR=/workspace/dreamzero/checkpoints/Wan2.2-TI2V-5B
+export WAN21_CKPT_DIR=/workspace/dreamzero/checkpoints/Wan2.1-I2V-14B-480P
+export TOKENIZER_PATH="$WAN22_CKPT_DIR/google/umt5-xxl"
+export DATA_PATH=/workspace/dreamzero/data/droid_lerobot
+
+EMBODIMENT_TAG=oxe_droid \
+  bash examples/embodied/dreamzero/prepare_dreamzero_dataset.sh
+
+GPUS_PER_NODE=8 TRAIN_ITERS=20 SAVE_INTERVAL=20 \
+OUTPUT_DIR=/workspace/dreamzero/outputs/lora \
+  bash examples/embodied/dreamzero/run_dreamzero_wan22_5b_lora_fsdp_finetune.sh
+```
+
+Increase `TRAIN_ITERS` for fine-tuning. Checkpoints and TensorBoard logs are saved under `OUTPUT_DIR`. The full guide also covers full fine-tuning, feature caching, and resuming training.
+
+### 3. Explore more training tasks
+
+Tutorials: [LLM](https://loongforge.readthedocs.io/en/latest/llm_tutorial/quick_start_llm_pretrain.html) · [VLM](https://loongforge.readthedocs.io/en/latest/vlm_tutorial/quick_start_vlm_pretrain.html) · [Embodied](https://loongforge.readthedocs.io/en/latest/embodied_tutorial/quick_start_index.html) · [Diffusion](https://loongforge.readthedocs.io/en/latest/wan_tutorial/quick_start_wan_training.html) · [Kunlun XPU](https://loongforge.readthedocs.io/en/latest/kunlun_tutorial/README.html).
+
+Model-specific launch scripts are in [`examples/`](./examples/) / [`examples_xpu/`](./examples_xpu/), with configurations in [`configs/models/`](./configs/models/).
+
 <a id="models"></a>
 ## 🏛️ Supported Models
 
-Browse representative families below, or expand the full list to open model-specific examples. The [support matrix](https://loongforge.readthedocs.io/en/latest/get_started/support_model.html) covers model variants and training capabilities.
-
-| Family | Representative models |
-| --- | --- |
-| LLM | DeepSeek, Qwen, LLaMA, MiniMax, GLM, Kimi |
-| VLM | Qwen-VL, Qwen3.5–3.8, Kimi, MiniCPM-V, InternVL, LLaVA, GLM + MoonViT |
-| Diffusion | Wan2.1 / 2.2, Qwen-Image-Edit |
-| Embodied | Pi0.5, GR00T, xVLA, Wall-OSS, FastWAM, LingBot-VA, Cosmos3, DreamZero |
-
-<details>
-<summary><b>View the model matrix</b></summary>
+LoongForge supports a broad range of model families across LLM, VLM, diffusion, and embodied. Select a model below to open its training examples. For complete usage instructions, see the [User Guide](https://loongforge.readthedocs.io/en/latest/index.html) and the full [model support matrix](https://loongforge.readthedocs.io/en/latest/get_started/support_model.html).
 
 <table width="100%">
 <colgroup>
@@ -385,8 +285,6 @@ Browse representative families below, or expand the full list to open model-spec
 </tbody>
 </table>
 
-</details>
-
 ## 🌟 Powered by LoongForge
 
 Open-source models trained with LoongForge or its predecessor AIAK-Training-LLM:
@@ -432,35 +330,6 @@ LoongForge/
 ├── tests/                        # E2E test suite (YAML-driven)
 └── docs/                         # Documentation
 ```
-
-</details>
-
-## 🔥 Latest News
-
-- **[2026/09]** ✨ Added training support for **[GLM-5.3-flash](./examples/glm5_next/)**.
-- **[2026/09]** ✨ Added **[Kimi-K3](./examples/kimi_k3/)** BF16 training support for both LLMs and VLMs.
-- **[2026/09]** ⚡ Added an optimized **[DreamZero Wan2.2-5B FSDP recipe](./examples/embodied/dreamzero/run_dreamzero_wan22_5b_full_fsdp_finetune.sh)** with cache-aware data loading, compiled attention blocks, frozen-module handling, and FSDP2 Delta-FP8 Param AllGather.
-
-<details>
-<summary><b>📅 More</b></summary>
-
-- **[2026/08]** 🤖 Added VLA training support for **[Wall-OSS-0.5](./examples/embodied/wall_oss_0_5/)**, with custom fused operators for higher training throughput.
-- **[2026/08]** 📄 Released the **[TAOT paper](https://arxiv.org/abs/2608.03676)** — topology-aware dynamic expert replica placement that tackles expert-parallel (**EP**) load imbalance in **MoE** training, cutting overhead by up to **74%** over industry solutions, with **1.43× speedup** measured on a real training case. [[blog](https://baidu-baige.github.io/LoongForge/blog/2026-08-taot-topology-aware-expert-placement.html)]
-- **[2026/08]** ✨ Added training support for **GLM-5.2**, along with a **[GLM-5.2 + MoonViT](./configs/models/glm5.2_vit/)** custom-composition [example](./examples/glm5.2_vit/) for extending GLM with multimodal capabilities.
-- **[2026/08]** ✨ Added training support for **MiniCPM-V-4.6** and **Qwen3.8-27B**.
-- **[2026/08]** 🧪 Introduced a unified [**evaluation module**](./loongforge/embodied/eval/) for the embodied stack, currently covering **Pi0.5 / xVLA / GR00T**, with more models on the way.
-- **[2026/07]** 🐳 Unified the **prebuilt Docker images** — all model families (LLM / VLM / VLA / Diffusion) now share a single image.
-- **[2026/07]** 🤖 Released **[LoongForge-Embodied](./loongforge/embodied)**, a torch-native DDP/FSDP training subsystem for embodied models (Pi0.5, GR00T-N1.6/N1.7, xVLA, LingBot-VA, FastWAM, DreamZero, and Cosmos3), with up to **4.38× speedup**. [[blog](https://baidu-baige.github.io/LoongForge/blog/2026-07-announcing-loongforge-embodied.html)]
-- **[2026/07]** ✨ Added training support for **Qwen-Image-Edit-2511**.
-- **[2026/07]** ✨ Added training support for **DeepSeek-V4-Flash / DeepSeek-V4-Pro**.
-- **[2026/06]** 🤖 Expanded VLA coverage with **GR00T N1.6**; **2.3× speedup** on GR00T training. [[blog](https://baidu-baige.github.io/LoongForge/blog/2026-06-loongforge-groot-n16-acceleration.html)]
-- **[2026/05]** ⚡ Accelerated **Wan 2.2** training by **116%**, and added CP and data packing support.
-- **[2026/05]** ✨ Added training support for **Kimi K2.5 / K2.6**, and introduced **INT4 / NVFP4** PTQ.
-- **[2026/05]** 🎉 **v0.1.0** — first official tagged release of LoongForge.
-- **[2026/05]** 🌟 Powered the training and public release of **LLaVA-OneVision-2.0**.
-- **[2026/04]** 🧩 Added training support for **MiniMax-M2.7** on both NVIDIA GPU and Kunlun XPU.
-- **[2026/04]** 🚀 LoongForge source code publicly available on GitHub. [[blog](https://baidu-baige.github.io/LoongForge/blog/2026-04-announcing-loongforge.html)]
-- **[2025/10]** 🌟 Powered the training and public release of **LLaVA-OneVision-1.5** under **AIAK-Training-LLM**, the predecessor of LoongForge. [[blog](https://baidu-baige.github.io/LoongForge/blog/2025-10-llava-onevision-case-study.html)]
 
 </details>
 
