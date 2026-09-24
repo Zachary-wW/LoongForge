@@ -28,19 +28,17 @@
 </p>
 
 <p align="center">
-  <a href="https://baidu-baige.github.io/LoongForge/"><b>🌐 官网</b></a>
-  &nbsp;·&nbsp;
   <a href="https://loongforge.readthedocs.io/zh-cn/latest/index.html"><b>📖 文档</b></a>
   &nbsp;·&nbsp;
-  <a href="https://baidu-baige.github.io/LoongForge/blog/"><b>✍️ 博客</b></a>
-  &nbsp;·&nbsp;
   <a href="#quickstart"><b>⚡ 快速开始</b></a>
+  &nbsp;·&nbsp;
+  <a href="./examples/"><b>🧪 训练示例</b></a>
   &nbsp;·&nbsp;
   <a href="#performance"><b>📊 性能表现</b></a>
   &nbsp;·&nbsp;
   <a href="#models"><b>🏛️ 支持模型</b></a>
   &nbsp;·&nbsp;
-  <a href="#contact"><b>💬 联系我们</b></a>
+  <a href="https://baidu-baige.github.io/LoongForge/"><b>🌐 官网</b></a>
 </p>
 
 ---
@@ -68,6 +66,187 @@
 
 > 🐉 LoongForge 名字源于中国传统 **龙舟**，象征协同发力与破浪前行。
 
+<a id="quickstart"></a>
+## ⚡ 快速开始
+
+从下面四个案例中选择一个，按 **准备环境 → 准备权重和数据 → 启动训练** 的顺序开始。每个案例都列出了所需输入和对应的仓库脚本。
+
+### 1. 准备环境
+
+**NVIDIA GPU：** 需要 Linux、兼容的 NVIDIA 驱动、Docker 和 NVIDIA Container Toolkit。使用当前代码构建统一镜像，让代码与依赖保持匹配：
+
+```bash
+git clone --recurse-submodules https://github.com/baidu-baige/LoongForge.git
+# 在 LoongForge 的父目录运行构建命令。
+docker build --build-arg COMPILE_ENV=hopper \
+  -t loongforge:local -f LoongForge/docker/Dockerfile .
+mkdir -p loongforge-workspace
+docker run --gpus all --ipc=host -it --rm \
+  -v "$(pwd)/loongforge-workspace:/workspace/workspace" \
+  -w /workspace/LoongForge loongforge:local bash
+```
+
+根据 GPU 架构将 `COMPILE_ENV` 设为 `ampere`、`hopper` 或 `blackwell`。也可以使用带版本号的[预构建镜像](https://hub.docker.com/u/loongforge)，配合该镜像内附带的训练脚本使用。
+
+源码安装请按[安装指南](https://loongforge.readthedocs.io/zh-cn/latest/get_started/installation.html)准备 PyTorch、TransformerEngine 补丁版本及模型专用依赖。
+
+**昆仑芯 XPU：** 请使用 [XPU 安装指南](https://loongforge.readthedocs.io/zh-cn/latest/kunlun_tutorial/install_p800.html)和 [`examples_xpu/`](./examples_xpu/) 中的脚本。
+
+后续命令均在**容器内的 `/workspace/LoongForge`** 执行；源码安装用户请在仓库根目录执行，并将 `RUN_ROOT` 改为可写的工作目录。挂载的工作目录用于保留下载文件、日志和 checkpoint，退出容器后仍可访问。
+
+```bash
+export LOONGFORGE_PATH="$PWD"
+export MEGATRON_PATH="$LOONGFORGE_PATH/third_party/Loong-Megatron"
+export PYTHONPATH="$MEGATRON_PATH:$LOONGFORGE_PATH:${PYTHONPATH:-}"
+export RUN_ROOT=/workspace/workspace
+mkdir -p "$RUN_ROOT"
+```
+
+### 2. 选择一个案例
+
+以下均为**单机 8 卡配置**。显存需求随模型、序列长度和 batch size 变化；更换运行规模前请检查启动脚本。两个 Qwen 脚本在文件内设置 `GPUS_PER_NODE=8`；Pi0.5 支持通过环境变量 `GPUS_PER_NODE` 调整卡数，Wan 使用 `GPUS`。
+
+| 任务 | 本页案例 | 所需输入 |
+| --- | --- | --- |
+| LLM 指令微调 | [Qwen2.5-0.5B](#example-llm) | HF 权重 → MCore checkpoint；Alpaca JSON |
+| VLM 指令微调 | [Qwen2.5-VL-3B](#example-vlm) | HF 权重 → MCore checkpoint；带 Energon 元数据的图文 WebDataset |
+| VLA 微调 | [Pi0.5](#example-vla) | Pi0.5 权重；PaliGemma tokenizer；LeRobot v3.0 数据 |
+| 视频扩散模型训练 | [Wan2.2 I2V-A14B](#example-diffusion) | 高噪声 / 低噪声 MCore checkpoint；预处理后的视频 latent |
+
+<a id="example-llm"></a>
+### 示例 A：Qwen2.5-0.5B 指令微调
+
+下载模型及 Alpaca 格式数据集（包含 `instruction`、`input`、`output` 字段）。Tokenizer 已包含在模型目录中：
+
+```bash
+hf download Qwen/Qwen2.5-0.5B-Instruct \
+  --local-dir "$RUN_ROOT/models/Qwen2.5-0.5B-Instruct"
+hf download yahma/alpaca-cleaned --repo-type dataset \
+  --include alpaca_data_cleaned.json --local-dir "$RUN_ROOT/data/alpaca"
+```
+
+将 HF 权重转换为 MCore 格式，张量并行和流水线并行均设为 1，与训练脚本保持一致：
+
+```bash
+python tools/convert_checkpoint/module_convertor/model.py \
+  --load_platform=huggingface --save_platform=mcore \
+  --config_file configs/models/qwen2.5/qwen2_5_0_5b.yaml \
+  --convert_file configs/models/qwen2.5/ckpt_convert/qwen2_5_convert_llm.yaml \
+  --tensor_model_parallel_size=1 --pipeline_model_parallel_size=1 \
+  --load_ckpt_path "$RUN_ROOT/models/Qwen2.5-0.5B-Instruct" \
+  --save_ckpt_path "$RUN_ROOT/checkpoints/qwen2.5-0.5b" \
+  --safetensors --no_save_optim --no_load_optim
+
+DATA_PATH="$RUN_ROOT/data/alpaca/alpaca_data_cleaned.json" \
+TOKENIZER_PATH="$RUN_ROOT/models/Qwen2.5-0.5B-Instruct" \
+CHECKPOINT_PATH="$RUN_ROOT/checkpoints/qwen2.5-0.5b" \
+TENSORBOARD_PATH="$RUN_ROOT/logs/qwen2.5-0.5b" \
+bash examples/qwen2.5/finetuning/sft_qwen2.5_0.5b.sh
+```
+
+脚本运行 5,000 步，每 500 步保存到 `CHECKPOINT_PATH`，TensorBoard 日志写入 `TENSORBOARD_PATH`。如需短跑验证，请修改脚本中的 `--train-iters`、`--lr-decay-iters` 和 `--save-interval`。自定义数据字段与 packing 的用法见 [LLM SFT 教程](https://loongforge.readthedocs.io/zh-cn/latest/llm_tutorial/quick_start_llm_sft.html)。
+
+<a id="example-vlm"></a>
+### 示例 B：Qwen2.5-VL-3B 图文指令微调
+
+<details>
+<summary><b>准备图文数据并启动 VLM SFT</b></summary>
+
+准备 `Qwen/Qwen2.5-VL-3B-Instruct` 权重，将图文对话转换为带 Energon 元数据的 WebDataset 分片。[VLM 数据指南](https://loongforge.readthedocs.io/zh-cn/latest/vlm_tutorial/dataset_conversion.html)提供了原始数据的转换步骤。
+
+修改 [Qwen2.5-VL 权重转换脚本](./examples/qwen2.5_vl/checkpoint_convert/convert_qwen2.5_vl_3b_hf_to_mcore.sh)中的 `LOAD` 和 `SAVE`，分别指向 HF 输入目录和 MCore 输出目录，保留 `ETP=1`、`DTP=1`、`PP=1`。然后执行：
+
+```bash
+bash examples/qwen2.5_vl/checkpoint_convert/convert_qwen2.5_vl_3b_hf_to_mcore.sh
+
+# 将三个输入路径替换为上面准备好的资源。
+DATA_PATH=/path/to/multimodal_wds \
+TOKENIZER_PATH=/path/to/Qwen2.5-VL-3B-Instruct \
+CHECKPOINT_PATH=/path/to/qwen2.5-vl-3b-mcore \
+TENSORBOARD_PATH="$RUN_ROOT/logs/qwen2.5-vl-3b" \
+bash examples/qwen2.5_vl/sft/sft_qwen2_5_vl_3b.sh
+```
+
+该配置冻结图像编码器，使用 `CHECKPOINT_PATH` 加载和保存权重。请按任务修改脚本中的 `--train-iters`、`--lr-decay-iters` 和 `--save-interval`（默认分别为 50,000 / 50,000 / 10,000,000）。对话格式与 packing 的用法见 [VLM SFT 教程](https://loongforge.readthedocs.io/zh-cn/latest/vlm_tutorial/quick_start_vlm_sft.html)。
+
+</details>
+
+<a id="example-vla"></a>
+### 示例 C：在 LIBERO 上微调 Pi0.5
+
+<details>
+<summary><b>下载 LeRobot 数据，运行 20 步 VLA 示例</b></summary>
+
+Pi0.5 直接加载 HF 权重，在线读取 LeRobot v3.0 数据。下载权重、tokenizer 和数据集；PaliGemma tokenizer 需要先取得模型访问权限并执行 `hf auth login`：
+
+```bash
+hf download lerobot/pi05_base --local-dir "$RUN_ROOT/models/pi05_base"
+hf download google/paligemma-3b-pt-224 \
+  --include 'tokenizer*' 'special_tokens_map.json' 'added_tokens.json' 'config.json' \
+  --local-dir "$RUN_ROOT/models/paligemma-3b-pt-224"
+hf download lerobot/libero_10 --repo-type dataset \
+  --local-dir "$RUN_ROOT/data/libero_10"
+
+TOKENIZER_PATH="$RUN_ROOT/models/paligemma-3b-pt-224" \
+CHECKPOINT_PATH="$RUN_ROOT/models/pi05_base" \
+DATA_PATH="$RUN_ROOT/data/libero_10" \
+OUTPUT_DIR="$RUN_ROOT/outputs/pi05" \
+GPUS_PER_NODE=8 TRAIN_ITERS=20 SAVE_INTERVAL=20 \
+bash examples/embodied/pi05/run_pi05_ddp_finetune.sh
+```
+
+这次短跑用于检查训练流程；正式微调时增大 `TRAIN_ITERS`。训练产物写入 `OUTPUT_DIR`，TensorBoard 日志位于 `OUTPUT_DIR/tensorboard`。[Pi0.5 教程](https://loongforge.readthedocs.io/zh-cn/latest/embodied_tutorial/quick_start_pi05.html)介绍了 FSDP、ZeRO-1 和策略评测；世界-动作模型可从 [DreamZero 教程](https://loongforge.readthedocs.io/zh-cn/latest/embodied_tutorial/quick_start_dreamzero.html)开始。
+
+</details>
+
+<a id="example-diffusion"></a>
+### 示例 D：Wan2.2 图生视频训练
+
+<details>
+<summary><b>预处理视频数据并启动扩散模型训练</b></summary>
+
+准备 `Wan-AI/Wan2.2-I2V-A14B` 权重，以及包含 `video,prompt` 两列的 `metadata.csv` 和视频文件。按 [Wan 准备指南](https://loongforge.readthedocs.io/zh-cn/latest/wan_tutorial/quick_start_wan_training.html)安装预处理依赖（`diffsynth==1.1.8`），并将高噪声和低噪声模型权重分别转换为 MCore。随后预处理视频并启动：
+
+```bash
+LOONGFORGE_ROOT="$LOONGFORGE_PATH" \
+DATASET_BASE_PATH=/path/to/video_dataset \
+DATASET_METADATA_PATH=/path/to/video_dataset/metadata.csv \
+WAN22_MODEL_ROOT=/path/to/Wan2.2-I2V-A14B \
+bash examples/wan/preprocess.sh wan2.2 "$RUN_ROOT/data/wan-preprocessed"
+
+DATASET_PATH="$RUN_ROOT/data/wan-preprocessed" \
+HIGH_NOISE_CHECKPOINT_PATH=/path/to/high_noise_mcore \
+LOW_NOISE_CHECKPOINT_PATH=/path/to/low_noise_mcore \
+TENSORBOARD_PATH="$RUN_ROOT/logs/wan2.2" \
+GPUS=8 \
+bash examples/wan/pretrain_wan2.2_i2v_a14b.sh
+```
+
+脚本依次训练高噪声和低噪声模型，分别使用各自的 checkpoint 目录加载和保存权重。请按任务修改脚本中的训练步数和保存间隔。
+
+</details>
+
+### 3. 扩展到自己的任务
+
+| 想做什么 | 从哪里开始 |
+| --- | --- |
+| 使用自己的语料预训练 | [LLM 预训练](https://loongforge.readthedocs.io/zh-cn/latest/llm_tutorial/quick_start_llm_pretrain.html)或 [VLM 预训练](https://loongforge.readthedocs.io/zh-cn/latest/vlm_tutorial/quick_start_vlm_pretrain.html) |
+| 更换模型或并行策略 | 查看 [`examples/`](./examples/) 及对应的 [`configs/models/`](./configs/models/)；并行策略和 batch 参数在启动脚本中 |
+| 加载或导出模型权重 | [`tools/convert_checkpoint/`](./tools/convert_checkpoint/) 及各模型的 `checkpoint_convert/` 示例 |
+| 在昆仑芯 XPU 上训练 | [XPU 教程](https://loongforge.readthedocs.io/zh-cn/latest/kunlun_tutorial/README.html)及 [`examples_xpu/`](./examples_xpu/) |
+
+<a id="performance"></a>
+## 📊 性能表现
+
+各模型相对主流开源基线的训练吞吐加速——每个模型与其基线的对比，均在相同机型与相同训练超参数下测得：
+
+<p align="center">
+  <img alt="LoongForge 相对开源基线的训练吞吐加速——从 Qwen3-VL 的 1.45 倍到 DeepSeek-V3.2 Lite 的 5.04 倍" src="./docs/assets/images/benchmark_speedup.png" width="860" />
+</p>
+
+> DeepSeek-V3.2 Lite 为 DSA 算子级优化的结果，受测试环境规模限制，在减层配置下验证。<br>
+> 数据为特定时间点的测试结果，双方实现持续演进，数值可能随之变化。
+
 ## 🏗️ 架构
 
 由于不同类别、不同规模的模型，最优训练策略不同，LoongForge 采用多后端架构。
@@ -82,35 +261,6 @@
 
 - **Megatron 栈** —— 面向 LLM、VLM 与 Diffusion 模型。基于 [patch 过的 Megatron-LM](https://github.com/baidu-baige/Loong-Megatron) 构建，并扩展了 MoE 并行、组件级异构并行、长序列优化等能力。
 - **Torch-Native 栈** —— 面向具身模型（VLA 与 WAM）。独立的 [torch-native 子系统](./loongforge/embodied)，支持 **DDP / ZeRO-1 / FSDP / HSDP**，并针对典型模型做了深度性能优化，涵盖 I/O、通信策略、kernel 效率等。
-
-## 🔥 最新动态
-
-- **[2026/09]** ✨ 新增 **[GLM-5.3-flash](./examples/glm5_next/)** 训练支持。
-- **[2026/09]** ✨ 新增 **[Kimi-K3](./examples/kimi_k3/)** 的 LLM 与 VLM BF16 训练支持。
-- **[2026/09]** ⚡ 新增优化后的 **[DreamZero Wan2.2-5B FSDP recipe](./examples/embodied/dreamzero/run_dreamzero_wan22_5b_full_fsdp_finetune.sh)**，集成 cache-aware 数据加载、attention block 编译、冻结模块处理与 FSDP2 Delta-FP8 Param AllGather。
-- **[2026/08]** 🤖 新增 **[Wall-OSS-0.5](./examples/embodied/wall_oss_0_5/)** VLA 训练支持，并通过自定义融合算子提升训练吞吐。
-- **[2026/08]** 📄 发布 **[TAOT 论文](https://arxiv.org/abs/2608.03676)** —— 通过拓扑感知的动态专家副本放置，优化 **MoE** 训练中的专家并行（**EP**）负载不均衡，相较业界方案开销最大可降低 **74%**，案例实测 **1.43× 加速**。[[blog](https://baidu-baige.github.io/LoongForge/blog/2026-08-taot-topology-aware-expert-placement.html)]
-- **[2026/08]** ✨ 新增 **GLM-5.2** 训练支持，并提供 **[GLM-5.2 + MoonViT](./configs/models/glm5.2_vit/)** 自定义组合[示例](./examples/glm5.2_vit/)，可用于为 GLM 扩展多模态能力。
-- **[2026/08]** ✨ 新增 **MiniCPM-V-4.6** 与 **Qwen3.8-27B** 训练支持。
-- **[2026/08]** 🧪 Embodied 栈新增统一[**评测模块**](./loongforge/embodied/eval/)，当前已覆盖 **Pi0.5 / xVLA / GR00T**，持续扩展中。
-- **[2026/07]** 🐳 统一**预构建 Docker 镜像** —— LLM / VLM / VLA / Diffusion 全部模型家族共用同一镜像。
-- **[2026/07]** 🤖 发布 **[LoongForge-Embodied](./loongforge/embodied)** —— 面向具身模型（Pi0.5、GR00T-N1.6/N1.7、xVLA、LingBot-VA、FastWAM、DreamZero、Cosmos3）的 torch-native DDP/FSDP 训练子系统，实测最高 **4.38× 加速**。[[blog](https://baidu-baige.github.io/LoongForge/blog/2026-07-announcing-loongforge-embodied.html)]
-- **[2026/07]** ✨ 新增 **Qwen-Image-Edit-2511** 训练支持。
-- **[2026/07]** ✨ 新增 **DeepSeek-V4-Flash / DeepSeek-V4-Pro** 训练支持。
-
-<details>
-<summary><b>📅 更多</b></summary>
-
-- **[2026/06]** 🤖 扩展 VLA 模型覆盖，新增 **GR00T N1.6**；GR00T 训练实现 **2.3× 加速**。[[blog](https://baidu-baige.github.io/LoongForge/blog/2026-06-loongforge-groot-n16-acceleration.html)]
-- **[2026/05]** ⚡ **Wan 2.2** 训练 **加速 116%**，并新增 CP（上下文并行）与数据 packing 策略支持。
-- **[2026/05]** ✨ 新增 **Kimi K2.5 / K2.6** 训练支持，并支持 **INT4 / NVFP4** PTQ 量化能力。
-- **[2026/05]** 🎉 **v0.1.0** —— LoongForge 首个正式版本发布。
-- **[2026/05]** 🌟 支持 **LLaVA-OneVision-2.0** 模型训练并协助其公开发布。
-- **[2026/04]** 🧩 新增 **MiniMax-M2.7** 在 NVIDIA GPU 与昆仑芯 XPU 上的训练支持。
-- **[2026/04]** 🚀 LoongForge 源码在 GitHub 上正式公开。[[blog](https://zhuanlan.zhihu.com/p/2031006068797600446)]
-- **[2025/10]** 🌟 基于AIAK-Training-LLM（LoongForge 前身）支持 **LLaVA-OneVision-1.5** 模型训练并协助其公开发布。[[blog](https://mp.weixin.qq.com/s/1y7Br15pBpUZ-90j5OGncA)]
-
-</details>
 
 ## ✨ 核心特性
 
@@ -144,35 +294,20 @@
 
 > 📖 深入阅读：[LLM](https://loongforge.readthedocs.io/zh-cn/latest/llm_tutorial/features_index.html) · [VLM](https://loongforge.readthedocs.io/zh-cn/latest/vlm_tutorial/features_index.html) · [具身模型](https://loongforge.readthedocs.io/zh-cn/latest/embodied_tutorial/overview.html)
 
-<a id="performance"></a>
-## 📊 性能表现
-
-各模型相对主流开源基线的训练吞吐加速——每个模型与其基线的对比，均在相同机型与相同训练超参数下测得：
-
-<p align="center">
-  <img alt="LoongForge 相对开源基线的训练吞吐加速——从 Qwen3-VL 的 1.45 倍到 DeepSeek-V3.2 Lite 的 5.04 倍" src="./docs/assets/images/benchmark_speedup.png" width="860" />
-</p>
-
-> DeepSeek-V3.2 Lite 为 DSA 算子级优化的结果，受测试环境规模限制，在减层配置下验证。<br>
-> 数据为特定时间点的测试结果，双方实现持续演进，数值可能随之变化。
-
-<a id="quickstart"></a>
-## ⚡ 快速开始
-
-**1. 安装** —— 使用[**统一预构建 Docker 镜像**](https://hub.docker.com/u/loongforge)（全部模型家族共用）或**源码构建**：
-- **NVIDIA GPU**：[安装指南](https://loongforge.readthedocs.io/zh-cn/latest/get_started/installation.html)
-- **昆仑芯 XPU**：[安装指南](https://loongforge.readthedocs.io/zh-cn/latest/kunlun_tutorial/install_p800.html)
-
-**2. 选教程** —— 按硬件与模态：
-- **NVIDIA GPU**：[LLM](https://loongforge.readthedocs.io/zh-cn/latest/llm_tutorial/quick_start_llm_pretrain.html) · [VLM](https://loongforge.readthedocs.io/zh-cn/latest/vlm_tutorial/quick_start_vlm_pretrain.html) · [VLA & WAM](https://loongforge.readthedocs.io/zh-cn/latest/embodied_tutorial/quick_start_index.html) · [Diffusion (WAN)](https://loongforge.readthedocs.io/zh-cn/latest/wan_tutorial/quick_start_wan_training.html)
-- **昆仑芯 XPU**：[昆仑芯 XPU 教程](https://loongforge.readthedocs.io/zh-cn/latest/kunlun_tutorial/README.html)
-
-**3. 找到你模型的脚本** —— 现成启动脚本见 [`examples/`](./examples) / [`examples_xpu/`](./examples_xpu)，配置见 [`configs/models/`](./configs/models)。
-
 <a id="models"></a>
 ## 🏛️ 支持的模型
 
-LoongForge 已支持 LLM、VLM、Diffusion 与 Embodied 等类别的广泛模型家族。点击模型名称可查看对应的训练示例；完整的使用说明请参阅[用户手册](https://loongforge.readthedocs.io/zh-cn/latest/index.html)，模型变体请参阅[模型支持矩阵](https://loongforge.readthedocs.io/zh-cn/latest/get_started/support_model.html)。
+下表概览了各类别的代表模型；展开完整列表可进入模型对应的训练示例。各变体与训练能力见[模型支持矩阵](https://loongforge.readthedocs.io/zh-cn/latest/get_started/support_model.html)。
+
+| 类别 | 代表模型 |
+| --- | --- |
+| LLM | DeepSeek、Qwen、LLaMA、MiniMax、GLM、Kimi |
+| VLM | Qwen-VL、Qwen3.5–3.8、Kimi、MiniCPM-V、InternVL、LLaVA、GLM + MoonViT |
+| Diffusion | Wan2.1 / 2.2、Qwen-Image-Edit |
+| 具身模型 | Pi0.5、GR00T、xVLA、Wall-OSS、FastWAM、LingBot-VA、Cosmos3、DreamZero |
+
+<details>
+<summary><b>查看模型矩阵</b></summary>
 
 <table width="100%">
 <colgroup>
@@ -250,6 +385,8 @@ LoongForge 已支持 LLM、VLM、Diffusion 与 Embodied 等类别的广泛模型
 </tbody>
 </table>
 
+</details>
+
 ## 🌟 基于 LoongForge 训练
 
 基于 LoongForge 或其前身 AIAK-Training-LLM 训练的开源模型：
@@ -295,6 +432,35 @@ LoongForge/
 ├── tests/                        # 端到端测试（YAML 驱动）
 └── docs/                         # 文档
 ```
+
+</details>
+
+## 🔥 最新动态
+
+- **[2026/09]** ✨ 新增 **[GLM-5.3-flash](./examples/glm5_next/)** 训练支持。
+- **[2026/09]** ✨ 新增 **[Kimi-K3](./examples/kimi_k3/)** 的 LLM 与 VLM BF16 训练支持。
+- **[2026/09]** ⚡ 新增优化后的 **[DreamZero Wan2.2-5B FSDP recipe](./examples/embodied/dreamzero/run_dreamzero_wan22_5b_full_fsdp_finetune.sh)**，集成 cache-aware 数据加载、attention block 编译、冻结模块处理与 FSDP2 Delta-FP8 Param AllGather。
+
+<details>
+<summary><b>📅 更多</b></summary>
+
+- **[2026/08]** 🤖 新增 **[Wall-OSS-0.5](./examples/embodied/wall_oss_0_5/)** VLA 训练支持，并通过自定义融合算子提升训练吞吐。
+- **[2026/08]** 📄 发布 **[TAOT 论文](https://arxiv.org/abs/2608.03676)** —— 通过拓扑感知的动态专家副本放置，优化 **MoE** 训练中的专家并行（**EP**）负载不均衡，相较业界方案开销最大可降低 **74%**，案例实测 **1.43× 加速**。[[blog](https://baidu-baige.github.io/LoongForge/blog/2026-08-taot-topology-aware-expert-placement.html)]
+- **[2026/08]** ✨ 新增 **GLM-5.2** 训练支持，并提供 **[GLM-5.2 + MoonViT](./configs/models/glm5.2_vit/)** 自定义组合[示例](./examples/glm5.2_vit/)，可用于为 GLM 扩展多模态能力。
+- **[2026/08]** ✨ 新增 **MiniCPM-V-4.6** 与 **Qwen3.8-27B** 训练支持。
+- **[2026/08]** 🧪 Embodied 栈新增统一[**评测模块**](./loongforge/embodied/eval/)，当前已覆盖 **Pi0.5 / xVLA / GR00T**，持续扩展中。
+- **[2026/07]** 🐳 统一**预构建 Docker 镜像** —— LLM / VLM / VLA / Diffusion 全部模型家族共用同一镜像。
+- **[2026/07]** 🤖 发布 **[LoongForge-Embodied](./loongforge/embodied)** —— 面向具身模型（Pi0.5、GR00T-N1.6/N1.7、xVLA、LingBot-VA、FastWAM、DreamZero、Cosmos3）的 torch-native DDP/FSDP 训练子系统，实测最高 **4.38× 加速**。[[blog](https://baidu-baige.github.io/LoongForge/blog/2026-07-announcing-loongforge-embodied.html)]
+- **[2026/07]** ✨ 新增 **Qwen-Image-Edit-2511** 训练支持。
+- **[2026/07]** ✨ 新增 **DeepSeek-V4-Flash / DeepSeek-V4-Pro** 训练支持。
+- **[2026/06]** 🤖 扩展 VLA 模型覆盖，新增 **GR00T N1.6**；GR00T 训练实现 **2.3× 加速**。[[blog](https://baidu-baige.github.io/LoongForge/blog/2026-06-loongforge-groot-n16-acceleration.html)]
+- **[2026/05]** ⚡ **Wan 2.2** 训练 **加速 116%**，并新增 CP（上下文并行）与数据 packing 策略支持。
+- **[2026/05]** ✨ 新增 **Kimi K2.5 / K2.6** 训练支持，并支持 **INT4 / NVFP4** PTQ 量化能力。
+- **[2026/05]** 🎉 **v0.1.0** —— LoongForge 首个正式版本发布。
+- **[2026/05]** 🌟 支持 **LLaVA-OneVision-2.0** 模型训练并协助其公开发布。
+- **[2026/04]** 🧩 新增 **MiniMax-M2.7** 在 NVIDIA GPU 与昆仑芯 XPU 上的训练支持。
+- **[2026/04]** 🚀 LoongForge 源码在 GitHub 上正式公开。[[blog](https://zhuanlan.zhihu.com/p/2031006068797600446)]
+- **[2025/10]** 🌟 基于AIAK-Training-LLM（LoongForge 前身）支持 **LLaVA-OneVision-1.5** 模型训练并协助其公开发布。[[blog](https://mp.weixin.qq.com/s/1y7Br15pBpUZ-90j5OGncA)]
 
 </details>
 
