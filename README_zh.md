@@ -161,16 +161,15 @@
 
 ### 1. 安装
 
-使用 [NVIDIA GPU 预构建镜像](https://hub.docker.com/u/loongforge)（需安装 NVIDIA Container Toolkit），将 `<version>` 替换为镜像 tag：
+使用[最新 NVIDIA GPU 预构建镜像](https://hub.docker.com/u/loongforge)（需安装 NVIDIA Container Toolkit）：
 
 ```bash
-LOONGFORGE_VERSION='<version>'
-docker pull "loongforge/loongforge:${LOONGFORGE_VERSION}"
+docker pull loongforge/loongforge:latest
 mkdir -p workspace
 docker run --gpus all --ipc=host -it --rm \
   -v "$(pwd)/workspace:/workspace/data" \
   -w /workspace/LoongForge \
-  "loongforge/loongforge:${LOONGFORGE_VERSION}" bash
+  loongforge/loongforge:latest bash
 ```
 
 [源码安装](https://loongforge.readthedocs.io/zh-cn/latest/get_started/installation.html) · [昆仑芯 XPU 安装](https://loongforge.readthedocs.io/zh-cn/latest/kunlun_tutorial/install_p800.html)。

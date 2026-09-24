@@ -161,16 +161,15 @@ Training throughput speedups over mainstream open-source baselines — each mode
 
 ### 1. Install
 
-Use a [prebuilt NVIDIA GPU image](https://hub.docker.com/u/loongforge) with NVIDIA Container Toolkit installed. Replace `<version>` with the image tag:
+Use the [latest prebuilt NVIDIA GPU image](https://hub.docker.com/u/loongforge) with NVIDIA Container Toolkit installed:
 
 ```bash
-LOONGFORGE_VERSION='<version>'
-docker pull "loongforge/loongforge:${LOONGFORGE_VERSION}"
+docker pull loongforge/loongforge:latest
 mkdir -p workspace
 docker run --gpus all --ipc=host -it --rm \
   -v "$(pwd)/workspace:/workspace/data" \
   -w /workspace/LoongForge \
-  "loongforge/loongforge:${LOONGFORGE_VERSION}" bash
+  loongforge/loongforge:latest bash
 ```
 
 [Source installation](https://loongforge.readthedocs.io/en/latest/get_started/installation.html) · [Kunlun XPU installation](https://loongforge.readthedocs.io/en/latest/kunlun_tutorial/install_p800.html).
