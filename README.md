@@ -166,9 +166,9 @@ Use a [prebuilt NVIDIA GPU image](https://hub.docker.com/u/loongforge) with NVID
 ```bash
 LOONGFORGE_VERSION='<version>'
 docker pull "loongforge/loongforge:${LOONGFORGE_VERSION}"
-mkdir -p dreamzero
+mkdir -p workspace
 docker run --gpus all --ipc=host -it --rm \
-  -v "$(pwd)/dreamzero:/workspace/dreamzero" \
+  -v "$(pwd)/workspace:/workspace/data" \
   -w /workspace/LoongForge \
   "loongforge/loongforge:${LOONGFORGE_VERSION}" bash
 ```
@@ -179,16 +179,16 @@ This example uses **DreamZero Wan2.2-5B LoRA on a single node with 8 GPUs and FS
 
 ```bash
 cd /workspace/LoongForge
-export WAN22_CKPT_DIR=/workspace/dreamzero/checkpoints/Wan2.2-TI2V-5B
-export WAN21_CKPT_DIR=/workspace/dreamzero/checkpoints/Wan2.1-I2V-14B-480P
+export WAN22_CKPT_DIR=/workspace/data/dreamzero/checkpoints/Wan2.2-TI2V-5B
+export WAN21_CKPT_DIR=/workspace/data/dreamzero/checkpoints/Wan2.1-I2V-14B-480P
 export TOKENIZER_PATH="$WAN22_CKPT_DIR/google/umt5-xxl"
-export DATA_PATH=/workspace/dreamzero/data/droid_lerobot
+export DATA_PATH=/workspace/data/dreamzero/data/droid_lerobot
 
 EMBODIMENT_TAG=oxe_droid \
   bash examples/embodied/dreamzero/prepare_dreamzero_dataset.sh
 
 GPUS_PER_NODE=8 TRAIN_ITERS=20 SAVE_INTERVAL=20 \
-OUTPUT_DIR=/workspace/dreamzero/outputs/lora \
+OUTPUT_DIR=/workspace/data/dreamzero/outputs/lora \
   bash examples/embodied/dreamzero/run_dreamzero_wan22_5b_lora_fsdp_finetune.sh
 ```
 
