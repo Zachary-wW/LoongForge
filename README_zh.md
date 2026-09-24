@@ -159,7 +159,7 @@
 <a id="quickstart"></a>
 ## ⚡ 快速开始
 
-### 1. Docker
+### 1. 安装
 
 使用 [NVIDIA GPU 预构建镜像](https://hub.docker.com/u/loongforge)（需安装 NVIDIA Container Toolkit），将 `<version>` 替换为镜像 tag：
 
@@ -173,7 +173,18 @@ docker run --gpus all --ipc=host -it --rm \
   "loongforge/loongforge:${LOONGFORGE_VERSION}" bash
 ```
 
-### 2. DreamZero LoRA 微调
+[源码安装](https://loongforge.readthedocs.io/zh-cn/latest/get_started/installation.html) · [昆仑芯 XPU 安装](https://loongforge.readthedocs.io/zh-cn/latest/kunlun_tutorial/install_p800.html)。
+
+### 2. 按硬件与模态选择教程
+
+- **NVIDIA GPU**：[LLM](https://loongforge.readthedocs.io/zh-cn/latest/llm_tutorial/quick_start_llm_pretrain.html) · [VLM](https://loongforge.readthedocs.io/zh-cn/latest/vlm_tutorial/quick_start_vlm_pretrain.html) · [VLA & WAM](https://loongforge.readthedocs.io/zh-cn/latest/embodied_tutorial/quick_start_index.html) · [Diffusion](https://loongforge.readthedocs.io/zh-cn/latest/wan_tutorial/quick_start_wan_training.html)
+- **昆仑芯 XPU**：[昆仑芯 XPU 教程](https://loongforge.readthedocs.io/zh-cn/latest/kunlun_tutorial/README.html)
+
+### 3. 找到模型的启动脚本
+
+NVIDIA GPU 启动脚本见 [`examples/`](./examples/)，昆仑芯 XPU 启动脚本见 [`examples_xpu/`](./examples_xpu/)，配置见 [`configs/models/`](./configs/models/)。
+
+#### 示例：DreamZero LoRA 微调
 
 以 **DreamZero Wan2.2-5B LoRA（单机 8 GPU、FSDP）** 为例。按[教程](https://loongforge.readthedocs.io/zh-cn/latest/embodied_tutorial/quick_start_dreamzero.html)准备权重（含 Wan2.1 CLIP）和 DROID（LeRobot v2）数据，随后在容器内执行：
 
@@ -193,8 +204,6 @@ OUTPUT_DIR=/workspace/data/dreamzero/outputs/lora \
 ```
 
 示例运行 20 步，训练产物保存在 `OUTPUT_DIR` 下。
-
-**更多教程：** [安装指南](https://loongforge.readthedocs.io/zh-cn/latest/get_started/installation.html) · [LLM](https://loongforge.readthedocs.io/zh-cn/latest/llm_tutorial/quick_start_llm_pretrain.html) · [VLM](https://loongforge.readthedocs.io/zh-cn/latest/vlm_tutorial/quick_start_vlm_pretrain.html) · [具身模型](https://loongforge.readthedocs.io/zh-cn/latest/embodied_tutorial/quick_start_index.html) · [Diffusion](https://loongforge.readthedocs.io/zh-cn/latest/wan_tutorial/quick_start_wan_training.html) · [昆仑芯 XPU](https://loongforge.readthedocs.io/zh-cn/latest/kunlun_tutorial/README.html)。
 
 <a id="models"></a>
 ## 🏛️ 支持的模型

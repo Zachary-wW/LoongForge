@@ -159,7 +159,7 @@ Training throughput speedups over mainstream open-source baselines — each mode
 <a id="quickstart"></a>
 ## ⚡ Quick Start
 
-### 1. Docker
+### 1. Install
 
 Use a [prebuilt NVIDIA GPU image](https://hub.docker.com/u/loongforge) with NVIDIA Container Toolkit installed. Replace `<version>` with the image tag:
 
@@ -173,7 +173,18 @@ docker run --gpus all --ipc=host -it --rm \
   "loongforge/loongforge:${LOONGFORGE_VERSION}" bash
 ```
 
-### 2. DreamZero LoRA fine-tuning
+[Source installation](https://loongforge.readthedocs.io/en/latest/get_started/installation.html) · [Kunlun XPU installation](https://loongforge.readthedocs.io/en/latest/kunlun_tutorial/install_p800.html).
+
+### 2. Pick a tutorial — by hardware and modality
+
+- **NVIDIA GPU**: [LLM](https://loongforge.readthedocs.io/en/latest/llm_tutorial/quick_start_llm_pretrain.html) · [VLM](https://loongforge.readthedocs.io/en/latest/vlm_tutorial/quick_start_vlm_pretrain.html) · [VLA & WAM](https://loongforge.readthedocs.io/en/latest/embodied_tutorial/quick_start_index.html) · [Diffusion](https://loongforge.readthedocs.io/en/latest/wan_tutorial/quick_start_wan_training.html)
+- **Kunlun XPU**: [Kunlun XPU Tutorials](https://loongforge.readthedocs.io/en/latest/kunlun_tutorial/README.html)
+
+### 3. Find your model's scripts
+
+Launch scripts are available under [`examples/`](./examples/) (NVIDIA GPU) and [`examples_xpu/`](./examples_xpu/) (Kunlun XPU), with configs in [`configs/models/`](./configs/models/).
+
+#### Example: DreamZero LoRA fine-tuning
 
 This example uses **DreamZero Wan2.2-5B LoRA on a single node with 8 GPUs and FSDP**. Follow the [tutorial](https://loongforge.readthedocs.io/en/latest/embodied_tutorial/quick_start_dreamzero.html) to prepare weights (including Wan2.1 CLIP) and DROID data in LeRobot v2 format, then run inside the container:
 
@@ -193,8 +204,6 @@ OUTPUT_DIR=/workspace/data/dreamzero/outputs/lora \
 ```
 
 The example runs 20 steps and saves outputs under `OUTPUT_DIR`.
-
-**More guides:** [Installation](https://loongforge.readthedocs.io/en/latest/get_started/installation.html) · [LLM](https://loongforge.readthedocs.io/en/latest/llm_tutorial/quick_start_llm_pretrain.html) · [VLM](https://loongforge.readthedocs.io/en/latest/vlm_tutorial/quick_start_vlm_pretrain.html) · [Embodied](https://loongforge.readthedocs.io/en/latest/embodied_tutorial/quick_start_index.html) · [Diffusion](https://loongforge.readthedocs.io/en/latest/wan_tutorial/quick_start_wan_training.html) · [Kunlun XPU](https://loongforge.readthedocs.io/en/latest/kunlun_tutorial/README.html).
 
 <a id="models"></a>
 ## 🏛️ Supported Models
