@@ -159,9 +159,9 @@
 <a id="quickstart"></a>
 ## ⚡ 快速开始
 
-### 1. 启动 Docker 环境
+### 1. Docker
 
-在配有 NVIDIA GPU、兼容驱动、Docker 和 NVIDIA Container Toolkit 的 Linux 主机上，拉取包含下方 DreamZero 示例的[已发布镜像](https://hub.docker.com/u/loongforge)，将 `<version>` 替换为对应 tag。本地 `dreamzero/` 目录用于保存权重、数据和训练产物：
+使用 [NVIDIA GPU 预构建镜像](https://hub.docker.com/u/loongforge)（需安装 NVIDIA Container Toolkit），将 `<version>` 替换为镜像 tag：
 
 ```bash
 LOONGFORGE_VERSION='<version>'
@@ -173,13 +173,9 @@ docker run --gpus all --ipc=host -it --rm \
   "loongforge/loongforge:${LOONGFORGE_VERSION}" bash
 ```
 
-源码安装或昆仑芯 XPU 环境请参阅 [GPU 安装指南](https://loongforge.readthedocs.io/zh-cn/latest/get_started/installation.html)或 [XPU 安装指南](https://loongforge.readthedocs.io/zh-cn/latest/kunlun_tutorial/install_p800.html)。
+### 2. DreamZero LoRA 微调
 
-### 2. 示例：DreamZero LoRA 微调
-
-以首页视频中的 DreamZero 模型家族为例，下面使用 **Wan2.2-5B LoRA**，采用**单机 8 GPU、FSDP** 配置。这次短跑用于检查训练流程，不用于复现视频中的吞吐基准。
-
-按 [DreamZero 准备指南](https://loongforge.readthedocs.io/zh-cn/latest/embodied_tutorial/quick_start_dreamzero.html)下载 Wan2.2-TI2V-5B 权重（含 tokenizer）、Wan2.1 中的 CLIP 编码器，以及 LeRobot v2 格式的 DreamZero DROID 数据集，放入挂载目录。随后在**容器内**执行：
+以 **DreamZero Wan2.2-5B LoRA（单机 8 GPU、FSDP）** 为例。按[教程](https://loongforge.readthedocs.io/zh-cn/latest/embodied_tutorial/quick_start_dreamzero.html)准备权重（含 Wan2.1 CLIP）和 DROID（LeRobot v2）数据，随后在容器内执行：
 
 ```bash
 cd /workspace/LoongForge
@@ -196,13 +192,9 @@ OUTPUT_DIR=/workspace/dreamzero/outputs/lora \
   bash examples/embodied/dreamzero/run_dreamzero_wan22_5b_lora_fsdp_finetune.sh
 ```
 
-正式微调时增大 `TRAIN_ITERS`。Checkpoint 和 TensorBoard 日志保存在 `OUTPUT_DIR` 下。完整教程还提供全量微调、特征缓存与续训说明。
+示例运行 20 步，训练产物保存在 `OUTPUT_DIR` 下。
 
-### 3. 更多训练任务
-
-教程入口：[LLM](https://loongforge.readthedocs.io/zh-cn/latest/llm_tutorial/quick_start_llm_pretrain.html) · [VLM](https://loongforge.readthedocs.io/zh-cn/latest/vlm_tutorial/quick_start_vlm_pretrain.html) · [具身模型](https://loongforge.readthedocs.io/zh-cn/latest/embodied_tutorial/quick_start_index.html) · [Diffusion](https://loongforge.readthedocs.io/zh-cn/latest/wan_tutorial/quick_start_wan_training.html) · [昆仑芯 XPU](https://loongforge.readthedocs.io/zh-cn/latest/kunlun_tutorial/README.html)。
-
-各模型的启动脚本见 [`examples/`](./examples/) / [`examples_xpu/`](./examples_xpu/)，配置见 [`configs/models/`](./configs/models/)。
+**更多教程：** [安装指南](https://loongforge.readthedocs.io/zh-cn/latest/get_started/installation.html) · [LLM](https://loongforge.readthedocs.io/zh-cn/latest/llm_tutorial/quick_start_llm_pretrain.html) · [VLM](https://loongforge.readthedocs.io/zh-cn/latest/vlm_tutorial/quick_start_vlm_pretrain.html) · [具身模型](https://loongforge.readthedocs.io/zh-cn/latest/embodied_tutorial/quick_start_index.html) · [Diffusion](https://loongforge.readthedocs.io/zh-cn/latest/wan_tutorial/quick_start_wan_training.html) · [昆仑芯 XPU](https://loongforge.readthedocs.io/zh-cn/latest/kunlun_tutorial/README.html)。
 
 <a id="models"></a>
 ## 🏛️ 支持的模型

@@ -159,9 +159,9 @@ Training throughput speedups over mainstream open-source baselines — each mode
 <a id="quickstart"></a>
 ## ⚡ Quick Start
 
-### 1. Start the Docker environment
+### 1. Docker
 
-On a Linux host with NVIDIA GPUs, a compatible driver, Docker, and NVIDIA Container Toolkit, pull a [published image](https://hub.docker.com/u/loongforge) that includes the DreamZero example below. Replace `<version>` with its tag. The local `dreamzero/` directory holds weights, data, and training outputs:
+Use a [prebuilt NVIDIA GPU image](https://hub.docker.com/u/loongforge) with NVIDIA Container Toolkit installed. Replace `<version>` with the image tag:
 
 ```bash
 LOONGFORGE_VERSION='<version>'
@@ -173,13 +173,9 @@ docker run --gpus all --ipc=host -it --rm \
   "loongforge/loongforge:${LOONGFORGE_VERSION}" bash
 ```
 
-For source installation or Kunlun XPU, see the [GPU installation guide](https://loongforge.readthedocs.io/en/latest/get_started/installation.html) or [XPU installation guide](https://loongforge.readthedocs.io/en/latest/kunlun_tutorial/install_p800.html).
+### 2. DreamZero LoRA fine-tuning
 
-### 2. Try DreamZero LoRA fine-tuning
-
-Try the model family featured in the video above with **DreamZero Wan2.2-5B LoRA**, using a single node with **8 GPUs and FSDP**. This short example checks the training setup; it does not reproduce the video's throughput benchmark.
-
-Follow the [DreamZero preparation guide](https://loongforge.readthedocs.io/en/latest/embodied_tutorial/quick_start_dreamzero.html) to download the Wan2.2-TI2V-5B weights (including the tokenizer), the CLIP encoder from Wan2.1, and the DreamZero DROID dataset in LeRobot v2 format. Place them in the mounted directory, then run **inside the container**:
+This example uses **DreamZero Wan2.2-5B LoRA on a single node with 8 GPUs and FSDP**. Follow the [tutorial](https://loongforge.readthedocs.io/en/latest/embodied_tutorial/quick_start_dreamzero.html) to prepare weights (including Wan2.1 CLIP) and DROID data in LeRobot v2 format, then run inside the container:
 
 ```bash
 cd /workspace/LoongForge
@@ -196,13 +192,9 @@ OUTPUT_DIR=/workspace/dreamzero/outputs/lora \
   bash examples/embodied/dreamzero/run_dreamzero_wan22_5b_lora_fsdp_finetune.sh
 ```
 
-Increase `TRAIN_ITERS` for fine-tuning. Checkpoints and TensorBoard logs are saved under `OUTPUT_DIR`. The full guide also covers full fine-tuning, feature caching, and resuming training.
+The example runs 20 steps and saves outputs under `OUTPUT_DIR`.
 
-### 3. Explore more training tasks
-
-Tutorials: [LLM](https://loongforge.readthedocs.io/en/latest/llm_tutorial/quick_start_llm_pretrain.html) · [VLM](https://loongforge.readthedocs.io/en/latest/vlm_tutorial/quick_start_vlm_pretrain.html) · [Embodied](https://loongforge.readthedocs.io/en/latest/embodied_tutorial/quick_start_index.html) · [Diffusion](https://loongforge.readthedocs.io/en/latest/wan_tutorial/quick_start_wan_training.html) · [Kunlun XPU](https://loongforge.readthedocs.io/en/latest/kunlun_tutorial/README.html).
-
-Model-specific launch scripts are in [`examples/`](./examples/) / [`examples_xpu/`](./examples_xpu/), with configurations in [`configs/models/`](./configs/models/).
+**More guides:** [Installation](https://loongforge.readthedocs.io/en/latest/get_started/installation.html) · [LLM](https://loongforge.readthedocs.io/en/latest/llm_tutorial/quick_start_llm_pretrain.html) · [VLM](https://loongforge.readthedocs.io/en/latest/vlm_tutorial/quick_start_vlm_pretrain.html) · [Embodied](https://loongforge.readthedocs.io/en/latest/embodied_tutorial/quick_start_index.html) · [Diffusion](https://loongforge.readthedocs.io/en/latest/wan_tutorial/quick_start_wan_training.html) · [Kunlun XPU](https://loongforge.readthedocs.io/en/latest/kunlun_tutorial/README.html).
 
 <a id="models"></a>
 ## 🏛️ Supported Models
