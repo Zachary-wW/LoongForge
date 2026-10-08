@@ -21,7 +21,7 @@ This directory contains the CI/CD workflows for LoongForge.
 | `gpu-regression.yml` | Workflow dispatch | Run exact-SHA baseline regression for one model suite |
 | `gpu-invalidate.yml` | PR synchronize | Cancel stale suite GPU work after a new commit |
 | `gpu-watchdog.yml` | GPU workflow completion | Finalize a check if cancellation bypasses normal cleanup |
-| `release.yml` | Version tag `vX.Y.Z` or manual dry-run | Build/scan artifacts; tags publish PyPI and Docker Hub |
+| `release.yml` | Version tag `vX.Y.Z` or manual dry-run | Build, regress, and promote the validated release image |
 
 Pull requests run `static-checks.yml` automatically. Its manual dispatch is diagnostic:
 PR-only checks skip where appropriate and the final job is named
@@ -62,14 +62,28 @@ GitHub Actions.
 
 ## Releases
 
-Version tags publish the validated Python package and only the matching
-`docker.io/loongforge/loongforge:<version>` image. The release image checkout
-includes tracked submodules. It uses the same trusted builder, automatically
-detected GPU target, runner-local mirrors, proxy handling, BuildKit secrets,
-redacted logs, and image policy as a candidate build; only the release tag and
-publish step differ. A manual dispatch builds the package and image and runs
-the image policy, but it does not authenticate or publish. The release workflow
-never moves Docker Hub's `latest` tag.
+Version tags publish the validated Python package and build one release image
+on `CI_RELEASE_RUNNER`. The checkout includes tracked submodules and uses the
+same trusted builder, automatically detected GPU target, runner-local mirrors,
+proxy handling, BuildKit secrets, redacted logs, and image policy as a
+candidate build.
+
+When enabled, the release job creates one container, mounts both the LLM and
+VLA artifact roots, and runs `deepseek_v2_lite` followed by `pi05_ddp` in that
+container. The runner-local `LOONGFORGE_RELEASE_RUN_REGRESSION` switch is
+currently set to `false` while the GPU runner is occupied; in that mode image
+build and registry promotion continue without the regression step. When the
+switch is `true`, the internal registry push happens only after both
+regressions pass. The internal image tag is formed from the runner-local
+`LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX`, the validated version, and the
+`_release` suffix. This keeps the tag tied to the actual Dockerfile base image.
+
+After the internal push, `CI_DOCKERHUB_PUBLISHER_RUNNER` pulls that exact
+internal image, retags it as
+`docker.io/loongforge/loongforge:<version>`, pushes it, and verifies that the
+registry digests match. The release workflow never moves Docker Hub's
+`latest` tag. A manual dispatch builds, scans, and regresses the image but
+does not push to either registry.
 
 The image policy rejects `bcecmd`, common credential files, AK/SK and signed
 authorization metadata, and internal endpoints or runner paths before a
@@ -82,6 +96,8 @@ Operator hook contracts:
 
 - `LOONGFORGE_REGRESSION_RUNNER --source DIR --suite llm_vlm|embodied --sha SHA [--model LIST] [--candidate-revision REV]`
 - `LOONGFORGE_IMAGE_BUILDER --source DIR --target a|p|auto --sha SHA --pr NUMBER --tree-sha SHA`; stdout must contain only the local candidate image reference
+- `run_release_regression.sh --image IMAGE --source DIR --sha SHA`; the release
+  runner creates one container and runs the two release models serially.
 
 The builder reads `CI_CONFIG_PATH_IMAGE` (or the wrapper's `CI_CONFIG_PATH`) from
 the selected suite runner. It uses the Dockerfile's `BASE_IMAGE` build argument,
@@ -97,10 +113,12 @@ image. Unknown or mixed GPU architectures fail closed, and an explicit `a` or
 `p` target is rejected when it does not match the runner.
 
 Repository Variables are configured in GitHub Settings. The workflow expects
-`CI_RUNNER_A`, `CI_RUNNER_P`, `CI_REVIEW_RUNNER`, `CI_RELEASE_RUNNER`, and
-`CLAUDE_REVIEW_MODEL`; `CLAUDE_CODE_EXECUTABLE` is optional. Every self-hosted
-runner provides its own `CI_CONFIG_PATH_IMAGE` environment variable; this is
-not a Repository Variable because runner filesystem roots may differ.
+`CI_RUNNER_A`, `CI_RUNNER_P`, `CI_REVIEW_RUNNER`, `CI_RELEASE_RUNNER`,
+`CI_DOCKERHUB_PUBLISHER_RUNNER`, and `CLAUDE_REVIEW_MODEL`;
+`CLAUDE_CODE_EXECUTABLE`, `INTERNAL_IMAGE_REPOSITORY`, and `DOCKERHUB_IMAGE`
+are optional. Every self-hosted runner provides its own
+`CI_CONFIG_PATH_IMAGE` environment variable; this is not a Repository Variable
+because runner filesystem roots may differ.
 The protected release runner must set
 `LOONGFORGE_ALLOW_RELEASE_IMAGE_BUILD=true` in that config.
 

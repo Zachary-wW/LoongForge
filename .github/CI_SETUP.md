@@ -19,6 +19,8 @@ candidate image when `--build-image` is requested.
 - `CI_RELEASE_RUNNER`: JSON label array for a GPU Docker runner with at least
   250 GiB free on Docker's storage filesystem. Its GPU target determines the
   release image architecture in the same way as a candidate build.
+- `CI_DOCKERHUB_PUBLISHER_RUNNER`: JSON label array for a non-GPU runner that
+  can pull from iregistry and publish to Docker Hub.
 - `CI_ENABLE_LLM_VLM`: `true` only when the A-card suite is provisioned;
   otherwise `llm_vlm` dispatch is intentionally rejected.
 
@@ -54,7 +56,13 @@ operator-managed. Verify Buildx with `docker buildx version`;
 installing the CLI plugin does not require restarting the Docker daemon.
 The release runner uses this same builder and runner-local image config. Set
 `LOONGFORGE_ALLOW_RELEASE_IMAGE_BUILD=true` only on the protected runner named
-by `CI_RELEASE_RUNNER`; keep it false on general-purpose runners.
+by `CI_RELEASE_RUNNER`; keep it false on general-purpose runners. Set
+`LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX` to a string that describes the actual
+operator-managed `IMAGE_BASE_IMAGE`. The current protected base image is
+Ubuntu 24.04, CUDA 13.3, PyTorch 2.13.0a0, and Python 3.12, so its prefix is
+`ubuntu24.04-cu13.3-torch2.13.0a0-py312`.
+Set `LOONGFORGE_RELEASE_RUN_REGRESSION=false` while the GPU runner is occupied;
+set it to `true` before enabling the two model regressions.
 
 Candidate builds require 250 GiB free by default on the filesystem containing
 Docker's `DockerRootDir`. Set `LOONGFORGE_MIN_DOCKER_FREE_GB` to another integer
@@ -67,16 +75,17 @@ Remove obsolete `INTERNAL_CI_*` variables after the old internal CI workflow
 has been retired. They are not consumed by the current workflows and may
 expose runner-local paths through the public repository configuration.
 
-Create protected `pypi-release` and `dockerhub-release` Environments for the
-release workflow. Configure PyPI Trusted Publishing (OIDC) in the former, and
-`DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` secrets plus approval protection in the
-latter. `DOCKERHUB_USERNAME` must identify a Docker Hub user or service account
-with write access to the `loongforge` organization, and `DOCKERHUB_TOKEN` must
-be a Personal Access Token rather than an account password. Releases push only
-`docker.io/loongforge/loongforge:<version>` and never move Docker Hub's `latest`
-tag. A manual `workflow_dispatch` builds and scans the package and image but
-never logs in or pushes; it still uses the protected release environment and
-may require its approval.
+Create protected `pypi-release`, `iregistry-release`, and `dockerhub-release`
+Environments for the release workflow. Configure PyPI Trusted Publishing (OIDC)
+in the former. Configure `IREGISTRY_USERNAME`/`IREGISTRY_PASSWORD` in
+`iregistry-release`. Configure `IREGISTRY_PULL_USERNAME`/
+`IREGISTRY_PULL_PASSWORD`, `DOCKERHUB_USERNAME`, and `DOCKERHUB_TOKEN` in
+`dockerhub-release`. The Docker Hub token must be a Personal Access Token
+rather than an account password. Releases push the validated internal image
+first, then the publisher runner pulls that image and pushes only
+`docker.io/loongforge/loongforge:<version>`; Docker Hub's `latest` tag is never
+moved. A manual `workflow_dispatch` builds, scans, and regresses the image but
+does not push to either registry.
 
 Both candidate and release images pass the trusted image policy before use or
 push. It rejects `bcecmd`, common cloud credential files, persisted source
@@ -133,11 +142,17 @@ repository allows all third-party Actions and does not require SHA pinning;
 enable mandatory pinning only after every `@vN` reference has been replaced by
 an audited full commit SHA.
 
-Docker Hub releases publish only the validated version tag. Do not configure
-release automation that implicitly moves `latest`.
+Set these optional repository variables when the defaults do not match the
+organization layout:
 
-The repository currently has no post-merge workflow that promotes a validated
-candidate image to the internal registry or updates the Runner default image.
-Until that workflow is added, perform the promotion manually only after
-checking the merged PR, required Checks, source tree SHA, and candidate image
-revision; keep registry write credentials out of PR jobs.
+- `INTERNAL_IMAGE_REPOSITORY` is required for a release tag: the full image
+  repository without a tag, for example a private registry host plus namespace.
+  The login host is derived from it, so no separate registry variable is
+  needed; a repository without a hostname is pushed to Docker Hub.
+- `DOCKERHUB_IMAGE`, default `docker.io/loongforge/loongforge`.
+
+The release workflow builds one image and creates one container on
+`CI_RELEASE_RUNNER`. It runs `deepseek_v2_lite` and then `pi05_ddp` in that
+same container when `LOONGFORGE_RELEASE_RUN_REGRESSION=true`. While that
+runner-local switch is false, image build and registry promotion continue
+without the GPU regression step.

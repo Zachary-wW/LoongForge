@@ -63,7 +63,7 @@ jobs:
           path: dist/
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
 
-  docker:
+  build_test_push_internal:
     needs: [validate, package, publish]
     if: >-
       ${{
@@ -74,9 +74,13 @@ jobs:
       }}
     runs-on: ${{ fromJSON(vars.CI_RELEASE_RUNNER) }}
     timeout-minutes: 360
-    environment: dockerhub-release
+    environment: iregistry-release
+    outputs:
+      image_ref: ${{ steps.image_ref.outputs.image_ref }}
+      registry_host: ${{ steps.image_ref.outputs.registry_host }}
     env:
-      IMAGE_REF: docker.io/loongforge/loongforge:${{ needs.validate.outputs.version }}
+      INTERNAL_IMAGE_REPOSITORY: ${{ vars.INTERNAL_IMAGE_REPOSITORY }}
+      VERSION: ${{ needs.validate.outputs.version }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -84,6 +88,27 @@ jobs:
           persist-credentials: false
           submodules: recursive
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.11.1
+      - id: image_ref
+        name: Resolve internal release image reference
+        shell: bash
+        env:
+          INTERNAL_IMAGE_REPOSITORY: ${{ env.INTERNAL_IMAGE_REPOSITORY }}
+          VERSION: ${{ env.VERSION }}
+        run: |
+          set -euo pipefail
+          source LoongForge/.github/scripts/load_ci_config.sh
+          : "${INTERNAL_IMAGE_REPOSITORY:?INTERNAL_IMAGE_REPOSITORY repository variable is required}"
+          : "${LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX:?LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX is required}"
+          image_ref="${INTERNAL_IMAGE_REPOSITORY}:${LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX}_v${VERSION}_release"
+          [[ "$image_ref" =~ ^[A-Za-z0-9._/-]+:[A-Za-z0-9._-]+$ ]]
+          # Docker only treats the first component as a registry host when it
+          # looks like one; otherwise the image lives on Docker Hub.
+          registry_host="${INTERNAL_IMAGE_REPOSITORY%%/*}"
+          if [[ "$registry_host" == "$INTERNAL_IMAGE_REPOSITORY" || "$registry_host" != *[.:]* ]]; then
+            registry_host=docker.io
+          fi
+          echo "image_ref=$image_ref" >> "$GITHUB_OUTPUT"
+          echo "registry_host=$registry_host" >> "$GITHUB_OUTPUT"
       - name: Verify Docker storage capacity
         shell: bash
         run: |
@@ -94,6 +119,8 @@ jobs:
       - id: release_image
         name: Build release image with the trusted image builder
         shell: bash
+        env:
+          IMAGE_REF: loongforge-release:${{ env.VERSION }}-${{ github.run_id }}
         run: |
           set -euo pipefail
           tree_sha="$(git -C LoongForge rev-parse 'HEAD^{tree}')"
@@ -108,15 +135,116 @@ jobs:
           echo "image_ref=$built_ref" >> "$GITHUB_OUTPUT"
       - name: Enforce release image policy
         run: python3 LoongForge/.github/scripts/image_policy.py "${{ steps.release_image.outputs.image_ref }}"
-      - name: Log in to Docker Hub
+      - name: Run release regression in one container
+        shell: bash
+        env:
+          IMAGE_REF: ${{ steps.release_image.outputs.image_ref }}
+        run: |
+          set -euo pipefail
+          source LoongForge/.github/scripts/load_ci_config.sh
+          case "${LOONGFORGE_RELEASE_RUN_REGRESSION:-false}" in
+            true)
+              LoongForge/.github/scripts/self_runner/run_release_regression.sh \
+                --image "$IMAGE_REF" \
+                --source "$GITHUB_WORKSPACE/LoongForge" \
+                --sha "$GITHUB_SHA"
+              ;;
+            false)
+              echo "Release GPU regression is disabled by runner configuration."
+              ;;
+            *)
+              echo "LOONGFORGE_RELEASE_RUN_REGRESSION must be true or false." >&2
+              exit 2
+              ;;
+          esac
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: release-regression
+          path: loongforge-release-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Tag validated image for iregistry
         if: github.event_name == 'push'
+        env:
+          LOCAL_IMAGE_REF: ${{ steps.release_image.outputs.image_ref }}
+          INTERNAL_IMAGE_REF: ${{ steps.image_ref.outputs.image_ref }}
+        run: docker tag "$LOCAL_IMAGE_REF" "$INTERNAL_IMAGE_REF"
+      - name: Log in to iregistry
+        if: github.event_name == 'push'
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.6.0
+        with:
+          registry: ${{ steps.image_ref.outputs.registry_host }}
+          username: ${{ secrets.IREGISTRY_USERNAME }}
+          password: ${{ secrets.IREGISTRY_PASSWORD }}
+      - name: Push validated image to iregistry
+        if: github.event_name == 'push'
+        env:
+          INTERNAL_IMAGE_REF: ${{ steps.image_ref.outputs.image_ref }}
+        run: docker push "$INTERNAL_IMAGE_REF"
+      - name: Remove local release image
+        if: always()
+        env:
+          LOCAL_IMAGE_REF: ${{ steps.release_image.outputs.image_ref }}
+          INTERNAL_IMAGE_REF: ${{ steps.image_ref.outputs.image_ref }}
+        run: docker image rm -f "$LOCAL_IMAGE_REF" "$INTERNAL_IMAGE_REF" >/dev/null 2>&1 || true
+
+  promote_to_dockerhub:
+    needs: [validate, build_test_push_internal]
+    if: github.event_name == 'push' && needs.build_test_push_internal.result == 'success'
+    runs-on: ${{ fromJSON(vars.CI_DOCKERHUB_PUBLISHER_RUNNER) }}
+    timeout-minutes: 30
+    environment: dockerhub-release
+    env:
+      INTERNAL_IMAGE_REF: ${{ needs.build_test_push_internal.outputs.image_ref }}
+      DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE || 'docker.io/loongforge/loongforge' }}
+      VERSION: ${{ needs.validate.outputs.version }}
+    steps:
+      - name: Log in to iregistry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.6.0
+        with:
+          registry: ${{ needs.build_test_push_internal.outputs.registry_host }}
+          username: ${{ secrets.IREGISTRY_PULL_USERNAME }}
+          password: ${{ secrets.IREGISTRY_PULL_PASSWORD }}
+      - name: Pull validated internal image
+        run: docker pull "$INTERNAL_IMAGE_REF"
+      - name: Tag image for Docker Hub
+        env:
+          DOCKERHUB_REF: ${{ env.DOCKERHUB_IMAGE }}:${{ env.VERSION }}
+        run: docker tag "$INTERNAL_IMAGE_REF" "$DOCKERHUB_REF"
+      - name: Log in to Docker Hub
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.6.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Push immutable release image
-        if: github.event_name == 'push'
-        run: docker push "${{ steps.release_image.outputs.image_ref }}"
-      - name: Remove local release image
+      - name: Push versioned Docker Hub image
+        env:
+          DOCKERHUB_REF: ${{ env.DOCKERHUB_IMAGE }}:${{ env.VERSION }}
+        run: docker push "$DOCKERHUB_REF"
+      - name: Verify registry digests match
+        env:
+          DOCKERHUB_REF: ${{ env.DOCKERHUB_IMAGE }}:${{ env.VERSION }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          internal_repo="${INTERNAL_IMAGE_REF%:*}"
+          dockerhub_repo="${DOCKERHUB_REF%:*}"
+          internal_digest="$(
+            docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' \
+              "$INTERNAL_IMAGE_REF" |
+              awk -F@ -v repo="$internal_repo" '$1 == repo { print $2; exit }'
+          )"
+          docker pull "$DOCKERHUB_REF" >/dev/null
+          dockerhub_digest="$(
+            docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' \
+              "$DOCKERHUB_REF" |
+              awk -F@ -v repo="$dockerhub_repo" '$1 == repo { print $2; exit }'
+          )"
+          [[ -n "$internal_digest" && "$internal_digest" == "$dockerhub_digest" ]]
+          echo "verified digest: $internal_digest"
+      - name: Remove promoted images
         if: always()
-        run: docker image rm -f "$IMAGE_REF" >/dev/null 2>&1 || true
+        env:
+          DOCKERHUB_REF: ${{ env.DOCKERHUB_IMAGE }}:${{ env.VERSION }}
+        run: |
+          docker image rm -f "$INTERNAL_IMAGE_REF" "$DOCKERHUB_REF" >/dev/null 2>&1 || true

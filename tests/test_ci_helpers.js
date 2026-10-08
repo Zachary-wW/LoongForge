@@ -218,7 +218,7 @@ test('Claude review uses the configured model and reports failures', () => {
   assert.doesNotMatch(workflow, /show_full_output:\s*true/);
 });
 
-test('release uses matching context and immutable image tags', () => {
+test('release builds, regresses, and promotes one immutable image', () => {
   const workflow = readWorkflow('release.yml');
   assert.match(workflow, /group: release-\$\{\{ github\.ref \}\}/);
   assert.match(workflow, /workflow_dispatch:/);
@@ -226,15 +226,33 @@ test('release uses matching context and immutable image tags', () => {
   assert.match(workflow, /needs: \[validate, package, publish\]/);
   assert.match(workflow, /submodules: recursive/);
   assert.match(workflow, /fromJSON\(vars\.CI_RELEASE_RUNNER\)/);
+  assert.match(workflow, /fromJSON\(vars\.CI_DOCKERHUB_PUBLISHER_RUNNER\)/);
+  assert.match(workflow, /iregistry-release/);
+  assert.match(workflow, /promote_to_dockerhub:/);
   assert.match(workflow, /docker\.io\/loongforge\/loongforge:/);
   assert.match(workflow, /build_candidate_image\.sh/);
   assert.match(workflow, /--release/);
   assert.match(workflow, /--image-ref "\$IMAGE_REF"/);
+  assert.match(workflow, /loongforge-release:\$\{\{ env\.VERSION \}\}-\$\{\{ github\.run_id \}\}/);
   assert.match(workflow, /--target auto/);
   assert.match(workflow, /manual releases must be dispatched from master/);
   assert.match(workflow, /image_policy\.py/);
+  assert.match(workflow, /run_release_regression\.sh/);
+  assert.match(workflow, /LOONGFORGE_RELEASE_RUN_REGRESSION/);
+  assert.match(workflow, /deepseek_v2_lite/);
+  assert.match(workflow, /pi05_ddp/);
+  assert.match(workflow, /LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX/);
+  assert.match(workflow, /registry: \$\{\{ steps\.image_ref\.outputs\.registry_host \}\}/);
+  assert.match(
+    workflow,
+    /registry: \$\{\{ needs\.build_test_push_internal\.outputs\.registry_host \}\}/,
+  );
+  assert.doesNotMatch(workflow, /baidu-int\.com/);
   assert.match(workflow, /if: github\.event_name == 'push'/);
-  assert.match(workflow, /docker push "\$\{\{ steps\.release_image\.outputs\.image_ref \}\}"/);
+  assert.match(workflow, /Tag validated image for iregistry/);
+  assert.match(workflow, /docker push "\$INTERNAL_IMAGE_REF"/);
+  assert.match(workflow, /docker pull "\$INTERNAL_IMAGE_REF"/);
+  assert.match(workflow, /Verify registry digests match/);
   assert.doesNotMatch(workflow, /docker\/build-push-action/);
   assert.doesNotMatch(workflow, /DOCKERHUB_IMAGE.*:latest/);
 });
