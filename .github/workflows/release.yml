@@ -147,7 +147,9 @@ jobs:
               LoongForge/.github/scripts/self_runner/run_release_regression.sh \
                 --image "$IMAGE_REF" \
                 --source "$GITHUB_WORKSPACE/LoongForge" \
-                --sha "$GITHUB_SHA"
+                --sha "$GITHUB_SHA" \
+                --llm-model deepseek_v2_lite \
+                --vla-model pi05_ddp
               ;;
             false)
               echo "Release GPU regression is disabled by runner configuration."

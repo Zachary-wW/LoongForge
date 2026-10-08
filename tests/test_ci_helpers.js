@@ -229,7 +229,7 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.match(workflow, /fromJSON\(vars\.CI_DOCKERHUB_PUBLISHER_RUNNER\)/);
   assert.match(workflow, /iregistry-release/);
   assert.match(workflow, /promote_to_dockerhub:/);
-  assert.match(workflow, /docker\.io\/loongforge\/loongforge:/);
+  assert.match(workflow, /DOCKERHUB_IMAGE:.*docker\.io\/loongforge\/loongforge/);
   assert.match(workflow, /build_candidate_image\.sh/);
   assert.match(workflow, /--release/);
   assert.match(workflow, /--image-ref "\$IMAGE_REF"/);
