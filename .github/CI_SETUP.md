@@ -19,8 +19,6 @@ candidate image when `--build-image` is requested.
 - `CI_RELEASE_RUNNER`: JSON label array for a GPU Docker runner with at least
   250 GiB free on Docker's storage filesystem. Its GPU target determines the
   release image architecture in the same way as a candidate build.
-- `CI_DOCKERHUB_PUBLISHER_RUNNER`: JSON label array for a non-GPU runner that
-  can pull from iregistry and publish to Docker Hub.
 - `CI_ENABLE_LLM_VLM`: `true` only when the A-card suite is provisioned;
   otherwise `llm_vlm` dispatch is intentionally rejected.
 
@@ -47,6 +45,16 @@ source URLs in the repository; keep them in the operator-managed runner
 configuration only. The candidate-image builder passes proxy settings without
 embedded credentials and uses the configured APT, PyPI, and source-manifest
 files as ephemeral BuildKit secrets.
+
+The protected release runner must also provide `LOONGFORGE_RELEASE_CONFIG`
+and `LOONGFORGE_RUNNER_MASK_SCRIPT`; `LOONGFORGE_RUNNER_MASK_VALUES` may point
+to an additional newline-delimited private-literal list. The mask script path
+points to an operator-controlled copy of `mask_runner_metadata.sh` outside the checkout.
+It runs before checkout or any third-party Action and registers the runner
+name, hostname, private config paths and values, proxy settings, and workspace
+paths with GitHub's log masker. Release Docker command output passes through
+the repository redactor as a second layer; raw Docker output must not be added
+to this workflow.
 
 Each suite runner must also provide a working Docker Buildx plugin. The PR
 checkout is the build context and the builder selects an operator-managed
@@ -76,12 +84,10 @@ has been retired. They are not consumed by the current workflows and may
 expose runner-local paths through the public repository configuration.
 
 Create protected `pypi-release`, `iregistry-release`, and `dockerhub-release`
-Environments for the release workflow. Configure `IREGISTRY_USERNAME`/
-`IREGISTRY_PASSWORD` in `iregistry-release`. Configure `IREGISTRY_PULL_USERNAME`/
-`IREGISTRY_PULL_PASSWORD`, `DOCKERHUB_USERNAME`, and `DOCKERHUB_TOKEN` in
-`dockerhub-release`. The Docker Hub token must be a Personal Access Token
-rather than an account password. Releases push the validated internal image
-first, then the publisher runner pulls that image and pushes only
+Environments for the release workflow. They are approval gates; registry
+credentials remain on the protected release runner and are not stored in
+GitHub. Releases push the validated internal image first, then the same
+release runner drives the publisher Docker daemon over SSH and pushes only
 `<DOCKERHUB_IMAGE>:<version>`; the `latest` tag is never moved. A manual
 `workflow_dispatch` builds, scans, and regresses the image but does not push to
 either registry.
@@ -152,13 +158,8 @@ Set these optional repository variables when the defaults do not match the
 organization layout:
 
 - `INTERNAL_IMAGE_REPOSITORY` is required for a release tag: the full image
-  repository without a tag, for example a private registry host plus namespace.
-  The login host is derived from it, so no separate registry variable is
-  needed; a repository without a hostname is pushed to Docker Hub.
+  repository without a tag. The login host is derived from it.
 - `DOCKERHUB_IMAGE`, default `docker.io/loongforge/loongforge`.
-- `DOCKERHUB_PUBLISHER_DOCKER_HOST`, default empty: a Docker client
-  destination such as `ssh://publisher` that promotes the image on another
-  host.
 - `PUBLISH_TO_PYPI`, default unset: `true` enables the optional PyPI release
   step for version tags.
 
@@ -168,31 +169,21 @@ same container when `LOONGFORGE_RELEASE_RUN_REGRESSION=true`. While that
 runner-local switch is false, image build and registry promotion continue
 without the GPU regression step.
 
-`DOCKERHUB_IMAGE` is the full repository reference without a tag. The
-promotion login host is derived from it exactly like the internal one, so a
-mirror or another registry namespace can be selected without a second
-variable.
+The release runner's operator-managed files must define:
 
-The promotion job runs on `CI_DOCKERHUB_PUBLISHER_RUNNER`, which must be a
-runner other than the release builder. It needs Docker, read access to the
-internal registry, write access to Docker Hub, and at least 40 GiB free on the
-filesystem holding `DockerRootDir`, because it pulls a full copy of the
-validated image before retagging it. Keep
-`LOONGFORGE_ALLOW_RELEASE_IMAGE_BUILD` and
-`LOONGFORGE_ALLOW_PR_IMAGE_BUILD` false there: the job only moves an image
-that the release builder already built and validated. It logs in to both
-registries, pulls, retags, pushes, and compares the published digest with the
-internal digest; both logins are torn down when the job ends so no credential
-is left in the runner's Docker config.
+The release runner's operator-managed release directory contains
+one non-secret configuration file and one credential file for each registry.
 
-Promotion can also drive a remote Docker daemon instead of a second runner.
-Keep `CI_DOCKERHUB_PUBLISHER_RUNNER` on the release machine, set
-`DOCKERHUB_PUBLISHER_DOCKER_HOST` to a Docker client destination such as
-`ssh://publisher`, and give that machine an ssh config entry for the alias
-with a dedicated key. The client resolves registry credentials, while the host
-that runs the daemon performs the registry session and the whole image
-transfer, so the publishing host only needs Docker, both registries, and
-40 GiB of free space. It does not need a GitHub runner, which matters when that
-host runs a distribution too old for the runner's own glibc requirements. The
-job keeps its credentials in a per-job `DOCKER_CONFIG` directory rather than
-the runner's shared Docker config.
+The non-secret configuration file contains an SSH Docker client destination,
+its matching SSH alias, and the paths to the two credential files. One
+credential file contains the push-capable internal registry account; the other
+contains the Docker Hub login name and a Docker Hub PAT.
+Image repository names stay in the GitHub repository variables listed above.
+All three files must be runner-local, mode `0600`, and excluded from version
+control. The workflow uses a per-job Docker config directory and removes it
+during cleanup.
+
+The release runner needs Docker, read access to the internal registry, and
+write access to Docker Hub through the SSH-selected daemon. The publishing
+host needs at least 40 GiB free on the filesystem holding its
+`DockerRootDir`, but it does not need a GitHub runner or a checkout.

@@ -225,10 +225,11 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.match(workflow, /path: LoongForge/);
   assert.match(workflow, /needs: \[validate, package, publish\]/);
   assert.match(workflow, /vars\.PUBLISH_TO_PYPI == 'true'/);
+  assert.match(workflow, /needs\.package\.result == 'skipped'/);
   assert.match(workflow, /needs\.publish\.result == 'skipped'/);
   assert.match(workflow, /submodules: recursive/);
   assert.match(workflow, /fromJSON\(vars\.CI_RELEASE_RUNNER\)/);
-  assert.match(workflow, /fromJSON\(vars\.CI_DOCKERHUB_PUBLISHER_RUNNER\)/);
+  assert.doesNotMatch(workflow, /CI_DOCKERHUB_PUBLISHER_RUNNER/);
   assert.match(workflow, /iregistry-release/);
   assert.match(workflow, /promote_to_dockerhub:/);
   assert.match(workflow, /DOCKERHUB_IMAGE:.*docker\.io\/loongforge\/loongforge/);
@@ -244,24 +245,30 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.match(workflow, /deepseek_v2_lite/);
   assert.match(workflow, /pi05_ddp/);
   assert.match(workflow, /LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX/);
-  assert.match(workflow, /registry: \$\{\{ steps\.image_ref\.outputs\.registry_host \}\}/);
-  assert.match(
-    workflow,
-    /registry: \$\{\{ needs\.build_test_push_internal\.outputs\.registry_host \}\}/,
+  assert.match(workflow, /load_release_config\.sh/);
+  assert.match(workflow, /load_release_credentials\.sh iregistry/);
+  assert.match(workflow, /load_release_credentials\.sh dockerhub/);
+  assert.doesNotMatch(workflow, /secrets\.IREGISTRY/);
+  assert.doesNotMatch(workflow, /secrets\.DOCKERHUB/);
+  assert.match(workflow, /LOONGFORGE_RUNNER_MASK_SCRIPT/);
+  assert.match(workflow, /Protect runner-local metadata/);
+  const releaseRunnerJob = workflow.slice(workflow.indexOf('build_test_push_internal:'));
+  assert.ok(
+    releaseRunnerJob.indexOf('Protect runner-local metadata') <
+      releaseRunnerJob.indexOf('actions/checkout@'),
   );
+  assert.doesNotMatch(workflow, /\/ssd4\//);
+  assert.doesNotMatch(workflow, /needs\.build_test_push_internal\.outputs/);
   assert.doesNotMatch(workflow, /baidu-int\.com/);
   assert.match(workflow, /if: github\.event_name == 'push'/);
   assert.match(workflow, /Tag validated image for iregistry/);
-  assert.match(workflow, /docker push "\$INTERNAL_IMAGE_REF"/);
-  assert.match(workflow, /docker pull "\$INTERNAL_IMAGE_REF"/);
+  assert.match(workflow, /docker_redacted\.sh push "\$INTERNAL_IMAGE_REF"/);
+  assert.match(workflow, /docker_redacted\.sh pull "\$INTERNAL_IMAGE_REF"/);
   assert.match(workflow, /Verify registry digests match/);
   assert.match(workflow, /Resolve Docker Hub image reference/);
-  assert.match(workflow, /registry: \$\{\{ steps\.hub_ref\.outputs\.registry_host \}\}/);
   assert.match(workflow, /DOCKERHUB_REF: \$\{\{ steps\.hub_ref\.outputs\.dockerhub_ref \}\}/);
-  assert.match(workflow, /docker push "\$DOCKERHUB_REF"/);
+  assert.match(workflow, /docker_redacted\.sh push "\$DOCKERHUB_REF"/);
   assert.match(workflow, /timeout-minutes: 90/);
-  assert.match(workflow, /logout: true/);
-  assert.match(workflow, /DOCKER_HOST: \$\{\{ vars\.DOCKERHUB_PUBLISHER_DOCKER_HOST \}\}/);
   assert.match(workflow, /DOCKER_CONFIG: \$\{\{ github\.workspace \}\}\/\.docker-config/);
   assert.doesNotMatch(workflow, /docker\/build-push-action/);
   assert.doesNotMatch(workflow, /DOCKERHUB_IMAGE.*:latest/);
