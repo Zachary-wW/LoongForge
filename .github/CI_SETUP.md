@@ -69,8 +69,14 @@ by `CI_RELEASE_RUNNER`; keep it false on general-purpose runners. Set
 operator-managed `IMAGE_BASE_IMAGE`. The current protected base image is
 Ubuntu 24.04, CUDA 13.3, PyTorch 2.13.0a0, and Python 3.12, so its prefix is
 `ubuntu24.04-cu13.3-torch2.13.0a0-py312`.
+
 Set `LOONGFORGE_RELEASE_RUN_REGRESSION=false` while the GPU runner is occupied;
 set it to `true` before enabling the two model regressions.
+
+`LOONGFORGE_RELEASE_TAG_SUFFIX` is optional and empty by default. Set it, for
+example to `-citest`, on a non-production runner so a rehearsal appends the
+marker to both the internal image tag and the Docker Hub tag instead of
+claiming the real release tags.
 
 Candidate builds require 250 GiB free by default on the filesystem containing
 Docker's `DockerRootDir`. Set `LOONGFORGE_MIN_DOCKER_FREE_GB` to another integer

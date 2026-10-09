@@ -104,7 +104,11 @@ jobs:
           mkdir -p "$DOCKER_CONFIG"
           : "${INTERNAL_IMAGE_REPOSITORY:?INTERNAL_IMAGE_REPOSITORY repository variable is required}"
           : "${LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX:?LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX is required}"
-          image_ref="${INTERNAL_IMAGE_REPOSITORY}:${LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX}_v${VERSION}_release"
+          # The suffix is empty for real releases; operators set it on a
+          # non-production runner so a rehearsal cannot claim a release tag.
+          tag_suffix="${LOONGFORGE_RELEASE_TAG_SUFFIX:-}"
+          [[ "$tag_suffix" =~ ^[A-Za-z0-9._-]*$ ]]
+          image_ref="${INTERNAL_IMAGE_REPOSITORY}:${LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX}_v${VERSION}_release${tag_suffix}"
           # A registry host may carry a port, so only the final tag is split off.
           [[ "$image_ref" =~ ^[A-Za-z0-9._-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*:[A-Za-z0-9._-]+$ ]]
           # Docker only treats the first component as a registry host when it
@@ -247,13 +251,15 @@ jobs:
           : "${INTERNAL_IMAGE_REPOSITORY:?INTERNAL_IMAGE_REPOSITORY repository variable is required}"
           : "${LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX:?LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX is required}"
           : "${DOCKERHUB_IMAGE:?DOCKERHUB_IMAGE must name the target Docker Hub repository}"
-          internal_ref="${INTERNAL_IMAGE_REPOSITORY}:${LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX}_v${VERSION}_release"
+          tag_suffix="${LOONGFORGE_RELEASE_TAG_SUFFIX:-}"
+          [[ "$tag_suffix" =~ ^[A-Za-z0-9._-]*$ ]]
+          internal_ref="${INTERNAL_IMAGE_REPOSITORY}:${LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX}_v${VERSION}_release${tag_suffix}"
           [[ "$internal_ref" =~ ^[A-Za-z0-9._-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*:[A-Za-z0-9._-]+$ ]]
           internal_registry_host="${INTERNAL_IMAGE_REPOSITORY%%/*}"
           if [[ "$internal_registry_host" == "$INTERNAL_IMAGE_REPOSITORY" || "$internal_registry_host" != *[.:]* ]]; then
             internal_registry_host=docker.io
           fi
-          dockerhub_ref="${DOCKERHUB_IMAGE}:${VERSION}"
+          dockerhub_ref="${DOCKERHUB_IMAGE}:${VERSION}${tag_suffix}"
           # A registry host may carry a port, so only the final tag is split off.
           [[ "$dockerhub_ref" =~ ^[A-Za-z0-9._-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*:[A-Za-z0-9._-]+$ ]]
           # Docker only treats the first component as a registry host when it

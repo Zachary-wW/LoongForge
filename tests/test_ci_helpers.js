@@ -245,6 +245,9 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.match(workflow, /deepseek_v2_lite/);
   assert.match(workflow, /pi05_ddp/);
   assert.match(workflow, /LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX/);
+  assert.match(workflow, /LOONGFORGE_RELEASE_TAG_SUFFIX/);
+  assert.match(workflow, /_release\$\{tag_suffix\}/);
+  assert.match(workflow, /dockerhub_ref="\$\{DOCKERHUB_IMAGE\}:\$\{VERSION\}\$\{tag_suffix\}"/);
   assert.match(workflow, /load_release_config\.sh/);
   assert.match(workflow, /load_release_credentials\.sh iregistry/);
   assert.match(workflow, /load_release_credentials\.sh dockerhub/);
