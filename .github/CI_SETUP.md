@@ -174,10 +174,10 @@ The release runner's operator-managed files must define:
 The release runner's operator-managed release directory contains
 one non-secret configuration file and one credential file for each registry.
 
-The non-secret configuration file contains an SSH Docker client destination,
-its matching SSH alias, and the paths to the two credential files. One
-credential file contains the push-capable internal registry account; the other
-contains the Docker Hub login name and a Docker Hub PAT.
+The non-secret configuration file contains an SSH Docker client destination
+and its matching SSH alias. The credential files hold the push-capable
+internal registry account and the Docker Hub login name plus Docker Hub PAT,
+and the runner service environment points at both of them.
 Image repository names stay in the GitHub repository variables listed above.
 All three files must be runner-local, mode `0600`, and excluded from version
 control. The workflow uses a per-job Docker config directory and removes it

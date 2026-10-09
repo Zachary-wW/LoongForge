@@ -22,12 +22,7 @@ set -a
 source "$config"
 set +a
 
-required=(
-  DOCKER_HOST
-  LOONGFORGE_RELEASE_PUBLISHER_ALIAS
-  LOONGFORGE_IREGISTRY_CREDENTIALS
-  LOONGFORGE_DOCKERHUB_CREDENTIALS
-)
+required=(DOCKER_HOST LOONGFORGE_RELEASE_PUBLISHER_ALIAS)
 for name in "${required[@]}"; do
   [[ -n "${!name:-}" ]] || {
     printf '%s\n' 'release-config: incomplete' >&2

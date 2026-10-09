@@ -15,13 +15,16 @@ mask() {
 
 for name in RUNNER_NAME RUNNER_TEMP RUNNER_TOOL_CACHE GITHUB_WORKSPACE \
             CI_CONFIG_PATH CI_CONFIG_PATH_IMAGE LOONGFORGE_RELEASE_CONFIG \
+            LOONGFORGE_IREGISTRY_CREDENTIALS LOONGFORGE_DOCKERHUB_CREDENTIALS \
             INTERNAL_IMAGE_REPOSITORY DOCKERHUB_IMAGE DOCKER_HOST DOCKER_CONFIG \
             HTTP_PROXY HTTPS_PROXY NO_PROXY http_proxy https_proxy no_proxy; do
   mask "${!name:-}"
 done
 mask "$(hostname 2>/dev/null || true)"
 
-for config in "${CI_CONFIG_PATH_IMAGE:-}" "${LOONGFORGE_RELEASE_CONFIG:-}"; do
+for config in "${CI_CONFIG_PATH_IMAGE:-}" "${LOONGFORGE_RELEASE_CONFIG:-}" \
+              "${LOONGFORGE_IREGISTRY_CREDENTIALS:-}" \
+              "${LOONGFORGE_DOCKERHUB_CREDENTIALS:-}"; do
   [[ -f "$config" && ! -L "$config" ]] || continue
   while IFS='=' read -r name value; do
     if [[ "$name" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then

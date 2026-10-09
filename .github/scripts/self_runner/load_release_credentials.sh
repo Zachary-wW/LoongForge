@@ -8,9 +8,11 @@ kind="${1:-}"
 case "$kind" in
   iregistry)
     credentials="${LOONGFORGE_IREGISTRY_CREDENTIALS:-}"
+    mask_names=(IREGISTRY_USERNAME IREGISTRY_PASSWORD)
     ;;
   dockerhub)
     credentials="${LOONGFORGE_DOCKERHUB_CREDENTIALS:-}"
+    mask_names=(DOCKERHUB_USERNAME DOCKERHUB_TOKEN)
     ;;
   *)
     printf '%s\n' 'release-credentials: invalid' >&2
@@ -44,10 +46,11 @@ for name in "${required[@]}"; do
 done
 
 mask_value() {
-  [[ -n "${1:-}" ]] && printf '::add-mask::%s\n' "$1"
+  if [[ -n "${1:-}" ]]; then
+    printf '::add-mask::%s\n' "$1"
+  fi
 }
 
-mask_value "${IREGISTRY_PASSWORD:-}"
-mask_value "${IREGISTRY_USERNAME:-}"
-mask_value "${DOCKERHUB_TOKEN:-}"
-mask_value "${DOCKERHUB_USERNAME:-}"
+for name in "${mask_names[@]}"; do
+  mask_value "${!name:-}"
+done
