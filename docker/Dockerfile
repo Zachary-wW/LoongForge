@@ -255,8 +255,6 @@ RUN --mount=type=secret,id=source_manifest,required=false \
             git -C /workspace/dmuon checkout --detach "${DMUON_COMMIT}"; \
         fi && \
         pip --disable-pip-version-check --quiet install /workspace/dmuon && rm -rf /workspace/dmuon && \
-        cd /workspace/LoongForge/ && \
-        uv pip install --quiet --no-config --system --break-system-packages --no-cache -e ".[vla]" && \
         cd /workspace && \
         if [ -d "lerobot" ]; then \
             rm -rf lerobot; \
