@@ -100,7 +100,8 @@ jobs:
           : "${INTERNAL_IMAGE_REPOSITORY:?INTERNAL_IMAGE_REPOSITORY repository variable is required}"
           : "${LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX:?LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX is required}"
           image_ref="${INTERNAL_IMAGE_REPOSITORY}:${LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX}_v${VERSION}_release"
-          [[ "$image_ref" =~ ^[A-Za-z0-9._/-]+:[A-Za-z0-9._-]+$ ]]
+          # A registry host may carry a port, so only the final tag is split off.
+          [[ "$image_ref" =~ ^[A-Za-z0-9._-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*:[A-Za-z0-9._-]+$ ]]
           # Docker only treats the first component as a registry host when it
           # looks like one; otherwise the image lives on Docker Hub.
           registry_host="${INTERNAL_IMAGE_REPOSITORY%%/*}"
@@ -195,37 +196,60 @@ jobs:
     needs: [validate, build_test_push_internal]
     if: github.event_name == 'push' && needs.build_test_push_internal.result == 'success'
     runs-on: ${{ fromJSON(vars.CI_DOCKERHUB_PUBLISHER_RUNNER) }}
-    timeout-minutes: 30
+    timeout-minutes: 90
     environment: dockerhub-release
     env:
       INTERNAL_IMAGE_REF: ${{ needs.build_test_push_internal.outputs.image_ref }}
       DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE || 'docker.io/loongforge/loongforge' }}
       VERSION: ${{ needs.validate.outputs.version }}
     steps:
+      - id: hub_ref
+        name: Resolve Docker Hub image reference
+        shell: bash
+        env:
+          DOCKERHUB_IMAGE: ${{ env.DOCKERHUB_IMAGE }}
+          VERSION: ${{ env.VERSION }}
+        run: |
+          set -euo pipefail
+          : "${DOCKERHUB_IMAGE:?DOCKERHUB_IMAGE must name the target Docker Hub repository}"
+          dockerhub_ref="${DOCKERHUB_IMAGE}:${VERSION}"
+          # A registry host may carry a port, so only the final tag is split off.
+          [[ "$dockerhub_ref" =~ ^[A-Za-z0-9._-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*:[A-Za-z0-9._-]+$ ]]
+          # Docker only treats the first component as a registry host when it
+          # looks like one; otherwise the image lives on Docker Hub.
+          registry_host="${DOCKERHUB_IMAGE%%/*}"
+          if [[ "$registry_host" == "$DOCKERHUB_IMAGE" || "$registry_host" != *[.:]* ]]; then
+            registry_host=docker.io
+          fi
+          echo "dockerhub_ref=$dockerhub_ref" >> "$GITHUB_OUTPUT"
+          echo "registry_host=$registry_host" >> "$GITHUB_OUTPUT"
       - name: Log in to iregistry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.6.0
         with:
           registry: ${{ needs.build_test_push_internal.outputs.registry_host }}
           username: ${{ secrets.IREGISTRY_PULL_USERNAME }}
           password: ${{ secrets.IREGISTRY_PULL_PASSWORD }}
+          logout: true
       - name: Pull validated internal image
         run: docker pull "$INTERNAL_IMAGE_REF"
       - name: Tag image for Docker Hub
         env:
-          DOCKERHUB_REF: ${{ env.DOCKERHUB_IMAGE }}:${{ env.VERSION }}
+          DOCKERHUB_REF: ${{ steps.hub_ref.outputs.dockerhub_ref }}
         run: docker tag "$INTERNAL_IMAGE_REF" "$DOCKERHUB_REF"
       - name: Log in to Docker Hub
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.6.0
         with:
+          registry: ${{ steps.hub_ref.outputs.registry_host }}
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+          logout: true
       - name: Push versioned Docker Hub image
         env:
-          DOCKERHUB_REF: ${{ env.DOCKERHUB_IMAGE }}:${{ env.VERSION }}
+          DOCKERHUB_REF: ${{ steps.hub_ref.outputs.dockerhub_ref }}
         run: docker push "$DOCKERHUB_REF"
       - name: Verify registry digests match
         env:
-          DOCKERHUB_REF: ${{ env.DOCKERHUB_IMAGE }}:${{ env.VERSION }}
+          DOCKERHUB_REF: ${{ steps.hub_ref.outputs.dockerhub_ref }}
         shell: bash
         run: |
           set -euo pipefail
@@ -247,6 +271,6 @@ jobs:
       - name: Remove promoted images
         if: always()
         env:
-          DOCKERHUB_REF: ${{ env.DOCKERHUB_IMAGE }}:${{ env.VERSION }}
+          DOCKERHUB_REF: ${{ steps.hub_ref.outputs.dockerhub_ref }}
         run: |
           docker image rm -f "$INTERNAL_IMAGE_REF" "$DOCKERHUB_REF" >/dev/null 2>&1 || true

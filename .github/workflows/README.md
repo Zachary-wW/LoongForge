@@ -78,12 +78,13 @@ regressions pass. The internal image tag is formed from the runner-local
 `LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX`, the validated version, and the
 `_release` suffix. This keeps the tag tied to the actual Dockerfile base image.
 
-After the internal push, `CI_DOCKERHUB_PUBLISHER_RUNNER` pulls that exact
-internal image, retags it as
-`docker.io/loongforge/loongforge:<version>`, pushes it, and verifies that the
-registry digests match. The release workflow never moves Docker Hub's
-`latest` tag. A manual dispatch builds, scans, and regresses the image but
-does not push to either registry.
+After the internal push, a separate machine selected by
+`CI_DOCKERHUB_PUBLISHER_RUNNER` pulls that exact internal image, retags it as
+`<DOCKERHUB_IMAGE>:<version>`, pushes it, and verifies that the registry
+digests match. That runner needs both internal and Docker Hub reachability, so
+it is normally the host with the faster external route. The workflow never
+moves Docker Hub's `latest` tag. A manual dispatch builds, scans, and regresses
+the image but does not push to either registry.
 
 The image policy rejects `bcecmd`, common credential files, AK/SK and signed
 authorization metadata, and internal endpoints or runner paths before a

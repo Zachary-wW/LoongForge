@@ -253,6 +253,12 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.match(workflow, /docker push "\$INTERNAL_IMAGE_REF"/);
   assert.match(workflow, /docker pull "\$INTERNAL_IMAGE_REF"/);
   assert.match(workflow, /Verify registry digests match/);
+  assert.match(workflow, /Resolve Docker Hub image reference/);
+  assert.match(workflow, /registry: \$\{\{ steps\.hub_ref\.outputs\.registry_host \}\}/);
+  assert.match(workflow, /DOCKERHUB_REF: \$\{\{ steps\.hub_ref\.outputs\.dockerhub_ref \}\}/);
+  assert.match(workflow, /docker push "\$DOCKERHUB_REF"/);
+  assert.match(workflow, /timeout-minutes: 90/);
+  assert.match(workflow, /logout: true/);
   assert.doesNotMatch(workflow, /docker\/build-push-action/);
   assert.doesNotMatch(workflow, /DOCKERHUB_IMAGE.*:latest/);
 });

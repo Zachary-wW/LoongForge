@@ -83,9 +83,9 @@ in the former. Configure `IREGISTRY_USERNAME`/`IREGISTRY_PASSWORD` in
 `dockerhub-release`. The Docker Hub token must be a Personal Access Token
 rather than an account password. Releases push the validated internal image
 first, then the publisher runner pulls that image and pushes only
-`docker.io/loongforge/loongforge:<version>`; Docker Hub's `latest` tag is never
-moved. A manual `workflow_dispatch` builds, scans, and regresses the image but
-does not push to either registry.
+`<DOCKERHUB_IMAGE>:<version>`; the `latest` tag is never moved. A manual
+`workflow_dispatch` builds, scans, and regresses the image but does not push to
+either registry.
 
 Both candidate and release images pass the trusted image policy before use or
 push. It rejects `bcecmd`, common cloud credential files, persisted source
@@ -156,3 +156,20 @@ The release workflow builds one image and creates one container on
 same container when `LOONGFORGE_RELEASE_RUN_REGRESSION=true`. While that
 runner-local switch is false, image build and registry promotion continue
 without the GPU regression step.
+
+`DOCKERHUB_IMAGE` is the full repository reference without a tag. The
+promotion login host is derived from it exactly like the internal one, so a
+mirror or another registry namespace can be selected without a second
+variable.
+
+The promotion job runs on `CI_DOCKERHUB_PUBLISHER_RUNNER`, which must be a
+runner other than the release builder. It needs Docker, read access to the
+internal registry, write access to Docker Hub, and at least 40 GiB free on the
+filesystem holding `DockerRootDir`, because it pulls a full copy of the
+validated image before retagging it. Keep
+`LOONGFORGE_ALLOW_RELEASE_IMAGE_BUILD` and
+`LOONGFORGE_ALLOW_PR_IMAGE_BUILD` false there: the job only moves an image
+that the release builder already built and validated. It logs in to both
+registries, pulls, retags, pushes, and compares the published digest with the
+internal digest; both logins are torn down when the job ends so no credential
+is left in the runner's Docker config.
