@@ -274,6 +274,9 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.match(workflow, /timeout-minutes: 90/);
   assert.match(workflow, /DOCKER_CONFIG: \$\{\{ github\.workspace \}\}\/\.docker-config/);
   assert.doesNotMatch(workflow, /docker\/build-push-action/);
+  // A docker-container builder pulls its builder image from Docker Hub, which
+  // an internal-only release runner cannot reach.
+  assert.doesNotMatch(workflow, /setup-buildx-action/);
   assert.doesNotMatch(workflow, /DOCKERHUB_IMAGE.*:latest/);
 });
 

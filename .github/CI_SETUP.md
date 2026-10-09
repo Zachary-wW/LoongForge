@@ -62,6 +62,10 @@ trusted Dockerfile; configured BuildKit secrets are mounted for its
 installation steps. An `IMAGE_DOCKERFILE` override must also be
 operator-managed. Verify Buildx with `docker buildx version`;
 installing the CLI plugin does not require restarting the Docker daemon.
+The release job builds with the daemon's own BuildKit through
+`DOCKER_BUILDKIT=1 docker build`; it deliberately does not create a
+`docker-container` builder, because bootstrapping one pulls a builder image
+from Docker Hub and an internal-only runner cannot reach it.
 The release runner uses this same builder and runner-local image config. Set
 `LOONGFORGE_ALLOW_RELEASE_IMAGE_BUILD=true` only on the protected runner named
 by `CI_RELEASE_RUNNER`; keep it false on general-purpose runners. Set
