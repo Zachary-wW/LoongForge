@@ -86,6 +86,11 @@ it is normally the host with the faster external route. The workflow never
 moves Docker Hub's `latest` tag. A manual dispatch builds, scans, and regresses
 the image but does not push to either registry.
 
+PyPI publishing is opt-in. Set the repository variable `PUBLISH_TO_PYPI` to
+`true` once a Trusted Publisher exists for this workflow; a version tag then
+publishes the built distribution first. While the variable is unset, the tag
+release skips PyPI entirely, so an unconfigured package cannot block the image.
+
 The image policy rejects `bcecmd`, common credential files, AK/SK and signed
 authorization metadata, and internal endpoints or runner paths before a
 candidate is run or a release is pushed. Its text scan excludes the copied

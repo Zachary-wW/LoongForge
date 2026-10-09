@@ -49,7 +49,9 @@ jobs:
 
   publish:
     needs: package
-    if: github.event_name == 'push'
+    # PyPI publishing is opt-in: the package is not on PyPI yet, and a failed
+    # trusted-publishing exchange would otherwise stop the image release.
+    if: github.event_name == 'push' && vars.PUBLISH_TO_PYPI == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: pypi-release
@@ -70,7 +72,9 @@ jobs:
         always() &&
         needs.validate.result == 'success' &&
         needs.package.result == 'success' &&
-        (github.event_name == 'workflow_dispatch' || needs.publish.result == 'success')
+        (github.event_name == 'workflow_dispatch' ||
+         needs.publish.result == 'success' ||
+         needs.publish.result == 'skipped')
       }}
     runs-on: ${{ fromJSON(vars.CI_RELEASE_RUNNER) }}
     timeout-minutes: 360

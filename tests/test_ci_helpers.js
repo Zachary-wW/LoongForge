@@ -224,6 +224,8 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /path: LoongForge/);
   assert.match(workflow, /needs: \[validate, package, publish\]/);
+  assert.match(workflow, /vars\.PUBLISH_TO_PYPI == 'true'/);
+  assert.match(workflow, /needs\.publish\.result == 'skipped'/);
   assert.match(workflow, /submodules: recursive/);
   assert.match(workflow, /fromJSON\(vars\.CI_RELEASE_RUNNER\)/);
   assert.match(workflow, /fromJSON\(vars\.CI_DOCKERHUB_PUBLISHER_RUNNER\)/);

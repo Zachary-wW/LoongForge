@@ -76,9 +76,8 @@ has been retired. They are not consumed by the current workflows and may
 expose runner-local paths through the public repository configuration.
 
 Create protected `pypi-release`, `iregistry-release`, and `dockerhub-release`
-Environments for the release workflow. Configure PyPI Trusted Publishing (OIDC)
-in the former. Configure `IREGISTRY_USERNAME`/`IREGISTRY_PASSWORD` in
-`iregistry-release`. Configure `IREGISTRY_PULL_USERNAME`/
+Environments for the release workflow. Configure `IREGISTRY_USERNAME`/
+`IREGISTRY_PASSWORD` in `iregistry-release`. Configure `IREGISTRY_PULL_USERNAME`/
 `IREGISTRY_PULL_PASSWORD`, `DOCKERHUB_USERNAME`, and `DOCKERHUB_TOKEN` in
 `dockerhub-release`. The Docker Hub token must be a Personal Access Token
 rather than an account password. Releases push the validated internal image
@@ -86,6 +85,13 @@ first, then the publisher runner pulls that image and pushes only
 `<DOCKERHUB_IMAGE>:<version>`; the `latest` tag is never moved. A manual
 `workflow_dispatch` builds, scans, and regresses the image but does not push to
 either registry.
+
+PyPI publishing is opt-in and off by default. Set the repository variable
+`PUBLISH_TO_PYPI` to `true` only after a pending or existing PyPI Trusted
+Publisher is registered for owner `baidu-baige`, repository `LoongForge`,
+workflow `release.yml`, and environment `pypi-release`. While it is unset or
+false, a version tag builds, regresses, and promotes the image without a PyPI
+step, and a failed or missing PyPI configuration cannot block a release.
 
 Both candidate and release images pass the trusted image policy before use or
 push. It rejects `bcecmd`, common cloud credential files, persisted source
@@ -150,6 +156,8 @@ organization layout:
   The login host is derived from it, so no separate registry variable is
   needed; a repository without a hostname is pushed to Docker Hub.
 - `DOCKERHUB_IMAGE`, default `docker.io/loongforge/loongforge`.
+- `PUBLISH_TO_PYPI`, default unset: `true` enables the optional PyPI release
+  step for version tags.
 
 The release workflow builds one image and creates one container on
 `CI_RELEASE_RUNNER`. It runs `deepseek_v2_lite` and then `pi05_ddp` in that
