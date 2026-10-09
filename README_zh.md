@@ -26,10 +26,13 @@
 
 <p align="center">
   <a href="https://github.com/baidu-baige/LoongForge/stargazers"><img src="https://img.shields.io/github/stars/baidu-baige/LoongForge?style=flat-square&color=FFD700&logo=github&logoColor=white&label=Stars" alt="GitHub stars"></a>
+  <a href="https://gitcode.com/LoongForge/LoongForge"><img src="https://gitcode.com/LoongForge/LoongForge/star/badge.svg" alt="GitCode Stars"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-8250DF?style=flat-square" alt="Apache 2.0 开源协议"></a>
   <a href="https://hub.docker.com/u/loongforge"><img src="https://img.shields.io/badge/Docker_Image-loongforge-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker Hub 镜像"></a>
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/Pull_Requests-welcome-brightgreen?style=flat-square&logo=github&logoColor=white" alt="欢迎 PR"></a>
 </p>
+
+<p align="center"><sub>项目开发与贡献以 <a href="https://github.com/baidu-baige/LoongForge">GitHub 主仓库</a>为准；<a href="https://gitcode.com/LoongForge/LoongForge">GitCode 仓库</a>为官方镜像。</sub></p>
 
 <p align="center">
   <a href="https://baidu-baige.github.io/LoongForge/"><img src="https://img.shields.io/badge/🌐_Visit_Website-7C3AED?style=for-the-badge" alt="访问官网"></a>
