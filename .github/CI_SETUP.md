@@ -156,6 +156,9 @@ organization layout:
   The login host is derived from it, so no separate registry variable is
   needed; a repository without a hostname is pushed to Docker Hub.
 - `DOCKERHUB_IMAGE`, default `docker.io/loongforge/loongforge`.
+- `DOCKERHUB_PUBLISHER_DOCKER_HOST`, default empty: a Docker client
+  destination such as `ssh://publisher` that promotes the image on another
+  host.
 - `PUBLISH_TO_PYPI`, default unset: `true` enables the optional PyPI release
   step for version tags.
 
@@ -181,3 +184,15 @@ that the release builder already built and validated. It logs in to both
 registries, pulls, retags, pushes, and compares the published digest with the
 internal digest; both logins are torn down when the job ends so no credential
 is left in the runner's Docker config.
+
+Promotion can also drive a remote Docker daemon instead of a second runner.
+Keep `CI_DOCKERHUB_PUBLISHER_RUNNER` on the release machine, set
+`DOCKERHUB_PUBLISHER_DOCKER_HOST` to a Docker client destination such as
+`ssh://publisher`, and give that machine an ssh config entry for the alias
+with a dedicated key. The client resolves registry credentials, while the host
+that runs the daemon performs the registry session and the whole image
+transfer, so the publishing host only needs Docker, both registries, and
+40 GiB of free space. It does not need a GitHub runner, which matters when that
+host runs a distribution too old for the runner's own glibc requirements. The
+job keeps its credentials in a per-job `DOCKER_CONFIG` directory rather than
+the runner's shared Docker config.

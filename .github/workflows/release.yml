@@ -206,6 +206,14 @@ jobs:
       INTERNAL_IMAGE_REF: ${{ needs.build_test_push_internal.outputs.image_ref }}
       DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE || 'docker.io/loongforge/loongforge' }}
       VERSION: ${{ needs.validate.outputs.version }}
+      # Optional. Point the promotion at a remote Docker daemon, for example
+      # the host with the faster external route, over ssh; an empty value
+      # keeps the job on the runner's own daemon. Registry credentials are
+      # resolved by this client but the registry session and the image
+      # transfer happen on the host that runs the daemon.
+      DOCKER_HOST: ${{ vars.DOCKERHUB_PUBLISHER_DOCKER_HOST }}
+      # Keep job credentials out of the runner's shared Docker config.
+      DOCKER_CONFIG: ${{ github.workspace }}/.docker-config
     steps:
       - id: hub_ref
         name: Resolve Docker Hub image reference
@@ -215,6 +223,7 @@ jobs:
           VERSION: ${{ env.VERSION }}
         run: |
           set -euo pipefail
+          mkdir -p "$DOCKER_CONFIG"
           : "${DOCKERHUB_IMAGE:?DOCKERHUB_IMAGE must name the target Docker Hub repository}"
           dockerhub_ref="${DOCKERHUB_IMAGE}:${VERSION}"
           # A registry host may carry a port, so only the final tag is split off.

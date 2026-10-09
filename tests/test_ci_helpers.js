@@ -261,6 +261,8 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.match(workflow, /docker push "\$DOCKERHUB_REF"/);
   assert.match(workflow, /timeout-minutes: 90/);
   assert.match(workflow, /logout: true/);
+  assert.match(workflow, /DOCKER_HOST: \$\{\{ vars\.DOCKERHUB_PUBLISHER_DOCKER_HOST \}\}/);
+  assert.match(workflow, /DOCKER_CONFIG: \$\{\{ github\.workspace \}\}\/\.docker-config/);
   assert.doesNotMatch(workflow, /docker\/build-push-action/);
   assert.doesNotMatch(workflow, /DOCKERHUB_IMAGE.*:latest/);
 });

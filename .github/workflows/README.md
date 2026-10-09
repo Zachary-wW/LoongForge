@@ -82,9 +82,12 @@ After the internal push, a separate machine selected by
 `CI_DOCKERHUB_PUBLISHER_RUNNER` pulls that exact internal image, retags it as
 `<DOCKERHUB_IMAGE>:<version>`, pushes it, and verifies that the registry
 digests match. That runner needs both internal and Docker Hub reachability, so
-it is normally the host with the faster external route. The workflow never
-moves Docker Hub's `latest` tag. A manual dispatch builds, scans, and regresses
-the image but does not push to either registry.
+it is normally the host with the faster external route. That host does not
+have to run a GitHub runner: setting `DOCKERHUB_PUBLISHER_DOCKER_HOST` to an
+`ssh://` destination keeps the job on the release machine and moves only the
+Docker daemon work to the publishing host. The workflow never moves Docker
+Hub's `latest` tag. A manual dispatch builds, scans, and regresses the image
+but does not push to either registry.
 
 PyPI publishing is opt-in. Set the repository variable `PUBLISH_TO_PYPI` to
 `true` once a Trusted Publisher exists for this workflow; a version tag then
