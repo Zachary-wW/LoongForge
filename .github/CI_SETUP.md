@@ -66,6 +66,11 @@ The release job builds with the daemon's own BuildKit through
 `DOCKER_BUILDKIT=1 docker build`; it deliberately does not create a
 `docker-container` builder, because bootstrapping one pulls a builder image
 from Docker Hub and an internal-only runner cannot reach it.
+
+The builder forwards the runner's proxy settings into the image build, so the
+runner's `NO_PROXY` must list every internal APT and PyPI mirror host. A mirror
+that is only reachable directly fails with a gateway error when the build
+sends it through the proxy.
 The release runner uses this same builder and runner-local image config. Set
 `LOONGFORGE_ALLOW_RELEASE_IMAGE_BUILD=true` only on the protected runner named
 by `CI_RELEASE_RUNNER`; keep it false on general-purpose runners. Set
