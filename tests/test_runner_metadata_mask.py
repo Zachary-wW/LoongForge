@@ -15,6 +15,8 @@ def test_mask_script_masks_config_and_additional_values(tmp_path):
     env = os.environ.copy()
     env.update({
         "RUNNER_NAME": "private-runner-name",
+        "INTERNAL_IMAGE_REPOSITORY": "registry.private.invalid/team/image",
+        "DOCKERHUB_IMAGE": "registry.public.invalid/team/image",
         "CI_CONFIG_PATH_IMAGE": str(image_config),
         "LOONGFORGE_RELEASE_CONFIG": str(release_config),
         "LOONGFORGE_RUNNER_MASK_VALUES": str(extra_values),
@@ -29,6 +31,8 @@ def test_mask_script_masks_config_and_additional_values(tmp_path):
     assert result.returncode == 0
     for value in (
         "private-runner-name",
+        "registry.private.invalid/team/image",
+        "registry.public.invalid/team/image",
         str(image_config),
         str(release_config),
         "/private/image/path",
