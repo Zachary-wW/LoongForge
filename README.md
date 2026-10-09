@@ -383,4 +383,4 @@ LoongForge stands on the shoulders of the open-source community. Its Megatron st
 
 LoongForge is released under the [Apache License 2.0](./LICENSE); some files derive from third-party projects — see their file headers.
 
-> LoongForge is developed on [GitHub](https://github.com/baidu-baige/LoongForge). An official mirror is available on [GitCode](https://gitcode.com/LoongForge/LoongForge).
+> LoongForge is developed on [GitHub](https://github.com/baidu-baige/LoongForge), with an official mirror hosted on [AtomGit](https://gitcode.com/LoongForge/LoongForge).

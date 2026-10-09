@@ -383,4 +383,4 @@ LoongForge 的成长离不开开源社区。其 Megatron 栈以 NVIDIA 的 [Mega
 
 LoongForge 基于 [Apache License 2.0](./LICENSE) 发布；部分文件改编自第三方项目，详见各文件头部。
 
-> LoongForge 以 [GitHub](https://github.com/baidu-baige/LoongForge) 为开发主仓库，并在 [GitCode](https://gitcode.com/LoongForge/LoongForge) 提供官方镜像。
+> LoongForge 以 [GitHub](https://github.com/baidu-baige/LoongForge) 为开发主仓库，并在国内 [AtomGit](https://gitcode.com/LoongForge/LoongForge) 平台提供官方镜像。
