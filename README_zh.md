@@ -368,9 +368,7 @@ LoongForge/
 
 ## 🙏 致谢
 
-LoongForge 的成长离不开开源社区。其 Megatron 栈以 NVIDIA 的 [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) 为基础，项目也从 [HuggingFace Transformers](https://github.com/huggingface/transformers)、[LLaMA-Factory](https://github.com/hiyouga/LlamaFactory)、[Megatron-Bridge](https://github.com/NVIDIA-NeMo/Megatron-Bridge)、[LeRobot](https://github.com/huggingface/lerobot) 以及所支持模型的官方实现（如 [OpenPI](https://github.com/Physical-Intelligence/openpi)、[NVIDIA Isaac GR00T](https://github.com/NVIDIA/Isaac-GR00T)）中汲取了经验。同时也特别感谢 [LINUX DO](https://linux.do/) 社区，为技术交流提供了友善的空间，并对开源分享给予支持。
-
-LoongForge 以 [GitHub](https://github.com/baidu-baige/LoongForge) 为开发主仓库，并在国内 [AtomGit](https://atomgit.com/baidu-baige/LoongForge) 平台提供官方镜像。
+LoongForge 的成长离不开开源社区。其 Megatron 栈以 NVIDIA 的 [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) 为基础，项目也从 [HuggingFace Transformers](https://github.com/huggingface/transformers)、[LLaMA-Factory](https://github.com/hiyouga/LlamaFactory)、[Megatron-Bridge](https://github.com/NVIDIA-NeMo/Megatron-Bridge)、[LeRobot](https://github.com/huggingface/lerobot) 以及所支持模型的官方实现（如 [OpenPI](https://github.com/Physical-Intelligence/openpi)、[NVIDIA Isaac GR00T](https://github.com/NVIDIA/Isaac-GR00T)）中汲取了经验。同时也特别感谢 [LINUX DO](https://linux.do/) 社区，为技术交流提供了友善的空间，并对开源分享给予支持。项目开发与贡献以 [GitHub](https://github.com/baidu-baige/LoongForge) 为主，并在国内 [AtomGit](https://atomgit.com/baidu-baige/LoongForge) 平台提供官方镜像。
 
 <a id="contact"></a>
 ## 💬 联系我们
