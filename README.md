@@ -370,6 +370,8 @@ Thanks to all our contributors:
 
 LoongForge stands on the shoulders of the open-source community. Its Megatron stack builds on NVIDIA's [Megatron-LM](https://github.com/NVIDIA/Megatron-LM), and the project also draws on [HuggingFace Transformers](https://github.com/huggingface/transformers), [LLaMA-Factory](https://github.com/hiyouga/LlamaFactory), [Megatron-Bridge](https://github.com/NVIDIA-NeMo/Megatron-Bridge), [LeRobot](https://github.com/huggingface/lerobot), and the official implementations of the models we support (e.g. [OpenPI](https://github.com/Physical-Intelligence/openpi), [NVIDIA Isaac GR00T](https://github.com/NVIDIA/Isaac-GR00T)). We also thank the [LINUX DO](https://linux.do/) community for its welcoming space for technical discussion and its support of open-source sharing.
 
+LoongForge is developed on [GitHub](https://github.com/baidu-baige/LoongForge), with an official mirror hosted on [AtomGit](https://atomgit.com/baidu-baige/LoongForge).
+
 <a id="contact"></a>
 ## 💬 Contact Us
 
@@ -382,5 +384,3 @@ LoongForge stands on the shoulders of the open-source community. Its Megatron st
 ## 📄 License
 
 LoongForge is released under the [Apache License 2.0](./LICENSE); some files derive from third-party projects — see their file headers.
-
-> LoongForge is developed on [GitHub](https://github.com/baidu-baige/LoongForge), with an official mirror hosted on [AtomGit](https://atomgit.com/baidu-baige/LoongForge).
