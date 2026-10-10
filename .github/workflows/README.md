@@ -70,11 +70,10 @@ candidate build.
 
 When enabled, the release job creates one container, mounts both the LLM and
 VLA artifact roots, and runs `deepseek_v2_lite` followed by `pi05_ddp` in that
-container. The runner-local `LOONGFORGE_RELEASE_RUN_REGRESSION` switch is
-currently set to `false` while the GPU runner is occupied; in that mode image
-build and registry promotion continue without the regression step. When the
-switch is `true`, the internal registry push happens only after both
-regressions pass. The internal image tag is formed from the runner-local
+container. The `RUN_RELEASE_REGRESSION` repository variable must be `true` or
+`false`; set it to `true` when the GPU runner is available. When it is enabled,
+the internal registry push happens only after both regressions pass. The
+internal image tag is formed from the runner-local
 `LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX`, the validated version, and the
 `_release` suffix. This keeps the tag tied to the actual Dockerfile base image.
 
@@ -85,6 +84,12 @@ digests match. The publishing host has the faster external route but does not
 run a GitHub runner. The workflow never moves Docker Hub's `latest` tag. A
 manual dispatch builds, scans, and regresses the image but does not push to
 either registry.
+
+The three operational switches are required repository variables and must be
+`true` or `false`: `RUN_RELEASE_REGRESSION`, `PUBLISH_TO_INTERNAL_REGISTRY`,
+and `PUBLISH_TO_DOCKERHUB`. Docker Hub promotion is skipped automatically when
+internal registry publishing is disabled, because there is no validated
+internal image to pull.
 
 PyPI publishing is opt-in. Set the repository variable `PUBLISH_TO_PYPI` to
 `true` once a Trusted Publisher exists for this workflow; a version tag then
@@ -122,7 +127,9 @@ Repository Variables are configured in GitHub Settings. The workflow expects
 `CI_RUNNER_A`, `CI_RUNNER_P`, `CI_REVIEW_RUNNER`, `CI_RELEASE_RUNNER`, and
 `CLAUDE_REVIEW_MODEL`; release tags also require `INTERNAL_IMAGE_REPOSITORY`.
 `CLAUDE_CODE_EXECUTABLE`, `DOCKERHUB_IMAGE`, and `PUBLISH_TO_PYPI` are
-optional. Every self-hosted runner provides its own
+optional. Release tags also require `RUN_RELEASE_REGRESSION`,
+`PUBLISH_TO_INTERNAL_REGISTRY`, and `PUBLISH_TO_DOCKERHUB`. Every self-hosted
+runner provides its own
 `CI_CONFIG_PATH_IMAGE` environment variable; this is not a Repository Variable
 because runner filesystem roots may differ.
 The protected release runner must set

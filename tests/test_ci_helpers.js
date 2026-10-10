@@ -239,9 +239,15 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.match(workflow, /loongforge-release:\$\{\{ env\.VERSION \}\}-\$\{\{ github\.run_id \}\}/);
   assert.match(workflow, /--target auto/);
   assert.match(workflow, /manual releases must be dispatched from master/);
+  assert.match(workflow, /for switch_name in/);
+  assert.match(workflow, /\$switch_name must be true or false\./);
   assert.match(workflow, /image_policy\.py/);
   assert.match(workflow, /run_release_regression\.sh/);
-  assert.match(workflow, /LOONGFORGE_RELEASE_RUN_REGRESSION/);
+  assert.match(workflow, /RUN_RELEASE_REGRESSION: \$\{\{ vars\.RUN_RELEASE_REGRESSION \}\}/);
+  assert.match(workflow, /PUBLISH_TO_INTERNAL_REGISTRY: \$\{\{ vars\.PUBLISH_TO_INTERNAL_REGISTRY \}\}/);
+  assert.match(workflow, /PUBLISH_TO_DOCKERHUB: \$\{\{ vars\.PUBLISH_TO_DOCKERHUB \}\}/);
+  assert.match(workflow, /if: env\.RUN_RELEASE_REGRESSION == 'true'/);
+  assert.doesNotMatch(workflow, /LOONGFORGE_RELEASE_RUN_REGRESSION/);
   assert.match(workflow, /deepseek_v2_lite/);
   assert.match(workflow, /pi05_ddp/);
   assert.match(workflow, /LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX/);
@@ -263,7 +269,14 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.doesNotMatch(workflow, /\/ssd4\//);
   assert.doesNotMatch(workflow, /needs\.build_test_push_internal\.outputs/);
   assert.doesNotMatch(workflow, /baidu-int\.com/);
-  assert.match(workflow, /if: github\.event_name == 'push'/);
+  assert.match(
+    workflow,
+    /startsWith\(github\.ref, 'refs\/tags\/v'\) &&\s*env\.PUBLISH_TO_INTERNAL_REGISTRY == 'true'/,
+  );
+  assert.match(
+    workflow,
+    /vars\.PUBLISH_TO_INTERNAL_REGISTRY == 'true' &&\s*vars\.PUBLISH_TO_DOCKERHUB == 'true'/,
+  );
   assert.match(workflow, /Tag validated image for iregistry/);
   assert.match(workflow, /docker_redacted\.sh push "\$INTERNAL_IMAGE_REF"/);
   assert.match(workflow, /docker_redacted\.sh pull "\$INTERNAL_IMAGE_REF"/);

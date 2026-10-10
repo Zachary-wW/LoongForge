@@ -79,8 +79,9 @@ operator-managed `IMAGE_BASE_IMAGE`. The current protected base image is
 Ubuntu 24.04, CUDA 13.3, PyTorch 2.13.0a0, and Python 3.12, so its prefix is
 `ubuntu24.04-cu13.3-torch2.13.0a0-py312`.
 
-Set `LOONGFORGE_RELEASE_RUN_REGRESSION=false` while the GPU runner is occupied;
-set it to `true` before enabling the two model regressions.
+Set the repository variable `RUN_RELEASE_REGRESSION=true` only when the GPU
+runner is available for the two model regressions; set it to `false` while the
+GPU runner is occupied.
 
 `LOONGFORGE_RELEASE_TAG_SUFFIX` is optional and empty by default. Set it, for
 example to `-citest`, on a non-production runner so a rehearsal appends the
@@ -169,20 +170,26 @@ repository allows all third-party Actions and does not require SHA pinning;
 enable mandatory pinning only after every `@vN` reference has been replaced by
 an audited full commit SHA.
 
-Set these optional repository variables when the defaults do not match the
-organization layout:
+Configure these repository variables:
 
 - `INTERNAL_IMAGE_REPOSITORY` is required for a release tag: the full image
   repository without a tag. The login host is derived from it.
 - `DOCKERHUB_IMAGE`, default `docker.io/loongforge/loongforge`.
 - `PUBLISH_TO_PYPI`, default unset: `true` enables the optional PyPI release
   step for version tags.
+- `RUN_RELEASE_REGRESSION`, required: `true` enables the GPU release
+  regressions; `false` skips them.
+- `PUBLISH_TO_INTERNAL_REGISTRY`, required: `true` pushes a validated
+  version-tag image to the internal registry; `false` skips that push.
+- `PUBLISH_TO_DOCKERHUB`, required: `true` promotes the validated internal
+  image to Docker Hub; `false` keeps it only in the internal registry. Docker
+  Hub promotion also requires internal registry publishing to be enabled.
 
 The release workflow builds one image and creates one container on
 `CI_RELEASE_RUNNER`. It runs `deepseek_v2_lite` and then `pi05_ddp` in that
-same container when `LOONGFORGE_RELEASE_RUN_REGRESSION=true`. While that
-runner-local switch is false, image build and registry promotion continue
-without the GPU regression step.
+same container when `RUN_RELEASE_REGRESSION=true`. While that repository
+variable is false, image build and registry promotion continue without the GPU
+regression step.
 
 The release runner's operator-managed files must define:
 

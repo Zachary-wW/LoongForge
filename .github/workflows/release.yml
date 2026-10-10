@@ -27,12 +27,25 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           RELEASE_REF: ${{ github.ref }}
+          RUN_RELEASE_REGRESSION: ${{ vars.RUN_RELEASE_REGRESSION }}
+          PUBLISH_TO_INTERNAL_REGISTRY: ${{ vars.PUBLISH_TO_INTERNAL_REGISTRY }}
+          PUBLISH_TO_DOCKERHUB: ${{ vars.PUBLISH_TO_DOCKERHUB }}
         run: |
           set -euo pipefail
           if [[ "$EVENT_NAME" == workflow_dispatch && "$RELEASE_REF" != refs/heads/master ]]; then
             echo "manual releases must be dispatched from master" >&2
             exit 1
           fi
+          for switch_name in \
+            RUN_RELEASE_REGRESSION \
+            PUBLISH_TO_INTERNAL_REGISTRY \
+            PUBLISH_TO_DOCKERHUB; do
+            switch_value="${!switch_name-}"
+            if [[ "$switch_value" != true && "$switch_value" != false ]]; then
+              echo "$switch_name must be true or false." >&2
+              exit 2
+            fi
+          done
           package_version="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
           if [[ "$EVENT_NAME" == push ]]; then
             tag_version="${GITHUB_REF_NAME#v}"
@@ -83,6 +96,8 @@ jobs:
     env:
       INTERNAL_IMAGE_REPOSITORY: ${{ vars.INTERNAL_IMAGE_REPOSITORY }}
       VERSION: ${{ needs.validate.outputs.version }}
+      RUN_RELEASE_REGRESSION: ${{ vars.RUN_RELEASE_REGRESSION }}
+      PUBLISH_TO_INTERNAL_REGISTRY: ${{ vars.PUBLISH_TO_INTERNAL_REGISTRY }}
       DOCKER_CONFIG: ${{ github.workspace }}/.docker-config
     steps:
       - name: Protect runner-local metadata
@@ -145,29 +160,19 @@ jobs:
       - name: Enforce release image policy
         run: python3 LoongForge/.github/scripts/image_policy.py "${{ steps.release_image.outputs.image_ref }}"
       - name: Run release regression in one container
+        if: env.RUN_RELEASE_REGRESSION == 'true'
         shell: bash
         env:
           IMAGE_REF: ${{ steps.release_image.outputs.image_ref }}
         run: |
           set -euo pipefail
           source LoongForge/.github/scripts/load_ci_config.sh
-          case "${LOONGFORGE_RELEASE_RUN_REGRESSION:-false}" in
-            true)
-              LoongForge/.github/scripts/self_runner/run_release_regression.sh \
-                --image "$IMAGE_REF" \
-                --source "$GITHUB_WORKSPACE/LoongForge" \
-                --sha "$GITHUB_SHA" \
-                --llm-model deepseek_v2_lite \
-                --vla-model pi05_ddp
-              ;;
-            false)
-              echo "Release GPU regression is disabled by runner configuration."
-              ;;
-            *)
-              echo "LOONGFORGE_RELEASE_RUN_REGRESSION must be true or false." >&2
-              exit 2
-              ;;
-          esac
+          LoongForge/.github/scripts/self_runner/run_release_regression.sh \
+            --image "$IMAGE_REF" \
+            --source "$GITHUB_WORKSPACE/LoongForge" \
+            --sha "$GITHUB_SHA" \
+            --llm-model deepseek_v2_lite \
+            --vla-model pi05_ddp
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
@@ -176,12 +181,20 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
       - name: Tag validated image for iregistry
-        if: github.event_name == 'push'
+        if: >-
+          ${{
+            startsWith(github.ref, 'refs/tags/v') &&
+            env.PUBLISH_TO_INTERNAL_REGISTRY == 'true'
+          }}
         env:
           LOCAL_IMAGE_REF: ${{ steps.release_image.outputs.image_ref }}
         run: docker tag "$LOCAL_IMAGE_REF" "$INTERNAL_IMAGE_REF"
       - name: Log in to iregistry
-        if: github.event_name == 'push'
+        if: >-
+          ${{
+            startsWith(github.ref, 'refs/tags/v') &&
+            env.PUBLISH_TO_INTERNAL_REGISTRY == 'true'
+          }}
         shell: bash
         run: |
           set -euo pipefail
@@ -193,7 +206,11 @@ jobs:
               --password-stdin \
               "$INTERNAL_REGISTRY_HOST"
       - name: Push validated image to iregistry
-        if: github.event_name == 'push'
+        if: >-
+          ${{
+            startsWith(github.ref, 'refs/tags/v') &&
+            env.PUBLISH_TO_INTERNAL_REGISTRY == 'true'
+          }}
         run: LoongForge/.github/scripts/self_runner/docker_redacted.sh push "$INTERNAL_IMAGE_REF"
       - name: Remove local release image
         if: always()
@@ -210,7 +227,13 @@ jobs:
 
   promote_to_dockerhub:
     needs: [validate, build_test_push_internal]
-    if: github.event_name == 'push' && needs.build_test_push_internal.result == 'success'
+    if: >-
+      ${{
+        startsWith(github.ref, 'refs/tags/v') &&
+        needs.build_test_push_internal.result == 'success' &&
+        vars.PUBLISH_TO_INTERNAL_REGISTRY == 'true' &&
+        vars.PUBLISH_TO_DOCKERHUB == 'true'
+      }}
     runs-on: ${{ fromJSON(vars.CI_RELEASE_RUNNER) }}
     timeout-minutes: 90
     environment: dockerhub-release
