@@ -11,6 +11,7 @@ source_dir=""
 sha=""
 llm_model="deepseek_v2_lite"
 vla_model="pi05_ddp"
+master_port=$((20000 + ($$ % 30000)))
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -105,18 +106,20 @@ export LOONGFORGE_PULL_IMAGE=false
 llm_model_q=$(printf '%q' "$llm_model")
 llm_chip_q=$(printf '%q' "${LOONGFORGE_BASELINE_LLM_VLM:-a}")
 container_source_q=$(printf '%q' "$LOONGFORGE_CONTAINER_SOURCE")
-llm_data_q=$(printf '%q' "$LOONGFORGE_CONTAINER_LLM_DATA_ROOT")
 output_root_q=$(printf '%q' "$LOONGFORGE_CONTAINER_OUTPUT_ROOT")
 
 set +e
 "$docker_bin" exec \
   -e "PFS_PATH=$LOONGFORGE_CONTAINER_LLM_DATA_ROOT" \
   -e "TRAINING_LOG_PATH=$LOONGFORGE_CONTAINER_OUTPUT_ROOT/llm_vlm" \
+  -e "RANK=0" \
+  -e "WORLD_SIZE=1" \
+  -e "MASTER_ADDR=127.0.0.1" \
+  -e "MASTER_PORT=$master_port" \
   -e "LOONGFORGE_TEST_SUITE=llm_vlm" \
   "$container_name" \
   bash -lc \
   "cd ${container_source_q} && cd tests/llm_vlm && \
-   PFS_PATH=${llm_data_q} TRAINING_LOG_PATH=${output_root_q}/llm_vlm \
    python3 main.py --models ${llm_model_q} --chip ${llm_chip_q} \
    --tasks check_correctness_task check_precess_data_task \
    --training_type pretrain sft --node_nums 1 --gpu_nums 8 --check_loss_only" \
