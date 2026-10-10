@@ -105,13 +105,16 @@ export LOONGFORGE_PULL_IMAGE=false
 
 llm_model_q=$(printf '%q' "$llm_model")
 llm_chip_q=$(printf '%q' "${LOONGFORGE_BASELINE_LLM_VLM:-a}")
-container_source_q=$(printf '%q' "$LOONGFORGE_CONTAINER_SOURCE")
+container_source="${LOONGFORGE_CONTAINER_SOURCE%/}"
+container_source_q=$(printf '%q' "$container_source")
 output_root_q=$(printf '%q' "$LOONGFORGE_CONTAINER_OUTPUT_ROOT")
 
 set +e
 "$docker_bin" exec \
   -e "PFS_PATH=$LOONGFORGE_CONTAINER_LLM_DATA_ROOT" \
   -e "TRAINING_LOG_PATH=$LOONGFORGE_CONTAINER_OUTPUT_ROOT/llm_vlm" \
+  -e "LOONGFORGE_PATH=$container_source/" \
+  -e "MEGATRON_PATH=$container_source/third_party/Loong-Megatron" \
   -e "RANK=0" \
   -e "WORLD_SIZE=1" \
   -e "MASTER_ADDR=127.0.0.1" \

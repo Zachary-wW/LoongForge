@@ -72,7 +72,6 @@ args=(
   -v "$host_data_root:$container_data_root:ro"
   -v "$host_output_root:$container_output_root"
   -v "$source_dir:$container_source_mount:ro"
-  -v "$megatron_dir:/workspace/Loong-Megatron:ro"
 )
 if [[ "$suite" == release ]]; then
   args+=( -v "$host_llm_data_root:$container_llm_data_root:ro" )
@@ -98,6 +97,6 @@ done
   "mkdir -p '$container_source' && \
    find '$container_source' -mindepth 1 -maxdepth 1 ! -name third_party -exec rm -rf -- {} + && \
    mkdir -p '$container_source/third_party' && \
-   find '$container_source/third_party' -mindepth 1 -maxdepth 1 ! -name Loong-Megatron -exec rm -rf -- {} + && \
-   tar -C '$container_source_mount' --exclude='./third_party/Loong-Megatron' -cf - . | \
+   find '$container_source/third_party' -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + && \
+   tar -C '$container_source_mount' -cf - . | \
      tar -C '$container_source' -xf -"
