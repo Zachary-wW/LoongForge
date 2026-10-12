@@ -284,6 +284,11 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.match(workflow, /Resolve Docker Hub image reference/);
   assert.match(workflow, /DOCKERHUB_REF: \$\{\{ steps\.hub_ref\.outputs\.dockerhub_ref \}\}/);
   assert.match(workflow, /docker_redacted\.sh push "\$DOCKERHUB_REF"/);
+  assert.match(workflow, /cleanup_debug_tags:/);
+  assert.match(workflow, /cleanup_debug_tags\.py/);
+  assert.match(workflow, /--registry internal/);
+  assert.match(workflow, /--registry dockerhub/);
+  assert.match(workflow, /if: always\(\)/);
   assert.match(workflow, /timeout-minutes: 90/);
   assert.match(workflow, /DOCKER_CONFIG: \$\{\{ github\.workspace \}\}\/\.docker-config/);
   assert.doesNotMatch(workflow, /docker\/build-push-action/);

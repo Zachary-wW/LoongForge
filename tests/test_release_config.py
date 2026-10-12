@@ -21,7 +21,11 @@ def run_loader(
     internal.chmod(credential_mode)
     public.chmod(credential_mode)
     config = tmp_path / "release-config"
-    values = ["DOCKER_HOST=ssh://publisher"]
+    values = [
+        "DOCKER_HOST=ssh://publisher",
+        "LOONGFORGE_DOCKERHUB_PROXY=http://proxy",
+        "LOONGFORGE_DOCKERHUB_NO_PROXY=localhost,.internal",
+    ]
     if config_complete:
         values.append("LOONGFORGE_RELEASE_PUBLISHER_ALIAS=publisher")
     config.write_text("\n".join(values) + "\n", encoding="utf-8")

@@ -84,9 +84,15 @@ runner is available for the two model regressions; set it to `false` while the
 GPU runner is occupied.
 
 `LOONGFORGE_RELEASE_TAG_SUFFIX` is optional and empty by default. Set it, for
-example to `-citest`, on a non-production runner so a rehearsal appends the
+example to `_ci_test`, on a non-production runner so a rehearsal appends the
 marker to both the internal image tag and the Docker Hub tag instead of
 claiming the real release tags.
+
+The release runner also needs `LOONGFORGE_DOCKERHUB_PROXY` and
+`LOONGFORGE_DOCKERHUB_NO_PROXY` in its operator-managed release configuration.
+They are used only by the Docker Hub cleanup step so temporary debug tags can be
+removed through the publisher network path without exposing registry credentials
+or internal proxy details in this repository.
 
 Candidate builds require 250 GiB free by default on the filesystem containing
 Docker's `DockerRootDir`. Set `LOONGFORGE_MIN_DOCKER_FREE_GB` to another integer
