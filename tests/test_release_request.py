@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -116,3 +117,29 @@ def test_invalid_debug_suffix_is_rejected():
 def test_invalid_image_reference_is_rejected():
     with pytest.raises(release_request.ReleaseRequestError):
         request(existing_image_ref="not-an-image")
+
+
+def test_cli_accepts_execution_slot():
+    result = subprocess.run(
+        [
+            "python3",
+            str(MODULE_PATH),
+            "--build-image",
+            "false",
+            "--run-regression",
+            "true",
+            "--publish-internal",
+            "false",
+            "--publish-dockerhub",
+            "false",
+            "--execution-slot",
+            "secondary",
+            "--existing-image-ref",
+            "registry.example.test/team/project:v1",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0
+    assert "execution_slot=secondary" in result.stdout

@@ -210,7 +210,7 @@ jobs:
           : "${LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX:?LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX is required}"
           # The suffix is empty for real releases; operators set it on a
           # non-production runner so a rehearsal cannot claim a release tag.
-          tag_suffix="${DEBUG_TAG_SUFFIX:-${LOONGFORGE_RELEASE_TAG_SUFFIX:-}}"
+          tag_suffix="${DEBUG_TAG_SUFFIX:-}"
           [[ "$tag_suffix" =~ ^[A-Za-z0-9._-]*$ ]]
           image_ref="${INTERNAL_IMAGE_REPOSITORY}:${LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX}_v${VERSION}_release${tag_suffix}"
           # A registry host may carry a port, so only the final tag is split off.
@@ -375,7 +375,7 @@ jobs:
           : "${INTERNAL_IMAGE_REPOSITORY:?INTERNAL_IMAGE_REPOSITORY repository variable is required}"
           : "${LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX:?LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX is required}"
           : "${DOCKERHUB_IMAGE:?DOCKERHUB_IMAGE must name the target Docker Hub repository}"
-          tag_suffix="${DEBUG_TAG_SUFFIX:-${LOONGFORGE_RELEASE_TAG_SUFFIX:-}}"
+          tag_suffix="${DEBUG_TAG_SUFFIX:-}"
           [[ "$tag_suffix" =~ ^[A-Za-z0-9._-]*$ ]]
           if [[ "$PUBLISH_INTERNAL" != true && -n "$EXISTING_INTERNAL_IMAGE_REF" ]]; then
             internal_ref="$EXISTING_INTERNAL_IMAGE_REF"
@@ -471,13 +471,21 @@ jobs:
 
   cleanup_debug_tags:
     needs: [validate, build_test_push_internal, promote_to_dockerhub]
-    if: always()
+    if: >-
+      ${{
+        always() &&
+        needs.validate.result == 'success' &&
+        needs.validate.outputs.debug_tag_suffix != '' &&
+        (needs.validate.outputs.publish_internal == 'true' ||
+         needs.validate.outputs.publish_dockerhub == 'true')
+      }}
     runs-on: ${{ fromJSON(vars.CI_RELEASE_RUNNER) }}
     timeout-minutes: 10
     env:
       INTERNAL_IMAGE_REPOSITORY: ${{ vars.INTERNAL_IMAGE_REPOSITORY }}
       DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE || 'docker.io/loongforge/loongforge' }}
       VERSION: ${{ needs.validate.outputs.version }}
+      DEBUG_TAG_SUFFIX: ${{ needs.validate.outputs.debug_tag_suffix }}
     steps:
       - name: Protect runner-local metadata
         run: "${LOONGFORGE_RUNNER_MASK_SCRIPT:?}"
@@ -500,7 +508,7 @@ jobs:
           set -euo pipefail
           source LoongForge/.github/scripts/load_ci_config.sh
           source LoongForge/.github/scripts/self_runner/load_release_config.sh
-          tag_suffix="${DEBUG_TAG_SUFFIX:-${LOONGFORGE_RELEASE_TAG_SUFFIX:-}}"
+          tag_suffix="${DEBUG_TAG_SUFFIX:-}"
           if [[ -z "$tag_suffix" ]]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0

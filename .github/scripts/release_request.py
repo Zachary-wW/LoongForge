@@ -141,6 +141,7 @@ def main() -> int:
             run_regression=args.run_regression,
             publish_internal=args.publish_internal,
             publish_dockerhub=args.publish_dockerhub,
+            execution_slot=args.execution_slot,
             debug_tag_suffix=args.debug_tag_suffix or "",
             existing_image_ref=args.existing_image_ref or "",
             existing_internal_image_ref=args.existing_internal_image_ref or "",

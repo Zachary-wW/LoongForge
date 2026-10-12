@@ -100,10 +100,9 @@ execution roots remain runner-local. The `primary` slot executes locally; the
 `secondary` slot synchronizes source over SSH, executes regression on the
 remote host, and returns only portable release evidence.
 
-`LOONGFORGE_RELEASE_TAG_SUFFIX` is optional and empty by default. Set it, for
-example to `_ci_test`, on a non-production runner so a rehearsal appends the
-marker to both the internal image tag and the Docker Hub tag instead of
-claiming the real release tags.
+`debug_tag_suffix` is an explicit per-request input. Debug Full Release uses
+`_ci_test`; production requests leave it empty. The workflow does not infer a
+suffix from runner-local configuration.
 
 The release runner also needs `LOONGFORGE_DOCKERHUB_PROXY` and
 `LOONGFORGE_DOCKERHUB_NO_PROXY` in its operator-managed release configuration.
