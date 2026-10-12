@@ -104,11 +104,15 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           RELEASE_REF: ${{ github.ref }}
+          PUBLISH_INTERNAL: ${{ steps.stages.outputs.publish_internal }}
+          PUBLISH_DOCKERHUB: ${{ steps.stages.outputs.publish_dockerhub }}
         run: |
           set -euo pipefail
           if [[ "$EVENT_NAME" == workflow_dispatch && "$RELEASE_REF" != refs/heads/master ]]; then
-            echo "manual releases must be dispatched from master" >&2
-            exit 1
+            if [[ "$PUBLISH_INTERNAL" == true || "$PUBLISH_DOCKERHUB" == true ]]; then
+              echo "publishing releases must be dispatched from master" >&2
+              exit 1
+            fi
           fi
           package_version="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
           if [[ "$EVENT_NAME" == push ]]; then
