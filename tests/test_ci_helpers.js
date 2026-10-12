@@ -277,6 +277,7 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.match(workflow, /DOCKERHUB_REF: \$\{\{ steps\.hub_ref\.outputs\.dockerhub_ref \}\}/);
   assert.match(workflow, /docker_redacted\.sh push "\$DOCKERHUB_REF"/);
   assert.match(workflow, /cleanup_debug_tags:/);
+  assert.match(workflow, /env\.BUILD_IMAGE == 'true' \|\| env\.PUBLISH_TO_INTERNAL_REGISTRY == 'true'/);
   assert.match(workflow, /cleanup_debug_tags\.py/);
   assert.match(workflow, /cleanup_debug_tags\.py \\\n\s+internal/);
   assert.match(workflow, /cleanup_debug_tags\.py \\\n\s+dockerhub/);

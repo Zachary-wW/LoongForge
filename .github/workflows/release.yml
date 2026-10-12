@@ -333,10 +333,19 @@ jobs:
           }}
         run: LoongForge/.github/scripts/self_runner/docker_redacted.sh push "$INTERNAL_IMAGE_REF"
       - name: Remove local release image
-        if: always()
+        if: >-
+          ${{
+            always() &&
+            (env.BUILD_IMAGE == 'true' || env.PUBLISH_TO_INTERNAL_REGISTRY == 'true')
+          }}
         env:
           LOCAL_IMAGE_REF: ${{ steps.release_image.outputs.image_ref }}
-        run: docker image rm -f "$LOCAL_IMAGE_REF" "$INTERNAL_IMAGE_REF" >/dev/null 2>&1 || true
+        run: |
+          if [[ "$BUILD_IMAGE" == true ]]; then
+            docker image rm -f "$LOCAL_IMAGE_REF" "$INTERNAL_IMAGE_REF" >/dev/null 2>&1 || true
+          else
+            docker image rm -f "$INTERNAL_IMAGE_REF" >/dev/null 2>&1 || true
+          fi
       - name: Remove release Docker config
         if: always()
         run: |
