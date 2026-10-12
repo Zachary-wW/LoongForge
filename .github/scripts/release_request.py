@@ -13,7 +13,9 @@ from dataclasses import asdict, dataclass
 
 
 DEBUG_SUFFIX_RE = re.compile(r"^[A-Za-z0-9._-]*$")
-IMAGE_REF_RE = re.compile(r"^[A-Za-z0-9._-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)+:[A-Za-z0-9._-]+$")
+IMAGE_REF_RE = re.compile(
+    r"^[A-Za-z0-9._-]+(?::[0-9]+)?(?:/[A-Za-z0-9._-]+)*:[A-Za-z0-9._-]+$"
+)
 
 
 class ReleaseRequestError(ValueError):

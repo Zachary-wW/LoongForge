@@ -74,6 +74,16 @@ def test_regression_can_use_existing_image():
     assert result.run_regression is True
 
 
+def test_regression_can_use_local_existing_image():
+    result = request(
+        build_image="false",
+        publish_internal="false",
+        publish_dockerhub="false",
+        existing_image_ref="loongforge-release:0.2.2-remote-rehearsal-fixed",
+    )
+    assert result.run_regression is True
+
+
 def test_dockerhub_promotion_can_use_existing_internal_image():
     result = request(
         build_image="false",
