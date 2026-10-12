@@ -441,11 +441,12 @@ jobs:
         env:
           DOCKERHUB_REF: ${{ steps.hub_ref.outputs.dockerhub_ref }}
           DOCKERHUB_REGISTRY_HOST: ${{ steps.hub_ref.outputs.registry_host }}
-        run: LoongForge/.github/scripts/self_runner/promote_to_dockerhub.sh \
-          "$INTERNAL_IMAGE_REF" \
-          "$DOCKERHUB_REF" \
-          "$INTERNAL_REGISTRY_HOST" \
-          "$DOCKERHUB_REGISTRY_HOST"
+        run: |
+          LoongForge/.github/scripts/self_runner/promote_to_dockerhub.sh \
+            "$INTERNAL_IMAGE_REF" \
+            "$DOCKERHUB_REF" \
+            "$INTERNAL_REGISTRY_HOST" \
+            "$DOCKERHUB_REGISTRY_HOST"
       - name: Verify Docker Hub image
         env:
           DOCKERHUB_REF: ${{ steps.hub_ref.outputs.dockerhub_ref }}
