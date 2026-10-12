@@ -80,6 +80,7 @@ def test_secondary_slot_resolution_is_internal_and_complete(tmp_path):
     assert result.returncode == 0
     assert result.stdout == ""
     assert result.stderr == ""
+
     values = dict(
         line.split("=", 1)
         for line in github_env.read_text(encoding="utf-8").splitlines()
@@ -88,6 +89,12 @@ def test_secondary_slot_resolution_is_internal_and_complete(tmp_path):
     assert values["LOONGFORGE_EXECUTION_ALIAS"] == "private-secondary"
     assert values["DOCKER_HOST"] == "ssh://private-secondary/private.sock"
     assert values["LOONGFORGE_EXECUTION_SOURCE"] == "/private/source"
+
+
+def test_remote_slot_script_archives_evidence():
+    script = REGRESSION_SLOT_SCRIPT.read_text(encoding="utf-8")
+    assert "LOONGFORGE_RELEASE_EVIDENCE_ROOT" in script
+    assert "$evidence_root/$run_id/loongforge-release-artifacts" in script
 
 
 def test_insecure_slot_configuration_fails_closed(tmp_path):

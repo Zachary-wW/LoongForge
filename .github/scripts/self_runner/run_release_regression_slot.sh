@@ -96,4 +96,12 @@ ssh "${ssh_options[@]}" "$alias" \
 if ! rsync --archive "$alias:$work_dir/loongforge-release-artifacts/" "$artifact_dir/"; then
   status=1
 fi
+evidence_root="${LOONGFORGE_RELEASE_EVIDENCE_ROOT:-}"
+if [[ -n "$evidence_root" && "$evidence_root" =~ ^/[A-Za-z0-9._/-]+$ && "$status" -eq 0 ]]; then
+  mkdir -p "$evidence_root/$run_id/loongforge-release-artifacts"
+  if ! rsync --archive --delete \
+    "$artifact_dir/" "$evidence_root/$run_id/loongforge-release-artifacts/"; then
+    status=1
+  fi
+fi
 exit "$status"
