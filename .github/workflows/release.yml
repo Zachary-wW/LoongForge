@@ -25,6 +25,14 @@ on:
         description: Execution slot for build and regression
         required: false
         type: string
+      llm_model:
+        description: LLM release regression model
+        required: false
+        type: string
+      vla_model:
+        description: VLA release regression model
+        required: false
+        type: string
       debug_tag_suffix:
         description: Non-production suffix appended to generated image tags
         required: false
@@ -60,6 +68,8 @@ jobs:
       publish_internal: ${{ steps.stages.outputs.publish_internal }}
       publish_dockerhub: ${{ steps.stages.outputs.publish_dockerhub }}
       execution_slot: ${{ steps.stages.outputs.execution_slot }}
+      llm_model: ${{ steps.stages.outputs.llm_model }}
+      vla_model: ${{ steps.stages.outputs.vla_model }}
       debug_tag_suffix: ${{ steps.stages.outputs.debug_tag_suffix }}
       existing_image_ref: ${{ steps.stages.outputs.existing_image_ref }}
       existing_internal_image_ref: ${{ steps.stages.outputs.existing_internal_image_ref }}
@@ -78,6 +88,8 @@ jobs:
           INPUT_PUBLISH_INTERNAL: ${{ github.event.inputs.publish_internal }}
           INPUT_PUBLISH_DOCKERHUB: ${{ github.event.inputs.publish_dockerhub }}
           INPUT_EXECUTION_SLOT: ${{ github.event.inputs.execution_slot }}
+          INPUT_LLM_MODEL: ${{ github.event.inputs.llm_model }}
+          INPUT_VLA_MODEL: ${{ github.event.inputs.vla_model }}
           INPUT_DEBUG_TAG_SUFFIX: ${{ github.event.inputs.debug_tag_suffix }}
           INPUT_EXISTING_IMAGE_REF: ${{ github.event.inputs.existing_image_ref }}
           INPUT_EXISTING_INTERNAL_IMAGE_REF: ${{ github.event.inputs.existing_internal_image_ref }}
@@ -87,6 +99,8 @@ jobs:
           VAR_PUBLISH_INTERNAL: ${{ vars.PUBLISH_TO_INTERNAL_REGISTRY }}
           VAR_PUBLISH_DOCKERHUB: ${{ vars.PUBLISH_TO_DOCKERHUB }}
           VAR_EXECUTION_SLOT: ${{ vars.RELEASE_EXECUTION_SLOT }}
+          VAR_LLM_MODEL: ${{ vars.RELEASE_LLM_MODEL }}
+          VAR_VLA_MODEL: ${{ vars.RELEASE_VLA_MODEL }}
         run: |
           set -euo pipefail
           build_image="${INPUT_BUILD_IMAGE:-$VAR_BUILD_IMAGE}"
@@ -97,17 +111,25 @@ jobs:
           publish_internal="${INPUT_PUBLISH_INTERNAL:-$VAR_PUBLISH_INTERNAL}"
           publish_dockerhub="${INPUT_PUBLISH_DOCKERHUB:-$VAR_PUBLISH_DOCKERHUB}"
           execution_slot="${INPUT_EXECUTION_SLOT:-$VAR_EXECUTION_SLOT}"
+          llm_model="${INPUT_LLM_MODEL:-$VAR_LLM_MODEL}"
+          vla_model="${INPUT_VLA_MODEL:-$VAR_VLA_MODEL}"
           python3 .github/scripts/release_request.py \
             --build-image "$build_image" \
             --run-regression "$run_regression" \
             --publish-internal "$publish_internal" \
             --publish-dockerhub "$publish_dockerhub" \
             --execution-slot "$execution_slot" \
+            --llm-model "$llm_model" \
+            --vla-model "$vla_model" \
             --debug-tag-suffix "${INPUT_DEBUG_TAG_SUFFIX:-}" \
             --existing-image-ref "${INPUT_EXISTING_IMAGE_REF:-}" \
             --existing-internal-image-ref "${INPUT_EXISTING_INTERNAL_IMAGE_REF:-}" \
             --skip-regression-reason "${INPUT_SKIP_REGRESSION_REASON:-}" \
             >> "$GITHUB_OUTPUT"
+          python3 .github/scripts/validate_release_models.py \
+            --llm-model "$llm_model" \
+            --vla-model "$vla_model" \
+            --source .
       - id: version
         shell: bash
         env:
@@ -180,6 +202,8 @@ jobs:
       RUN_RELEASE_REGRESSION: ${{ needs.validate.outputs.run_regression }}
       PUBLISH_TO_INTERNAL_REGISTRY: ${{ needs.validate.outputs.publish_internal }}
       LOONGFORGE_RELEASE_EXECUTION_SLOT: ${{ needs.validate.outputs.execution_slot }}
+      LLM_MODEL: ${{ needs.validate.outputs.llm_model }}
+      VLA_MODEL: ${{ needs.validate.outputs.vla_model }}
       DEBUG_TAG_SUFFIX: ${{ needs.validate.outputs.debug_tag_suffix }}
       EXISTING_IMAGE_REF: ${{ needs.validate.outputs.existing_image_ref }}
       DOCKER_CONFIG: ${{ github.workspace }}/.docker-config
@@ -261,6 +285,8 @@ jobs:
         shell: bash
         env:
           IMAGE_REF: ${{ steps.release_image.outputs.image_ref }}
+          LLM_MODEL: ${{ env.LLM_MODEL }}
+          VLA_MODEL: ${{ env.VLA_MODEL }}
         run: |
           set -euo pipefail
           source LoongForge/.github/scripts/load_ci_config.sh
@@ -268,8 +294,8 @@ jobs:
             --image "$IMAGE_REF" \
             --source "$GITHUB_WORKSPACE/LoongForge" \
             --sha "$GITHUB_SHA" \
-            --llm-model deepseek_v2_lite \
-            --vla-model pi05_ddp
+            --llm-model "$LLM_MODEL" \
+            --vla-model "$VLA_MODEL"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:

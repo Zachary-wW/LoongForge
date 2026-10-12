@@ -248,8 +248,6 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.match(workflow, /publish_dockerhub == 'true'/);
   assert.match(workflow, /if: env\.RUN_RELEASE_REGRESSION == 'true'/);
   assert.doesNotMatch(workflow, /LOONGFORGE_RELEASE_RUN_REGRESSION/);
-  assert.match(workflow, /deepseek_v2_lite/);
-  assert.match(workflow, /pi05_ddp/);
   assert.match(workflow, /LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX/);
   assert.match(workflow, /tag_suffix="\$\{DEBUG_TAG_SUFFIX:-\}"/);
   assert.doesNotMatch(workflow, /LOONGFORGE_RELEASE_TAG_SUFFIX/);
@@ -288,6 +286,9 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.match(workflow, /publish_internal:/);
   assert.match(workflow, /publish_dockerhub:/);
   assert.match(workflow, /execution_slot:/);
+  assert.match(workflow, /llm_model:/);
+  assert.match(workflow, /vla_model:/);
+  assert.match(workflow, /validate_release_models\.py/);
   assert.match(workflow, /release_request\.py/);
   assert.match(workflow, /needs\.validate\.outputs\.build_image/);
   assert.match(workflow, /needs\.validate\.outputs\.run_regression/);
@@ -297,6 +298,8 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.match(workflow, /resolve_execution_slot\.sh/);
   assert.match(workflow, /run_release_regression_slot\.sh/);
   assert.match(workflow, /RELEASE_EXECUTION_SLOT/);
+  assert.match(workflow, /RELEASE_LLM_MODEL/);
+  assert.match(workflow, /RELEASE_VLA_MODEL/);
   assert.match(workflow, /timeout-minutes: 90/);
   assert.match(workflow, /DOCKER_CONFIG: \$\{\{ github\.workspace \}\}\/\.docker-config/);
   assert.doesNotMatch(workflow, /docker\/build-push-action/);

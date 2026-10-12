@@ -96,6 +96,10 @@ is omitted the workflow uses `RELEASE_EXECUTION_SLOT`. Slots are resolved on
 the Control Runner from runner-local configuration, so GitHub receives only
 the stable public identifier.
 
+The optional `llm_model` and `vla_model` inputs select the regression models.
+When omitted they use `RELEASE_LLM_MODEL` and `RELEASE_VLA_MODEL`; the workflow
+rejects names that do not exist in LoongForge's test definitions.
+
 PyPI publishing is opt-in. Set the repository variable `PUBLISH_TO_PYPI` to
 `true` once a Trusted Publisher exists for this workflow; a version tag then
 publishes the built distribution first. While the variable is unset, the tag

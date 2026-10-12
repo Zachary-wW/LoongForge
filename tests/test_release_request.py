@@ -24,6 +24,8 @@ def request(**overrides):
         "publish_internal": "true",
         "publish_dockerhub": "true",
         "execution_slot": "primary",
+        "llm_model": "deepseek_v2_lite",
+        "vla_model": "pi05_ddp",
     }
     values.update(overrides)
     return release_request.parse_release_request(**values)
@@ -144,6 +146,10 @@ def test_cli_accepts_execution_slot():
             "false",
             "--execution-slot",
             "secondary",
+            "--llm-model",
+            "deepseek_v2_lite",
+            "--vla-model",
+            "pi05_ddp",
             "--existing-image-ref",
             "registry.example.test/team/project:v1",
         ],
@@ -153,3 +159,8 @@ def test_cli_accepts_execution_slot():
     )
     assert result.returncode == 0
     assert "execution_slot=secondary" in result.stdout
+
+
+def test_invalid_model_is_rejected():
+    with pytest.raises(release_request.ReleaseRequestError):
+        request(llm_model="../private-model")

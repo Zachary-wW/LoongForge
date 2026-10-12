@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass
 
 
 DEBUG_SUFFIX_RE = re.compile(r"^[A-Za-z0-9._-]*$")
+MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 IMAGE_REF_RE = re.compile(
     r"^[A-Za-z0-9._-]+(?::[0-9]+)?(?:/[A-Za-z0-9._-]+)*:[A-Za-z0-9._-]+$"
 )
@@ -29,6 +30,8 @@ class ReleaseRequest:
     publish_internal: bool
     publish_dockerhub: bool
     execution_slot: str = ""
+    llm_model: str = ""
+    vla_model: str = ""
     debug_tag_suffix: str = ""
     existing_image_ref: str = ""
     existing_internal_image_ref: str = ""
@@ -54,6 +57,8 @@ def parse_release_request(
     publish_internal: str,
     publish_dockerhub: str,
     execution_slot: str,
+    llm_model: str,
+    vla_model: str,
     debug_tag_suffix: str = "",
     existing_image_ref: str = "",
     existing_internal_image_ref: str = "",
@@ -65,6 +70,8 @@ def parse_release_request(
         publish_internal=_parse_bool("publish_internal", publish_internal),
         publish_dockerhub=_parse_bool("publish_dockerhub", publish_dockerhub),
         execution_slot=execution_slot.strip(),
+        llm_model=llm_model.strip(),
+        vla_model=vla_model.strip(),
         debug_tag_suffix=debug_tag_suffix.strip(),
         existing_image_ref=existing_image_ref.strip(),
         existing_internal_image_ref=existing_internal_image_ref.strip(),
@@ -77,6 +84,10 @@ def parse_release_request(
 def validate_release_request(request: ReleaseRequest) -> None:
     if request.execution_slot not in {"primary", "secondary"}:
         raise ReleaseRequestError("execution_slot must be primary or secondary")
+    if not MODEL_RE.fullmatch(request.llm_model):
+        raise ReleaseRequestError("llm_model is invalid")
+    if not MODEL_RE.fullmatch(request.vla_model):
+        raise ReleaseRequestError("vla_model is invalid")
 
     if not DEBUG_SUFFIX_RE.fullmatch(request.debug_tag_suffix):
         raise ReleaseRequestError("debug_tag_suffix contains invalid characters")
@@ -123,6 +134,8 @@ def parse_args() -> argparse.Namespace:
         "publish_internal",
         "publish_dockerhub",
         "execution_slot",
+        "llm_model",
+        "vla_model",
     ):
         _add_argument(parser, name, required=True)
     for name in (
@@ -144,6 +157,8 @@ def main() -> int:
             publish_internal=args.publish_internal,
             publish_dockerhub=args.publish_dockerhub,
             execution_slot=args.execution_slot,
+            llm_model=args.llm_model,
+            vla_model=args.vla_model,
             debug_tag_suffix=args.debug_tag_suffix or "",
             existing_image_ref=args.existing_image_ref or "",
             existing_internal_image_ref=args.existing_internal_image_ref or "",

@@ -100,6 +100,10 @@ execution roots remain runner-local. The `primary` slot executes locally; the
 `secondary` slot synchronizes source over SSH, executes regression on the
 remote host, and returns only portable release evidence.
 
+Set `RELEASE_LLM_MODEL` and `RELEASE_VLA_MODEL` to the fallback model names for
+requests that omit `llm_model` or `vla_model`. The workflow validates both
+selections against LoongForge's own test definitions before execution.
+
 `debug_tag_suffix` is an explicit per-request input. Debug Full Release uses
 `_ci_test`; production requests leave it empty. The workflow does not infer a
 suffix from runner-local configuration.
