@@ -18,7 +18,8 @@ from loongforge.embodied.model.dreamzero.modules.flow_match_scheduler import Flo
 def test_requested_torch_version() -> None:
     expected = os.environ.get("EXPECTED_TORCH_VERSION")
     if expected is not None:
-        assert torch.__version__ == expected, (
+        installed_version = torch.__version__.split("+", 1)[0]
+        assert installed_version == expected, (
             f"expected PyTorch {expected}, got {torch.__version__}"
         )
 
