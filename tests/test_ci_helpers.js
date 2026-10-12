@@ -232,6 +232,8 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.doesNotMatch(workflow, /CI_DOCKERHUB_PUBLISHER_RUNNER/);
   assert.match(workflow, /iregistry-release/);
   assert.match(workflow, /promote_to_dockerhub:/);
+  assert.match(workflow, /promote_to_dockerhub\.sh/);
+  assert.doesNotMatch(workflow, /docker_redacted\.sh push "\$DOCKERHUB_REF"/);
   assert.match(workflow, /DOCKERHUB_IMAGE:.*docker\.io\/loongforge\/loongforge/);
   assert.match(workflow, /build_candidate_image\.sh/);
   assert.match(workflow, /--release/);
@@ -272,11 +274,11 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.match(workflow, /needs\.validate\.outputs\.publish_dockerhub == 'true'/);
   assert.match(workflow, /Tag validated image for iregistry/);
   assert.match(workflow, /docker_redacted\.sh push "\$INTERNAL_IMAGE_REF"/);
-  assert.match(workflow, /docker_redacted\.sh pull "\$INTERNAL_IMAGE_REF"/);
-  assert.match(workflow, /Verify registry digests match/);
+  assert.match(workflow, /Copy image to Docker Hub/);
+  assert.match(workflow, /Verify Docker Hub image/);
   assert.match(workflow, /Resolve Docker Hub image reference/);
   assert.match(workflow, /DOCKERHUB_REF: \$\{\{ steps\.hub_ref\.outputs\.dockerhub_ref \}\}/);
-  assert.match(workflow, /docker_redacted\.sh push "\$DOCKERHUB_REF"/);
+  assert.doesNotMatch(workflow, /docker_redacted\.sh push "\$DOCKERHUB_REF"/);
   assert.match(workflow, /cleanup_debug_tags:/);
   assert.match(workflow, /env\.BUILD_IMAGE == 'true' \|\| env\.PUBLISH_TO_INTERNAL_REGISTRY == 'true'/);
   assert.match(workflow, /cleanup_debug_tags\.py/);
