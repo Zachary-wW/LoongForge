@@ -239,13 +239,13 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.match(workflow, /loongforge-release:\$\{\{ env\.VERSION \}\}-\$\{\{ github\.run_id \}\}/);
   assert.match(workflow, /--target auto/);
   assert.match(workflow, /manual releases must be dispatched from master/);
-  assert.match(workflow, /for switch_name in/);
-  assert.match(workflow, /\$switch_name must be true or false\./);
+  assert.match(workflow, /Validate release stage switches/);
+  assert.match(workflow, /release_request\.py/);
   assert.match(workflow, /image_policy\.py/);
   assert.match(workflow, /run_release_regression\.sh/);
-  assert.match(workflow, /RUN_RELEASE_REGRESSION: \$\{\{ vars\.RUN_RELEASE_REGRESSION \}\}/);
-  assert.match(workflow, /PUBLISH_TO_INTERNAL_REGISTRY: \$\{\{ vars\.PUBLISH_TO_INTERNAL_REGISTRY \}\}/);
-  assert.match(workflow, /PUBLISH_TO_DOCKERHUB: \$\{\{ vars\.PUBLISH_TO_DOCKERHUB \}\}/);
+  assert.match(workflow, /RUN_RELEASE_REGRESSION: \$\{\{ needs\.validate\.outputs\.run_regression \}\}/);
+  assert.match(workflow, /PUBLISH_TO_INTERNAL_REGISTRY: \$\{\{ needs\.validate\.outputs\.publish_internal \}\}/);
+  assert.match(workflow, /publish_dockerhub == 'true'/);
   assert.match(workflow, /if: env\.RUN_RELEASE_REGRESSION == 'true'/);
   assert.doesNotMatch(workflow, /LOONGFORGE_RELEASE_RUN_REGRESSION/);
   assert.match(workflow, /deepseek_v2_lite/);
@@ -269,14 +269,8 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.doesNotMatch(workflow, /\/ssd4\//);
   assert.doesNotMatch(workflow, /needs\.build_test_push_internal\.outputs/);
   assert.doesNotMatch(workflow, /baidu-int\.com/);
-  assert.match(
-    workflow,
-    /startsWith\(github\.ref, 'refs\/tags\/v'\) &&\s*env\.PUBLISH_TO_INTERNAL_REGISTRY == 'true'/,
-  );
-  assert.match(
-    workflow,
-    /vars\.PUBLISH_TO_INTERNAL_REGISTRY == 'true' &&\s*vars\.PUBLISH_TO_DOCKERHUB == 'true'/,
-  );
+  assert.match(workflow, /env\.PUBLISH_TO_INTERNAL_REGISTRY == 'true'/);
+  assert.match(workflow, /needs\.validate\.outputs\.publish_dockerhub == 'true'/);
   assert.match(workflow, /Tag validated image for iregistry/);
   assert.match(workflow, /docker_redacted\.sh push "\$INTERNAL_IMAGE_REF"/);
   assert.match(workflow, /docker_redacted\.sh pull "\$INTERNAL_IMAGE_REF"/);
@@ -289,6 +283,15 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.match(workflow, /--registry internal/);
   assert.match(workflow, /--registry dockerhub/);
   assert.match(workflow, /if: always\(\)/);
+  assert.match(workflow, /build_image:/);
+  assert.match(workflow, /run_regression:/);
+  assert.match(workflow, /publish_internal:/);
+  assert.match(workflow, /publish_dockerhub:/);
+  assert.match(workflow, /release_request\.py/);
+  assert.match(workflow, /needs\.validate\.outputs\.build_image/);
+  assert.match(workflow, /needs\.validate\.outputs\.run_regression/);
+  assert.match(workflow, /needs\.validate\.outputs\.publish_internal/);
+  assert.match(workflow, /needs\.validate\.outputs\.publish_dockerhub/);
   assert.match(workflow, /timeout-minutes: 90/);
   assert.match(workflow, /DOCKER_CONFIG: \$\{\{ github\.workspace \}\}\/\.docker-config/);
   assert.doesNotMatch(workflow, /docker\/build-push-action/);

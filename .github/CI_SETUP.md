@@ -83,6 +83,14 @@ Set the repository variable `RUN_RELEASE_REGRESSION=true` only when the GPU
 runner is available for the two model regressions; set it to `false` while the
 GPU runner is occupied.
 
+The unified Release workflow also accepts per-request Stage Switch inputs:
+`build_image`, `run_regression`, `publish_internal`, and `publish_dockerhub`.
+When an input is omitted, the workflow reads the matching repository variable:
+`BUILD_RELEASE_IMAGE`, `RUN_RELEASE_REGRESSION`,
+`PUBLISH_TO_INTERNAL_REGISTRY`, or `PUBLISH_TO_DOCKERHUB`. For a version-tag
+push, `build_image` defaults to `true` because a formal tag release must
+produce the image it publishes.
+
 `LOONGFORGE_RELEASE_TAG_SUFFIX` is optional and empty by default. Set it, for
 example to `_ci_test`, on a non-production runner so a rehearsal appends the
 marker to both the internal image tag and the Docker Hub tag instead of
@@ -111,8 +119,8 @@ credentials remain on the protected release runner and are not stored in
 GitHub. Releases push the validated internal image first, then the same
 release runner drives the publisher Docker daemon over SSH and pushes only
 `<DOCKERHUB_IMAGE>:<version>`; the `latest` tag is never moved. A manual
-`workflow_dispatch` builds, scans, and regresses the image but does not push to
-either registry.
+`workflow_dispatch` can build, scan, regress, and publish when the
+corresponding Stage Switches are enabled.
 
 PyPI publishing is opt-in and off by default. Set the repository variable
 `PUBLISH_TO_PYPI` to `true` only after a pending or existing PyPI Trusted
