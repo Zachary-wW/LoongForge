@@ -622,6 +622,7 @@ def test_candidate_builder_uses_a_trusted_dockerfile_and_scans_the_image():
     assert '"IMAGE_PIP_CONFIG:pip_config"' in script
     assert '"IMAGE_SOURCE_MANIFEST:source_manifest"' in script
     assert "IMAGE_BUILD_ARG_" in script
+    assert "--network host" in script
     assert 'image_policy.py" "$image_ref"' in script
 
 

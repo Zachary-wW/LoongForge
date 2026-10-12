@@ -63,7 +63,9 @@ installation steps. An `IMAGE_DOCKERFILE` override must also be
 operator-managed. Verify Buildx with `docker buildx version`;
 installing the CLI plugin does not require restarting the Docker daemon.
 The release job builds with the daemon's own BuildKit through
-`DOCKER_BUILDKIT=1 docker build`; it deliberately does not create a
+`DOCKER_BUILDKIT=1 docker build --network host`; this allows the isolated
+release daemon to run with `bridge=none`.
+The workflow deliberately does not create a
 `docker-container` builder, because bootstrapping one pulls a builder image
 from Docker Hub and an internal-only runner cannot reach it.
 

@@ -105,6 +105,7 @@ trap 'rm -rf "$context_dir"' EXIT
 dockerfile="$source_dockerfile"
 
 build_args=(
+  --network host
   --build-arg "COMPILE_ENV=$compile_env"
   --label "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   --label "org.opencontainers.image.revision=$head_sha"
