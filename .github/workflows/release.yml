@@ -439,6 +439,7 @@ jobs:
           echo "registry_host=$registry_host" >> "$GITHUB_OUTPUT"
       - name: Copy image to Docker Hub
         env:
+          DOCKERHUB_REF: ${{ steps.hub_ref.outputs.dockerhub_ref }}
           DOCKERHUB_REGISTRY_HOST: ${{ steps.hub_ref.outputs.registry_host }}
         run: LoongForge/.github/scripts/self_runner/promote_to_dockerhub.sh \
           "$INTERNAL_IMAGE_REF" \
