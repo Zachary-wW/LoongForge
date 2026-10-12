@@ -238,7 +238,8 @@ test('release builds, regresses, and promotes one immutable image', () => {
   assert.match(workflow, /--image-ref "\$IMAGE_REF"/);
   assert.match(workflow, /loongforge-release:\$\{\{ env\.VERSION \}\}-\$\{\{ github\.run_id \}\}/);
   assert.match(workflow, /--target auto/);
-  assert.match(workflow, /publishing releases must be dispatched from master/);
+  assert.match(workflow, /production publishing must be dispatched from master/);
+  assert.match(workflow, /DEBUG_TAG_SUFFIX" == ""/);
   assert.match(workflow, /Validate release stage switches/);
   assert.match(workflow, /release_request\.py/);
   assert.match(workflow, /image_policy\.py/);

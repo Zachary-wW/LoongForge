@@ -137,11 +137,13 @@ jobs:
           RELEASE_REF: ${{ github.ref }}
           PUBLISH_INTERNAL: ${{ steps.stages.outputs.publish_internal }}
           PUBLISH_DOCKERHUB: ${{ steps.stages.outputs.publish_dockerhub }}
+          DEBUG_TAG_SUFFIX: ${{ steps.stages.outputs.debug_tag_suffix }}
         run: |
           set -euo pipefail
           if [[ "$EVENT_NAME" == workflow_dispatch && "$RELEASE_REF" != refs/heads/master ]]; then
-            if [[ "$PUBLISH_INTERNAL" == true || "$PUBLISH_DOCKERHUB" == true ]]; then
-              echo "publishing releases must be dispatched from master" >&2
+            if [[ "$DEBUG_TAG_SUFFIX" == "" && \
+                  ("$PUBLISH_INTERNAL" == true || "$PUBLISH_DOCKERHUB" == true) ]]; then
+              echo "production publishing must be dispatched from master" >&2
               exit 1
             fi
           fi

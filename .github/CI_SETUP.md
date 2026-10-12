@@ -133,9 +133,10 @@ release runner drives the publisher Docker daemon over SSH and pushes only
 `<DOCKERHUB_IMAGE>:<version>`; the `latest` tag is never moved. A manual
 `workflow_dispatch` can build, scan, regress, and publish when the
 corresponding Stage Switches are enabled.
-Publishing requests that enable `publish_internal` or `publish_dockerhub` must
-still be dispatched from `master`; build-only and rehearsal requests may be
-dispatched from another branch.
+Production publishing requests that enable `publish_internal` or
+`publish_dockerhub` without a debug suffix must still be dispatched from
+`master`. Debug Full Release requests carry a non-production suffix and may be
+dispatched from a non-production branch.
 
 PyPI publishing is opt-in and off by default. Set the repository variable
 `PUBLISH_TO_PYPI` to `true` only after a pending or existing PyPI Trusted
