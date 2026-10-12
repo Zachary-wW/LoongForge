@@ -91,6 +91,15 @@ When an input is omitted, the workflow reads the matching repository variable:
 push, `build_image` defaults to `true` because a formal tag release must
 produce the image it publishes.
 
+Set `RELEASE_EXECUTION_SLOT` to `primary` or `secondary` as the fallback for
+requests that omit `execution_slot`. The Control Runner resolves both slots
+from an operator-managed, mode-`0600`
+`LOONGFORGE_EXECUTION_SLOT_CONFIG` file. Public workflow inputs and GitHub
+logs contain only the slot name; SSH aliases, Docker hosts, source roots, and
+execution roots remain runner-local. The `primary` slot executes locally; the
+`secondary` slot synchronizes source over SSH, executes regression on the
+remote host, and returns only portable release evidence.
+
 `LOONGFORGE_RELEASE_TAG_SUFFIX` is optional and empty by default. Set it, for
 example to `_ci_test`, on a non-production runner so a rehearsal appends the
 marker to both the internal image tag and the Docker Hub tag instead of

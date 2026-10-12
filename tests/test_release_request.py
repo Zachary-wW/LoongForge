@@ -22,6 +22,7 @@ def request(**overrides):
         "run_regression": "true",
         "publish_internal": "true",
         "publish_dockerhub": "true",
+        "execution_slot": "primary",
     }
     values.update(overrides)
     return release_request.parse_release_request(**values)
@@ -49,6 +50,16 @@ def test_rehearsal_is_valid():
     result = request(publish_internal="false", publish_dockerhub="false")
     assert result.run_regression is True
     assert result.publish_internal is False
+
+
+def test_secondary_execution_slot_is_valid():
+    result = request(execution_slot="secondary")
+    assert result.execution_slot == "secondary"
+
+
+def test_invalid_execution_slot_is_rejected():
+    with pytest.raises(release_request.ReleaseRequestError):
+        request(execution_slot="2813")
 
 
 def test_regression_can_use_existing_image():

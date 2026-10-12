@@ -91,6 +91,11 @@ and `PUBLISH_TO_DOCKERHUB`. Docker Hub promotion is skipped automatically when
 internal registry publishing is disabled, because there is no validated
 internal image to pull.
 
+The optional `execution_slot` input must be `primary` or `secondary`; when it
+is omitted the workflow uses `RELEASE_EXECUTION_SLOT`. Slots are resolved on
+the Control Runner from runner-local configuration, so GitHub receives only
+the stable public identifier.
+
 PyPI publishing is opt-in. Set the repository variable `PUBLISH_TO_PYPI` to
 `true` once a Trusted Publisher exists for this workflow; a version tag then
 publishes the built distribution first. While the variable is unset, the tag
@@ -109,6 +114,9 @@ Operator hook contracts:
 - `LOONGFORGE_IMAGE_BUILDER --source DIR --target a|p|auto --sha SHA --pr NUMBER --tree-sha SHA`; stdout must contain only the local candidate image reference
 - `run_release_regression.sh --image IMAGE --source DIR --sha SHA`; the release
   runner creates one container and runs the two release models serially.
+- `run_release_regression_slot.sh --image IMAGE --source DIR --sha SHA`; the
+  Control Runner routes the regression to the selected Execution Slot and
+  synchronizes portable evidence back to the GitHub job.
 
 The builder reads `CI_CONFIG_PATH_IMAGE` (or the wrapper's `CI_CONFIG_PATH`) from
 the selected suite runner. It uses the Dockerfile's `BASE_IMAGE` build argument,

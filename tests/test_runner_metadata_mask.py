@@ -10,6 +10,11 @@ def test_mask_script_masks_config_and_additional_values(tmp_path):
     image_config.write_text("PRIVATE_PATH=/private/image/path\nEMPTY=\n", encoding="utf-8")
     release_config = tmp_path / "release-config"
     release_config.write_text("DOCKER_HOST=ssh://publisher\n", encoding="utf-8")
+    execution_config = tmp_path / "execution-config"
+    execution_config.write_text(
+        "LOONGFORGE_EXECUTION_SLOT_SECONDARY_ALIAS=ssh-private-host\n",
+        encoding="utf-8",
+    )
     extra_values = tmp_path / "private-values"
     extra_values.write_text("# comment\nprivate.example.invalid\n", encoding="utf-8")
     hub_credentials = tmp_path / "hub-credentials"
@@ -21,6 +26,7 @@ def test_mask_script_masks_config_and_additional_values(tmp_path):
         "DOCKERHUB_IMAGE": "registry.public.invalid/team/image",
         "CI_CONFIG_PATH_IMAGE": str(image_config),
         "LOONGFORGE_RELEASE_CONFIG": str(release_config),
+        "LOONGFORGE_EXECUTION_SLOT_CONFIG": str(execution_config),
         "LOONGFORGE_DOCKERHUB_CREDENTIALS": str(hub_credentials),
         "LOONGFORGE_RUNNER_MASK_VALUES": str(extra_values),
     })
@@ -40,6 +46,7 @@ def test_mask_script_masks_config_and_additional_values(tmp_path):
         str(release_config),
         "/private/image/path",
         "ssh://publisher",
+        "ssh-private-host",
         "private.example.invalid",
         "hub-secret-value",
         str(hub_credentials),

@@ -26,6 +26,7 @@ class ReleaseRequest:
     run_regression: bool
     publish_internal: bool
     publish_dockerhub: bool
+    execution_slot: str = ""
     debug_tag_suffix: str = ""
     existing_image_ref: str = ""
     existing_internal_image_ref: str = ""
@@ -50,6 +51,7 @@ def parse_release_request(
     run_regression: str,
     publish_internal: str,
     publish_dockerhub: str,
+    execution_slot: str,
     debug_tag_suffix: str = "",
     existing_image_ref: str = "",
     existing_internal_image_ref: str = "",
@@ -60,6 +62,7 @@ def parse_release_request(
         run_regression=_parse_bool("run_regression", run_regression),
         publish_internal=_parse_bool("publish_internal", publish_internal),
         publish_dockerhub=_parse_bool("publish_dockerhub", publish_dockerhub),
+        execution_slot=execution_slot.strip(),
         debug_tag_suffix=debug_tag_suffix.strip(),
         existing_image_ref=existing_image_ref.strip(),
         existing_internal_image_ref=existing_internal_image_ref.strip(),
@@ -70,6 +73,9 @@ def parse_release_request(
 
 
 def validate_release_request(request: ReleaseRequest) -> None:
+    if request.execution_slot not in {"primary", "secondary"}:
+        raise ReleaseRequestError("execution_slot must be primary or secondary")
+
     if not DEBUG_SUFFIX_RE.fullmatch(request.debug_tag_suffix):
         raise ReleaseRequestError("debug_tag_suffix contains invalid characters")
 
@@ -114,6 +120,7 @@ def parse_args() -> argparse.Namespace:
         "run_regression",
         "publish_internal",
         "publish_dockerhub",
+        "execution_slot",
     ):
         _add_argument(parser, name, required=True)
     for name in (
