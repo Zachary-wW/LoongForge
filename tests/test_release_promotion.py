@@ -28,7 +28,8 @@ def test_promotion_script_is_valid_shell():
 
 def test_promotion_script_uses_regctl_copy():
     script = SCRIPT.read_text(encoding="utf-8")
-    assert "image copy" in script
+    assert "remote_command=(" in script
+    assert "  image\n  copy\n" in script
     assert "--host" in script
     assert "LOONGFORGE_REGCTL_BIN" in script
     assert "docker push" not in script

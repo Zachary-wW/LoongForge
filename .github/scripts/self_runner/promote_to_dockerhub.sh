@@ -20,10 +20,18 @@ source "$script_dir/load_release_credentials.sh" dockerhub
 
 regctl_bin="${LOONGFORGE_REGCTL_BIN:?LOONGFORGE_REGCTL_BIN is required}"
 
-ssh -o BatchMode=yes "$LOONGFORGE_RELEASE_PUBLISHER_ALIAS" \
-  "HTTPS_PROXY='$LOONGFORGE_DOCKERHUB_PROXY' \
-   NO_PROXY='$LOONGFORGE_DOCKERHUB_NO_PROXY' \
-   '$regctl_bin' image copy \
-   --host 'reg=$internal_host,user=$IREGISTRY_USERNAME,pass=$IREGISTRY_PASSWORD' \
-   --host 'reg=$dockerhub_host,user=$DOCKERHUB_USERNAME,pass=$DOCKERHUB_TOKEN' \
-   '$internal_ref' '$dockerhub_ref'"
+remote_command=(
+  "HTTPS_PROXY=$LOONGFORGE_DOCKERHUB_PROXY"
+  "NO_PROXY=$LOONGFORGE_DOCKERHUB_NO_PROXY"
+  "$regctl_bin"
+  image
+  copy
+  --host
+  "reg=$internal_host,user=$IREGISTRY_USERNAME,pass=$IREGISTRY_PASSWORD"
+  --host
+  "reg=$dockerhub_host,user=$DOCKERHUB_USERNAME,pass=$DOCKERHUB_TOKEN"
+  "$internal_ref"
+  "$dockerhub_ref"
+)
+printf -v remote_command_quoted '%q ' "${remote_command[@]}"
+ssh -o BatchMode=yes "$LOONGFORGE_RELEASE_PUBLISHER_ALIAS" "$remote_command_quoted"
