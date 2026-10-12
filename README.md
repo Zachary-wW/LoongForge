@@ -378,6 +378,13 @@ publishes the matching versioned Docker image. It does not move Docker Hub's
 Kunlun XPU runtime versions are documented in the
 [installation guide](https://loongforge.readthedocs.io/en/latest/get_started/installation.html).
 
+The [PyTorch compatibility workflow](.github/workflows/pytorch-compatibility.yml)
+tests the built wheel against the latest release in each of the two newest
+upstream PyTorch series.
+Release Docker images intentionally remain pinned to NVIDIA NGC containers and
+are upgraded only after the complete compiled CUDA stack passes accelerator
+regression.
+
 ## 🤝 Contributing
 
 We warmly welcome community contributions — bug reports, feature proposals, and PRs alike. Please read our [Contributing Guidelines](./CONTRIBUTING.md) before submitting.
