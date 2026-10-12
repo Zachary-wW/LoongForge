@@ -284,6 +284,13 @@ RUN --mount=type=secret,id=source_manifest,required=false \
     install_transformer_engine && \
     install_lerobot
 
+# Lerobot v0.5.0 constrains diffusers to <0.36, which conflicts with LoongForge
+# and reintroduces the torchao import failure. Restore the release-pinned
+# version after Lerobot's dependency resolution, then fail the image build if
+# the compatibility-sensitive import path regresses.
+RUN pip --disable-pip-version-check --quiet install "diffusers==0.38.0" && \
+    python -c 'import diffusers; assert diffusers.__version__ == "0.38.0"; from diffusers import ConfigMixin, ModelMixin'
+
 
 # =========================================================
 # Megatron Symlink
