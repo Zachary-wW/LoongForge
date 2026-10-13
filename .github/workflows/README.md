@@ -62,8 +62,9 @@ GitHub Actions.
 
 ## Releases
 
-Version tags publish the validated Python package and build one release image
-on `CI_RELEASE_RUNNER`. The checkout includes tracked submodules and uses the
+The Release workflow is started by `workflow_dispatch`; the internal Portal is
+the intended operator entry point. Pushing a Git tag never starts it. The
+checkout includes tracked submodules and uses the
 same trusted builder, automatically detected GPU target, runner-local mirrors,
 proxy handling, BuildKit secrets, redacted logs, and image policy as a
 candidate build.
@@ -82,8 +83,8 @@ Docker daemon over SSH. That daemon pulls the exact internal image, retags it
 as `<DOCKERHUB_IMAGE>:<version>`, pushes it, and verifies that the registry
 digests match. The publishing host has the faster external route but does not
 run a GitHub runner. The workflow never moves Docker Hub's `latest` tag. A
-manual dispatch builds, scans, and regresses the image but does not push to
-either registry.
+request can build and regress without publishing, or publish when the
+corresponding stage switches are enabled.
 
 The three operational switches are required repository variables and must be
 `true` or `false`: `RUN_RELEASE_REGRESSION`, `PUBLISH_TO_INTERNAL_REGISTRY`,
@@ -100,10 +101,9 @@ The optional `llm_model` and `vla_model` inputs select the regression models.
 When omitted they use `RELEASE_LLM_MODEL` and `RELEASE_VLA_MODEL`; the workflow
 rejects names that do not exist in LoongForge's test definitions.
 
-PyPI publishing is opt-in. Set the repository variable `PUBLISH_TO_PYPI` to
-`true` once a Trusted Publisher exists for this workflow; a version tag then
-publishes the built distribution first. While the variable is unset, the tag
-release skips PyPI entirely, so an unconfigured package cannot block the image.
+The Release workflow does not publish to PyPI. If package publication is added
+later, it should become an explicit stage switch rather than a Git-tag side
+effect.
 
 The image policy rejects `bcecmd`, common credential files, AK/SK and signed
 authorization metadata, and internal endpoints or runner paths before a
@@ -137,9 +137,9 @@ image. Unknown or mixed GPU architectures fail closed, and an explicit `a` or
 
 Repository Variables are configured in GitHub Settings. The workflow expects
 `CI_RUNNER_A`, `CI_RUNNER_P`, `CI_REVIEW_RUNNER`, `CI_RELEASE_RUNNER`, and
-`CLAUDE_REVIEW_MODEL`; release tags also require `INTERNAL_IMAGE_REPOSITORY`.
-`CLAUDE_CODE_EXECUTABLE`, `DOCKERHUB_IMAGE`, and `PUBLISH_TO_PYPI` are
-optional. Release tags also require `RUN_RELEASE_REGRESSION`,
+`CLAUDE_REVIEW_MODEL`; release requests also require
+`INTERNAL_IMAGE_REPOSITORY`. `CLAUDE_CODE_EXECUTABLE` and `DOCKERHUB_IMAGE`
+are optional. Release requests also require `RUN_RELEASE_REGRESSION`,
 `PUBLISH_TO_INTERNAL_REGISTRY`, and `PUBLISH_TO_DOCKERHUB`. Every self-hosted
 runner provides its own
 `CI_CONFIG_PATH_IMAGE` environment variable; this is not a Repository Variable

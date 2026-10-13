@@ -89,9 +89,8 @@ The unified Release workflow also accepts per-request Stage Switch inputs:
 `build_image`, `run_regression`, `publish_internal`, and `publish_dockerhub`.
 When an input is omitted, the workflow reads the matching repository variable:
 `BUILD_RELEASE_IMAGE`, `RUN_RELEASE_REGRESSION`,
-`PUBLISH_TO_INTERNAL_REGISTRY`, or `PUBLISH_TO_DOCKERHUB`. For a version-tag
-push, `build_image` defaults to `true` because a formal tag release must
-produce the image it publishes.
+`PUBLISH_TO_INTERNAL_REGISTRY`, or `PUBLISH_TO_DOCKERHUB`. The Release workflow
+is started only by `workflow_dispatch`; pushing a Git tag never starts it.
 
 Set `RELEASE_EXECUTION_SLOT` to `primary` or `secondary` as the fallback for
 requests that omit `execution_slot`. The Control Runner resolves both slots
@@ -127,7 +126,7 @@ Remove obsolete `INTERNAL_CI_*` variables after the old internal CI workflow
 has been retired. They are not consumed by the current workflows and may
 expose runner-local paths through the public repository configuration.
 
-Create protected `pypi-release`, `iregistry-release`, and `dockerhub-release`
+Create protected `iregistry-release` and `dockerhub-release`
 Environments for the release workflow. They are approval gates; registry
 credentials remain on the protected release runner and are not stored in
 GitHub. Releases push the validated internal image first, then the same
@@ -140,12 +139,9 @@ Production publishing requests that enable `publish_internal` or
 `master`. Debug Full Release requests carry a non-production suffix and may be
 dispatched from a non-production branch.
 
-PyPI publishing is opt-in and off by default. Set the repository variable
-`PUBLISH_TO_PYPI` to `true` only after a pending or existing PyPI Trusted
-Publisher is registered for owner `baidu-baige`, repository `LoongForge`,
-workflow `release.yml`, and environment `pypi-release`. While it is unset or
-false, a version tag builds, regresses, and promotes the image without a PyPI
-step, and a failed or missing PyPI configuration cannot block a release.
+The Release workflow does not publish to PyPI. If package publication is added
+later, it should become an explicit stage switch so it follows the same
+operator-controlled request model as the image stages.
 
 Both candidate and release images pass the trusted image policy before use or
 push. It rejects `bcecmd`, common cloud credential files, persisted source
@@ -207,12 +203,10 @@ Configure these repository variables:
 - `INTERNAL_IMAGE_REPOSITORY` is required for a release tag: the full image
   repository without a tag. The login host is derived from it.
 - `DOCKERHUB_IMAGE`, default `docker.io/loongforge/loongforge`.
-- `PUBLISH_TO_PYPI`, default unset: `true` enables the optional PyPI release
-  step for version tags.
 - `RUN_RELEASE_REGRESSION`, required: `true` enables the GPU release
   regressions; `false` skips them.
 - `PUBLISH_TO_INTERNAL_REGISTRY`, required: `true` pushes a validated
-  version-tag image to the internal registry; `false` skips that push.
+  release image to the internal registry; `false` skips that push.
 - `PUBLISH_TO_DOCKERHUB`, required: `true` promotes the validated internal
   image to Docker Hub; `false` keeps it only in the internal registry. Docker
   Hub promotion also requires internal registry publishing to be enabled.

@@ -218,15 +218,14 @@ test('Claude review uses the configured model and reports failures', () => {
   assert.doesNotMatch(workflow, /show_full_output:\s*true/);
 });
 
-test('release builds, regresses, and promotes one immutable image', () => {
+test('release is dispatched manually and builds, regresses, and promotes one immutable image', () => {
   const workflow = readWorkflow('release.yml');
+  assert.match(workflow, /on:\n  workflow_dispatch:/);
+  assert.doesNotMatch(workflow, /push:\s*\n\s*tags:/);
   assert.match(workflow, /group: release-\$\{\{ github\.ref \}\}/);
-  assert.match(workflow, /workflow_dispatch:/);
+  assert.doesNotMatch(workflow, /PUBLISH_TO_PYPI/);
   assert.match(workflow, /path: LoongForge/);
-  assert.match(workflow, /needs: \[validate, package, publish\]/);
-  assert.match(workflow, /vars\.PUBLISH_TO_PYPI == 'true'/);
-  assert.match(workflow, /needs\.package\.result == 'skipped'/);
-  assert.match(workflow, /needs\.publish\.result == 'skipped'/);
+  assert.match(workflow, /needs: validate\n/);
   assert.match(workflow, /submodules: recursive/);
   assert.match(workflow, /fromJSON\(vars\.CI_RELEASE_RUNNER\)/);
   assert.doesNotMatch(workflow, /CI_DOCKERHUB_PUBLISHER_RUNNER/);
