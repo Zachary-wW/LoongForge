@@ -218,24 +218,101 @@ test('Claude review uses the configured model and reports failures', () => {
   assert.doesNotMatch(workflow, /show_full_output:\s*true/);
 });
 
-test('release uses matching context and immutable image tags', () => {
+test('release is dispatched manually and builds, regresses, and promotes one immutable image', () => {
   const workflow = readWorkflow('release.yml');
+  assert.match(workflow, /on:\n  workflow_dispatch:/);
+  assert.doesNotMatch(workflow, /push:\s*\n\s*tags:/);
+  assert.match(workflow, /__dry_run__/);
+  assert.match(workflow, /needs\.validate\.outputs\.dry_run == 'false'/);
+  assert.match(workflow, /  dry_run:\n/);
   assert.match(workflow, /group: release-\$\{\{ github\.ref \}\}/);
-  assert.match(workflow, /workflow_dispatch:/);
+  assert.doesNotMatch(workflow, /PUBLISH_TO_PYPI/);
   assert.match(workflow, /path: LoongForge/);
-  assert.match(workflow, /needs: \[validate, package, publish\]/);
+  assert.match(workflow, /needs: validate\n/);
   assert.match(workflow, /submodules: recursive/);
   assert.match(workflow, /fromJSON\(vars\.CI_RELEASE_RUNNER\)/);
-  assert.match(workflow, /docker\.io\/loongforge\/loongforge:/);
+  assert.doesNotMatch(workflow, /CI_DOCKERHUB_PUBLISHER_RUNNER/);
+  assert.match(workflow, /iregistry-release/);
+  assert.match(workflow, /promote_to_dockerhub:/);
+  assert.match(workflow, /promote_to_dockerhub\.sh/);
+  assert.doesNotMatch(workflow, /docker_redacted\.sh push "\$DOCKERHUB_REF"/);
+  assert.match(workflow, /DOCKERHUB_IMAGE:.*docker\.io\/loongforge\/loongforge/);
   assert.match(workflow, /build_candidate_image\.sh/);
   assert.match(workflow, /--release/);
   assert.match(workflow, /--image-ref "\$IMAGE_REF"/);
+  assert.match(workflow, /loongforge-release:\$\{\{ env\.VERSION \}\}-\$\{\{ github\.run_id \}\}/);
   assert.match(workflow, /--target auto/);
-  assert.match(workflow, /manual releases must be dispatched from master/);
+  assert.match(workflow, /production publishing must be dispatched from master/);
+  assert.match(workflow, /DEBUG_TAG_SUFFIX" == ""/);
+  assert.match(workflow, /Validate release stage switches/);
+  assert.match(workflow, /release_request\.py/);
   assert.match(workflow, /image_policy\.py/);
-  assert.match(workflow, /if: github\.event_name == 'push'/);
-  assert.match(workflow, /docker push "\$\{\{ steps\.release_image\.outputs\.image_ref \}\}"/);
+  assert.match(workflow, /run_release_regression\.sh/);
+  assert.doesNotMatch(workflow, /run_release_regression_slot\.sh/);
+  assert.match(workflow, /RUN_RELEASE_REGRESSION: \$\{\{ needs\.validate\.outputs\.run_regression \}\}/);
+  assert.match(workflow, /PUBLISH_TO_INTERNAL_REGISTRY: \$\{\{ needs\.validate\.outputs\.publish_internal \}\}/);
+  assert.match(workflow, /publish_dockerhub == 'true'/);
+  assert.match(workflow, /if: env\.RUN_RELEASE_REGRESSION == 'true'/);
+  assert.doesNotMatch(workflow, /LOONGFORGE_RELEASE_RUN_REGRESSION/);
+  assert.match(workflow, /LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX/);
+  assert.match(workflow, /tag_suffix="\$\{DEBUG_TAG_SUFFIX:-\}"/);
+  assert.doesNotMatch(workflow, /LOONGFORGE_RELEASE_TAG_SUFFIX/);
+  assert.match(workflow, /dockerhub_ref="\$\{DOCKERHUB_IMAGE\}:\$\{VERSION\}\$\{tag_suffix\}"/);
+  assert.match(workflow, /load_release_config\.sh/);
+  assert.match(workflow, /load_release_credentials\.sh iregistry/);
+  assert.match(workflow, /load_release_credentials\.sh dockerhub/);
+  assert.doesNotMatch(workflow, /secrets\.IREGISTRY/);
+  assert.doesNotMatch(workflow, /secrets\.DOCKERHUB/);
+  assert.match(workflow, /LOONGFORGE_RUNNER_MASK_SCRIPT/);
+  assert.match(workflow, /Protect runner-local metadata/);
+  const releaseRunnerJob = workflow.slice(workflow.indexOf('build_test_push_internal:'));
+  assert.ok(
+    releaseRunnerJob.indexOf('Protect runner-local metadata') <
+      releaseRunnerJob.indexOf('actions/checkout@'),
+  );
+  assert.doesNotMatch(workflow, /\/ssd4\//);
+  assert.doesNotMatch(workflow, /needs\.build_test_push_internal\.outputs/);
+  assert.doesNotMatch(workflow, /baidu-int\.com/);
+  assert.match(workflow, /env\.PUBLISH_TO_INTERNAL_REGISTRY == 'true'/);
+  assert.match(workflow, /needs\.validate\.outputs\.publish_dockerhub == 'true'/);
+  assert.match(workflow, /Tag validated image for iregistry/);
+  assert.match(workflow, /docker_redacted\.sh push "\$INTERNAL_IMAGE_REF"/);
+  assert.match(workflow, /Copy image to Docker Hub/);
+  assert.match(workflow, /Verify Docker Hub image/);
+  assert.match(workflow, /Resolve Docker Hub image reference/);
+  assert.match(workflow, /DOCKERHUB_REF: \$\{\{ steps\.hub_ref\.outputs\.dockerhub_ref \}\}/);
+  assert.doesNotMatch(workflow, /docker_redacted\.sh push "\$DOCKERHUB_REF"/);
+  assert.match(workflow, /cleanup_debug_tags:/);
+  assert.match(workflow, /env\.BUILD_IMAGE == 'true' \|\| env\.PUBLISH_TO_INTERNAL_REGISTRY == 'true'/);
+  assert.match(workflow, /cleanup_debug_tags\.py/);
+  assert.match(workflow, /cleanup_debug_tags\.py \\\n\s+internal/);
+  assert.match(workflow, /cleanup_debug_tags\.py \\\n\s+dockerhub/);
+  assert.match(workflow, /if: always\(\)/);
+  assert.match(workflow, /build_image:/);
+  assert.match(workflow, /run_regression:/);
+  assert.match(workflow, /publish_internal:/);
+  assert.match(workflow, /publish_dockerhub:/);
+  assert.match(workflow, /execution_slot:/);
+  assert.match(workflow, /llm_model:/);
+  assert.match(workflow, /vla_model:/);
+  assert.match(workflow, /validate_release_models\.py/);
+  assert.match(workflow, /release_request\.py/);
+  assert.match(workflow, /needs\.validate\.outputs\.build_image/);
+  assert.match(workflow, /needs\.validate\.outputs\.run_regression/);
+  assert.match(workflow, /needs\.validate\.outputs\.publish_internal/);
+  assert.match(workflow, /needs\.validate\.outputs\.publish_dockerhub/);
+  assert.match(workflow, /needs\.validate\.outputs\.execution_slot/);
+  assert.match(workflow, /resolve_execution_slot\.sh/);
+  assert.match(workflow, /run_release_regression\.sh/);
+  assert.match(workflow, /RELEASE_EXECUTION_SLOT/);
+  assert.match(workflow, /RELEASE_LLM_MODEL/);
+  assert.match(workflow, /RELEASE_VLA_MODEL/);
+  assert.match(workflow, /timeout-minutes: 90/);
+  assert.match(workflow, /DOCKER_CONFIG: \$\{\{ github\.workspace \}\}\/\.docker-config/);
   assert.doesNotMatch(workflow, /docker\/build-push-action/);
+  // A docker-container builder pulls its builder image from Docker Hub, which
+  // an internal-only release runner cannot reach.
+  assert.doesNotMatch(workflow, /setup-buildx-action/);
   assert.doesNotMatch(workflow, /DOCKERHUB_IMAGE.*:latest/);
 });
 
