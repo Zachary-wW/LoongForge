@@ -242,7 +242,11 @@ test('release is dispatched manually and builds, regresses, and promotes one imm
   assert.match(workflow, /--image-ref "\$IMAGE_REF"/);
   assert.match(workflow, /loongforge-release:\$\{\{ env\.VERSION \}\}-\$\{\{ github\.run_id \}\}/);
   assert.match(workflow, /--target auto/);
-  assert.match(workflow, /production publishing must be dispatched from master/);
+  assert.match(workflow, /production publishing must use a matching release tag/);
+  assert.match(workflow, /release tag must match pyproject version/);
+  assert.match(workflow, /release tag must point to a commit on master/);
+  assert.match(workflow, /release tags cannot use a debug suffix/);
+  assert.match(workflow, /compare\/master\.\.\.\$\{GITHUB_SHA\}/);
   assert.match(workflow, /DEBUG_TAG_SUFFIX" == ""/);
   assert.match(workflow, /Validate release stage switches/);
   assert.match(workflow, /release_request\.py/);

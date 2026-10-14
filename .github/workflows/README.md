@@ -64,6 +64,13 @@ GitHub Actions.
 
 The Release workflow is started by `workflow_dispatch`; the internal Portal is
 the intended operator entry point. Pushing a Git tag never starts it. The
+Formal Portal flow first creates a `v<version>` tag for a selected master
+commit and dispatches that tag. Production publishing is accepted only from
+that matching tag; the workflow verifies that the tag version matches
+`pyproject.toml` and that the tagged commit is part of `master`.
+Build or regression failure exits before any registry push. Debug requests use
+a selected commit and a mandatory `_ci*` tag suffix; dry-run requests validate
+inputs without executing stages. The
 checkout includes tracked submodules and uses the
 same trusted builder, automatically detected GPU target, runner-local mirrors,
 proxy handling, BuildKit secrets, redacted logs, and image policy as a

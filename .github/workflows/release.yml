@@ -125,16 +125,38 @@ jobs:
           PUBLISH_INTERNAL: ${{ steps.stages.outputs.publish_internal }}
           PUBLISH_DOCKERHUB: ${{ steps.stages.outputs.publish_dockerhub }}
           DEBUG_TAG_SUFFIX: ${{ steps.stages.outputs.debug_tag_suffix }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [[ "$RELEASE_REF" != refs/heads/master ]]; then
-            if [[ "$DEBUG_TAG_SUFFIX" == "" && \
-                  ("$PUBLISH_INTERNAL" == true || "$PUBLISH_DOCKERHUB" == true) ]]; then
-              echo "production publishing must be dispatched from master" >&2
+          package_version="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+
+          production_source=false
+          if [[ "$RELEASE_REF" =~ ^refs/tags/v[0-9]+(\.[0-9]+){0,3}(-[A-Za-z0-9._-]+)?$ ]]; then
+            if [[ -n "$DEBUG_TAG_SUFFIX" ]]; then
+              echo "release tags cannot use a debug suffix" >&2
               exit 1
             fi
+            tag_version="${RELEASE_REF#refs/tags/v}"
+            if [[ "$tag_version" != "$package_version" ]]; then
+              echo "release tag must match pyproject version" >&2
+              exit 1
+            fi
+            compare_status="$(GH_TOKEN="$GITHUB_TOKEN" gh api \
+              "repos/${GITHUB_REPOSITORY}/compare/master...${GITHUB_SHA}" \
+              --jq .status)"
+            if [[ "$compare_status" != "behind" && "$compare_status" != "identical" ]]; then
+              echo "release tag must point to a commit on master" >&2
+              exit 1
+            fi
+            production_source=true
           fi
-          package_version="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+
+          if [[ "$production_source" != true && "$DEBUG_TAG_SUFFIX" == "" && \
+                ("$PUBLISH_INTERNAL" == true || "$PUBLISH_DOCKERHUB" == true) ]]; then
+            echo "production publishing must use a matching release tag" >&2
+            exit 1
+          fi
+
           echo "version=$package_version" >> "$GITHUB_OUTPUT"
 
   dry_run:
