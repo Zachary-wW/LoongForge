@@ -68,7 +68,13 @@ def test_secondary_slot_resolution_is_internal_and_complete(tmp_path):
     )
 
     assert result.returncode == 0
-    assert result.stdout == ""
+    assert set(result.stdout.splitlines()) == {
+        "::add-mask::private-secondary",
+        "::add-mask::ssh://private-secondary/private.sock",
+        "::add-mask::/private/root",
+        "::add-mask::/private/source",
+        "::add-mask::/private/config",
+    }
     assert result.stderr == ""
 
     values = dict(

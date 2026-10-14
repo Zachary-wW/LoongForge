@@ -56,6 +56,13 @@ paths with GitHub's log masker. Release Docker command output passes through
 the repository redactor as a second layer; raw Docker output must not be added
 to this workflow.
 
+GitHub emits self-hosted runner metadata before any workflow step. Register the
+production runner with a non-sensitive name and use a host or container whose
+hostname is also non-sensitive; otherwise `Runner name` and `Machine name` are
+visible in public job logs before the mask script can run. If the runner proxy
+line must also remain private, keep the executing workflow in a private runner
+repository.
+
 Each suite runner must also provide a working Docker Buildx plugin. The PR
 checkout is the build context and the builder selects an operator-managed
 trusted Dockerfile; configured BuildKit secrets are mounted for its
@@ -91,6 +98,13 @@ When an input is omitted, the workflow reads the matching repository variable:
 `BUILD_RELEASE_IMAGE`, `RUN_RELEASE_REGRESSION`,
 `PUBLISH_TO_INTERNAL_REGISTRY`, or `PUBLISH_TO_DOCKERHUB`. The Release workflow
 is started only by `workflow_dispatch`; pushing a Git tag never starts it.
+
+Use strict SemVer for formal tags: `vX.Y.Z`, or `vX.Y.Z-rc.N` for a release
+candidate. Prepare each formal release with a dedicated version-bump PR that
+updates `project.version`; the Portal then creates the immutable matching tag
+on the selected `master` commit. Small releases use a patch bump, larger
+feature sets use a minor bump, and staged validation may use an `rc` tag.
+GitHub Release notes are the changelog; do not add a root `CHANGELOG.md`.
 
 Set `RELEASE_EXECUTION_SLOT` to `primary` or `secondary` as the fallback for
 requests that omit `execution_slot`. The Control Runner resolves both slots
@@ -200,8 +214,8 @@ an audited full commit SHA.
 
 Configure these repository variables:
 
-- `INTERNAL_IMAGE_REPOSITORY` is required for a release tag: the full image
-  repository without a tag. The login host is derived from it.
+- `BUILD_RELEASE_IMAGE`, required: `true` builds a new release image; `false`
+  reuses the image named by the request.
 - `DOCKERHUB_IMAGE`, default `docker.io/loongforge/loongforge`.
 - `RUN_RELEASE_REGRESSION`, required: `true` enables the GPU release
   regressions; `false` skips them.
@@ -210,6 +224,11 @@ Configure these repository variables:
 - `PUBLISH_TO_DOCKERHUB`, required: `true` promotes the validated internal
   image to Docker Hub; `false` keeps it only in the internal registry. Docker
   Hub promotion also requires internal registry publishing to be enabled.
+
+Configure `INTERNAL_IMAGE_REPOSITORY` as a repository secret, not a variable.
+It contains the full internal image repository without a tag; the login host is
+derived from it. Keeping it as a secret lets GitHub mask the reference if it is
+accidentally printed in a job environment block.
 
 The release workflow builds one image and creates one container on
 `CI_RELEASE_RUNNER`. It runs `deepseek_v2_lite` and then `pi05_ddp` in that
@@ -224,10 +243,17 @@ The non-secret configuration file contains an SSH Docker client destination
 and its matching SSH alias. The credential files hold the push-capable
 internal registry account and the Docker Hub login name plus Docker Hub PAT,
 and the runner service environment points at both of them.
-Image repository names stay in the GitHub repository variables listed above.
+The public Docker Hub image name stays in a repository variable, while the
+internal image repository stays in the secret described above.
 All three files must be runner-local, mode `0600`, and excluded from version
 control. The workflow uses a per-job Docker config directory and removes it
 during cleanup.
+
+The GitHub Release job runs only after a formal tag request enables every
+stage and build, regression, internal publication, and Docker Hub promotion
+succeed. It receives a job-local `contents: write` permission and creates a
+GitHub Release with generated notes; `rc` tags are marked pre-release. No other
+release job receives write access to repository contents.
 
 The release runner needs Docker, read access to the internal registry, and
 write access to Docker Hub through the SSH-selected daemon. The publishing

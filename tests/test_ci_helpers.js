@@ -291,6 +291,16 @@ test('release is dispatched manually and builds, regresses, and promotes one imm
   assert.match(workflow, /cleanup_debug_tags\.py/);
   assert.match(workflow, /cleanup_debug_tags\.py \\\n\s+internal/);
   assert.match(workflow, /cleanup_debug_tags\.py \\\n\s+dockerhub/);
+  assert.match(workflow, /github_release:/);
+  assert.match(workflow, /permissions:\n\s+contents: write/);
+  assert.match(workflow, /gh release view "\$RELEASE_TAG"/);
+  assert.match(workflow, /gh release create "\$\{args\[@\]\}"/);
+  assert.match(workflow, /--generate-notes/);
+  assert.match(workflow, /--prerelease/);
+  assert.match(workflow, /needs\.validate\.outputs\.build_image == 'true'/);
+  assert.match(workflow, /needs\.validate\.outputs\.run_regression == 'true'/);
+  assert.match(workflow, /needs\.validate\.outputs\.publish_internal == 'true'/);
+  assert.match(workflow, /needs\.validate\.outputs\.publish_dockerhub == 'true'/);
   assert.match(workflow, /if: always\(\)/);
   assert.match(workflow, /build_image:/);
   assert.match(workflow, /run_regression:/);
@@ -312,7 +322,11 @@ test('release is dispatched manually and builds, regresses, and promotes one imm
   assert.match(workflow, /RELEASE_LLM_MODEL/);
   assert.match(workflow, /RELEASE_VLA_MODEL/);
   assert.match(workflow, /timeout-minutes: 90/);
-  assert.match(workflow, /DOCKER_CONFIG: \$\{\{ github\.workspace \}\}\/\.docker-config/);
+  assert.match(workflow, /DOCKER_CONFIG: \/tmp\/loongforge-release-docker-config-/);
+  assert.match(workflow, /INTERNAL_IMAGE_REPOSITORY: \$\{\{ secrets\.INTERNAL_IMAGE_REPOSITORY \}\}/);
+  assert.doesNotMatch(workflow, /INTERNAL_IMAGE_REPOSITORY: \$\{\{ vars\.INTERNAL_IMAGE_REPOSITORY \}\}/);
+  assert.match(workflow, /refs\/tags\/v\(0\|\[1-9\]\[0-9\]\*\)/);
+  assert.match(workflow, /-rc\\\.\(0\|\[1-9\]\[0-9\]\*\)/);
   assert.doesNotMatch(workflow, /docker\/build-push-action/);
   // A docker-container builder pulls its builder image from Docker Hub, which
   // an internal-only release runner cannot reach.

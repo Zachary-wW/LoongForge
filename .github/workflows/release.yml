@@ -131,7 +131,7 @@ jobs:
           package_version="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
 
           production_source=false
-          if [[ "$RELEASE_REF" =~ ^refs/tags/v[0-9]+(\.[0-9]+){0,3}(-[A-Za-z0-9._-]+)?$ ]]; then
+          if [[ "$RELEASE_REF" =~ ^refs/tags/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-rc\.(0|[1-9][0-9]*))?$ ]]; then
             if [[ -n "$DEBUG_TAG_SUFFIX" ]]; then
               echo "release tags cannot use a debug suffix" >&2
               exit 1
@@ -190,7 +190,7 @@ jobs:
     timeout-minutes: 360
     environment: iregistry-release
     env:
-      INTERNAL_IMAGE_REPOSITORY: ${{ vars.INTERNAL_IMAGE_REPOSITORY }}
+      INTERNAL_IMAGE_REPOSITORY: ${{ secrets.INTERNAL_IMAGE_REPOSITORY }}
       VERSION: ${{ needs.validate.outputs.version }}
       BUILD_IMAGE: ${{ needs.validate.outputs.build_image }}
       RUN_RELEASE_REGRESSION: ${{ needs.validate.outputs.run_regression }}
@@ -200,7 +200,7 @@ jobs:
       VLA_MODEL: ${{ needs.validate.outputs.vla_model }}
       DEBUG_TAG_SUFFIX: ${{ needs.validate.outputs.debug_tag_suffix }}
       EXISTING_IMAGE_REF: ${{ needs.validate.outputs.existing_image_ref }}
-      DOCKER_CONFIG: ${{ github.workspace }}/.docker-config
+      DOCKER_CONFIG: /tmp/loongforge-release-docker-config-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Protect runner-local metadata
         run: "${LOONGFORGE_RUNNER_MASK_SCRIPT:?}"
@@ -224,7 +224,7 @@ jobs:
           set -euo pipefail
           source LoongForge/.github/scripts/load_ci_config.sh
           mkdir -p "$DOCKER_CONFIG"
-          : "${INTERNAL_IMAGE_REPOSITORY:?INTERNAL_IMAGE_REPOSITORY repository variable is required}"
+          : "${INTERNAL_IMAGE_REPOSITORY:?INTERNAL_IMAGE_REPOSITORY secret is required}"
           : "${LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX:?LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX is required}"
           # The suffix is empty for real releases; operators set it on a
           # non-production runner so a rehearsal cannot claim a release tag.
@@ -363,13 +363,13 @@ jobs:
     timeout-minutes: 90
     environment: dockerhub-release
     env:
-      INTERNAL_IMAGE_REPOSITORY: ${{ vars.INTERNAL_IMAGE_REPOSITORY }}
+      INTERNAL_IMAGE_REPOSITORY: ${{ secrets.INTERNAL_IMAGE_REPOSITORY }}
       DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE || 'docker.io/loongforge/loongforge' }}
       VERSION: ${{ needs.validate.outputs.version }}
       DEBUG_TAG_SUFFIX: ${{ needs.validate.outputs.debug_tag_suffix }}
       PUBLISH_INTERNAL: ${{ needs.validate.outputs.publish_internal }}
       # Keep job credentials out of the runner's shared Docker config.
-      DOCKER_CONFIG: ${{ github.workspace }}/.docker-config
+      DOCKER_CONFIG: /tmp/loongforge-release-docker-config-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Protect runner-local metadata
         run: "${LOONGFORGE_RUNNER_MASK_SCRIPT:?}"
@@ -400,7 +400,7 @@ jobs:
           set -euo pipefail
           source LoongForge/.github/scripts/load_ci_config.sh
           source LoongForge/.github/scripts/self_runner/load_release_config.sh
-          : "${INTERNAL_IMAGE_REPOSITORY:?INTERNAL_IMAGE_REPOSITORY repository variable is required}"
+          : "${INTERNAL_IMAGE_REPOSITORY:?INTERNAL_IMAGE_REPOSITORY secret is required}"
           : "${LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX:?LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX is required}"
           : "${DOCKERHUB_IMAGE:?DOCKERHUB_IMAGE must name the target Docker Hub repository}"
           tag_suffix="${DEBUG_TAG_SUFFIX:-}"
@@ -468,6 +468,49 @@ jobs:
             find "$DOCKER_CONFIG" -mindepth 1 -delete
             rmdir "$DOCKER_CONFIG"
           fi
+
+  github_release:
+    needs: [validate, build_test_push_internal, promote_to_dockerhub]
+    if: >-
+      ${{
+        needs.validate.result == 'success' &&
+        needs.build_test_push_internal.result == 'success' &&
+        needs.promote_to_dockerhub.result == 'success' &&
+        startsWith(github.ref, 'refs/tags/v') &&
+        needs.validate.outputs.dry_run == 'false' &&
+        needs.validate.outputs.debug_tag_suffix == '' &&
+        needs.validate.outputs.build_image == 'true' &&
+        needs.validate.outputs.run_regression == 'true' &&
+        needs.validate.outputs.publish_internal == 'true' &&
+        needs.validate.outputs.publish_dockerhub == 'true'
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          IS_PRERELEASE: ${{ contains(github.ref_name, '-rc.') }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "GitHub Release already exists; leaving it unchanged"
+            exit 0
+          fi
+          args=(
+            create "$RELEASE_TAG"
+            --repo "$GITHUB_REPOSITORY"
+            --title "LoongForge $RELEASE_TAG"
+            --generate-notes
+          )
+          if [[ "$IS_PRERELEASE" == "true" ]]; then
+            args+=(--prerelease)
+          fi
+          gh release create "${args[@]}"
+
   cleanup_debug_tags:
     needs: [validate, build_test_push_internal, promote_to_dockerhub]
     if: >-
@@ -482,7 +525,7 @@ jobs:
     runs-on: ${{ fromJSON(vars.CI_RELEASE_RUNNER) }}
     timeout-minutes: 10
     env:
-      INTERNAL_IMAGE_REPOSITORY: ${{ vars.INTERNAL_IMAGE_REPOSITORY }}
+      INTERNAL_IMAGE_REPOSITORY: ${{ secrets.INTERNAL_IMAGE_REPOSITORY }}
       DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE || 'docker.io/loongforge/loongforge' }}
       VERSION: ${{ needs.validate.outputs.version }}
       DEBUG_TAG_SUFFIX: ${{ needs.validate.outputs.debug_tag_suffix }}

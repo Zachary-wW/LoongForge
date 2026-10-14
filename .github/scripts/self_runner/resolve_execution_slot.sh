@@ -7,6 +7,13 @@
 
 set -euo pipefail
 
+mask_value() {
+  local value="${1:-}"
+  if [[ -n "$value" && "${#value}" -ge 4 ]]; then
+    printf '::add-mask::%s\n' "$value"
+  fi
+}
+
 slot="${1:-${LOONGFORGE_RELEASE_EXECUTION_SLOT:-}}"
 [[ "$slot" =~ ^(primary|secondary)$ ]] || {
   printf '%s\n' 'execution-slot: invalid' >&2
@@ -74,6 +81,15 @@ export LOONGFORGE_EXECUTION_ROOT="$execution_root"
 export LOONGFORGE_EXECUTION_SOURCE="$execution_source"
 export LOONGFORGE_EXECUTION_CONFIG="$execution_config"
 export DOCKER_HOST="$docker_host"
+
+for value in \
+  "$execution_alias" \
+  "$execution_root" \
+  "$execution_source" \
+  "$execution_config" \
+  "$docker_host"; do
+  mask_value "$value"
+done
 
 if [[ -n "${GITHUB_ENV:-}" ]]; then
   printf '%s=%s\n' LOONGFORGE_RELEASE_EXECUTION_SLOT "$slot" >>"$GITHUB_ENV"

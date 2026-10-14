@@ -76,6 +76,15 @@ same trusted builder, automatically detected GPU target, runner-local mirrors,
 proxy handling, BuildKit secrets, redacted logs, and image policy as a
 candidate build.
 
+Formal versions use strict SemVer tags: `vX.Y.Z` for stable releases and
+`vX.Y.Z-rc.N` for release candidates. Choose the next version from the highest
+existing upstream tag: a small fix or feature set is a patch bump, a larger
+feature set is a minor bump, and a release candidate may be used when the
+release needs staged validation. The version bump lives in its own release PR
+that updates `project.version` in `pyproject.toml`; it is not mixed into a
+feature or CI PR. GitHub Release notes are the changelog, so the repository
+does not maintain a separate `CHANGELOG.md`.
+
 When enabled, the release job creates one container, mounts both the LLM and
 VLA artifact roots, and runs `deepseek_v2_lite` followed by `pi05_ddp` in that
 container. The `RUN_RELEASE_REGRESSION` repository variable must be `true` or
@@ -95,11 +104,17 @@ Hub's `latest` tag. A
 request can build and regress without publishing, or publish when the
 corresponding stage switches are enabled.
 
-The three operational switches are required repository variables and must be
-`true` or `false`: `RUN_RELEASE_REGRESSION`, `PUBLISH_TO_INTERNAL_REGISTRY`,
-and `PUBLISH_TO_DOCKERHUB`. Docker Hub promotion is skipped automatically when
-internal registry publishing is disabled, because there is no validated
-internal image to promote.
+When a formal request enables every stage and build, regression, internal
+publication, and Docker Hub promotion all succeed, the workflow creates the
+matching GitHub Release with generated notes. `rc` tags are marked as
+pre-releases. The job is skipped for debug, dry-run, partial-stage, or failed
+requests.
+
+The four stage-switch fallbacks are required repository variables and must be
+`true` or `false`: `BUILD_RELEASE_IMAGE`, `RUN_RELEASE_REGRESSION`,
+`PUBLISH_TO_INTERNAL_REGISTRY`, and `PUBLISH_TO_DOCKERHUB`. Docker Hub
+promotion is skipped automatically when internal registry publishing is
+disabled, because there is no validated internal image to promote.
 
 The optional `execution_slot` input must be `primary` or `secondary`; when it
 is omitted the workflow uses `RELEASE_EXECUTION_SLOT`. Slots are resolved on
@@ -147,14 +162,22 @@ image. Unknown or mixed GPU architectures fail closed, and an explicit `a` or
 Repository Variables are configured in GitHub Settings. The workflow expects
 `CI_RUNNER_A`, `CI_RUNNER_P`, `CI_REVIEW_RUNNER`, `CI_RELEASE_RUNNER`, and
 `CLAUDE_REVIEW_MODEL`; release requests also require
-`INTERNAL_IMAGE_REPOSITORY`. `CLAUDE_CODE_EXECUTABLE` and `DOCKERHUB_IMAGE`
-are optional. Release requests also require `RUN_RELEASE_REGRESSION`,
-`PUBLISH_TO_INTERNAL_REGISTRY`, and `PUBLISH_TO_DOCKERHUB`. Every self-hosted
+`BUILD_RELEASE_IMAGE`, `RUN_RELEASE_REGRESSION`,
+`PUBLISH_TO_INTERNAL_REGISTRY`, and `PUBLISH_TO_DOCKERHUB`.
+`CLAUDE_CODE_EXECUTABLE` and `DOCKERHUB_IMAGE` are optional. Store
+`INTERNAL_IMAGE_REPOSITORY` as a secret so GitHub masks the internal registry
+reference in job logs. Every self-hosted
 runner provides its own
 `CI_CONFIG_PATH_IMAGE` environment variable; this is not a Repository Variable
 because runner filesystem roots may differ.
 The protected release runner must set
 `LOONGFORGE_ALLOW_RELEASE_IMAGE_BUILD=true` in that config.
+
+GitHub prints self-hosted runner metadata before the first workflow step, so a
+workflow cannot mask `Runner name`, `Machine name`, or the runner proxy line.
+Register the production runner with a non-sensitive name and run it on a host
+or container whose hostname is also non-sensitive. If those automatic lines
+must never be public, use a private runner repository for the execution job.
 
 Hooks must return nonzero on failure and must not print credentials, signed
 source URLs, runner-local filesystem paths, or physical accelerator details to
