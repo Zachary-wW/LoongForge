@@ -4,6 +4,9 @@
 import subprocess
 import os
 import shlex
+import ast
+import importlib.util
+import json
 from pathlib import Path
 
 
@@ -36,6 +39,58 @@ def test_release_regression_script_is_valid_shell():
     assert result.stderr == ""
 
 
+def test_plot_output_expands_the_configured_environment(monkeypatch, tmp_path):
+    import yaml
+    module = ast.parse((REPOSITORY_ROOT / "tests/llm_vlm/tasks/base_task.py").read_text())
+    cls = next(node for node in module.body if isinstance(node, ast.ClassDef) and node.name == "BaseTask")
+    method = next(node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name == "_resolve_training_log_path")
+    method.decorator_list = []
+    namespace = {"os": os, "yaml": yaml}
+    exec(compile(ast.Module(body=[method], type_ignores=[]), "<plot-path>", "exec"), namespace)
+    config = tmp_path / "common.yaml"
+    config.write_text("training_log_path: ${TRAINING_LOG_PATH}\npfs_path: ${PFS_PATH}\n")
+    monkeypatch.setenv("TRAINING_LOG_PATH", str(tmp_path / "mounted-output"))
+    assert namespace["_resolve_training_log_path"](str(config)) == str(tmp_path / "mounted-output")
+
+
+def test_release_metrics_archive_matches_the_baseline_and_preserves_failures(tmp_path):
+    spec = importlib.util.spec_from_file_location("release_evidence", REPOSITORY_ROOT / "ci/release_evidence.py")
+    evidence = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(evidence)
+    llm_log = tmp_path / "llm.log"
+    llm_log.write_text(
+        "training_phase ... pretrain\n"
+        "iteration 1/ 20 | elapsed time per iteration (ms): 100 | lm loss: 2.5 | grad norm: 1.2\n"
+        "training_phase ... sft\n"
+        "iteration 1/ 20 | elapsed time per iteration (ms): 150 | lm loss: 1.5 | grad norm: 0.8\n"
+    )
+    vla_results = tmp_path / "results.json"
+    vla_results.write_text(json.dumps({"results": [{
+        "model_name": "pi05_ddp", "passed": False, "failed_metrics": ["action_loss"],
+        "warnings": ["throughput soft check"], "metrics": [
+            {"iteration": 1, "action_loss": 0.4, "grad_norm": float("nan"), "secret": "discard"},
+        ],
+    }]}))
+    result = evidence.collect(
+        source=REPOSITORY_ROOT, llm_log=llm_log, llm_model="deepseek_v2_lite",
+        llm_chip="a", vla_results=vla_results, vla_chip="p", passed=True,
+    )
+    llm, sft, vla = result["results"]
+    assert llm["actual"][0]["lm_loss"] == 2.5
+    assert llm["baseline"][0]["lm_loss"] == 2.556303
+    assert llm["grad_norm_checked"] is False
+    assert len(llm["actual"]) == 1
+    assert sft["training_type"] == "sft"
+    assert sft["actual"] == [{
+        "iteration": 1, "elapsed_time_ms": 150, "lm_loss": 1.5, "grad_norm": 0.8,
+    }]
+    assert sft["baseline"] == []
+    assert vla["passed"] is False
+    assert vla["failed_metrics"] == ["action_loss"]
+    assert "grad_norm" not in vla["actual"][0]
+    assert "secret" not in vla["actual"][0]
+
+
 def test_release_regression_sets_single_node_distributed_environment():
     script = RELEASE_REGRESSION_SCRIPT.read_text(encoding="utf-8")
 
@@ -51,6 +106,48 @@ def test_release_regression_sets_single_node_distributed_environment():
     assert '"source_sha":"%s"' in script
     assert '"execution_slot":"%s"' in script
     assert '"image_digest":"%s"' in script
+
+
+def test_remote_regression_preserves_run_attempt_and_archives_failed_evidence(tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    command_log = tmp_path / "ssh.log"
+    sync_log = tmp_path / "rsync.log"
+    for name, text in {
+        "ssh": (
+            'printf "%s\\n" "$*" >> "$TEST_COMMAND_LOG"\n'
+            '[[ "$*" != *run_release_regression.sh* ]] || exit 7\n'
+        ),
+        "rsync": 'printf "%s\\n" "$*" >> "$TEST_SYNC_LOG"\n',
+    }.items():
+        executable = bin_dir / name
+        executable.write_text("#!/usr/bin/env bash\n" + text)
+        executable.chmod(0o755)
+    env = os.environ.copy()
+    env.update({
+        "PATH": f"{bin_dir}:{env['PATH']}",
+        "TEST_COMMAND_LOG": str(command_log),
+        "TEST_SYNC_LOG": str(sync_log),
+        "LOONGFORGE_EXECUTION_MODE": "ssh",
+        "LOONGFORGE_EXECUTION_ALIAS": "executor",
+        "LOONGFORGE_EXECUTION_ROOT": "/release-root",
+        "LOONGFORGE_EXECUTION_SOURCE": "/release-source",
+        "LOONGFORGE_EXECUTION_CONFIG": "/release-config.env",
+        "LOONGFORGE_RELEASE_EVIDENCE_ROOT": str(tmp_path / "evidence"),
+        "GITHUB_RUN_ID": "123",
+        "GITHUB_RUN_ATTEMPT": "2",
+    })
+    result = subprocess.run(
+        [str(RELEASE_REGRESSION_SCRIPT), "--image", "registry.example/image:test",
+         "--source", str(source), "--sha", "a" * 40],
+        env=env, cwd=tmp_path, capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 7
+    commands = command_log.read_text()
+    assert "GITHUB_RUN_ID='123' GITHUB_RUN_ATTEMPT='2'" in commands
+    assert str(tmp_path / "evidence/123/loongforge-release-artifacts/") in sync_log.read_text()
 
 
 def test_release_container_copies_megatron_into_writable_source(tmp_path):

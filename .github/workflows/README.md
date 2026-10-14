@@ -94,14 +94,23 @@ internal image tag is formed from the runner-local
 `LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX`, the validated version, and the
 `_release` suffix. This keeps the tag tied to the actual Dockerfile base image.
 
-After the internal push, the release runner drives an operator-configured
-Docker daemon over SSH. That daemon pulls the exact internal image, retags it
-as `<DOCKERHUB_IMAGE>:<version>`, pushes it, and verifies that the registry
-digests match. The publishing host has the faster external route but does not
-run a GitHub runner. Registry passwords are sent to `regctl` over stdin and
-removed with logout when promotion finishes. The workflow never moves Docker
-Hub's `latest` tag. A
-request can build and regress without publishing, or publish when the
+Regression evidence includes numeric metrics and baselines from the tested
+source checkout in `regression-metrics.json`. Training phases are kept separate,
+and output directories include the run attempt so a retry cannot reuse stale
+metrics. Evidence is collected on failed runs too and retained for 90 days;
+the internal Portal renders actual-versus-baseline charts from these records.
+
+After the internal push, the release runner invokes Docker over SSH on the
+operator-configured publisher. That daemon pulls the exact internal image,
+retags it as `<DOCKERHUB_IMAGE>:<version>`, and pushes it. Verification checks
+the published manifest's image configuration against the pulled image and
+its registry digest against the digest returned by push. Each stage reports
+progress and elapsed time. The publisher does not run a GitHub runner.
+Passwords are sent to Docker over stdin using a temporary Docker configuration.
+Only the newly created local destination tag and temporary credentials are
+removed when promotion finishes; existing images and logins are preserved.
+The workflow never moves Docker Hub's `latest` tag. A request can build and
+regress without publishing, or publish when the
 corresponding stage switches are enabled.
 
 When a formal request enables every stage and build, regression, internal

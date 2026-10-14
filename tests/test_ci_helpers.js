@@ -281,7 +281,7 @@ test('release is dispatched manually and builds, regresses, and promotes one imm
   assert.match(workflow, /needs\.validate\.outputs\.publish_dockerhub == 'true'/);
   assert.match(workflow, /Tag validated image for iregistry/);
   assert.match(workflow, /docker_redacted\.sh push "\$INTERNAL_IMAGE_REF"/);
-  assert.match(workflow, /Copy image to Docker Hub/);
+  assert.match(workflow, /Pull, tag, and push image to Docker Hub/);
   assert.match(workflow, /Verify Docker Hub image/);
   assert.match(workflow, /Resolve Docker Hub image reference/);
   assert.match(workflow, /DOCKERHUB_REF: \$\{\{ steps\.hub_ref\.outputs\.dockerhub_ref \}\}/);

@@ -174,7 +174,8 @@ PROMOTION_SCRIPT = (
 )
 
 
-def test_promotion_keeps_credentials_out_of_remote_commands(tmp_path):
+@pytest.mark.parametrize("failure", ["", "pull", "push", "verify"])
+def test_promotion_pulls_tags_pushes_and_verifies_without_exposing_credentials(tmp_path, failure):
     release_config = tmp_path / "release.env"
     release_config.write_text(
         "\n".join(
@@ -183,7 +184,6 @@ def test_promotion_keeps_credentials_out_of_remote_commands(tmp_path):
                 "LOONGFORGE_RELEASE_PUBLISHER_ALIAS=publisher",
                 "LOONGFORGE_DOCKERHUB_PROXY=http://proxy",
                 "LOONGFORGE_DOCKERHUB_NO_PROXY=localhost",
-                "LOONGFORGE_REGCTL_BIN=/remote/bin/regctl",
             ]
         )
         + "\n",
@@ -214,6 +214,22 @@ def test_promotion_keeps_credentials_out_of_remote_commands(tmp_path):
                 f"printf '\\n--- command ---\\n%s\\n' \"$*\" >> {command_log}",
                 f"cat >> {stdin_log}",
                 "printf '\\n' >> " + str(stdin_log),
+                'command="${@: -1}"',
+                'case "$command" in',
+                '  *"mktemp -d"*) echo /tmp/loongforge-publish-test; exit 0 ;;',
+                '  *"image inspect"*"docker.io/"*) exit 1 ;;',
+                '  *"image inspect"*) printf "sha256:%064d\\n" 1; exit 0 ;;',
+                '  *"manifest inspect"*)',
+                '    digest="$(printf "sha256:%064d" 2)"',
+                '    config="$(printf "sha256:%064d" 1)"',
+                '    [[ "${FAIL_STAGE:-}" != verify ]] || config="$(printf "sha256:%064d" 3)"',
+                '    printf \'{"Descriptor":{"digest":"%s"},"SchemaV2Manifest":{"config":{"digest":"%s"}}}\\n\' "$digest" "$config"',
+                '    exit 0 ;;',
+                '  *" pull "*) [[ "${FAIL_STAGE:-}" != pull ]] || exit 7 ;;',
+                '  *" push "*)',
+                '    [[ "${FAIL_STAGE:-}" != push ]] || exit 8',
+                '    printf "test: digest: sha256:%064d size: 123\\n" 2 ;;',
+                "esac",
                 "exit 0",
             ]
         )
@@ -229,6 +245,7 @@ def test_promotion_keeps_credentials_out_of_remote_commands(tmp_path):
             "LOONGFORGE_RELEASE_CONFIG": str(release_config),
             "LOONGFORGE_IREGISTRY_CREDENTIALS": str(internal_credentials),
             "LOONGFORGE_DOCKERHUB_CREDENTIALS": str(hub_credentials),
+            "FAIL_STAGE": failure,
         }
     )
 
@@ -242,32 +259,38 @@ def test_promotion_keeps_credentials_out_of_remote_commands(tmp_path):
             "docker.io",
         ],
         env=env,
+        cwd=tmp_path,
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         check=False,
     )
 
-    assert result.returncode == 0
-    assert set(result.stdout.splitlines()) == {
-        "::add-mask::internal-user",
-        "::add-mask::internal-password",
-        "::add-mask::hub-user",
-        "::add-mask::hub-token",
-    }
-    assert result.stderr == ""
+    assert (result.returncode == 0) == (not failure)
     commands = command_log.read_text(encoding="utf-8")
     stdin = stdin_log.read_text(encoding="utf-8")
-    assert "registry login registry.example --user internal-user --pass-stdin" in commands
-    assert "registry login docker.io --user hub-user --pass-stdin" in commands
-    assert "image copy registry.example/team/image:v1 docker.io/loongforge/loongforge:v1" in commands
-    assert "registry logout registry.example" in commands
-    assert "registry logout docker.io" in commands
-    assert "--host" not in commands
+    assert "login --username internal-user --password-stdin registry.example" in commands
+    assert "login --username hub-user --password-stdin docker.io" in commands
+    assert " pull registry.example/team/image:v1" in commands
+    assert "image copy" not in commands
+    if failure != "pull":
+        assert " tag registry.example/team/image:v1 docker.io/loongforge/loongforge:v1" in commands
+        assert " push docker.io/loongforge/loongforge:v1" in commands
+    else:
+        assert " push " not in commands
+    assert "logout registry.example" in commands
+    assert "logout docker.io" in commands
+    assert "image rm" not in commands or "image rm docker.io/loongforge/loongforge:v1" in commands
     assert "internal-password" not in commands
     assert "hub-token" not in commands
     assert "internal-password" in stdin
     assert "hub-token" in stdin
+    report = tmp_path / "loongforge-release-artifacts" / "dockerhub-promotion.result.json"
+    import json
+    data = json.loads(report.read_text())
+    assert data["status"] == ("failed" if failure else "passed")
+    if not failure:
+        assert data["registry_digest"] == data["push_digest"]
 
 # --- tests/test_release_image_compatibility.py ---
 MODULE_PATH = Path(__file__).parents[1] / ".github" / "scripts" / "image_policy.py"
