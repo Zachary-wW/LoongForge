@@ -22,11 +22,14 @@ ssh_options=(-o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30 -o 
 remote_config=""
 destination_created=false
 stage=prepare
+login_target=""
 source_id=""
 push_digest=""
 registry_digest=""
 push_log="$(mktemp)"
 mkdir -p loongforge-release-artifacts
+promotion_log=loongforge-release-artifacts/dockerhub-promotion.log
+: > "$promotion_log"
 
 remote() {
   ssh "${ssh_options[@]}" -n "$LOONGFORGE_RELEASE_PUBLISHER_ALIAS" "$@" \
@@ -43,22 +46,23 @@ docker_command() {
 logged() {
   stage="$1"
   local command="$2" started=$SECONDS status
-  printf 'dockerhub-promotion: %s started\n' "$stage"
+  printf 'dockerhub-promotion: %s started\n' "$stage" | tee -a "$promotion_log"
   set +e
-  if [[ "$stage" == login ]]; then
+  if [[ "$stage" == login_* ]]; then
     ssh "${ssh_options[@]}" "$LOONGFORGE_RELEASE_PUBLISHER_ALIAS" "$command" 2>&1 |
-      tee "$push_log" | python3 "$redactor" --stream
+      tee "$push_log" | python3 "$redactor" --stream | tee -a "$promotion_log"
   else
-    remote "$command" 2>&1 | tee "$push_log" | python3 "$redactor" --stream
+    remote "$command" 2>&1 | tee "$push_log" | python3 "$redactor" --stream | tee -a "$promotion_log"
   fi
   status="${PIPESTATUS[0]}"
   set -e
-  printf 'dockerhub-promotion: %s finished in %ss (exit %s)\n' "$stage" "$((SECONDS - started))" "$status"
+  printf 'dockerhub-promotion: %s finished in %ss (exit %s)\n' \
+    "$stage" "$((SECONDS - started))" "$status" | tee -a "$promotion_log"
   return "$status"
 }
 
 cleanup() {
-  local status=$? command
+  local status=$? command archive
   trap - EXIT
   set +e
   if [[ "$remote_config" =~ ^/tmp/loongforge-publish[-.][A-Za-z0-9]+$ ]]; then
@@ -71,17 +75,24 @@ cleanup() {
     printf -v command 'find %q -mindepth 1 -depth -delete && rmdir %q' "$remote_config" "$remote_config"
     remote "$command" >/dev/null 2>&1
   fi
-  python3 - "$status" "$stage" "$source_id" "$push_digest" "$registry_digest" <<'PY'
+  python3 - "$status" "$stage" "$login_target" "$source_id" "$push_digest" "$registry_digest" <<'PY'
 import json
 import sys
 from pathlib import Path
-status, stage, source, pushed, registry = sys.argv[1:]
+status, stage, login_target, source, pushed, registry = sys.argv[1:]
 Path("loongforge-release-artifacts/dockerhub-promotion.result.json").write_text(
     json.dumps({"status": "passed" if status == "0" else "failed", "stage": stage,
-                "exit_code": int(status), "source_image_id": source,
+                "login_target": login_target, "exit_code": int(status), "source_image_id": source,
                 "push_digest": pushed, "registry_digest": registry}) + "\n"
 )
 PY
+  if [[ -n "${LOONGFORGE_RELEASE_EVIDENCE_ROOT:-}" && "${GITHUB_RUN_ID:-}" =~ ^[0-9]+$ ]]; then
+    archive="$LOONGFORGE_RELEASE_EVIDENCE_ROOT/$GITHUB_RUN_ID/loongforge-release-artifacts"
+    if ! { mkdir -p "$archive" && cp "$promotion_log" \
+        loongforge-release-artifacts/dockerhub-promotion.result.json "$archive/"; } >/dev/null 2>&1; then
+      printf '%s\n' 'publisher: evidence archive unavailable' >&2
+    fi
+  fi
   unlink "$push_log"
   exit "$status"
 }
@@ -100,15 +111,30 @@ if remote "$(docker_command image inspect "$dockerhub_ref")" >/dev/null 2>&1; th
 fi
 
 login_remote_registry() {
-  stage=login
-  local host="$1"
-  local username="$2"
-  local password="$3"
-  printf '%s' "$password" | logged login "$(docker_command login --username "$username" --password-stdin "$host")"
+  login_target="$1"
+  stage="login_$login_target"
+  local host="$2" username="$3" password="$4" attempt status
+  for attempt in 1 2 3; do
+    if printf '%s' "$password" | logged "$stage" \
+        "$(docker_command login --username "$username" --password-stdin "$host")"; then
+      login_target=""
+      return 0
+    else
+      status=$?
+    fi
+    if [[ "$attempt" == 3 ]] || ! grep -Eqi \
+        'timed out|timeout|deadline exceeded|request cancel[l]?ed|connection reset|connection refused|temporary failure|unexpected EOF|service unavailable|bad gateway' \
+        "$push_log"; then
+      return "$status"
+    fi
+    printf 'dockerhub-promotion: %s temporary network failure; retrying (%s/3)\n' \
+      "$stage" "$((attempt + 1))" | tee -a "$promotion_log"
+    sleep "$((attempt * 2))"
+  done
 }
 
-login_remote_registry "$internal_host" "$IREGISTRY_USERNAME" "$IREGISTRY_PASSWORD"
-login_remote_registry "$dockerhub_host" "$DOCKERHUB_USERNAME" "$DOCKERHUB_TOKEN"
+login_remote_registry iregistry "$internal_host" "$IREGISTRY_USERNAME" "$IREGISTRY_PASSWORD"
+login_remote_registry dockerhub "$dockerhub_host" "$DOCKERHUB_USERNAME" "$DOCKERHUB_TOKEN"
 
 logged pull "$(docker_command pull "$internal_ref")"
 source_id="$(remote "$(docker_command image inspect --format '{{.Id}}' "$internal_ref")")"
@@ -121,8 +147,9 @@ push_digest="$(sed -nE 's/.*digest: (sha256:[a-f0-9]{64}).*/\1/p' "$push_log" | 
 
 stage=verify
 verify_started=$SECONDS
-printf 'dockerhub-promotion: verify started\n'
-manifest="$(remote "$(docker_command manifest inspect --verbose "$dockerhub_ref")")"
+printf 'dockerhub-promotion: verify started\n' | tee -a "$promotion_log"
+manifest="$(remote "$(docker_command manifest inspect --verbose "$dockerhub_ref")" \
+  2> >(tee -a "$promotion_log" >&2))"
 registry_digest="$(printf '%s' "$manifest" | python3 -c '
 import json, sys
 data = json.load(sys.stdin)
@@ -136,9 +163,9 @@ for entry in entries:
             break
 else:
     sys.exit("publisher: remote image content or digest does not match")
-' "$source_id" "$push_digest")"
-printf 'dockerhub-promotion: source image content and published digest verified\n'
-printf 'dockerhub-promotion: verify finished in %ss\n' "$((SECONDS - verify_started))"
+' "$source_id" "$push_digest" 2> >(tee -a "$promotion_log" >&2))"
+printf 'dockerhub-promotion: source image content and published digest verified\n' | tee -a "$promotion_log"
+printf 'dockerhub-promotion: verify finished in %ss\n' "$((SECONDS - verify_started))" | tee -a "$promotion_log"
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
   printf 'verified=true\n' >> "$GITHUB_OUTPUT"
 fi

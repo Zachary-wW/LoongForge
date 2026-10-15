@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import importlib.util
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -174,7 +175,20 @@ PROMOTION_SCRIPT = (
 )
 
 
-@pytest.mark.parametrize("failure", ["", "pull", "push", "verify"])
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "",
+        "login_iregistry",
+        "login_dockerhub",
+        "timeout_login_dockerhub",
+        "transient_login_iregistry",
+        "transient_login_dockerhub",
+        "pull",
+        "push",
+        "verify",
+    ],
+)
 def test_promotion_pulls_tags_pushes_and_verifies_without_exposing_credentials(tmp_path, failure):
     release_config = tmp_path / "release.env"
     release_config.write_text(
@@ -212,9 +226,27 @@ def test_promotion_pulls_tags_pushes_and_verifies_without_exposing_credentials(t
             [
                 "#!/usr/bin/env bash",
                 f"printf '\\n--- command ---\\n%s\\n' \"$*\" >> {command_log}",
-                f"cat >> {stdin_log}",
-                "printf '\\n' >> " + str(stdin_log),
+                'input="$(cat)"',
+                f'printf "%s\\n" "$input" >> {stdin_log}',
                 'command="${@: -1}"',
+                'if [[ "$command" == *" login "* ]]; then',
+                '  target=dockerhub; host=docker.io; expected="$DOCKERHUB_TOKEN"',
+                '  if [[ "$command" == *registry.example ]]; then',
+                '    target=iregistry; host=registry.example; expected="$IREGISTRY_PASSWORD"',
+                '  fi',
+                '  [[ "$input" == "$expected" ]] || exit 19',
+                '  if [[ "${FAIL_STAGE:-}" == "login_$target" ]]; then',
+                '    echo "unauthorized: incorrect username or password" >&2; exit 17',
+                '  fi',
+                f'  attempts="$(grep -Fc -- "$command" {command_log})"',
+                '  if [[ "${FAIL_STAGE:-}" == "timeout_login_$target" ||',
+                '        ("${FAIL_STAGE:-}" == "transient_login_$target" && "$attempts" == 1) ]]; then',
+                '    printf \'Error response from daemon: Get "https://%s/v2/": net/http: request canceled (Client.Timeout exceeded while awaiting headers)\\n\' "$host" >&2',
+                '    echo "echoed credentials: $IREGISTRY_PASSWORD $DOCKERHUB_TOKEN" >&2',
+                '    exit 1',
+                '  fi',
+                '  echo "Login Succeeded"; exit 0',
+                'fi',
                 'case "$command" in',
                 '  *"mktemp -d"*) echo /tmp/loongforge-publish-test; exit 0 ;;',
                 '  *"image inspect"*"docker.io/"*) exit 1 ;;',
@@ -237,6 +269,14 @@ def test_promotion_pulls_tags_pushes_and_verifies_without_exposing_credentials(t
         encoding="utf-8",
     )
     fake_ssh.chmod(0o755)
+    fake_sleep = tmp_path / "sleep"
+    fake_sleep.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    fake_sleep.chmod(0o755)
+    archive = tmp_path / "evidence" / "123" / "loongforge-release-artifacts"
+    archive.mkdir(parents=True)
+    regression = archive / "release-regression.result.json"
+    regression.write_text('{"status":"passed"}\n', encoding="utf-8")
+    github_output = tmp_path / "github-output"
 
     env = os.environ.copy()
     env.update(
@@ -245,6 +285,9 @@ def test_promotion_pulls_tags_pushes_and_verifies_without_exposing_credentials(t
             "LOONGFORGE_RELEASE_CONFIG": str(release_config),
             "LOONGFORGE_IREGISTRY_CREDENTIALS": str(internal_credentials),
             "LOONGFORGE_DOCKERHUB_CREDENTIALS": str(hub_credentials),
+            "LOONGFORGE_RELEASE_EVIDENCE_ROOT": str(tmp_path / "evidence"),
+            "GITHUB_RUN_ID": "123",
+            "GITHUB_OUTPUT": str(github_output),
             "FAIL_STAGE": failure,
         }
     )
@@ -266,14 +309,18 @@ def test_promotion_pulls_tags_pushes_and_verifies_without_exposing_credentials(t
         check=False,
     )
 
-    assert (result.returncode == 0) == (not failure)
+    failed = bool(failure) and not failure.startswith("transient_")
+    login_failed = failed and "login_" in failure
+    assert (result.returncode == 0) == (not failed)
     commands = command_log.read_text(encoding="utf-8")
     stdin = stdin_log.read_text(encoding="utf-8")
     assert "login --username internal-user --password-stdin registry.example" in commands
-    assert "login --username hub-user --password-stdin docker.io" in commands
-    assert " pull registry.example/team/image:v1" in commands
+    if failure != "login_iregistry":
+        assert "login --username hub-user --password-stdin docker.io" in commands
+    if not login_failed:
+        assert " pull registry.example/team/image:v1" in commands
     assert "image copy" not in commands
-    if failure != "pull":
+    if not login_failed and failure != "pull":
         assert " tag registry.example/team/image:v1 docker.io/loongforge/loongforge:v1" in commands
         assert " push docker.io/loongforge/loongforge:v1" in commands
     else:
@@ -284,13 +331,45 @@ def test_promotion_pulls_tags_pushes_and_verifies_without_exposing_credentials(t
     assert "internal-password" not in commands
     assert "hub-token" not in commands
     assert "internal-password" in stdin
-    assert "hub-token" in stdin
+    if failure != "login_iregistry":
+        assert "hub-token" in stdin
     report = tmp_path / "loongforge-release-artifacts" / "dockerhub-promotion.result.json"
-    import json
     data = json.loads(report.read_text())
-    assert data["status"] == ("failed" if failure else "passed")
-    if not failure:
+    assert data["status"] == ("failed" if failed else "passed")
+    if login_failed:
+        assert data["stage"] == failure.removeprefix("timeout_")
+        assert data["login_target"] == failure.rsplit("_", 1)[-1]
+        assert " pull " not in commands
+    else:
+        assert data["login_target"] == ""
+        assert data["stage"] == (failure if failed else "verify")
+    if not failed:
         assert data["registry_digest"] == data["push_digest"]
+        assert github_output.read_text() == "verified=true\n"
+    else:
+        assert not github_output.exists()
+
+    for target, host in (("iregistry", "registry.example"), ("dockerhub", "docker.io")):
+        count = commands.count(f"--password-stdin {host}")
+        if failure == f"transient_login_{target}":
+            assert count == 2
+        elif failure == f"timeout_login_{target}":
+            assert count == 3
+        else:
+            assert count == (0 if target == "dockerhub" and failure == "login_iregistry" else 1)
+
+    log = report.with_name("dockerhub-promotion.log")
+    assert log.is_file()
+    output = "\n".join(
+        line for line in result.stdout.splitlines() if not line.startswith("::add-mask::")
+    )
+    for text in (log.read_text(), output + result.stderr, report.read_text()):
+        for secret in ("internal-user", "internal-password", "hub-user", "hub-token"):
+            assert secret not in text
+        assert "registry.example" not in text
+    assert (archive / log.name).read_text() == log.read_text()
+    assert (archive / report.name).read_text() == report.read_text()
+    assert regression.read_text() == '{"status":"passed"}\n'
 
 # --- tests/test_release_image_compatibility.py ---
 MODULE_PATH = Path(__file__).parents[1] / ".github" / "scripts" / "image_policy.py"
