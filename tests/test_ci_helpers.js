@@ -289,8 +289,11 @@ test('release is dispatched manually and builds, regresses, and promotes one imm
   assert.match(workflow, /cleanup_debug_tags:/);
   assert.match(workflow, /env\.BUILD_IMAGE == 'true' \|\| env\.PUBLISH_TO_INTERNAL_REGISTRY == 'true'/);
   assert.match(workflow, /cleanup_debug_tags\.py/);
-  assert.match(workflow, /cleanup_debug_tags\.py \\\n\s+internal/);
   assert.match(workflow, /cleanup_debug_tags\.py \\\n\s+dockerhub/);
+  const debugCleanup = workflow.slice(workflow.indexOf('  cleanup_debug_tags:'));
+  assert.match(debugCleanup, /needs\.validate\.outputs\.publish_dockerhub == 'true'/);
+  assert.doesNotMatch(debugCleanup, /publish_internal|INTERNAL_IMAGE|internal_ref|iregistry|--host/);
+  assert.doesNotMatch(workflow, /cleanup_debug_tags\.py \\\n\s+internal/);
   assert.match(workflow, /github_release:/);
   assert.match(workflow, /permissions:\n\s+contents: write/);
   assert.match(workflow, /gh release view "\$RELEASE_TAG"/);

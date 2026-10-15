@@ -362,20 +362,44 @@ def test_split_image_reference_requires_a_tag():
         module.split_image_reference("registry.example.test/team/project")
 
 
-def test_internal_registry_cleanup_treats_missing_tag_as_success(monkeypatch, capsys):
+def test_internal_registry_cleanup_is_rejected():
+    result = subprocess.run(
+        ["python3", str(CLEANUP_SCRIPT), "internal", "--image",
+         "registry.example.test/team/project:v0.2.3-ci_test"],
+        capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 2
+    assert "invalid choice" in result.stderr
+
+
+@pytest.mark.parametrize("status", [200, 202, 204, 404, 500])
+def test_dockerhub_cleanup_deletes_only_the_requested_tag(monkeypatch, capsys, status):
     module = load_cleanup_module()
-    monkeypatch.setattr(
-        module,
-        "http_request",
-        lambda *args, **kwargs: (404, {}, b""),
-    )
-    module.delete_internal_registry_tag(
-        host="registry.example.test",
-        image="registry.example.test/team/project:v0.2.3-ci_test",
-        username="user",
-        password="secret",
-    )
-    assert "internal registry: tag already absent" in capsys.readouterr().out
+    requests = []
+
+    def fake_request(url, *, method, headers, data=None):
+        requests.append((method, url))
+        if method == "POST":
+            return 200, {}, b'{"token":"test-jwt"}'
+        assert headers["Authorization"] == "Bearer test-jwt"
+        return status, {}, b""
+
+    monkeypatch.setattr(module, "http_request", fake_request)
+    kwargs = {
+        "image": "docker.io/loongforge/loongforge:0.2.3_ci_test",
+        "username": "user", "token": "secret",
+    }
+    if status == 500:
+        with pytest.raises(RuntimeError, match="deletion failed with HTTP 500"):
+            module.delete_dockerhub_tag(**kwargs)
+    else:
+        module.delete_dockerhub_tag(**kwargs)
+        expected = "tag already absent" if status == 404 else "tag deleted"
+        assert expected in capsys.readouterr().out
+    assert requests == [
+        ("POST", "https://hub.docker.com/v2/users/login/"),  # Public API route. sensitive-scan: allow[user-scoped-path]
+        ("DELETE", "https://hub.docker.com/v2/repositories/loongforge/loongforge/tags/0.2.3_ci_test/"),
+    ]
 
 # --- tests/test_release_config.py ---
 def run_loader(

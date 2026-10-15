@@ -113,6 +113,11 @@ The workflow never moves Docker Hub's `latest` tag. A request can build and
 regress without publishing, or publish when the
 corresponding stage switches are enabled.
 
+Debug runs retain their published internal registry tags. Only Docker Hub
+debug tags are deleted automatically, using its tag-specific API; the release
+workflow never deletes internal registry manifests. Formal release tags remain
+in both registries. The 90-day evidence retention does not delete image tags.
+
 When a formal request enables every stage and build, regression, internal
 publication, and Docker Hub promotion all succeed, the workflow creates the
 matching GitHub Release with generated notes. `rc` tags are marked as

@@ -2,12 +2,11 @@
 # Copyright 2026 The LoongForge Authors.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Delete a temporary release tag from the internal registry or Docker Hub."""
+"""Delete a temporary release tag from Docker Hub; internal tags are retained."""
 
 from __future__ import annotations
 
 import argparse
-import base64
 import json
 import os
 import sys
@@ -15,14 +14,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Optional
-
-
-INTERNAL_ACCEPT = (
-    "application/vnd.oci.image.index.v1+json, "
-    "application/vnd.oci.image.manifest.v1+json, "
-    "application/vnd.docker.distribution.manifest.list.v2+json, "
-    "application/vnd.docker.distribution.manifest.v2+json, */*"
-)
 
 
 def http_request(
@@ -45,22 +36,15 @@ def http_request(
         return error.code, dict(error.headers), error.read()
 
 
-def basic_authorization(username: str, password: str) -> str:
-    value = f"{username}:{password}".encode("utf-8")
-    return "Basic " + base64.b64encode(value).decode("ascii")
-
-
 def split_image_reference(
     image: str,
-    *,
-    expected_host: Optional[str] = None,
 ) -> tuple[Optional[str], str, str]:
     reference = image
     if "://" in reference:
         reference = reference.split("://", 1)[1]
 
-    host: Optional[str] = expected_host
-    if host is None and "/" in reference:
+    host: Optional[str] = None
+    if "/" in reference:
         candidate = reference.split("/", 1)[0]
         if "." in candidate or ":" in candidate or candidate == "localhost":
             host = candidate
@@ -82,55 +66,6 @@ def normalize_dockerhub_repository(repository: str) -> str:
     return repository
 
 
-def delete_internal_registry_tag(
-    *,
-    host: str,
-    image: str,
-    username: str,
-    password: str,
-) -> None:
-    resolved_host, repository, tag = split_image_reference(image, expected_host=host)
-    if resolved_host is None:
-        raise ValueError("internal registry host could not be resolved")
-
-    authorization = basic_authorization(username, password)
-    manifest_url = (
-        f"https://{resolved_host}/v2/{repository}/manifests/"
-        f"{urllib.parse.quote(tag, safe='')}"
-    )
-    status, headers, _ = http_request(
-        manifest_url,
-        method="HEAD",
-        headers={"Accept": INTERNAL_ACCEPT, "Authorization": authorization},
-    )
-    if status == 404:
-        print("internal registry: tag already absent")
-        return
-    if not 200 <= status < 300:
-        raise RuntimeError(f"internal registry: tag lookup failed with HTTP {status}")
-
-    digest = headers.get("Docker-Content-Digest")
-    if not digest:
-        raise RuntimeError("internal registry: tag lookup did not return a digest")
-
-    delete_url = (
-        f"https://{resolved_host}/v2/{repository}/manifests/"
-        f"{urllib.parse.quote(digest, safe=':')}"
-    )
-    status, _, _ = http_request(
-        delete_url,
-        method="DELETE",
-        headers={"Accept": INTERNAL_ACCEPT, "Authorization": authorization},
-    )
-    if status in (202, 204):
-        print("internal registry: tag deleted")
-        return
-    if status == 404:
-        print("internal registry: tag already absent")
-        return
-    raise RuntimeError(f"internal registry: tag deletion failed with HTTP {status}")
-
-
 def delete_dockerhub_tag(
     *,
     image: str,
@@ -144,7 +79,7 @@ def delete_dockerhub_tag(
         {"username": username, "password": token},
     ).encode("utf-8")
     status, _, body = http_request(
-        "https://hub.docker.com/v2/users/login/",
+        "https://hub.docker.com/v2/users/login/",  # Public API route. sensitive-scan: allow[user-scoped-path]
         method="POST",
         headers={"Content-Type": "application/json"},
         data=login_payload,
@@ -176,35 +111,22 @@ def delete_dockerhub_tag(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("registry", choices=("internal", "dockerhub"))
+    parser.add_argument("registry", choices=("dockerhub",))
     parser.add_argument("--image", required=True)
-    parser.add_argument("--host", help="Internal registry host override")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    if args.registry == "internal":
-        username = os.environ.get("IREGISTRY_USERNAME", "")
-        password = os.environ.get("IREGISTRY_PASSWORD", "")
-        if not username or not password or not args.host:
-            raise RuntimeError("internal registry cleanup requires host and credentials")
-        delete_internal_registry_tag(
-            host=args.host,
-            image=args.image,
-            username=username,
-            password=password,
-        )
-    else:
-        username = os.environ.get("DOCKERHUB_USERNAME", "")
-        token = os.environ.get("DOCKERHUB_TOKEN", "")
-        if not username or not token:
-            raise RuntimeError("docker hub cleanup requires credentials")
-        delete_dockerhub_tag(
-            image=args.image,
-            username=username,
-            token=token,
-        )
+    username = os.environ.get("DOCKERHUB_USERNAME", "")
+    token = os.environ.get("DOCKERHUB_TOKEN", "")
+    if not username or not token:
+        raise RuntimeError("docker hub cleanup requires credentials")
+    delete_dockerhub_tag(
+        image=args.image,
+        username=username,
+        token=token,
+    )
     return 0
 
 

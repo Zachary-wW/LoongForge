@@ -507,13 +507,11 @@ jobs:
         needs.validate.result == 'success' &&
         needs.validate.outputs.dry_run == 'false' &&
         needs.validate.outputs.debug_tag_suffix != '' &&
-        (needs.validate.outputs.publish_internal == 'true' ||
-         needs.validate.outputs.publish_dockerhub == 'true')
+        needs.validate.outputs.publish_dockerhub == 'true'
       }}
     runs-on: ${{ fromJSON(vars.CI_RELEASE_RUNNER) }}
     timeout-minutes: 10
     env:
-      INTERNAL_IMAGE_REPOSITORY: ${{ secrets.INTERNAL_IMAGE_REPOSITORY }}
       DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE || 'docker.io/loongforge/loongforge' }}
       VERSION: ${{ needs.validate.outputs.version }}
       DEBUG_TAG_SUFFIX: ${{ needs.validate.outputs.debug_tag_suffix }}
@@ -530,7 +528,7 @@ jobs:
           set -euo pipefail
           source LoongForge/.github/scripts/load_ci_config.sh
           source LoongForge/.github/scripts/self_runner/load_release_config.sh
-      - name: Resolve debug release tags
+      - name: Resolve Docker Hub debug tag
         id: debug_tags
         shell: bash
         env:
@@ -549,31 +547,10 @@ jobs:
           {
             echo "skip=false"
           } >> "$GITHUB_OUTPUT"
-          internal_ref="${INTERNAL_IMAGE_REPOSITORY}:${LOONGFORGE_RELEASE_IMAGE_TAG_PREFIX}_v${VERSION}_release${tag_suffix}"
-          internal_registry_host="${INTERNAL_IMAGE_REPOSITORY%%/*}"
-          if [[ "$internal_registry_host" == "$INTERNAL_IMAGE_REPOSITORY" || "$internal_registry_host" != *[.:]* ]]; then
-            internal_registry_host=docker.io
-          fi
           dockerhub_ref="${DOCKERHUB_IMAGE}:${VERSION}${tag_suffix}"
           {
-            echo "internal_ref=$internal_ref"
-            echo "internal_registry_host=$internal_registry_host"
             echo "dockerhub_ref=$dockerhub_ref"
           } >> "$GITHUB_OUTPUT"
-      - name: Clean up internal registry debug tag
-        if: steps.debug_tags.outputs.skip == 'false'
-        shell: bash
-        env:
-          INTERNAL_IMAGE_REF: ${{ steps.debug_tags.outputs.internal_ref }}
-          INTERNAL_REGISTRY_HOST: ${{ steps.debug_tags.outputs.internal_registry_host }}
-        run: |
-          set -euo pipefail
-          source LoongForge/.github/scripts/load_ci_config.sh
-          source LoongForge/.github/scripts/self_runner/load_release_credentials.sh iregistry
-          python3 LoongForge/.github/scripts/self_runner/cleanup_debug_tags.py \
-            internal \
-            --image "$INTERNAL_IMAGE_REF" \
-            --host "$INTERNAL_REGISTRY_HOST"
       - name: Clean up Docker Hub debug tag
         if: steps.debug_tags.outputs.skip == 'false'
         shell: bash

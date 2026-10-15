@@ -123,6 +123,11 @@ selections against LoongForge's own test definitions before execution.
 `_ci_test`; production requests leave it empty. The workflow does not infer a
 suffix from runner-local configuration.
 
+Published internal debug image tags are retained for registry-side or manual
+management. Automatic debug cleanup removes only the Docker Hub tag; it never
+deletes internal registry manifests. Image tags are separate from the 90-day
+release evidence retention.
+
 The release runner also needs `LOONGFORGE_DOCKERHUB_PROXY` and
 `LOONGFORGE_DOCKERHUB_NO_PROXY` in its operator-managed release configuration.
 They are used only by the Docker Hub cleanup step so temporary debug tags can be
