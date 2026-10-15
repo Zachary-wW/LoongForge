@@ -119,6 +119,15 @@ Set `RELEASE_LLM_MODEL` and `RELEASE_VLA_MODEL` to the fallback model names for
 requests that omit `llm_model` or `vla_model`. The workflow validates both
 selections against LoongForge's own test definitions before execution.
 
+Set `RELEASE_BASELINE_CHIP` to the fallback baseline directory identifier for
+requests that omit `baseline_chip`. Regression requires an explicit input or
+this variable; there is no workflow default. The Portal sends its selected
+chip on every request. Both suites receive the same `--chip`, including when
+executed over SSH, and evidence collection reads that chip's baseline from
+the tested checkout. Missing model or training-phase baselines fail regression;
+the release never falls back to another chip or collects a new baseline.
+Build-only requests do not require a chip.
+
 `debug_tag_suffix` is an explicit per-request input. Debug Full Release uses
 `_ci_test`; production requests leave it empty. The workflow does not infer a
 suffix from runner-local configuration.

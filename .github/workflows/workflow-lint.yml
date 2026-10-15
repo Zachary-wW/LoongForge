@@ -48,5 +48,7 @@ jobs:
             tests/test_doc_links.py \
             tests/test_image_policy.py \
             tests/test_release_infrastructure.py \
+            tests/test_release_request.py \
+            tests/test_release_regression_harness.py \
             tests/test_sensitive_scan.py \
             tests/test_vlm_dataloader_read_order.py

@@ -144,6 +144,17 @@ The optional `llm_model` and `vla_model` inputs select the regression models.
 When omitted they use `RELEASE_LLM_MODEL` and `RELEASE_VLA_MODEL`; the workflow
 rejects names that do not exist in LoongForge's test definitions.
 
+The optional `baseline_chip` input selects the baseline directory for both
+regression suites; omitted inputs read `RELEASE_BASELINE_CHIP`. It is required
+when regression is enabled. This selects comparison data, not GPU allocation.
+LLM/VLM baselines live under `tests/llm_vlm/baseline/{default,optional}/<chip>/`;
+embodied baselines live under `tests/embodied/baseline/<chip>/`. Missing selected
+baselines fail regression without falling back to a different chip.
+The P-chip DeepSeek V2 Lite baseline contains all 20 pretrain iterations from
+debug run `38675600445`, source commit
+`33295fc292f675a6c03634dd0b644290e192a302`. It preserves actual metrics,
+including the first iteration's warmup time. No SFT baseline is implied.
+
 The Release workflow does not publish to PyPI. If package publication is added
 later, it should become an explicit stage switch rather than a Git-tag side
 effect.
@@ -159,7 +170,7 @@ Operator hook contracts:
 
 - `LOONGFORGE_REGRESSION_RUNNER --source DIR --suite llm_vlm|embodied --sha SHA [--model LIST] [--candidate-revision REV]`
 - `LOONGFORGE_IMAGE_BUILDER --source DIR --target a|p|auto --sha SHA --pr NUMBER --tree-sha SHA`; stdout must contain only the local candidate image reference
-- `run_release_regression.sh --image IMAGE --source DIR --sha SHA
+- `run_release_regression.sh --image IMAGE --source DIR --sha SHA --baseline-chip CHIP
   [--llm-model MODEL] [--vla-model MODEL]`; the release
   runner creates one container and runs the two release models serially. It
   also routes execution through the selected Execution Slot and synchronizes

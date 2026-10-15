@@ -7,7 +7,10 @@ import shlex
 import ast
 import importlib.util
 import json
+import math
 from pathlib import Path
+
+import pytest
 
 
 REPOSITORY_ROOT = Path(__file__).parent.parent
@@ -141,13 +144,116 @@ def test_remote_regression_preserves_run_attempt_and_archives_failed_evidence(tm
     })
     result = subprocess.run(
         [str(RELEASE_REGRESSION_SCRIPT), "--image", "registry.example/image:test",
-         "--source", str(source), "--sha", "a" * 40],
+         "--source", str(source), "--sha", "a" * 40, "--baseline-chip", "p"],
         env=env, cwd=tmp_path, capture_output=True, text=True, check=False,
     )
     assert result.returncode == 7
     commands = command_log.read_text()
     assert "GITHUB_RUN_ID='123' GITHUB_RUN_ATTEMPT='2'" in commands
+    assert "--baseline-chip 'p'" in commands
     assert str(tmp_path / "evidence/123/loongforge-release-artifacts/") in sync_log.read_text()
+
+
+def test_local_regression_uses_requested_chip_for_both_suites_and_evidence(tmp_path):
+    source = tmp_path / "source"
+    marker = source / "third_party/Loong-Megatron/megatron/core/transformer"
+    marker.mkdir(parents=True)
+    (marker / "hyper_connection.py").touch()
+    log = tmp_path / "docker.log"
+    docker = tmp_path / "docker"
+    docker.write_text(
+        '#!/usr/bin/env bash\n'
+        'printf "%s\\n" "$*" >> "$TEST_DOCKER_LOG"\n'
+        'if [[ "$1 $2" == "container inspect" ]]; then exit 1; fi\n'
+        'if [[ "$1 $2" == "image inspect" ]]; then echo sha256:test; fi\n'
+        'if [[ "$*" == *LOONGFORGE_TEST_SUITE=llm_vlm* && "$1" == exec ]]; then\n'
+        '  echo "training_phase ... pretrain"\n'
+        '  echo "iteration 1/ 20 | lm loss: 2.5 | grad norm: 1.2"\n'
+        'fi\n'
+        'exit 0\n'
+    )
+    docker.chmod(0o755)
+    config = tmp_path / "image.env"
+    settings = {
+        "DOCKER_BIN": str(docker),
+        "LOONGFORGE_DEFAULT_IMAGE": "example/image:test",
+        "LOONGFORGE_HOST_DATA_ROOT": str(tmp_path),
+        "LOONGFORGE_HOST_LLM_DATA_ROOT": str(tmp_path),
+        "LOONGFORGE_HOST_OUTPUT_ROOT": str(tmp_path / "output"),
+        "LOONGFORGE_RUNNER_LOG_ROOT": str(tmp_path / "logs"),
+        "LOONGFORGE_CONTAINER_DATA_ROOT": "/ci-data",
+        "LOONGFORGE_CONTAINER_LLM_DATA_ROOT": "/ci-llm-data",
+        "LOONGFORGE_CONTAINER_OUTPUT_ROOT": "/ci-output",
+        "LOONGFORGE_CONTAINER_SOURCE": "/ci-source",
+        "TRITON_LIBCUDA_PATH": str(tmp_path),
+        "LOONGFORGE_GPU_DEVICE": "/dev/null",
+        "LOONGFORGE_MIN_FREE_GPU_MB": "",
+        # Deliberately disagree with the explicit request.
+        "LOONGFORGE_BASELINE_LLM_VLM": "a",
+        "LOONGFORGE_BASELINE_EMBODIED": "a",
+    }
+    config.write_text("".join(f"{key}={shlex.quote(value)}\n" for key, value in settings.items()))
+    env = os.environ.copy()
+    env.update({
+        "CI_CONFIG_PATH_IMAGE": str(config),
+        "LOONGFORGE_EXECUTION_MODE": "local",
+        "TEST_DOCKER_LOG": str(log),
+        "LOONGFORGE_RELEASE_EVIDENCE_ROOT": "",
+        "GITHUB_RUN_ID": "123", "GITHUB_RUN_ATTEMPT": "1",
+    })
+    # Evidence reads baselines/parser from the tested source, as in production.
+    (source / "tests").symlink_to(REPOSITORY_ROOT / "tests", target_is_directory=True)
+    result = subprocess.run(
+        [str(RELEASE_REGRESSION_SCRIPT), "--image", "example/image:test",
+         "--source", str(source), "--sha", "a" * 40, "--baseline-chip", "p"],
+        env=env, cwd=tmp_path, capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    commands = log.read_text().splitlines()
+    training = [line for line in commands if line.startswith("exec ") and "--chip " in line]
+    assert len(training) == 2
+    assert all("--chip p " in line for line in training)
+    metrics = json.loads(
+        (tmp_path / "loongforge-release-artifacts/regression-metrics.json").read_text()
+    )
+    case = metrics["results"][0]
+    assert case["baseline_chip"] == "p"
+    assert case["baseline"][0]["lm_loss"] == 2.55532
+
+
+def test_p_chip_deepseek_baseline_has_complete_numeric_pretrain_metrics():
+    path = REPOSITORY_ROOT / "tests/llm_vlm/baseline/default/p/deepseek_v2_lite.json"
+    baseline = json.loads(path.read_text())
+    assert set(baseline) == {"pretrain"}
+    records = baseline["pretrain"]
+    assert [record["iteration"] for record in records] == list(range(1, 21))
+    fields = {
+        "iteration", "lm_loss", "grad_norm", "elapsed_time_ms", "throughput",
+        "mem_allocated_avg_MB", "mem_max_allocated_avg_MB",
+    }
+    assert all(set(record) == fields for record in records)
+    assert all(math.isfinite(value) for record in records for value in record.values())
+    assert records[0]["lm_loss"] == 2.55532
+    assert records[-1]["lm_loss"] == 2.250846
+
+
+def test_baseline_reader_never_falls_back_to_another_chip_or_phase(monkeypatch, tmp_path):
+    monkeypatch.syspath_prepend(str(REPOSITORY_ROOT / "tests/llm_vlm"))
+    monkeypatch.chdir(tmp_path)
+    spec = importlib.util.spec_from_file_location(
+        "release_config_manager", REPOSITORY_ROOT / "tests/llm_vlm/tools/config_manager.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    monkeypatch.setattr(module, "__file__", str(tmp_path / "tools/config_manager.py"))
+    baseline_root = tmp_path / "baseline/default"
+    (baseline_root / "a").mkdir(parents=True)
+    (baseline_root / "a/model.json").write_text('{"pretrain": [{"iteration": 1}]}')
+    with pytest.raises(FileNotFoundError):
+        module.ConfigManager.get_baseline_data(None, {}, "model", "pretrain", "p")
+    (baseline_root / "p/model.json").write_text('{"pretrain": [{"iteration": 1}]}')
+    with pytest.raises(ValueError, match="sft"):
+        module.ConfigManager.get_baseline_data(None, {}, "model", "sft", "p")
 
 
 def test_release_container_copies_megatron_into_writable_source(tmp_path):

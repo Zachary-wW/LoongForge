@@ -324,6 +324,11 @@ test('release is dispatched manually and builds, regresses, and promotes one imm
   assert.match(workflow, /RELEASE_EXECUTION_SLOT/);
   assert.match(workflow, /RELEASE_LLM_MODEL/);
   assert.match(workflow, /RELEASE_VLA_MODEL/);
+  assert.match(workflow, /baseline_chip:/);
+  assert.match(workflow, /vars\.RELEASE_BASELINE_CHIP/);
+  assert.match(workflow, /BASELINE_CHIP: \$\{\{ needs\.validate\.outputs\.baseline_chip \}\}/);
+  assert.match(workflow, /--baseline-chip "\$BASELINE_CHIP"/);
+  assert.doesNotMatch(workflow, /VAR_BASELINE_CHIP:-[ap]/);
   assert.match(workflow, /timeout-minutes: 90/);
   assert.match(workflow, /DOCKER_CONFIG: \/tmp\/loongforge-release-docker-config-/);
   assert.match(workflow, /INTERNAL_IMAGE_REPOSITORY: \$\{\{ secrets\.INTERNAL_IMAGE_REPOSITORY \}\}/);

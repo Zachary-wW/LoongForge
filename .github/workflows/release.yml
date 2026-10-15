@@ -31,6 +31,10 @@ on:
         description: VLA release regression model
         required: false
         type: string
+      baseline_chip:
+        description: Baseline chip directory shared by both regression suites
+        required: false
+        type: string
       debug_tag_suffix:
         description: Non-production suffix appended to generated image tags
         required: false
@@ -64,6 +68,7 @@ jobs:
       execution_slot: ${{ steps.stages.outputs.execution_slot }}
       llm_model: ${{ steps.stages.outputs.llm_model }}
       vla_model: ${{ steps.stages.outputs.vla_model }}
+      baseline_chip: ${{ steps.stages.outputs.baseline_chip }}
       debug_tag_suffix: ${{ steps.stages.outputs.debug_tag_suffix }}
       existing_image_ref: ${{ steps.stages.outputs.existing_image_ref }}
       skip_regression_reason: ${{ steps.stages.outputs.skip_regression_reason }}
@@ -83,6 +88,7 @@ jobs:
           INPUT_EXECUTION_SLOT: ${{ github.event.inputs.execution_slot }}
           INPUT_LLM_MODEL: ${{ github.event.inputs.llm_model }}
           INPUT_VLA_MODEL: ${{ github.event.inputs.vla_model }}
+          INPUT_BASELINE_CHIP: ${{ github.event.inputs.baseline_chip }}
           INPUT_DEBUG_TAG_SUFFIX: ${{ github.event.inputs.debug_tag_suffix }}
           INPUT_EXISTING_IMAGE_REF: ${{ github.event.inputs.existing_image_ref }}
           INPUT_SKIP_REGRESSION_REASON: ${{ github.event.inputs.skip_regression_reason }}
@@ -93,6 +99,7 @@ jobs:
           VAR_EXECUTION_SLOT: ${{ vars.RELEASE_EXECUTION_SLOT }}
           VAR_LLM_MODEL: ${{ vars.RELEASE_LLM_MODEL }}
           VAR_VLA_MODEL: ${{ vars.RELEASE_VLA_MODEL }}
+          VAR_BASELINE_CHIP: ${{ vars.RELEASE_BASELINE_CHIP }}
         run: |
           set -euo pipefail
           build_image="${INPUT_BUILD_IMAGE:-$VAR_BUILD_IMAGE}"
@@ -102,6 +109,7 @@ jobs:
           execution_slot="${INPUT_EXECUTION_SLOT:-$VAR_EXECUTION_SLOT}"
           llm_model="${INPUT_LLM_MODEL:-$VAR_LLM_MODEL}"
           vla_model="${INPUT_VLA_MODEL:-$VAR_VLA_MODEL}"
+          baseline_chip="${INPUT_BASELINE_CHIP:-$VAR_BASELINE_CHIP}"
           python3 .github/scripts/release_request.py \
             --build-image "$build_image" \
             --run-regression "$run_regression" \
@@ -110,6 +118,7 @@ jobs:
             --execution-slot "$execution_slot" \
             --llm-model "$llm_model" \
             --vla-model "$vla_model" \
+            --baseline-chip "$baseline_chip" \
             --debug-tag-suffix "${INPUT_DEBUG_TAG_SUFFIX:-}" \
             --existing-image-ref "${INPUT_EXISTING_IMAGE_REF:-}" \
             --skip-regression-reason "${INPUT_SKIP_REGRESSION_REASON:-}" \
@@ -174,6 +183,7 @@ jobs:
           echo "execution_slot=${{ needs.validate.outputs.execution_slot }}"
           echo "llm_model=${{ needs.validate.outputs.llm_model }}"
           echo "vla_model=${{ needs.validate.outputs.vla_model }}"
+          echo "baseline_chip=${{ needs.validate.outputs.baseline_chip }}"
           echo "dry_run: stages were not executed"
 
   build_test_push_internal:
@@ -198,6 +208,7 @@ jobs:
       LOONGFORGE_RELEASE_EXECUTION_SLOT: ${{ needs.validate.outputs.execution_slot }}
       LLM_MODEL: ${{ needs.validate.outputs.llm_model }}
       VLA_MODEL: ${{ needs.validate.outputs.vla_model }}
+      BASELINE_CHIP: ${{ needs.validate.outputs.baseline_chip }}
       DEBUG_TAG_SUFFIX: ${{ needs.validate.outputs.debug_tag_suffix }}
       EXISTING_IMAGE_REF: ${{ needs.validate.outputs.existing_image_ref }}
       DOCKER_CONFIG: /tmp/loongforge-release-docker-config-${{ github.run_id }}-${{ github.run_attempt }}
@@ -289,7 +300,8 @@ jobs:
             --source "$GITHUB_WORKSPACE/LoongForge" \
             --sha "$GITHUB_SHA" \
             --llm-model "$LLM_MODEL" \
-            --vla-model "$VLA_MODEL"
+            --vla-model "$VLA_MODEL" \
+            --baseline-chip "$BASELINE_CHIP"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:

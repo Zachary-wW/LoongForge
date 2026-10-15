@@ -86,6 +86,7 @@ def collect(
             if actual:
                 results.append({
                     "suite": "llm_vlm", "model": llm_model, "training_type": phase,
+                    "baseline_chip": llm_chip,
                     "passed": passed, "grad_norm_checked": False,
                     "actual": actual,
                     "baseline": baseline(source, "llm_vlm", llm_chip, llm_model, phase),
@@ -98,6 +99,7 @@ def collect(
                 continue
             results.append({
                 "suite": "embodied", "model": model, "training_type": "train",
+                "baseline_chip": vla_chip,
                 "passed": item.get("passed"), "grad_norm_checked": True,
                 "warnings": item.get("warnings", []),
                 "failed_metrics": item.get("failed_metrics", []),

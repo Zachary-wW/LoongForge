@@ -33,6 +33,7 @@ class ReleaseRequest:
     execution_slot: str = ""
     llm_model: str = ""
     vla_model: str = ""
+    baseline_chip: str = ""
     debug_tag_suffix: str = ""
     existing_image_ref: str = ""
     skip_regression_reason: str = ""
@@ -59,6 +60,7 @@ def parse_release_request(
     execution_slot: str,
     llm_model: str,
     vla_model: str,
+    baseline_chip: str = "",
     debug_tag_suffix: str = "",
     existing_image_ref: str = "",
     skip_regression_reason: str = "",
@@ -71,6 +73,7 @@ def parse_release_request(
         execution_slot=execution_slot.strip(),
         llm_model=llm_model.strip(),
         vla_model=vla_model.strip(),
+        baseline_chip=baseline_chip.strip(),
         debug_tag_suffix=debug_tag_suffix.strip(),
         existing_image_ref=existing_image_ref.strip(),
         skip_regression_reason=skip_regression_reason.strip(),
@@ -86,6 +89,10 @@ def validate_release_request(request: ReleaseRequest) -> None:
         raise ReleaseRequestError("llm_model is invalid")
     if not MODEL_RE.fullmatch(request.vla_model):
         raise ReleaseRequestError("vla_model is invalid")
+    if request.baseline_chip and not MODEL_RE.fullmatch(request.baseline_chip):
+        raise ReleaseRequestError("baseline_chip is invalid")
+    if request.run_regression and not request.baseline_chip:
+        raise ReleaseRequestError("run_regression requires baseline_chip")
 
     if not DEBUG_SUFFIX_RE.fullmatch(request.debug_tag_suffix):
         raise ReleaseRequestError("debug_tag_suffix contains invalid characters")
@@ -136,6 +143,7 @@ def parse_args() -> argparse.Namespace:
     ):
         _add_argument(parser, name, required=True)
     for name in (
+        "baseline_chip",
         "debug_tag_suffix",
         "existing_image_ref",
         "skip_regression_reason",
@@ -155,6 +163,7 @@ def main() -> int:
             execution_slot=args.execution_slot,
             llm_model=args.llm_model,
             vla_model=args.vla_model,
+            baseline_chip=args.baseline_chip or "",
             debug_tag_suffix=args.debug_tag_suffix or "",
             existing_image_ref=args.existing_image_ref or "",
             skip_regression_reason=args.skip_regression_reason or "",

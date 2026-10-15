@@ -26,6 +26,7 @@ def request(**overrides):
         "execution_slot": "primary",
         "llm_model": "deepseek_v2_lite",
         "vla_model": "pi05_ddp",
+        "baseline_chip": "p",
     }
     values.update(overrides)
     return release_request.parse_release_request(**values)
@@ -37,6 +38,13 @@ def test_full_release_is_valid():
     assert result.run_regression is True
     assert result.publish_internal is True
     assert result.publish_dockerhub is True
+    assert result.baseline_chip == "p"
+
+
+@pytest.mark.parametrize("chip", ["", "../a", "p/a", "p\nother=value"])
+def test_regression_rejects_missing_or_invalid_baseline_chip(chip):
+    with pytest.raises(release_request.ReleaseRequestError, match="baseline_chip"):
+        request(baseline_chip=chip)
 
 
 def test_dry_run_reason_can_validate_all_stages_disabled():
@@ -55,6 +63,7 @@ def test_build_only_is_valid():
         run_regression="false",
         publish_internal="false",
         publish_dockerhub="false",
+        baseline_chip="",
     )
     assert result.build_image is True
     assert result.run_regression is False
@@ -150,6 +159,8 @@ def test_cli_accepts_execution_slot():
             "deepseek_v2_lite",
             "--vla-model",
             "pi05_ddp",
+            "--baseline-chip",
+            "p",
             "--existing-image-ref",
             "registry.example.test/team/project:v1",
         ],
@@ -159,6 +170,7 @@ def test_cli_accepts_execution_slot():
     )
     assert result.returncode == 0
     assert "execution_slot=secondary" in result.stdout
+    assert "baseline_chip=p" in result.stdout
 
 
 def test_invalid_model_is_rejected():

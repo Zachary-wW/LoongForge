@@ -12,6 +12,7 @@ source_dir=""
 sha=""
 llm_model="deepseek_v2_lite"
 vla_model="pi05_ddp"
+request_baseline_chip=""
 master_port=$((20000 + ($$ % 30000)))
 
 while [[ $# -gt 0 ]]; do
@@ -21,6 +22,7 @@ while [[ $# -gt 0 ]]; do
     --sha) sha="${2:-}"; shift 2 ;;
     --llm-model) llm_model="${2:-}"; shift 2 ;;
     --vla-model) vla_model="${2:-}"; shift 2 ;;
+    --baseline-chip) request_baseline_chip="${2:-}"; shift 2 ;;
     *) printf '%s\n' 'argument: invalid' >&2; exit 2 ;;
   esac
 done
@@ -39,6 +41,10 @@ done
 }
 [[ "$vla_model" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]] || {
   printf '%s\n' 'vla model: invalid' >&2
+  exit 2
+}
+[[ "$request_baseline_chip" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || {
+  printf '%s\n' 'baseline chip: required and must be a directory identifier' >&2
   exit 2
 }
 
@@ -90,7 +96,8 @@ if [[ "$mode" == ssh ]]; then
      CI_CONFIG_PATH='$remote_config' \
      '$remote_source/.github/scripts/self_runner/run_release_regression.sh' \
      --image '$image' --source '$remote_source' --sha '$sha' \
-     --llm-model '$llm_model' --vla-model '$vla_model'" || status=$?
+     --llm-model '$llm_model' --vla-model '$vla_model' \
+     --baseline-chip '$request_baseline_chip'" || status=$?
 
   if ! rsync --archive "$alias:$work_dir/loongforge-release-artifacts/" "$artifact_dir/"; then
     status=1
@@ -161,9 +168,9 @@ cleanup() {
   set +e
   if ! python3 "$script_dir/../../../ci/release_evidence.py" \
     --source "$source_dir" --llm-log "$llm_log" --llm-model "$llm_model" \
-    --llm-chip "${LOONGFORGE_BASELINE_LLM_VLM:-a}" \
+    --llm-chip "$request_baseline_chip" \
     --vla-results "$LOONGFORGE_HOST_OUTPUT_ROOT/embodied/run-$run_key/results.json" \
-    --vla-chip "${LOONGFORGE_BASELINE_EMBODIED:-p}" --exit-code "${llm_status:-$exit_status}" \
+    --vla-chip "$request_baseline_chip" --exit-code "${llm_status:-$exit_status}" \
     --output "$artifact_dir/.regression-metrics.json" >/dev/null 2>&1; then
     printf '%s\n' 'release-evidence: metric collection failed' >&2
   fi
@@ -204,7 +211,7 @@ export LOONGFORGE_PULL_IMAGE=false
   >>"$llm_log" 2>&1
 
 llm_model_q=$(printf '%q' "$llm_model")
-llm_chip_q=$(printf '%q' "${LOONGFORGE_BASELINE_LLM_VLM:-a}")
+llm_chip_q=$(printf '%q' "$request_baseline_chip")
 container_source="${LOONGFORGE_CONTAINER_SOURCE%/}"
 container_source_q=$(printf '%q' "$container_source")
 output_root_q=$(printf '%q' "$LOONGFORGE_CONTAINER_OUTPUT_ROOT")
@@ -233,7 +240,7 @@ set -e
 vla_status=1
 if [[ "$llm_status" -eq 0 ]]; then
   vla_model_q=$(printf '%q' "$vla_model")
-  vla_chip_q=$(printf '%q' "${LOONGFORGE_BASELINE_EMBODIED:-p}")
+  vla_chip_q=$(printf '%q' "$request_baseline_chip")
   vla_data_q=$(printf '%q' "$LOONGFORGE_CONTAINER_DATA_ROOT")
   set +e
   "$docker_bin" exec \
