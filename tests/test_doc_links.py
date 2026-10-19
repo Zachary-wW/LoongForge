@@ -15,6 +15,7 @@ SPEC.loader.exec_module(check_doc_links)
 PLACEHOLDER = check_doc_links.PLACEHOLDER
 changed_markdown_files = check_doc_links.changed_markdown_files
 references = check_doc_links.references
+repo_root = check_doc_links.repo_root
 scan_documents = check_doc_links.scan_documents
 
 
@@ -88,3 +89,7 @@ def test_changed_markdown_files_uses_git_revision(tmp_path):
     )
     changed = changed_markdown_files(tmp_path, "HEAD^")
     assert changed == [Path("README.md")]
+
+
+def test_repo_root_matches_repository_parent():
+    assert repo_root() == Path(__file__).resolve().parents[1]
