@@ -1,16 +1,18 @@
 # Copyright 2026 The LoongForge Authors.
 # SPDX-License-Identifier: Apache-2.0
 
-import importlib.util
 from pathlib import Path
-import sys
 
-MODULE_PATH = Path(__file__).resolve().parents[1] / ".github" / "scripts" / "check_doc_links.py"
-SPEC = importlib.util.spec_from_file_location("check_doc_links", MODULE_PATH)
-assert SPEC and SPEC.loader
-check_doc_links = importlib.util.module_from_spec(SPEC)
-sys.modules["check_doc_links"] = check_doc_links
-SPEC.loader.exec_module(check_doc_links)
+from tests.ci_test_utils import load_module
+
+
+MODULE_PATH = (
+    Path(__file__).resolve().parents[1]
+    / ".github"
+    / "scripts"
+    / "check_doc_links.py"
+)
+check_doc_links = load_module("check_doc_links", MODULE_PATH)
 
 PLACEHOLDER = check_doc_links.PLACEHOLDER
 changed_markdown_files = check_doc_links.changed_markdown_files

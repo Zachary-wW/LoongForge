@@ -3,11 +3,12 @@
 
 """Contract tests for the sensitive-information scanner's public interfaces."""
 
-import importlib.util
 from pathlib import Path
-import sys
 
 import pytest
+
+from tests.ci_test_utils import load_module
+
 
 MODULE_PATH = (
     Path(__file__).resolve().parents[1]
@@ -15,11 +16,7 @@ MODULE_PATH = (
     / "scripts"
     / "sensitive_scan.py"
 )
-SPEC = importlib.util.spec_from_file_location("sensitive_scan", MODULE_PATH)
-assert SPEC and SPEC.loader
-sensitive_scan = importlib.util.module_from_spec(SPEC)
-sys.modules["sensitive_scan"] = sensitive_scan
-SPEC.loader.exec_module(sensitive_scan)
+sensitive_scan = load_module("sensitive_scan", MODULE_PATH)
 
 
 def _email() -> str:
