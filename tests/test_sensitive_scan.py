@@ -9,7 +9,12 @@ import sys
 
 import pytest
 
-MODULE_PATH = Path(__file__).resolve().parents[1] / "ci" / "sensitive_scan.py"
+MODULE_PATH = (
+    Path(__file__).resolve().parents[1]
+    / ".github"
+    / "scripts"
+    / "sensitive_scan.py"
+)
 SPEC = importlib.util.spec_from_file_location("sensitive_scan", MODULE_PATH)
 assert SPEC and SPEC.loader
 sensitive_scan = importlib.util.module_from_spec(SPEC)

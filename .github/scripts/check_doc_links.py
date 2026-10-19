@@ -10,8 +10,8 @@ validator catches stale ``examples/`` and ``configs/`` paths in CI.
 
 Usage::
 
-    python3 ci/check_doc_links.py            # scan repository Markdown
-    python3 ci/check_doc_links.py README.md  # scan selected files
+    python3 .github/scripts/check_doc_links.py            # scan repository Markdown
+    python3 .github/scripts/check_doc_links.py README.md  # scan selected files
 """
 
 from __future__ import annotations

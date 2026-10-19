@@ -17,7 +17,7 @@ source "$script_dir/load_release_config.sh"
 source "$script_dir/load_release_credentials.sh" iregistry
 source "$script_dir/load_release_credentials.sh" dockerhub
 
-redactor="$script_dir/../../../ci/redact_ci_artifact.py"
+redactor="$script_dir/../redact_ci_artifact.py"
 ssh_options=(-o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30 -o ServerAliveCountMax=3)
 remote_config=""
 destination_created=false

@@ -5,7 +5,7 @@
 
 Kept as a Python module (rather than JSON/TOML) so that patterns can use raw
 strings without double-escaping, and so that each rule can carry an inline
-rationale. Consumed by ``ci/sensitive_scan.py``.
+rationale. Consumed by ``.github/scripts/sensitive_scan.py``.
 
 Severity contract:
     error - blocks CI. Directly identifies internal infrastructure, a person,
@@ -304,7 +304,7 @@ ALLOWLIST = [
     },
     {
         "rule": "*",
-        "path": "ci/sensitive_rules.py",
+        "path": ".github/scripts/sensitive_rules.py",
         "reason": "Rule patterns necessarily contain the strings they match.",
     },
     {

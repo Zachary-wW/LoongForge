@@ -397,5 +397,5 @@ test('doc-links is part of the blocking static checks gate', () => {
   assert.match(docLinks, /ref: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
   assert.match(docLinks, /persist-credentials: false\s+fetch-depth: 0/);
   assert.match(docLinks, /actions\/setup-python@[0-9a-f]{40}/);
-  assert.match(docLinks, /ci\/check_doc_links\.py --changed-since/);
+  assert.match(docLinks, /\.github\/scripts\/check_doc_links\.py --changed-since/);
 });

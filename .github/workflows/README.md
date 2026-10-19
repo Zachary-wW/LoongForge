@@ -13,7 +13,7 @@ This directory contains the CI/CD workflows for LoongForge.
 | `doc-links.yml` | Reusable workflow | Check Markdown references to repository `examples/` and `configs/` paths |
 | `secrets.yml` | Reusable workflow | Scan PR commits for leaked secrets via gitleaks |
 | `lint.yml` | Reusable workflow | Run Ruff on changed Python files |
-| `sensitive.yml` | Reusable workflow | Scan tracked files for internal identifiers via `ci/sensitive_scan.py` |
+| `sensitive.yml` | Reusable workflow | Scan tracked files for internal identifiers via `.github/scripts/sensitive_scan.py` |
 | `build.yml` | Reusable workflow | Build sdist + wheel and run Python 3.12 import smoke |
 | `submodule-sync.yml` | repository dispatch / workflow dispatch + manual | Sync `third_party/Loong-Megatron` to its tracked branch and push the submodule pointer update |
 | `auto-label.yml` | Issue/PR open/edit | Auto-label issues and PRs by keyword matching |
