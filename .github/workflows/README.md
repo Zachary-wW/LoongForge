@@ -107,6 +107,11 @@ the published manifest's image configuration against the pulled image and
 its registry digest against the digest returned by push. Each stage reports
 progress and elapsed time. The publisher does not run a GitHub runner.
 Passwords are sent to Docker over stdin using a temporary Docker configuration.
+Post-push verification uses Python 3 and the authenticated Registry API on the
+publisher, independently of its Docker CLI version. It checks the tag's manifest
+hash and image configuration, retrying transient HTTP or network failures up to
+four times with bounded timeouts; authentication and content mismatches fail
+immediately. Verification retries do not repeat the pull or push.
 Registry login retries temporary network failures up to three times, waiting
 two and four seconds between attempts; authentication failures stop immediately.
 Reports distinguish `login_iregistry` from `login_dockerhub`. A redacted
