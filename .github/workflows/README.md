@@ -208,11 +208,23 @@ because runner filesystem roots may differ.
 The protected release runner must set
 `LOONGFORGE_ALLOW_RELEASE_IMAGE_BUILD=true` in that config.
 
-GitHub prints self-hosted runner metadata before the first workflow step, so a
-workflow cannot mask `Runner name`, `Machine name`, or the runner proxy line.
+GitHub prints self-hosted runner metadata before the first workflow step.
 Register the production runner with a non-sensitive name and run it on a host
-or container whose hostname is also non-sensitive. If those automatic lines
-must never be public, use a private runner repository for the execution job.
+or container whose hostname is also non-sensitive.
+Before running a self-hosted release job, configure the repository-level
+`RUNNER_PRIVATE_LOG_MASKS` secret in both the upstream and fork repositories.
+Store the exact private proxy URL and its hostname on separate lines, without
+adding these values to source files or repository variables. Every self-hosted
+release job references this secret in its job environment, including debug
+cleanup, which does not use a deployment environment. The runner registers
+secret values and their individual lines before printing `Set up job`, so the
+startup proxy endpoint is masked too. A workflow step or job-started hook runs
+too late to protect these messages; the existing metadata-mask step still
+protects values loaded by later steps.
+Update the secret before changing a runner's proxy, and validate a small
+self-hosted job's startup log before running a release. Release dry-run skips
+self-hosted execution and cannot validate startup masking. Existing public
+logs retain their original content and need separate cleanup.
 
 Hooks must return nonzero on failure and must not print credentials, signed
 source URLs, runner-local filesystem paths, or physical accelerator details to
