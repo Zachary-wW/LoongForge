@@ -370,6 +370,21 @@ test('release refuses self-hosted execution without startup masks', () => {
   }
 });
 
+test('GPU regression gates and masks self-hosted execution', () => {
+  const workflow = readWorkflow('gpu-regression.yml');
+  assert.match(workflow, /name: Validate runner startup masking/);
+  const jobs = workflow.split(/\n(?=  [a-z][a-z0-9_]*:\n)/);
+  for (const jobName of ['llm_vlm', 'embodied']) {
+    const job = jobs.find((candidate) => candidate.startsWith(`  ${jobName}:`));
+    assert.ok(job, `missing ${jobName} job`);
+    const configuration = job.slice(0, job.indexOf('\n    steps:'));
+    assert.match(
+      configuration,
+      /RUNNER_PRIVATE_LOG_MASKS: \$\{\{ secrets\.RUNNER_PRIVATE_LOG_MASKS \}\}/,
+    );
+  }
+});
+
 test('GPU workflow has an immutable run identity for the watchdog', () => {
   const workflow = readWorkflow('gpu-regression.yml');
   const watchdog = readWorkflow('gpu-watchdog.yml');

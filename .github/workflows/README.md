@@ -211,8 +211,9 @@ The protected release runner must set
 GitHub prints self-hosted runner metadata before the first workflow step.
 Register the production runner with a non-sensitive name and run it on a host
 or container whose hostname is also non-sensitive.
-Before running a self-hosted release job, configure the repository-level
-`RUNNER_PRIVATE_LOG_MASKS` secret in both the upstream and fork repositories.
+Before running a self-hosted release or GPU regression job, configure the
+repository-level `RUNNER_PRIVATE_LOG_MASKS` secret in both the upstream and
+fork repositories.
 Store the exact private proxy URL and its hostname on separate lines, without
 adding these values to source files or repository variables. Every self-hosted
 release job references this secret in its job environment, including debug

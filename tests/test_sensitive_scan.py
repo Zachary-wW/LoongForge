@@ -127,6 +127,8 @@ def _runner_proxy_line(endpoint: str, protocol: str = "HTTP") -> str:
         "http://proxy.example.invalid:8080",
         "https://proxy.example.invalid:8443",
         "http://operator:example-password@proxy.example.invalid:8080",
+        "http://operator:example%40password@proxy.example.invalid:8080",
+        "http://operator:example%3Apassword@proxy.example.invalid:8080",
     ],
 )
 def test_runner_startup_proxy_is_detected_without_reprinting_endpoint(
@@ -161,6 +163,9 @@ def test_runner_startup_proxy_is_detected_without_reprinting_endpoint(
         "http://127.0.0.1:8080",
         "http://localhost:8080",
         "http://[::1]:8080",
+        "http://operator:example%40password@127.0.0.1:8080",
+        "http://operator:example%40password@localhost:8080",
+        "http://operator:example%40password@[::1]:8080",
     ],
 )
 def test_masked_and_loopback_runner_proxies_are_allowed(endpoint):

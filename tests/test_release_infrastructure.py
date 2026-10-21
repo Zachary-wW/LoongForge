@@ -178,6 +178,13 @@ PROMOTION_SCRIPT = (
     / "self_runner"
     / "promote_to_dockerhub.sh"
 )
+VERIFY_SCRIPT = (
+    Path(__file__).parents[1]
+    / ".github"
+    / "scripts"
+    / "self_runner"
+    / "verify_dockerhub_manifest.py"
+)
 
 
 @pytest.mark.parametrize(
@@ -410,9 +417,10 @@ def test_promotion_pulls_tags_pushes_and_verifies_without_exposing_credentials(t
 )
 def test_promotion_registry_verifier(tmp_path, monkeypatch, capsys, scenario):
     # Exercise the same Python program sent over SSH, without SSH or a registry.
-    program = PROMOTION_SCRIPT.read_text().split("<<'VERIFY_PY'\n", 1)[1].split("\nVERIFY_PY", 1)[0]
-    namespace = {"__name__": "promotion_verifier"}
-    exec(compile(program, str(PROMOTION_SCRIPT), "exec"), namespace)
+    spec = importlib.util.spec_from_file_location("verify_dockerhub_manifest", VERIFY_SCRIPT)
+    verifier = importlib.util.module_from_spec(spec)
+    assert spec.loader
+    spec.loader.exec_module(verifier)
 
     username, password, token = "registry-user", "registry-password", "registry-bearer-secret"
     auth = base64.b64encode(f"{username}:{password}".encode()).decode()
@@ -477,8 +485,8 @@ def test_promotion_registry_verifier(tmp_path, monkeypatch, capsys, scenario):
             }
         return response
 
-    monkeypatch.setattr(namespace["urllib"].request, "urlopen", urlopen)
-    monkeypatch.setattr(namespace["time"], "sleep", sleeps.append)
+    monkeypatch.setattr(verifier.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(verifier.time, "sleep", sleeps.append)
     errors = {
         "exhausted": "manifest failed: HTTP 429",
         "unauthorized": "authentication failed: HTTP 401",
@@ -492,9 +500,9 @@ def test_promotion_registry_verifier(tmp_path, monkeypatch, capsys, scenario):
     }
     if scenario in errors:
         with pytest.raises(RuntimeError, match=errors[scenario]):
-            namespace["verify"](str(tmp_path), "docker.io/team/image:v1_ci_test", source, pushed)
+            verifier.verify(str(tmp_path), "docker.io/team/image:v1_ci_test", source, pushed)
     else:
-        assert namespace["verify"](str(tmp_path), "docker.io/team/image:v1_ci_test", source, pushed) == digest
+        assert verifier.verify(str(tmp_path), "docker.io/team/image:v1_ci_test", source, pushed) == digest
 
     transient = scenario in {
         "authentication_503", "manifest_404", "manifest_429", "manifest_503", "network",

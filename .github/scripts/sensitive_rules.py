@@ -163,7 +163,8 @@ RULES = [
         "why": "The runner prints proxy metadata before workflow steps can "
                "register log masks.",
         "pattern": r"(?i)\bRunner is running behind proxy server ['\"]"
-                   r"https?://(?!(?:\*{3}|localhost|127\.0\.0\.1|\[::1\])(?=[:/'\"]))"
+                   r"https?://(?!(?:[^@/'\"]+@)?"
+                   r"(?:\*{3}|localhost|127\.0\.0\.1|\[::1\])(?=[:/'\"]))"
                    r"[^'\"\r\n]+['\"] for all HTTPS? requests\.",
         "hint": "Register the endpoint and hostname in the repository-level "
                 "RUNNER_PRIVATE_LOG_MASKS secret before starting the job.",
