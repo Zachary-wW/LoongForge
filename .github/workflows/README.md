@@ -216,8 +216,9 @@ repository-level `RUNNER_PRIVATE_LOG_MASKS` secret in both the upstream and
 fork repositories.
 Store the exact private proxy URL and its hostname on separate lines, without
 adding these values to source files or repository variables. Every self-hosted
-release job references this secret in its job environment, including debug
-cleanup, which does not use a deployment environment. The runner registers
+release or GPU regression job references this secret in its job environment,
+including debug cleanup, which does not use a deployment environment. The runner
+registers
 secret values and their individual lines before printing `Set up job`, so the
 startup proxy endpoint is masked too. A workflow step or job-started hook runs
 too late to protect these messages; the existing metadata-mask step still
