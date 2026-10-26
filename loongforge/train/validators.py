@@ -559,19 +559,6 @@ def _check_arg_is_not_none(args, arg):
 # Adapted from megatron/training/arguments.py
 def _validate_custom_model_args(name, args, defaults={}):
     """Validate non foundational model arguments"""
-    if args.custom_pipeline_recompute_layers is not None:
-        assert args.recompute_granularity == "full", \
-            "recompute-granularity should be full, when custom-pipeline-recompute-layers is set."
-
-        pp_recompute_splits = []
-        if args.custom_pipeline_recompute_layers.find(',') != -1:
-            pp_recompute_splits = [int(s) for s in args.custom_pipeline_recompute_layers.split(',')]
-
-        assert len(pp_recompute_splits) == args.pipeline_model_parallel_size, (
-            f"the number of elements in --custom-pipeline-recompute-layers must be equal to "
-            f"pipeline size {args.pipeline_model_parallel_size}")
-        
-        args.custom_pipeline_recompute_layers = pp_recompute_splits
     # Temporary model parallel size. Added by loongforge
     if args.pipeline_model_parallel_size > 1:
         warnings.warn(f"WARNING: Now for {name}, we only support pipeline model parallel size 1.")
@@ -1187,9 +1174,6 @@ def _validate_custom_model_args(name, args, defaults={}):
         warnings.warn("Warning: For those non foundation model, custom_virtual_pipeline_layers must be None.")
         args.custom_virtual_pipeline_layers = None
 
-    # if args.custom_pipeline_recompute_layers is not None:
-    #     warnings.warn("Warning: For those non foundation model, custom_pipeline_recompute_layers must be None.")
-    #     args.custom_pipeline_recompute_layers = None
 
     # Data blend checks
     assert args.mock_data + \
@@ -1220,7 +1204,7 @@ def _validate_custom_model_args(name, args, defaults={}):
         args.iterations_to_skip.extend(iterations_to_skip_from_file)
 
     # Make sure all functionality that requires Gloo process groups is disabled.
-    if not args.enable_gloo_process_groups:
+    if not args.use_gloo_process_groups:
         if args.use_distributed_optimizer:
             # If using distributed optimizer, must use distributed checkpointing.
             # Legacy checkpointing uses Gloo process groups to collect full distributed
