@@ -71,7 +71,6 @@ def _get_mlp_module_spec_for_backend(
         backend=backend,
         num_experts=num_experts,
         moe_grouped_gemm=moe_grouped_gemm,
-        moe_use_legacy_grouped_gemm=moe_use_legacy_grouped_gemm,
         use_te_activation_func=use_te_activation_func,
     )
 
