@@ -45,6 +45,8 @@ from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.core.transformer.experimental_attention_variant.dsa import (
     DSAIndexerLossAutoScaler,
     DSAIndexerLossLoggingHelper as DSAIndexerLossLoggingHelperFused,
+)
+from .v0192_compat import (
     get_dsa_index_share_topk_holder,
     is_dsa_skip_topk_layer,
     source_dsa_compute_layer,

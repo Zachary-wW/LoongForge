@@ -35,12 +35,12 @@ from megatron.core.transformer.experimental_attention_variant.dsa import (
     rotate_activation,
 )
 
-from megatron.core.transformer.experimental_attention_variant.dsa import fused_qk_topk_naive_thd
-from megatron.core.transformer.experimental_attention_variant.dsa_kernels import (
+from loongforge.models.common.experimental_attention_variant.v0192_compat import (
     batch_of_row,
     build_flat_topk_idxs,
     dsa_sparse_attn,
     fused_indexer_sparse_attn,
+    fused_qk_topk_naive_thd,
 )
 
 from megatron.core.transformer.module import MegatronModule
@@ -3215,11 +3215,13 @@ class CompressedSparseAttention(MegatronModule):
         6. Build attention indices
         7. Run fused sparse attention
         """
-        from megatron.core.transformer.experimental_attention_variant.csa_cp_utils import (
+        from loongforge.models.common.experimental_attention_variant.csa_utils.cp_utils import (
             prepare_cp_compressor_input,
             compute_cp_indexer_topk,
-            build_attention_indices,
             _thd_cp_position_ids,
+        )
+        from loongforge.models.common.experimental_attention_variant.csa_utils.packed_layout import (
+            build_attention_indices,
         )
 
         cp_group = self.pg_collection.cp
