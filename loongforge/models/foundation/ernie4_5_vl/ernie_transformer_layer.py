@@ -7,6 +7,7 @@
 """Transformer layer for Ernie."""
 
 from typing import Optional
+from contextlib import nullcontext
 
 import torch
 import logging
@@ -28,6 +29,11 @@ from .ernie_experts import ErnieMLP
 
 
 logger = logging.getLogger(__name__)
+
+
+def get_fine_grained_offloading_context(_enabled):
+    """Return the neutral v0.19.2 offload context for legacy call sites."""
+    return nullcontext()
 
 
 class TransformerLayerErnie(TransformerLayer):
@@ -53,7 +59,7 @@ class TransformerLayerErnie(TransformerLayer):
         additional_mlp_kwargs = {}
         # import here to avoid circular import
         from megatron.core.extensions.transformer_engine import TEFusedMLP
-        from megatron.core.transformer.moe.experts import GroupedMLP, SequentialMLP, TEGroupedMLP
+        from megatron.core.transformer.moe.experts import SequentialMLP, TEGroupedMLP
         from megatron.core.transformer.moe.moe_layer import MoELayer
         from .ernie_moe_layer import ErnieMoeLayer
 
@@ -62,7 +68,7 @@ class TransformerLayerErnie(TransformerLayer):
         # The conditional below is to make the logic explicit
         # if submodules.mlp is not a ModuleSpec,we dont have to handle passing additional kwargs
         if isinstance(submodules.mlp, ModuleSpec):
-            if submodules.mlp.module in (MoELayer, GroupedMLP, TEGroupedMLP, SequentialMLP, ErnieMoeLayer):
+            if submodules.mlp.module in (MoELayer, TEGroupedMLP, SequentialMLP, ErnieMoeLayer):
                 additional_mlp_kwargs["pg_collection"] = pg_collection
             elif submodules.mlp.module in (ErnieMLP, MLP):
                 assert hasattr(
@@ -178,10 +184,10 @@ class TransformerLayerErnie(TransformerLayer):
         """
 
         from megatron.core.pipeline_parallel.fine_grained_activation_offload import (
-            fine_grained_offloading_group_commit,
+            fine_grained_offloading_group_offload,
             fine_grained_offloading_group_start,
-            get_fine_grained_offloading_context,
         )
+        fine_grained_offloading_group_commit = fine_grained_offloading_group_offload
 
         # Residual connection.
         residual = hidden_states

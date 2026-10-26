@@ -148,7 +148,11 @@ def get_pos_emb_on_this_cp_rank(pos_emb: Tensor, seq_dim: int, packed_seq_params
         pos_emb: Position embedding on this rank
     """
     if packed_seq_params is None:
-        return mcore_get_pos_emb_on_this_cp_rank(pos_emb, seq_dim)
+        return mcore_get_pos_emb_on_this_cp_rank(
+            pos_emb,
+            seq_dim,
+            cp_group=mpu.get_context_parallel_group(),
+        )
     else:
         cp_size = mpu.get_context_parallel_world_size()
         cp_rank = mpu.get_context_parallel_rank()

@@ -27,13 +27,13 @@ from megatron.core.datasets.gpt_dataset import (
 )
 from megatron.core.rerun_state_machine import get_rerun_state_machine
 
-from megatron.training.utils import (
+from megatron.training.utils import is_first_or_last_pipeline_stage
+from megatron.core.utils import (
+    flatten_batch_for_packed_sequences,
+    get_attr_wrapped_model,
     get_batch_on_this_cp_rank,
     get_batch_on_this_tp_rank,
-    is_first_or_last_pipeline_stage,
-    get_next_batch_on_this_tp_rank,
 )
-from megatron.core.utils import get_attr_wrapped_model
 from megatron.core import parallel_state
 from megatron.core.transformer.multi_token_prediction import mtp_on_this_rank, get_mtp_ranks
 
@@ -50,23 +50,67 @@ from loongforge.utils.global_vars import get_model_config
 stimer = StragglerDetector()
 
 
+def _broadcast_batch_on_this_tp_rank(data_iterator, args, config, mtp_rank):
+    """Read on TP-0 and broadcast the current upstream batch schema."""
+    has_cu_seqlens = bool(
+        getattr(args, "sft", False)
+        or getattr(args, "dataloader_inter_document_masking", False)
+    )
+    tp_rank = mpu.get_tensor_model_parallel_rank()
+    if tp_rank == 0:
+        batch = next(data_iterator)
+        for key, value in list(batch.items()):
+            if isinstance(value, torch.Tensor):
+                batch[key] = value.cuda(non_blocking=True)
+    else:
+        batch = {}
+    batch = get_batch_on_this_tp_rank(
+        batch,
+        has_cu_seqlens=has_cu_seqlens,
+        is_hybrid_cp=getattr(args, "hybrid_context_parallel", False),
+        create_attention_mask_in_dataloader=args.create_attention_mask_in_dataloader,
+        broadcast_src_rank=mpu.get_tensor_model_parallel_src_rank(),
+        broadcast_group=mpu.get_tensor_model_parallel_group(),
+        cp_size=args.context_parallel_size,
+        tp_rank=tp_rank,
+        micro_batch_size=args.micro_batch_size,
+        seq_length=args.seq_length,
+        mtp_on_this_rank=mtp_rank,
+        pipeline_model_parallel_size=args.pipeline_model_parallel_size,
+        is_pipeline_first_stage=mpu.is_pipeline_first_stage(),
+        is_pipeline_last_stage=mpu.is_pipeline_last_stage(),
+    )
+    return flatten_batch_for_packed_sequences(batch)
+
+
 def get_batch(data_iterator, vp_stage: Optional[int] = None):
     """Generate a batch."""
-    # TODO: this is pretty hacky, find a better way
-    if not is_first_or_last_pipeline_stage(vp_stage) and (
-    (not mtp_on_this_rank(config=get_model_config(), ignore_virtual=False, vp_stage=vp_stage))):
+    args = get_args()
+    config = get_model_config()
+    mtp_rank = mtp_on_this_rank(
+        layout=config.pipeline_model_parallel_layout,
+        mtp_num_layers=config.mtp_num_layers,
+        ignore_virtual=False,
+        vp_stage=vp_stage,
+    )
+    if not is_first_or_last_pipeline_stage(vp_stage) and not mtp_rank:
         return None, None, None, None, None
 
-    # get batches based on the TP rank you are on
-    batch = get_batch_on_this_tp_rank(
-        data_iterator,
-        mtp_on_this_rank=mtp_on_this_rank(config=get_model_config(), ignore_virtual=False, vp_stage=vp_stage)
-        )
-
-    # slice batch along sequence dimension for context parallelism
-    batch = get_batch_on_this_cp_rank(batch)
-
-    return batch.values()
+    batch = _broadcast_batch_on_this_tp_rank(data_iterator, args, config, mtp_rank)
+    batch = get_batch_on_this_cp_rank(
+        batch,
+        is_hybrid_cp=getattr(args, "hybrid_context_parallel", False),
+        cp_group=mpu.get_context_parallel_group(),
+        hybrid_cp_group_func=mpu.get_hybrid_data_context_parallel_groups,
+        use_per_sequence_balancing=bool(
+            getattr(args, "dataloader_inter_document_masking", False)
+            and not getattr(args, "sft", False)
+        ),
+    )
+    return tuple(
+        batch.get(key)
+        for key in ("tokens", "labels", "loss_mask", "attention_mask", "position_ids")
+    )
 
 
 # define spiky loss as a loss that's 10x the max loss observed
@@ -154,7 +198,19 @@ def forward_step(data_iterator, model, return_schedule_plan: bool = False):
 
     next_batch = None
     if args.enable_chunkpipe and args.mtp_num_layers and args.mtp_num_layers > 0 and mpu.is_pipeline_last_stage():
-        next_batch = get_next_batch_on_this_tp_rank(data_iterator)
+        vp_stage = get_attr_wrapped_model(model, "vp_stage")
+        config = get_model_config()
+        next_batch = _broadcast_batch_on_this_tp_rank(
+            data_iterator,
+            args,
+            config,
+            mtp_on_this_rank(
+                layout=config.pipeline_model_parallel_layout,
+                mtp_num_layers=config.mtp_num_layers,
+                ignore_virtual=False,
+                vp_stage=vp_stage,
+            ),
+        )
 
     extra_block_kwargs = None
     if next_batch is not None:
@@ -188,9 +244,15 @@ def train_valid_test_datasets_provider(train_val_test_num_samples, vp_stage=None
     tokenizer = get_tokenizer()
 
     def _is_dataset_built_on_rank(vp_stage=None):
+        config = get_model_config()
         return (
             is_first_or_last_pipeline_stage(vp_stage)
-            or mtp_on_this_rank(config=get_model_config(), ignore_virtual=False, vp_stage=vp_stage)
+            or mtp_on_this_rank(
+                layout=config.pipeline_model_parallel_layout,
+                mtp_num_layers=config.mtp_num_layers,
+                ignore_virtual=False,
+                vp_stage=vp_stage,
+            )
         ) and parallel_state.get_tensor_model_parallel_rank() == 0
 
 

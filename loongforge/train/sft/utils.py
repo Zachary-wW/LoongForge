@@ -17,7 +17,7 @@ from datasets.distributed import split_dataset_by_node
 from megatron.core import mpu, tensor_parallel, parallel_state
 from megatron.core.packed_seq_params import PackedSeqParams
 
-from megatron.legacy.data.data_samplers import MegatronPretrainingRandomSampler
+from megatron.training.datasets.data_samplers import MegatronPretrainingRandomSampler
 
 from loongforge.utils import get_args, get_model_config, get_tokenizer, constants
 from loongforge.data import DataCollatorForSupervisedDataset

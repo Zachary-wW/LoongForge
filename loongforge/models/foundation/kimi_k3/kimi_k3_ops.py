@@ -9,7 +9,10 @@ from functools import cache
 
 import torch
 from torch import nn
-from megatron.legacy.model.rms_norm import RMSNorm
+
+# PyTorch >=2.4 RMSNorm provides the weight/eps interface expected by the K3
+# operators. Keeping the alias preserves LoongForge's public import surface.
+RMSNorm = nn.RMSNorm
 
 
 def kda(
