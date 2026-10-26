@@ -9,7 +9,7 @@
 import torch
 from torch import Tensor
 import logging
-from typing import Dict, Optional, Literal
+from typing import Any, Callable, Dict, Optional, Literal
 from collections import OrderedDict
 
 logger = logging.getLogger(__name__)
@@ -39,6 +39,7 @@ from megatron.core.transformer.multi_token_prediction import (
     tie_word_embeddings_state_dict,
 )
 from megatron.core.transformer.spec_utils import ModuleSpec
+from megatron.core.transformer.utils import ensure_metadata_has_dp_cp_group
 from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.core.utils import WrappedTensor, deprecate_inference_params
 from megatron.core.num_microbatches_calculator import get_num_microbatches
@@ -939,6 +940,10 @@ class BaseGPTModel(BaseMegatronLanguageModule):
         runtime_gather_output: Optional[bool] = None,
         inference_params: Optional[BaseInferenceContext] = None,
         loss_mask: Optional[Tensor] = None,
+        padding_mask: Optional[Tensor] = None,
+        *,
+        output_processor: Optional[Callable[..., Tensor]] = None,
+        output_processor_context: Optional[Any] = None,
     ):
         """Builds a computation schedule plan for the model.
 
@@ -985,6 +990,9 @@ class BaseGPTModel(BaseMegatronLanguageModule):
             extra_block_kwargs=extra_block_kwargs,
             runtime_gather_output=runtime_gather_output,
             loss_mask=loss_mask,
+            padding_mask=padding_mask,
+            output_processor=output_processor,
+            output_processor_context=output_processor_context,
         )
 
     def sharded_state_dict(
@@ -1003,6 +1011,7 @@ class BaseGPTModel(BaseMegatronLanguageModule):
         Returns:
             ShardedStateDict: sharded state dict for the GPTModel
         """
+        metadata = ensure_metadata_has_dp_cp_group(metadata)
         sharded_state_dict = super().sharded_state_dict(prefix, sharded_offsets, metadata)
         output_layer_extra_state_key = f'{prefix}output_layer._extra_state'
 
@@ -1021,6 +1030,12 @@ class BaseGPTModel(BaseMegatronLanguageModule):
         if self.mtp_process and not self.pre_process:
             emb_weight_key = f'{prefix}embedding.word_embeddings.weight'
             emb_weight = self.embedding.word_embeddings.weight
-            tie_word_embeddings_state_dict(sharded_state_dict, emb_weight, emb_weight_key)
+            tie_word_embeddings_state_dict(
+                sharded_state_dict,
+                emb_weight,
+                emb_weight_key,
+                tp_group=self.pg_collection.tp,
+                dp_cp_group=metadata['dp_cp_group'],
+            )
 
         return sharded_state_dict
