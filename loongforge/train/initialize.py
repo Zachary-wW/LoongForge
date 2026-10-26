@@ -191,7 +191,7 @@ def initialize_loongforge_megatron(
         assert torch.cuda.is_available(), "Megatron requires CUDA."
 
     if args.async_save and args.use_persistent_ckpt_worker:
-        init_persistent_async_worker()
+        init_persistent_async_worker(args.rank)
 
     # set global args, build tokenizer, and set adlr-autoresume,
     # tensorboard-writer, and timers.
@@ -313,7 +313,7 @@ def initialize_loongforge_megatron(
 
         # Setup MoE aux loss scale value.
         if args.num_experts is not None:
-            from megatron.core.transformer.moe.router import MoEAuxLossAutoScaler
+            from megatron.core.transformer.moe.moe_utils import MoEAuxLossAutoScaler
 
             MoEAuxLossAutoScaler.set_loss_scale(torch.ones(1, device=torch.cuda.current_device()))
 

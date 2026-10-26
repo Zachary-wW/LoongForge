@@ -21,6 +21,7 @@ import logging
 from contextlib import contextmanager, nullcontext
 
 import torch
+from megatron.core.utils import get_model_config
 from megatron.training.utils import average_losses_across_data_parallel_group
 
 logger = logging.getLogger(__name__)
@@ -230,7 +231,6 @@ class BaseCudaGraphWrapper(torch.nn.Module):
 
     def _cache_model_config(self, model):
         if self._config is None and model is not None:
-            from megatron.core.pipeline_parallel.schedules import get_model_config
             m = model[0] if isinstance(model, list) else model
             self._config = get_model_config(m)
 

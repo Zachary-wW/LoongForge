@@ -54,7 +54,7 @@ def _gpu_backend_transformer_layer_modules() -> MultiAccModules:
     )
 
     from megatron.core.fusions.fused_bias_dropout import get_bias_dropout_add
-    from megatron.core.models.common.embeddings.rotary_pos_embedding import (
+    from megatron.core.models.common.embeddings.rope_utils import (
         apply_rotary_pos_emb,
     )
     from loongforge.models.common.local_layers.local_norm import LocalNorm

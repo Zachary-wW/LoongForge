@@ -15,10 +15,8 @@ import torch
 
 from megatron.core import tensor_parallel
 from megatron.core.pipeline_parallel.fine_grained_activation_offload import (
-    fine_grained_offloading_group_commit,
+    fine_grained_offloading_group_offload,
     fine_grained_offloading_group_start,
-    get_fine_grained_offloading_context,
-    set_offload_tag,
 )
 from megatron.core.pipeline_parallel.utils import ScheduleNode, make_viewless
 from megatron.core.transformer.module import float16_to_fp32
@@ -27,9 +25,18 @@ from megatron.core.transformer.multi_token_prediction import (
     MultiTokenPredictionLayer,
     get_mtp_layer_offset,
 )
-from megatron.core.transformer.transformer_layer import TransformerLayer, make_viewless_tensor
+from megatron.core.transformer.transformer_layer import TransformerLayer
+from megatron.core.utils import make_viewless_tensor
 from loongforge.models.omni_models.utils import get_inputs_on_this_cp_rank
 from loongforge.train.initialize import mpu
+
+
+fine_grained_offloading_group_commit = fine_grained_offloading_group_offload
+
+
+def get_fine_grained_offloading_context(_enabled):
+    """Return the neutral context used by the v0.19.2 offload implementation."""
+    return nullcontext()
 
 def maybe_set_offload_tag(tensor_name: str, tensor: torch.Tensor, config):
     """
@@ -40,8 +47,8 @@ def maybe_set_offload_tag(tensor_name: str, tensor: torch.Tensor, config):
         tensor: torch.Tensor, the actual tensor
         config: configuration object containing tensor_offload_selector
     """
-    if config.fine_grained_activation_offloading and tensor_name in config.offload_tensors:
-        set_offload_tag(tensor)
+    # v0.19.2 selects saved tensors inside the offload manager.
+    return None
 
 
 def weak_method(method):
