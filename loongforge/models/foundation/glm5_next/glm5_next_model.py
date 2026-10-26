@@ -18,7 +18,9 @@ from megatron.core.enums import ModelType
 from megatron.core.models.common.embeddings.language_model_embedding import LanguageModelEmbedding
 from megatron.core.models.backends import LocalSpecProvider
 from megatron.core.process_groups_config import ProcessGroupCollection
-from megatron.core.transformer.experimental_attention_variant.dsa import DSAIndexShareCarrier
+from loongforge.models.common.experimental_attention_variant.v0192_compat import (
+    DSAIndexShareCarrier,
+)
 from megatron.core.transformer.identity_op import IdentityOp
 from megatron.core.transformer.spec_utils import build_module
 

@@ -312,7 +312,7 @@ class DSv4HybridAttention(Attention):
         boundary_hidden = None
         boundary_kv = None
         if use_thd_cp:
-            from megatron.core.transformer.experimental_attention_variant.csa_cp_utils import (
+            from loongforge.models.common.experimental_attention_variant.csa_utils.cp_utils import (
                 exchange_cp_boundary_hidden,
             )
             boundary_hidden = exchange_cp_boundary_hidden(
@@ -418,7 +418,7 @@ class DSv4HybridAttention(Attention):
             if packed_seq:
                 core_attn_out = core_attn_out.squeeze(1)
             if use_thd_cp:
-                from megatron.core.transformer.experimental_attention_variant.csa_cp_utils import (
+                from loongforge.models.common.experimental_attention_variant.csa_utils.cp_utils import (
                     apply_thd_cp_local_rope_fused,
                 )
                 global_start = self.pg_collection.cp.rank() * core_attn_out.shape[0]
@@ -448,7 +448,7 @@ class DSv4HybridAttention(Attention):
             if packed_seq:
                 core_attn_out = core_attn_out.unsqueeze(1)
         elif use_thd_cp:
-            from megatron.core.transformer.experimental_attention_variant.csa_cp_utils import (
+            from loongforge.models.common.experimental_attention_variant.csa_utils.cp_utils import (
                 apply_thd_cp_local_rope_unfused,
             )
             global_start = self.pg_collection.cp.rank() * core_attn_out.shape[0]
@@ -636,7 +636,7 @@ class DSv4HybridSelfAttention(DSv4HybridAttention):
             inference_context is None and inference_params is None
         ), "Inference is not supported for DSv4HybridSelfAttention."
 
-        from megatron.core.transformer.experimental_attention_variant.csa_cp_utils import (
+        from loongforge.models.common.experimental_attention_variant.csa_utils.cp_utils import (
             apply_thd_cp_local_rope_fused,
             apply_thd_cp_local_rope_unfused,
         )

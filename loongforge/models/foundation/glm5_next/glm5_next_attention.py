@@ -15,10 +15,12 @@ from megatron.core.tensor_parallel import gather_from_sequence_parallel_region
 from megatron.core.transformer.experimental_attention_variant.dsa import (
     DSAIndexer,
     DSAttention,
-    get_dsa_index_share_topk_holder,
     unfused_dsa_fn,
 )
 from megatron.core.transformer.torch_norm import WrappedTorchNorm
+from loongforge.models.common.experimental_attention_variant.v0192_compat import (
+    get_dsa_index_share_topk_holder,
+)
 
 
 def _native_rmsnorm(config, hidden_size: int, eps: float):

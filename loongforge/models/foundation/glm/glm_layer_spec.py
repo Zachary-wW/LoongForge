@@ -6,7 +6,7 @@
 from typing import Tuple, Optional
 from omegaconf import ListConfig
 
-from megatron.core.models.gpt.experimental_attention_variant_module_specs import (
+from loongforge.models.common.experimental_attention_variant.v0192_compat import (
     validate_dsa_index_share_pipeline_split,
 )
 from megatron.core.models.gpt.gpt_layer_specs import get_gpt_mtp_block_spec
