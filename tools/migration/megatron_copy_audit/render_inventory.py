@@ -20,10 +20,11 @@ INTRO = """# LoongForge 中源自 Megatron-LM 的代码盘点
 
 ## 结论
 
-这轮共整理出 **80 个需要纳入 review 的文件**：
+这轮共整理出 **__TOTAL__ 个需要纳入 review 的文件**：
 
-- **51 个 A 类：已确认从 Megatron-LM 派生。** 其中 47 个文件头明确写着 `Modified from Megatron-LM`，另 4 个由此前人工映射、import/vendor 审计确认。
-- **29 个 B 类：模型侧派生候选。** 文件名、构造方式或核心方法明显沿用 Megatron，但文件本身没有来源声明，尚不能仅凭静态相似度断言为直接复制。
+- **__CONFIRMED__ 个 A 类：已确认从 Megatron-LM 派生。** 其中 47 个文件头明确写着 `Modified from Megatron-LM`，另 4 个由此前人工映射、import/vendor 审计确认。
+- **__B_COUNT__ 个 B 类：模型侧强候选。** 文件名、构造方式或核心方法明显沿用 Megatron。
+- **__C_COUNT__ 个 C 类：扩展 review 候选。** 包括数据构建、tokenizer、Diffusion、VLM adapter 等；代码可能经过大量改写，但目标 Megatron API 变化后仍需逐文件确认。
 
 此前文档只覆盖了训练入口和几个共享基类，遗漏最多的部分是：
 
@@ -35,7 +36,7 @@ INTRO = """# LoongForge 中源自 Megatron-LM 的代码盘点
 与旧清单相比：
 
 - 旧表可精确对应的文件只有 10 个。
-- 新清单在 A 类中另有 41 个明确来源文件，主要集中在模型的 layer spec、experts/router、RoPE、VLM、model chunk schedule 和 fine-grained callables。
+- 新清单在 A 类中另有 __NEW_CONFIRMED__ 个明确来源文件，主要集中在模型的 layer spec、experts/router、RoPE、VLM、model chunk schedule 和 fine-grained callables。
 - 旧表里的 `xxx_attention.py`、`xxx_model.py` 被展开为逐模型的具体路径；其中无法确认整文件复制的放入 B 类，而不是直接当成已知上移代码。
 
 另一个重要发现是：**不能把全部文件都简单标成基于 v0.15.0。** 结构相似度显示，代码来源混合了多个旧版本：
@@ -52,12 +53,12 @@ INTRO = """# LoongForge 中源自 Megatron-LM 的代码盘点
 ## 审计方法
 
 1. 扫描 LoongForge `loongforge/` 下 680 个可解析的 Python 文件。
-2. 将文件转换为去注释、去格式化差异的 AST 归一化文本，使用 6 行连续片段进行匹配。
+2. 将文件转换为去注释、去格式化差异的 AST 归一化文本，分别使用 6 行片段和 12-token 片段进行匹配。
 3. 分别与 Megatron v0.10、v0.12、v0.13、v0.14、v0.15、v0.19.2 比较。
 4. 同时检查文件头声明、此前 `feature_registry.json` 的 import/vendor 分类和人工映射。
 5. 将“明确声明或人工确认”与“仅结构相似”的模型侧候选分开，避免把通用模型实现误判为复制。
 
-相似度是定位工具，不是法律或架构意义上的来源证明。A 类可直接进入升级 review；B 类必须先人工确认是否存在实质复制。
+相似度是定位工具，不是法律或架构意义上的来源证明。A 类可直接进入升级 review；B/C 类必须先人工确认是整文件复制、片段复制，还是仅依赖 Megatron API。
 
 使用的 NVIDIA tag commit：
 
@@ -131,7 +132,7 @@ ViT 代码的风险不只在 `vision_transformer_block.py`。多个模型的 vis
 
 """
 
-FOOTER = """这些文件没有明确的 `Modified from Megatron-LM` 头，也没有足够证据认定整文件复制。它们进入候选清单的原因是：
+FOOTER = """B/C 类文件没有明确的 `Modified from Megatron-LM` 头，也没有足够证据认定整文件复制。它们进入候选清单的原因是：
 
 - 文件名和层职责对应 Megatron 的 Model / Attention / TransformerLayer / LayerSpec。
 - 同一模型族中部分相邻文件已经明确声明来自 Megatron。
@@ -164,11 +165,13 @@ Review 时应逐文件回答：
 
 ## 证据文件
 
-- [inventory.csv](inventory.csv)：80 个文件和置信度、推断 upstream 路径、升级关注点。
+- [inventory.csv](inventory.csv)：__TOTAL__ 个文件和置信度、推断 upstream 路径、升级关注点。
 - [inventory.json](inventory.json)：同一清单的 JSON 版本。
-- [similarity_results.csv](similarity_results.csv)：680 个 LoongForge Python 文件的旧版本结构相似度。
+- [similarity_results.csv](similarity_results.csv)：680 个 LoongForge Python 文件的行级结构相似度。
+- [token_similarity_results.csv](token_similarity_results.csv)：token 级结构相似度，用于发现经过大规模改写的模型和数据代码。
 - [ISSUE_MAP.md](ISSUE_MAP.md)：现有 Issue 与 Copy ID 的映射。
 - [scan_similarity.py](../../../tools/migration/megatron_copy_audit/scan_similarity.py)：相似度扫描脚本。
+- [scan_token_similarity.py](../../../tools/migration/megatron_copy_audit/scan_token_similarity.py)：token 级补充扫描脚本。
 - [build_inventory.py](../../../tools/migration/megatron_copy_audit/build_inventory.py)：清单生成脚本。
 """
 
@@ -200,14 +203,31 @@ def main() -> None:
     args = parser.parse_args()
     rows = list(csv.DictReader(args.inventory.open()))
     confirmed = [row for row in rows if row["confidence"] == "A-已确认"]
-    candidates = [row for row in rows if row["confidence"] == "B-派生候选"]
+    candidates_b = [row for row in rows if row["confidence"] == "B-派生候选"]
+    candidates_c = [row for row in rows if row["confidence"] == "C-扩展候选"]
+    candidates = candidates_b + candidates_c
 
     by_group = defaultdict(list)
     for row in confirmed:
         by_group[row["group"]].append(row)
 
-    sections = [INTRO]
-    for group in ["训练入口/运行时", "共享模型/算子", "语言基础模型", "视觉/多模态模型", "其他"]:
+    intro = (
+        INTRO.replace("__TOTAL__", str(len(rows)))
+        .replace("__CONFIRMED__", str(len(confirmed)))
+        .replace("__B_COUNT__", str(len(candidates_b)))
+        .replace("__C_COUNT__", str(len(candidates_c)))
+        .replace("__NEW_CONFIRMED__", str(max(0, len(confirmed) - 10)))
+    )
+    sections = [intro]
+    for group in [
+        "训练入口/运行时",
+        "数据/Tokenizer",
+        "共享模型/算子",
+        "语言基础模型",
+        "视觉/多模态模型",
+        "Diffusion",
+        "其他",
+    ]:
         group_rows = by_group.get(group, [])
         if not group_rows:
             continue
@@ -216,10 +236,10 @@ def main() -> None:
     sections.append("## B 类：模型侧派生候选\n\n")
     sections.append(table_for(candidates))
     sections.append("\n\n")
-    sections.append(FOOTER)
+    sections.append(FOOTER.replace("__TOTAL__", str(len(rows))))
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text("".join(sections), encoding="utf-8")
-    print(f"WROTE {args.output} ({len(confirmed)} A + {len(candidates)} B)")
+    print(f"WROTE {args.output} ({len(confirmed)} A + {len(candidates_b)} B + {len(candidates_c)} C)")
 
 
 if __name__ == "__main__":

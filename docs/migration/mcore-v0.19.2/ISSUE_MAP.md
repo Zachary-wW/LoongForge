@@ -6,14 +6,14 @@ file-level evidence.
 
 | Issue | Primary scope | Copy inventory IDs | Notes |
 |---|---|---|---|
-| #34 | Training runtime | `LF-COPY-072` to `LF-COPY-078` | checkpointing, training utils, initialize, pretrain/SFT/loss |
-| #35 | Wan CP source rank | none | Linked through the separate changed-API scan; Wan files are not in the confirmed copy inventory |
-| #36 | Obsolete validation | `LF-COPY-079` | validators |
-| #37 | Shared utility, batch and MTP APIs | `001`, `005-007`, `070-071`, `080` | rerun iterator, MLA/local layers, schedule helpers, shared utils |
-| #38 | Model construction APIs | Model-specific entries in `008-069` | Excludes DSA/CSA entries assigned to #39 |
-| #39 | DSA/CSA and experimental attention | `002-004`, `031-035` | Vendor and experimental attention paths |
+| #34 | Training runtime | `106-116` | checkpointing, trainer, parser, pretrain/SFT/loss and training utils |
+| #35 | Wan CP and diffusion interfaces | `024-032` | Wan attention/layer/model/block/provider and API-coupled utilities |
+| #36 | Obsolete validation | `117` | validators |
+| #37 | Shared utility, data and MTP APIs | `001-016`, `102-103`, `118` | data builders, rerun iterator, common transformer helpers, schedule and shared utils |
+| #38 | LLM/VLM model construction APIs | Model-side entries outside DSA/CSA | Foundation and encoder models, attention, experts/router and layer specs |
+| #39 | DSA/CSA and experimental attention | `010-014`, `060-064` | DSA/CSA vendor files and DeepSeek experimental attention |
 | #40 | Upstream duplicate-code disposition | cross-cutting | Records which IDs become `reuse upstream` or `keep LoongForge fork` |
-| #41 | Integration and validation | all applicable IDs | Assigns test evidence to an integration SHA |
+| #41 | Integration and validation | all 118 IDs | Assigns test evidence to an integration SHA |
 
 ## Decision values
 

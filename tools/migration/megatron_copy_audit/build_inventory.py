@@ -40,6 +40,47 @@ RATIO_OVERRIDES = {
         0.628,
     ),
 }
+EXTRA_CANDIDATES = {
+    "loongforge/data/blended_hf_dataset_builder.py",
+    "loongforge/data/blended_hf_dataset_config.py",
+    "loongforge/data/encoder_strided_sampler.py",
+    "loongforge/data/multimodal/base/task_encoder.py",
+    "loongforge/data/multimodal/dataloader_provider.py",
+    "loongforge/data/multimodal/internvl/internvl_preprocess.py",
+    "loongforge/data/multimodal/internvl/internvl_task_encoder.py",
+    "loongforge/models/common/cuda_graph_base.py",
+    "loongforge/models/common/experimental_attention_variant/sparse_mla_bwd.py",
+    "loongforge/models/diffusion/qwen_image/qwen_image_layer.py",
+    "loongforge/models/diffusion/qwen_image/qwen_image_layer_spec.py",
+    "loongforge/models/diffusion/qwen_image/qwen_image_model.py",
+    "loongforge/models/diffusion/qwen_image/qwen_image_modules.py",
+    "loongforge/models/diffusion/qwen_image/qwen_image_provider.py",
+    "loongforge/models/diffusion/qwen_image/qwen_image_rope.py",
+    "loongforge/models/diffusion/qwen_image/qwen_image_transformer_block.py",
+    "loongforge/models/diffusion/wan/communications.py",
+    "loongforge/models/diffusion/wan/wan_attention.py",
+    "loongforge/models/diffusion/wan/wan_layer.py",
+    "loongforge/models/diffusion/wan/wan_layer_spec.py",
+    "loongforge/models/diffusion/wan/wan_model.py",
+    "loongforge/models/diffusion/wan/wan_provider.py",
+    "loongforge/models/diffusion/wan/wan_transformer_block.py",
+    "loongforge/models/diffusion/wan/wan_ulysses.py",
+    "loongforge/models/diffusion/wan/wan_utils.py",
+    "loongforge/models/dispatch.py",
+    "loongforge/models/encoder/ernie4_5_vl_vision_models/ernie_encoder_spec.py",
+    "loongforge/models/encoder/minicpm_v_4_6_vision_models/vision_model.py",
+    "loongforge/models/encoder/moon_vision_models/patch_merger_adapter.py",
+    "loongforge/models/encoder/qwen2_vl_vision_models/adapter.py",
+    "loongforge/models/foundation/ernie4_5_vl/ernie_moe_layer.py",
+    "loongforge/models/foundation/mimo/mimo_multi_token_prediction.py",
+    "loongforge/models/foundation/qwen3_next/gated_deltanet.py",
+    "loongforge/models/utils.py",
+    "loongforge/tokenizer/tokenizer.py",
+    "loongforge/train/megatron_trainer.py",
+    "loongforge/train/parser.py",
+    "loongforge/train/sft/sft_vlm.py",
+    "loongforge/train/sft/utils.py",
+}
 
 
 def declared_source_files(root: Path) -> set[str]:
@@ -73,18 +114,22 @@ def candidate_model_files(root: Path, confirmed: set[str]) -> set[str]:
     candidates = set()
     for pattern in patterns:
         candidates.update(path.relative_to(root).as_posix() for path in root.glob(pattern))
-    return candidates - confirmed
+    return (candidates | EXTRA_CANDIDATES) - confirmed
 
 
 def group_for(path: str) -> str:
     if path.startswith("loongforge/train/") or path.startswith("loongforge/data/dp_balance/"):
         return "训练入口/运行时"
+    if path.startswith("loongforge/data/") or path.startswith("loongforge/tokenizer/"):
+        return "数据/Tokenizer"
     if path.startswith("loongforge/models/omni_models/") or path.startswith("loongforge/models/common/"):
         return "共享模型/算子"
     if path.startswith("loongforge/models/encoder/"):
         return "视觉/多模态模型"
     if path.startswith("loongforge/models/foundation/"):
         return "语言基础模型"
+    if path.startswith("loongforge/models/diffusion/"):
+        return "Diffusion"
     return "其他"
 
 
@@ -121,6 +166,43 @@ def source_for(path: str) -> str:
         "loongforge/models/foundation/qwen3_next/gated_attention.py": "megatron/core/transformer/attention.py",
         "loongforge/models/foundation/minimax/attention.py": "megatron/core/transformer/attention.py",
         "loongforge/utils/utils.py": "megatron/training/utils.py + megatron/core/utils.py",
+        "loongforge/data/multimodal/internvl/internvl_preprocess.py": "examples/multimodal/image_processing.py",
+        "loongforge/data/multimodal/dataloader_provider.py": "examples/multimodal/dataloader_provider.py",
+        "loongforge/data/multimodal/base/task_encoder.py": "examples/multimodal/dataset_helpers.py",
+        "loongforge/data/blended_hf_dataset_builder.py": "megatron/core/datasets/blended_megatron_dataset_builder.py",
+        "loongforge/data/blended_hf_dataset_config.py": "megatron/core/datasets/blended_megatron_dataset_config.py",
+        "loongforge/data/encoder_strided_sampler.py": "megatron/legacy/data/data_samplers.py",
+        "loongforge/train/megatron_trainer.py": "megatron/training/training.py",
+        "loongforge/train/parser.py": "megatron/training/arguments.py",
+        "loongforge/train/sft/sft_vlm.py": "pretrain_vlm.py",
+        "loongforge/train/sft/utils.py": "pretrain_gpt.py + Megatron dataloader utilities",
+        "loongforge/tokenizer/tokenizer.py": "megatron/training/tokenizer/tokenizer.py",
+        "loongforge/models/utils.py": "megatron/core/transformer/spec_utils.py",
+        "loongforge/models/dispatch.py": "Megatron multimodal model dispatch",
+        "loongforge/models/common/cuda_graph_base.py": "megatron/core/full_cuda_graph.py",
+        "loongforge/models/common/experimental_attention_variant/sparse_mla_bwd.py": "megatron/core/transformer/experimental_attention_variant/ops/tilelang_sparse_mla_bwd.py",
+        "loongforge/models/foundation/mimo/mimo_multi_token_prediction.py": "megatron/core/transformer/multi_token_prediction.py",
+        "loongforge/models/foundation/qwen3_next/gated_deltanet.py": "megatron/core/transformer/attention.py + SSM layers",
+        "loongforge/models/foundation/ernie4_5_vl/ernie_moe_layer.py": "megatron/core/transformer/moe/moe_layer.py",
+        "loongforge/models/encoder/ernie4_5_vl_vision_models/ernie_encoder_spec.py": "megatron/core/models/vision/vit_layer_specs.py",
+        "loongforge/models/encoder/qwen2_vl_vision_models/adapter.py": "Megatron multimodal vision adapter examples",
+        "loongforge/models/encoder/moon_vision_models/patch_merger_adapter.py": "Megatron multimodal vision adapter examples",
+        "loongforge/models/diffusion/wan/wan_transformer_block.py": "megatron/core/transformer/transformer_block.py",
+        "loongforge/models/diffusion/qwen_image/qwen_image_transformer_block.py": "megatron/core/transformer/transformer_block.py",
+        "loongforge/models/diffusion/wan/wan_attention.py": "megatron/core/transformer/attention.py",
+        "loongforge/models/diffusion/wan/wan_layer.py": "megatron/core/transformer/transformer_layer.py + mlp.py",
+        "loongforge/models/diffusion/wan/wan_layer_spec.py": "GPT/ViT layer specs",
+        "loongforge/models/diffusion/wan/wan_model.py": "megatron/core/models/gpt/gpt_model.py",
+        "loongforge/models/diffusion/wan/wan_provider.py": "pretrain/model provider",
+        "loongforge/models/diffusion/wan/wan_ulysses.py": "Megatron context-parallel attention utilities",
+        "loongforge/models/diffusion/wan/wan_utils.py": "megatron/training + core utils",
+        "loongforge/models/diffusion/wan/communications.py": "Megatron collective communication wrappers",
+        "loongforge/models/diffusion/qwen_image/qwen_image_layer.py": "megatron/core/transformer/transformer_layer.py",
+        "loongforge/models/diffusion/qwen_image/qwen_image_layer_spec.py": "GPT/ViT layer specs",
+        "loongforge/models/diffusion/qwen_image/qwen_image_model.py": "megatron/core/models/gpt/gpt_model.py",
+        "loongforge/models/diffusion/qwen_image/qwen_image_modules.py": "Megatron transformer modules",
+        "loongforge/models/diffusion/qwen_image/qwen_image_provider.py": "pretrain/model provider",
+        "loongforge/models/diffusion/qwen_image/qwen_image_rope.py": "megatron/core/models/common/embeddings/rope_utils.py",
     }
     if path in exact:
         return exact[path]
@@ -221,7 +303,9 @@ def main() -> None:
         records.append(
             {
                 "id": f"LF-COPY-{index:03d}",
-                "confidence": "A-已确认" if is_confirmed else "B-派生候选",
+                "confidence": (
+                    "A-已确认" if is_confirmed else ("C-扩展候选" if path in EXTRA_CANDIDATES else "B-派生候选")
+                ),
                 "group": group_for(path),
                 "loongforge_path": path,
                 "probable_megatron_source": source_for(path),
@@ -235,7 +319,7 @@ def main() -> None:
 
     with (output_dir / "inventory.csv").open("w", newline="") as handle:
         fieldnames = list(records[0])
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         writer.writerows(records)
     (output_dir / "inventory.json").write_text(json.dumps(records, ensure_ascii=False, indent=2) + "\n")

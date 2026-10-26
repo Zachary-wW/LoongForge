@@ -7,11 +7,13 @@ branch.
 ## Artifacts
 
 - [Copy inventory](LOONGFORGE_MEGATRON_COPY_INVENTORY.md): reviewed source
-  provenance, upgrade scope and confidence levels.
+  provenance for 51 confirmed files plus 67 B/C review candidates.
 - [Inventory CSV](inventory.csv): one row per reviewed file.
 - [Inventory JSON](inventory.json): machine-readable form of the same data.
 - [Similarity results](similarity_results.csv): structural comparison against
   Megatron Core v0.10, v0.12-v0.15 and v0.19.2.
+- [Token similarity results](token_similarity_results.csv): token-level
+  comparison for heavily rewritten model and data code.
 - [Test matrix](TEST_MATRIX.md): shared test levels, cases and representative
   configurations.
 - [Issue map](ISSUE_MAP.md): existing fork Issues and their Copy ID coverage.
@@ -34,6 +36,11 @@ developer-specific absolute paths:
 
 ```bash
 python tools/migration/megatron_copy_audit/scan_similarity.py \
+  --loongforge-root . \
+  --reference-root /path/to/megatron-version-checkouts \
+  --output-dir /tmp/lf-copy-audit
+
+python tools/migration/megatron_copy_audit/scan_token_similarity.py \
   --loongforge-root . \
   --reference-root /path/to/megatron-version-checkouts \
   --output-dir /tmp/lf-copy-audit
