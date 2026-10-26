@@ -285,7 +285,8 @@ Review 时应逐文件回答：
 
 - `loongforge/embodied/optimizer/optimizer.py`：存在 vendored 迹象，但尚不能证明来源为 Megatron-LM。
 - `loongforge/models/common/peft/*`：可能是 NVIDIA PEFT/NeMo 或社区实现，当前 v0.15 没有一一对应的 Megatron path。
-- `loongforge/tokenizer/*`：部分文件与 Megatron tokenizer 同构，但主要受 tokenizer/Transformers 版本影响。
+- 大部分 `loongforge/embodied/*`：主要来自 NVIDIA Cosmos、GR00T、FastWAM、VJEPA2 等模型工程，不属于 Megatron-LM Core 文件升级。
+- `Megatron-Energon` task encoder/flavor：需要跟随 Energon 版本，不能只用 Megatron-LM tag 判断。
 - `patches/TransformerEngine_v2.9/*`：属于 TE patch，不是 Megatron Python 源码拷贝。
 - 只通过 import 使用 Megatron、没有复制实现主体的 145 个文件：继续由 API 调用扫描维护，不放进本清单。
 
