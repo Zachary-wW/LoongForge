@@ -8,9 +8,11 @@
 
 import os
 import dataclasses
+import functools
 import gc
 from datetime import datetime, timedelta
 import logging
+import inspect
 import sys
 import re
 
@@ -39,6 +41,7 @@ from megatron.core.utils import (
     check_param_hashes_across_dp_replicas,
     get_model_config,
     StragglerDetector,
+    unwrap_model,
 )
 from megatron.core.num_microbatches_calculator import (
     get_num_microbatches,
@@ -51,6 +54,9 @@ from megatron.core.transformer.module import Float16Module
 from megatron.core.enums import ModelType
 from megatron.core import tensor_parallel
 from megatron.training.utils import to_empty_if_meta_device
+from megatron.training.training import (  # re-pointed: community v0.19.2 impl
+    compute_throughputs_and_append_to_progress_log,
+)
 from megatron.core.distributed import (
     DistributedDataParallelConfig,
     TorchFullyShardedDataParallelConfig,
@@ -72,7 +78,7 @@ from megatron.core.distributed.fsdp.mcore_fsdp_adapter import (
     FullyShardedDataParallel as megatron_FSDP,
 )
 from megatron.core.pipeline_parallel import get_forward_backward_func
-from megatron.core.optimizer import get_megatron_optimizer, OptimizerConfig
+from megatron.core.optimizer import get_megatron_optimizer
 from megatron.core.rerun_state_machine import get_rerun_state_machine, RerunDataIterator, RerunState
 from megatron.core.transformer.moe import upcycling_utils
 from megatron.core.transformer.moe.moe_utils import track_moe_metrics
@@ -99,16 +105,15 @@ from .checkpointing import (
 from megatron.training.utils import (
     calc_params_l2_norm,
     report_memory,
-    unwrap_model,
     update_use_dist_ckpt,
     logical_and_across_model_parallel_group,
     reduce_max_stat_across_model_parallel_group,
     is_last_rank,
 )
+from megatron.training.utils.log_utils import append_to_progress_log
 from megatron.training.theoretical_memory_usage import report_theoretical_memory
 from megatron.training.async_utils import maybe_finalize_async_save
 from megatron.training.training import (
-    append_to_progress_log,
     print_datetime,
     build_train_valid_test_data_iterators,
     evaluate_and_print_results,
@@ -122,6 +127,7 @@ from megatron.training.training import (
     dummy_train_step,
     post_training_step_callbacks,
     checkpoint_and_decide_exit,
+    get_megatron_optimizer_config,
 )
 from loongforge.models.common.peft.lora import LoRA, VLMLoRA
 from loongforge.models.common.peft.utils import apply_peft_transformation
@@ -499,11 +505,21 @@ def pretrain(
         train_data_iterator = []
         valid_data_iterator = []
         test_data_iterator = []
-        for i in range(len(model)):
-            mpu.set_virtual_pipeline_model_parallel_rank(i)
+        for vp_stage in range(len(model)):
+            dataset_provider_parameters = inspect.signature(
+                train_valid_test_dataset_provider
+            ).parameters
+            assert "vp_stage" in dataset_provider_parameters, (
+                "vp_stage must be a kwarg in train_valid_test_dataset_provider "
+                "when using virtual pipeline parallelism"
+            )
+            vp_stage_train_valid_test_dataset_provider = functools.partial(
+                train_valid_test_dataset_provider, vp_stage=vp_stage
+            )
+            if getattr(train_valid_test_dataset_provider, "is_distributed", False):
+                vp_stage_train_valid_test_dataset_provider.is_distributed = True
             iterators = build_train_valid_test_data_iterators(
-                train_valid_test_dataset_provider,
-                vp_stage=i,
+                vp_stage_train_valid_test_dataset_provider
             )
             train_data_iterator.append(iterators[0])
             valid_data_iterator.append(iterators[1])
@@ -1047,33 +1063,21 @@ def setup_model_and_optimizer(
     )
     unwrapped_model = unwrap_model(model)
 
-    kwargs = {}
-    for f in dataclasses.fields(OptimizerConfig):
-        if hasattr(args, f.name):
-            kwargs[f.name] = getattr(args, f.name)
-    config = OptimizerConfig(**kwargs)
+    if no_wd_decay_cond is not None or scale_lr_cond is not None or lr_mult != 1.0:
+        raise ValueError(
+            "Megatron v0.19.2 represents optimizer grouping through "
+            "config_overrides; legacy no_wd_decay_cond/scale_lr_cond/lr_mult "
+            "callbacks are no longer accepted."
+        )
+
+    config, config_overrides = get_megatron_optimizer_config(args)
     config.timers = timers
-
-    # If the user is asking for a non-zero embedding init std, skip weight decay for embeddings
-    # to avoid embeddings from shrinking to zero as recommended in https://arxiv.org/abs/2312.16903
-    # default_skip_embedding_weight_decay=args.embedding_init_method_std is not None,
-
-    # Control whether to force every parameter into the weight‑decay group.
-    # Legacy default (flag unset) keeps the old behavior: force everything.
-    # When --force-all-weight-decay true/false is provided, we respect that choice.
-    if getattr(args, "force_all_weight_decay", None):
-        no_wd_decay_cond = (False,)
 
     optimizer = get_megatron_optimizer(
         config,
         model,
-        no_wd_decay_cond,
-        scale_lr_cond,
-        lr_mult,
-        use_gloo_process_groups=args.enable_gloo_process_groups,
-        # If the user is asking for a non-zero embedding init std, skip weight decay for embeddings
-        #  to avoid embeddings from shrinking to zero as recommended in https://arxiv.org/abs/2312.16903
-        default_skip_embedding_weight_decay=args.embedding_init_method_std is not None,
+        config_overrides=config_overrides,
+        use_gloo_process_groups=getattr(args, "use_gloo_process_groups", True),
     )
     opt_param_scheduler = get_optimizer_param_scheduler(optimizer)
 
@@ -1245,45 +1249,6 @@ def setup_model_and_optimizer(
         exit()
 
     return model, ema, optimizer, opt_param_scheduler, peft_class
-
-
-def compute_throughputs_and_append_to_progress_log(
-    iteration, num_floating_point_operations_so_far
-):
-    """Compute throughputs and append to progress log."""
-    args = get_args()
-    if args.save is None:
-        return
-
-    # Compute job throughput.
-    # args.num_floating_point_operations_so_far keeps track of floating-point operations
-    # completed at the start of job.
-    global _TRAIN_START_TIME
-    job_throughput = (
-        num_floating_point_operations_so_far - args.num_floating_point_operations_so_far
-    ) / ((time.time() - _TRAIN_START_TIME) * 10**12 * args.world_size)
-
-    # Compute cumulative throughput since jobs of this world size were launched.
-    # `get_start_time_from_progress_log` returns start time and number of floating-point
-    # operations of first job of this world size.
-    start_time, start_num_floating_point_operations = get_start_time_from_progress_log()
-    elapsed_time = (datetime.now() - start_time).total_seconds()
-    cumulative_throughput = (
-        num_floating_point_operations_so_far - start_num_floating_point_operations
-    ) / (elapsed_time * 10**12 * args.world_size)
-
-    tokens_so_far = args.consumed_train_samples * args.seq_length
-    saved_ckpt_prefix = (
-        "Saving async checkpoint" if args.async_save else "Saved checkpoint"
-    )
-    append_to_progress_log(
-        f"{saved_ckpt_prefix}\tIteration: {iteration}\t"
-        f"Job throughput: {job_throughput:.1f} TFLOP/s/GPU\t"
-        f"Cumulative throughput: {cumulative_throughput:.1f} TFLOP/s/GPU\t"
-        f"Floating-point operations: {num_floating_point_operations_so_far:.2e}\t"
-        f"Tokens (in billions): {tokens_so_far / 10**9:.2f}"
-    )
-
 
 def save_checkpoint_and_time(
     iteration,
