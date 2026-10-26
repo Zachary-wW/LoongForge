@@ -1053,6 +1053,16 @@
     "id": "LF-COPY-106",
     "confidence": "A-已确认",
     "group": "训练入口/运行时",
+    "loongforge_path": "loongforge/train/arguments.py",
+    "probable_megatron_source": "megatron/training/arguments.py",
+    "best_old_version": "",
+    "upgrade_hint": "Megatron 参数定义、默认值、CLI alias 与 LoongForge 扩展参数",
+    "evidence": ""
+  },
+  {
+    "id": "LF-COPY-107",
+    "confidence": "A-已确认",
+    "group": "训练入口/运行时",
     "loongforge_path": "loongforge/train/checkpointing.py",
     "probable_megatron_source": "megatron/training/checkpointing.py",
     "best_old_version": "v0.15",
@@ -1060,7 +1070,27 @@
     "evidence": "文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.900；已确认 1 个符号缺失；3 条调用签名疑点"
   },
   {
-    "id": "LF-COPY-107",
+    "id": "LF-COPY-108",
+    "confidence": "A-已确认",
+    "group": "训练入口/运行时",
+    "loongforge_path": "loongforge/train/diffusion/pretrain_qwen_image.py",
+    "probable_megatron_source": "pretrain_gpt.py task entry",
+    "best_old_version": "",
+    "upgrade_hint": "Diffusion pretrain forward_step、dataset provider、loss、trainer 注册",
+    "evidence": ""
+  },
+  {
+    "id": "LF-COPY-109",
+    "confidence": "A-已确认",
+    "group": "训练入口/运行时",
+    "loongforge_path": "loongforge/train/diffusion/pretrain_wan.py",
+    "probable_megatron_source": "pretrain_gpt.py task entry",
+    "best_old_version": "",
+    "upgrade_hint": "Diffusion pretrain forward_step、dataset provider、loss、trainer 注册",
+    "evidence": ""
+  },
+  {
+    "id": "LF-COPY-110",
     "confidence": "A-已确认",
     "group": "训练入口/运行时",
     "loongforge_path": "loongforge/train/get_loss_func.py",
@@ -1070,7 +1100,7 @@
     "evidence": "文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.207"
   },
   {
-    "id": "LF-COPY-108",
+    "id": "LF-COPY-111",
     "confidence": "A-已确认",
     "group": "训练入口/运行时",
     "loongforge_path": "loongforge/train/initialize.py",
@@ -1080,7 +1110,7 @@
     "evidence": "文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.271；已确认 1 个符号缺失；1 条调用签名疑点"
   },
   {
-    "id": "LF-COPY-109",
+    "id": "LF-COPY-112",
     "confidence": "C-扩展候选",
     "group": "训练入口/运行时",
     "loongforge_path": "loongforge/train/megatron_trainer.py",
@@ -1090,7 +1120,7 @@
     "evidence": "模型侧派生候选：同名职责/同构方法，但未声明源码"
   },
   {
-    "id": "LF-COPY-110",
+    "id": "LF-COPY-113",
     "confidence": "C-扩展候选",
     "group": "训练入口/运行时",
     "loongforge_path": "loongforge/train/parser.py",
@@ -1100,7 +1130,7 @@
     "evidence": "模型侧派生候选：同名职责/同构方法，但未声明源码"
   },
   {
-    "id": "LF-COPY-111",
+    "id": "LF-COPY-114",
     "confidence": "A-已确认",
     "group": "训练入口/运行时",
     "loongforge_path": "loongforge/train/pretrain/pretrain_llm.py",
@@ -1110,7 +1140,7 @@
     "evidence": "文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.490；已确认 3 个符号缺失；4 条调用签名疑点"
   },
   {
-    "id": "LF-COPY-112",
+    "id": "LF-COPY-115",
     "confidence": "A-已确认",
     "group": "训练入口/运行时",
     "loongforge_path": "loongforge/train/pretrain/pretrain_vlm.py",
@@ -1120,7 +1150,27 @@
     "evidence": "文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.060"
   },
   {
-    "id": "LF-COPY-113",
+    "id": "LF-COPY-116",
+    "confidence": "A-已确认",
+    "group": "训练入口/运行时",
+    "loongforge_path": "loongforge/train/sft/sft_ernie.py",
+    "probable_megatron_source": "pretrain_vlm.py / Megatron SFT entry",
+    "best_old_version": "",
+    "upgrade_hint": "SFT forward_step、dataset provider、loss、trainer 注册与 batch 处理",
+    "evidence": ""
+  },
+  {
+    "id": "LF-COPY-117",
+    "confidence": "A-已确认",
+    "group": "训练入口/运行时",
+    "loongforge_path": "loongforge/train/sft/sft_internvl.py",
+    "probable_megatron_source": "pretrain_vlm.py / Megatron SFT entry",
+    "best_old_version": "",
+    "upgrade_hint": "SFT forward_step、dataset provider、loss、trainer 注册与 batch 处理",
+    "evidence": ""
+  },
+  {
+    "id": "LF-COPY-118",
     "confidence": "A-已确认",
     "group": "训练入口/运行时",
     "loongforge_path": "loongforge/train/sft/sft_llm.py",
@@ -1130,7 +1180,7 @@
     "evidence": "文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.340"
   },
   {
-    "id": "LF-COPY-114",
+    "id": "LF-COPY-119",
     "confidence": "C-扩展候选",
     "group": "训练入口/运行时",
     "loongforge_path": "loongforge/train/sft/sft_vlm.py",
@@ -1140,7 +1190,7 @@
     "evidence": "模型侧派生候选：同名职责/同构方法，但未声明源码"
   },
   {
-    "id": "LF-COPY-115",
+    "id": "LF-COPY-120",
     "confidence": "C-扩展候选",
     "group": "训练入口/运行时",
     "loongforge_path": "loongforge/train/sft/utils.py",
@@ -1150,7 +1200,7 @@
     "evidence": "模型侧派生候选：同名职责/同构方法，但未声明源码；已确认 1 个符号缺失"
   },
   {
-    "id": "LF-COPY-116",
+    "id": "LF-COPY-121",
     "confidence": "A-已确认",
     "group": "训练入口/运行时",
     "loongforge_path": "loongforge/train/training_utils.py",
@@ -1160,7 +1210,7 @@
     "evidence": "文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.468；已确认 2 个符号缺失；3 条调用签名疑点"
   },
   {
-    "id": "LF-COPY-117",
+    "id": "LF-COPY-122",
     "confidence": "A-已确认",
     "group": "训练入口/运行时",
     "loongforge_path": "loongforge/train/validators.py",
@@ -1170,7 +1220,7 @@
     "evidence": "人工映射或 vendored/import 审计确认；对应 upstream 主文件归一化相似度 0.299"
   },
   {
-    "id": "LF-COPY-118",
+    "id": "LF-COPY-123",
     "confidence": "A-已确认",
     "group": "其他",
     "loongforge_path": "loongforge/utils/utils.py",

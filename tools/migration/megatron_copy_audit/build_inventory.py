@@ -40,6 +40,13 @@ RATIO_OVERRIDES = {
         0.628,
     ),
 }
+MANUAL_CONFIRMED = {
+    "loongforge/train/arguments.py",
+    "loongforge/train/diffusion/pretrain_qwen_image.py",
+    "loongforge/train/diffusion/pretrain_wan.py",
+    "loongforge/train/sft/sft_ernie.py",
+    "loongforge/train/sft/sft_internvl.py",
+}
 EXTRA_CANDIDATES = {
     "loongforge/data/blended_hf_dataset_builder.py",
     "loongforge/data/blended_hf_dataset_config.py",
@@ -97,7 +104,7 @@ def declared_source_files(root: Path) -> set[str]:
             "loongforge/models/foundation/deepseek_v4/deepseek_v4_csa.py",
         }
     )
-    return files
+    return files | MANUAL_CONFIRMED
 
 
 def candidate_model_files(root: Path, confirmed: set[str]) -> set[str]:
@@ -176,6 +183,11 @@ def source_for(path: str) -> str:
         "loongforge/train/parser.py": "megatron/training/arguments.py",
         "loongforge/train/sft/sft_vlm.py": "pretrain_vlm.py",
         "loongforge/train/sft/utils.py": "pretrain_gpt.py + Megatron dataloader utilities",
+        "loongforge/train/arguments.py": "megatron/training/arguments.py",
+        "loongforge/train/sft/sft_ernie.py": "pretrain_vlm.py / Megatron SFT entry",
+        "loongforge/train/sft/sft_internvl.py": "pretrain_vlm.py / Megatron SFT entry",
+        "loongforge/train/diffusion/pretrain_wan.py": "pretrain_gpt.py task entry",
+        "loongforge/train/diffusion/pretrain_qwen_image.py": "pretrain_gpt.py task entry",
         "loongforge/tokenizer/tokenizer.py": "megatron/training/tokenizer/tokenizer.py",
         "loongforge/models/utils.py": "megatron/core/transformer/spec_utils.py",
         "loongforge/models/dispatch.py": "Megatron multimodal model dispatch",
@@ -231,8 +243,14 @@ def change_hint(path: str) -> str:
         return "moved imports、optimizer config_overrides、VPP iterator、RL/modelopt/蒸馏删除逻辑"
     if "validators" in name:
         return "删除参数、Gloo 名称、pipeline/recompute 校验和 VLM adapter 覆盖"
+    if name == "arguments.py":
+        return "Megatron 参数定义、默认值、CLI alias 与 LoongForge 扩展参数"
     if "initialize" in name:
         return "async worker rank、MoE aux-loss scaler 位置、process-group 初始化"
+    if "sft_ernie" in name or "sft_internvl" in name:
+        return "SFT forward_step、dataset provider、loss、trainer 注册与 batch 处理"
+    if "pretrain_wan" in name or "pretrain_qwen_image" in name:
+        return "Diffusion pretrain forward_step、dataset provider、loss、trainer 注册"
     if "pretrain_llm" in name or "sft_llm" in name or "get_loss_func" in name:
         return "batch helper、MTP placement/signature、dataset builder、loss function"
     if "pretrain_vlm" in name:

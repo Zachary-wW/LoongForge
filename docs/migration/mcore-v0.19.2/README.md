@@ -7,7 +7,7 @@ branch.
 ## Artifacts
 
 - [Copy inventory](LOONGFORGE_MEGATRON_COPY_INVENTORY.md): reviewed source
-  provenance for 51 confirmed files plus 67 B/C review candidates.
+  provenance for 56 confirmed files plus 67 B/C review candidates.
 - [Inventory CSV](inventory.csv): one row per reviewed file.
 - [Inventory JSON](inventory.json): machine-readable form of the same data.
 - [Similarity results](similarity_results.csv): structural comparison against

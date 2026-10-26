@@ -104,16 +104,21 @@ LF-COPY-102,A-已确认,共享模型/算子,loongforge/models/omni_models/fine_g
 LF-COPY-103,A-已确认,共享模型/算子,loongforge/models/omni_models/model_chunk_schedule_plan.py,megatron/core/models/common/model_chunk_schedule_plan.py,v0.14 / v0.15,按目标 v0.19.2 API 逐函数核对,文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.834
 LF-COPY-104,C-扩展候选,其他,loongforge/models/utils.py,megatron/core/transformer/spec_utils.py,,按目标 v0.19.2 API 逐函数核对,模型侧派生候选：同名职责/同构方法，但未声明源码
 LF-COPY-105,C-扩展候选,数据/Tokenizer,loongforge/tokenizer/tokenizer.py,megatron/training/tokenizer/tokenizer.py,core_v0.10.0,按目标 v0.19.2 API 逐函数核对,模型侧派生候选：同名职责/同构方法，但未声明源码；旧版结构相似度 0.019；最接近 core_v0.10.0 megatron/training/tokenizer/tokenizer.py
-LF-COPY-106,A-已确认,训练入口/运行时,loongforge/train/checkpointing.py,megatron/training/checkpointing.py,v0.15,checkpoint tracker/helper 位置、async save、PEFT/LoRA state dict、checkpoint format,文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.900；已确认 1 个符号缺失；3 条调用签名疑点
-LF-COPY-107,A-已确认,训练入口/运行时,loongforge/train/get_loss_func.py,pretrain_gpt.py,v0.15,batch helper、MTP placement/signature、dataset builder、loss function,文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.207
-LF-COPY-108,A-已确认,训练入口/运行时,loongforge/train/initialize.py,megatron/training/initialize.py,v0.15,async worker rank、MoE aux-loss scaler 位置、process-group 初始化,文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.271；已确认 1 个符号缺失；1 条调用签名疑点
-LF-COPY-109,C-扩展候选,训练入口/运行时,loongforge/train/megatron_trainer.py,megatron/training/training.py,,按目标 v0.19.2 API 逐函数核对,模型侧派生候选：同名职责/同构方法，但未声明源码
-LF-COPY-110,C-扩展候选,训练入口/运行时,loongforge/train/parser.py,megatron/training/arguments.py,,按目标 v0.19.2 API 逐函数核对,模型侧派生候选：同名职责/同构方法，但未声明源码
-LF-COPY-111,A-已确认,训练入口/运行时,loongforge/train/pretrain/pretrain_llm.py,pretrain_gpt.py,v0.15,batch helper、MTP placement/signature、dataset builder、loss function,文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.490；已确认 3 个符号缺失；4 条调用签名疑点
-LF-COPY-112,A-已确认,训练入口/运行时,loongforge/train/pretrain/pretrain_vlm.py,pretrain_vlm.py,v0.14 / v0.15,VLM batch/loss、dataset builder、MTP 和 packed-seq 接口,文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.060
-LF-COPY-113,A-已确认,训练入口/运行时,loongforge/train/sft/sft_llm.py,pretrain_gpt.py,v0.15,batch helper、MTP placement/signature、dataset builder、loss function,文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.340
-LF-COPY-114,C-扩展候选,训练入口/运行时,loongforge/train/sft/sft_vlm.py,pretrain_vlm.py,,按目标 v0.19.2 API 逐函数核对,模型侧派生候选：同名职责/同构方法，但未声明源码
-LF-COPY-115,C-扩展候选,训练入口/运行时,loongforge/train/sft/utils.py,pretrain_gpt.py + Megatron dataloader utilities,,按目标 v0.19.2 API 逐函数核对,模型侧派生候选：同名职责/同构方法，但未声明源码；已确认 1 个符号缺失
-LF-COPY-116,A-已确认,训练入口/运行时,loongforge/train/training_utils.py,megatron/training/training.py,v0.14 / v0.15,moved imports、optimizer config_overrides、VPP iterator、RL/modelopt/蒸馏删除逻辑,文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.468；已确认 2 个符号缺失；3 条调用签名疑点
-LF-COPY-117,A-已确认,训练入口/运行时,loongforge/train/validators.py,megatron/training/arguments.py,v0.12,删除参数、Gloo 名称、pipeline/recompute 校验和 VLM adapter 覆盖,人工映射或 vendored/import 审计确认；对应 upstream 主文件归一化相似度 0.299
-LF-COPY-118,A-已确认,其他,loongforge/utils/utils.py,megatron/training/utils.py + megatron/core/utils.py,,按目标 v0.19.2 API 逐函数核对,文件头声明 Modified from Megatron-LM
+LF-COPY-106,A-已确认,训练入口/运行时,loongforge/train/arguments.py,megatron/training/arguments.py,,Megatron 参数定义、默认值、CLI alias 与 LoongForge 扩展参数,
+LF-COPY-107,A-已确认,训练入口/运行时,loongforge/train/checkpointing.py,megatron/training/checkpointing.py,v0.15,checkpoint tracker/helper 位置、async save、PEFT/LoRA state dict、checkpoint format,文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.900；已确认 1 个符号缺失；3 条调用签名疑点
+LF-COPY-108,A-已确认,训练入口/运行时,loongforge/train/diffusion/pretrain_qwen_image.py,pretrain_gpt.py task entry,,Diffusion pretrain forward_step、dataset provider、loss、trainer 注册,
+LF-COPY-109,A-已确认,训练入口/运行时,loongforge/train/diffusion/pretrain_wan.py,pretrain_gpt.py task entry,,Diffusion pretrain forward_step、dataset provider、loss、trainer 注册,
+LF-COPY-110,A-已确认,训练入口/运行时,loongforge/train/get_loss_func.py,pretrain_gpt.py,v0.15,batch helper、MTP placement/signature、dataset builder、loss function,文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.207
+LF-COPY-111,A-已确认,训练入口/运行时,loongforge/train/initialize.py,megatron/training/initialize.py,v0.15,async worker rank、MoE aux-loss scaler 位置、process-group 初始化,文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.271；已确认 1 个符号缺失；1 条调用签名疑点
+LF-COPY-112,C-扩展候选,训练入口/运行时,loongforge/train/megatron_trainer.py,megatron/training/training.py,,按目标 v0.19.2 API 逐函数核对,模型侧派生候选：同名职责/同构方法，但未声明源码
+LF-COPY-113,C-扩展候选,训练入口/运行时,loongforge/train/parser.py,megatron/training/arguments.py,,按目标 v0.19.2 API 逐函数核对,模型侧派生候选：同名职责/同构方法，但未声明源码
+LF-COPY-114,A-已确认,训练入口/运行时,loongforge/train/pretrain/pretrain_llm.py,pretrain_gpt.py,v0.15,batch helper、MTP placement/signature、dataset builder、loss function,文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.490；已确认 3 个符号缺失；4 条调用签名疑点
+LF-COPY-115,A-已确认,训练入口/运行时,loongforge/train/pretrain/pretrain_vlm.py,pretrain_vlm.py,v0.14 / v0.15,VLM batch/loss、dataset builder、MTP 和 packed-seq 接口,文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.060
+LF-COPY-116,A-已确认,训练入口/运行时,loongforge/train/sft/sft_ernie.py,pretrain_vlm.py / Megatron SFT entry,,SFT forward_step、dataset provider、loss、trainer 注册与 batch 处理,
+LF-COPY-117,A-已确认,训练入口/运行时,loongforge/train/sft/sft_internvl.py,pretrain_vlm.py / Megatron SFT entry,,SFT forward_step、dataset provider、loss、trainer 注册与 batch 处理,
+LF-COPY-118,A-已确认,训练入口/运行时,loongforge/train/sft/sft_llm.py,pretrain_gpt.py,v0.15,batch helper、MTP placement/signature、dataset builder、loss function,文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.340
+LF-COPY-119,C-扩展候选,训练入口/运行时,loongforge/train/sft/sft_vlm.py,pretrain_vlm.py,,按目标 v0.19.2 API 逐函数核对,模型侧派生候选：同名职责/同构方法，但未声明源码
+LF-COPY-120,C-扩展候选,训练入口/运行时,loongforge/train/sft/utils.py,pretrain_gpt.py + Megatron dataloader utilities,,按目标 v0.19.2 API 逐函数核对,模型侧派生候选：同名职责/同构方法，但未声明源码；已确认 1 个符号缺失
+LF-COPY-121,A-已确认,训练入口/运行时,loongforge/train/training_utils.py,megatron/training/training.py,v0.14 / v0.15,moved imports、optimizer config_overrides、VPP iterator、RL/modelopt/蒸馏删除逻辑,文件头声明 Modified from Megatron-LM；对应 upstream 主文件归一化相似度 0.468；已确认 2 个符号缺失；3 条调用签名疑点
+LF-COPY-122,A-已确认,训练入口/运行时,loongforge/train/validators.py,megatron/training/arguments.py,v0.12,删除参数、Gloo 名称、pipeline/recompute 校验和 VLM adapter 覆盖,人工映射或 vendored/import 审计确认；对应 upstream 主文件归一化相似度 0.299
+LF-COPY-123,A-已确认,其他,loongforge/utils/utils.py,megatron/training/utils.py + megatron/core/utils.py,,按目标 v0.19.2 API 逐函数核对,文件头声明 Modified from Megatron-LM

@@ -6,14 +6,14 @@ file-level evidence.
 
 | Issue | Primary scope | Copy inventory IDs | Notes |
 |---|---|---|---|
-| #34 | Training runtime | `106-116` | checkpointing, trainer, parser, pretrain/SFT/loss and training utils |
-| #35 | Wan CP and diffusion interfaces | `024-032` | Wan attention/layer/model/block/provider and API-coupled utilities |
-| #36 | Obsolete validation | `117` | validators |
+| #34 | Training runtime | `106-121` | arguments, checkpointing, trainer, parser, pretrain/SFT/loss and training utils |
+| #35 | Wan CP and diffusion interfaces | `024-032`, `108-109` | Wan/Qwen-Image pretrain entries plus attention/layer/model/block/provider |
+| #36 | Obsolete validation | `122` | validators |
 | #37 | Shared utility, data and MTP APIs | `001-016`, `102-103`, `118` | data builders, rerun iterator, common transformer helpers, schedule and shared utils |
 | #38 | LLM/VLM model construction APIs | Model-side entries outside DSA/CSA | Foundation and encoder models, attention, experts/router and layer specs |
 | #39 | DSA/CSA and experimental attention | `010-014`, `060-064` | DSA/CSA vendor files and DeepSeek experimental attention |
 | #40 | Upstream duplicate-code disposition | cross-cutting | Records which IDs become `reuse upstream` or `keep LoongForge fork` |
-| #41 | Integration and validation | all 118 IDs | Assigns test evidence to an integration SHA |
+| #41 | Integration and validation | all 123 IDs | Assigns test evidence to an integration SHA |
 
 ## Decision values
 

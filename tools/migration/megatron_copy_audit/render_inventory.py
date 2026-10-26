@@ -153,6 +153,8 @@ Review 时应逐文件回答：
 - `loongforge/models/common/peft/*`：可能是 NVIDIA PEFT/NeMo 或社区实现，当前 v0.15 没有一一对应的 Megatron path。
 - 大部分 `loongforge/embodied/*`：主要来自 NVIDIA Cosmos、GR00T、FastWAM、VJEPA2 等模型工程，不属于 Megatron-LM Core 文件升级。
 - `Megatron-Energon` task encoder/flavor：需要跟随 Energon 版本，不能只用 Megatron-LM tag 判断。
+- `loongforge/train.py`、`trainer_builder.py`：属于 LoongForge 自有轻量调度层，没有与 Megatron 文件一一对应的整文件拷贝；由 CLI/model-build 集成测试覆盖。
+- `loongforge/data/sft_dataset.py`、`sft_data_collator.py`、`sft_format_utils.py`、`sft_supervised_utils.py`：主要跟随 HuggingFace Dataset / LLaMA-Factory，不属于 Megatron-LM 文件同步。
 - `patches/TransformerEngine_v2.9/*`：属于 TE patch，不是 Megatron Python 源码拷贝。
 - 只通过 import 使用 Megatron、没有复制实现主体的 145 个文件：继续由 API 调用扫描维护，不放进本清单。
 
