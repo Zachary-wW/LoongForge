@@ -182,7 +182,7 @@ def broadcast_on_cp_group(batch):
         if item is not None:
             torch.distributed.broadcast(
                 item,
-                mpu.get_context_parallel_src_rank(),
+                mpu.get_context_parallel_global_ranks()[0],
                 group=mpu.get_context_parallel_group(),
             )
 
