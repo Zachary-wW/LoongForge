@@ -32,6 +32,7 @@ from megatron.training.initialize import (
     _compile_dependencies,
     _initialize_tp_communicators,
 )
+from megatron.training.argument_utils import pretrain_cfg_container_from_args
 from megatron.core.parallel_state import initialize_model_parallel
 
 from loongforge.utils.global_vars import set_loongforge_extra_global_vars
@@ -193,9 +194,16 @@ def initialize_loongforge_megatron(
     if args.async_save and args.use_persistent_ckpt_worker:
         init_persistent_async_worker()
 
-    # set global args, build tokenizer, and set adlr-autoresume,
-    # tensorboard-writer, and timers.
-    set_megatron_global_variables(args, build_tokenizer=False)
+    # Build LoongForge's Hydra model config before Megatron 0.20 stores its
+    # PretrainConfigContainer global. LoongForge owns checkpoint bridging and
+    # tokenizer construction, so Megatron's tokenizer builder stays disabled.
+    from .parser import parse_args_from_config
+
+    parse_args_from_config(args)
+    cfg_container = pretrain_cfg_container_from_args(args, get_model_config())
+    set_megatron_global_variables(
+        args, cfg_container, build_tokenizer=False
+    )
 
     # set loongforge extra global args
     set_loongforge_extra_global_vars(args, build_tokenizer=True)
@@ -229,11 +237,6 @@ def initialize_loongforge_megatron(
     # torch.distributed initialization
     def finish_mpu_init():
         """torch.distributed initialization"""
-
-        from .parser import parse_args_from_config
-        # set model config from args and hydra config (must be before _initialize_distributed,
-        # because get_embedding_ranks may depend on get_model_config())
-        parse_args_from_config(args)
 
         # Pytorch distributed.
         _initialize_distributed(get_embedding_ranks, get_position_embedding_ranks, store)
@@ -313,7 +316,7 @@ def initialize_loongforge_megatron(
 
         # Setup MoE aux loss scale value.
         if args.num_experts is not None:
-            from megatron.core.transformer.moe.router import MoEAuxLossAutoScaler
+            from megatron.core.transformer.moe.moe_utils import MoEAuxLossAutoScaler
 
             MoEAuxLossAutoScaler.set_loss_scale(torch.ones(1, device=torch.cuda.current_device()))
 
