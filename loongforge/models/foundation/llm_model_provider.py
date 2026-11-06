@@ -38,6 +38,9 @@ def llm_model_provider(
     config = get_model_config()
 
     print_rank_0(f"Building {config.model_type} model...")
+    from loongforge.models.foundation import load_model_family
+
+    load_model_family(config.model_type)
 
     if args.use_legacy_models:
         raise ValueError("Classic Megatron-LM models are not supported.")
