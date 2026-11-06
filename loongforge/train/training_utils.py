@@ -23,6 +23,7 @@ from megatron.training.log_handler import CustomHandler
 
 from typing import Optional
 from megatron.core.optimizer.distrib_optimizer import DistributedOptimizer
+from megatron.core.process_groups_config import ProcessGroupCollection
 
 # Make default logging level INFO, but filter out all log messages not from MCore.
 logging.basicConfig(handlers=[CustomHandler()], level=logging.INFO)
@@ -973,19 +974,59 @@ def get_model(
             if not ddp_config.overlap_grad_reduce:
                 ddp_config.bucket_size = None
 
+        pg_collection = ProcessGroupCollection.use_mpu_process_groups()
+
+        def _process_group_size(group):
+            return group.size() if group is not None else 1
+
         with torch.cuda.stream(torch.cuda.Stream()):
-            model = [
-                DP(
-                    config=config,
-                    ddp_config=ddp_config,
-                    module=model_chunk,
-                    # Turn off bucketing for model_chunk 2 onwards, since communication for these
-                    # model chunks is overlapped with compute anyway.
-                    disable_bucketing=(model_chunk_idx > 0)
-                    or args.overlap_param_gather_with_optimizer_step,
+            wrapped_model = []
+            for model_chunk_idx, model_chunk in enumerate(model):
+                # Turn off bucketing for model_chunk 2 onwards, since communication for these
+                # model chunks is overlapped with compute anyway.
+                disable_bucketing = (
+                    model_chunk_idx > 0
+                ) or args.overlap_param_gather_with_optimizer_step
+                chunk_kwargs = {}
+                if DP is DDP:
+                    chunk_kwargs["pg_collection"] = pg_collection
+                    if ddp_config.use_distributed_optimizer:
+                        intra_dp_cp_group = getattr(
+                            pg_collection, "intra_dp_cp", None
+                        ) or pg_collection.dp_cp
+                        intra_expt_dp_group = getattr(
+                            pg_collection, "intra_expt_dp", None
+                        ) or getattr(pg_collection, "expt_dp", None)
+                        effective_bucket_size = (
+                            None
+                            if disable_bucketing or pg_collection.pp.rank() > 0
+                            else ddp_config.bucket_size
+                        )
+                        chunk_kwargs["full_param_layout"] = (
+                            DistributedOptimizer.compute_full_param_layout(
+                                [
+                                    parameter
+                                    for parameter in model_chunk.parameters()
+                                    if parameter.requires_grad
+                                ],
+                                effective_bucket_size,
+                                _process_group_size(intra_dp_cp_group),
+                                ddp_config,
+                                expert_data_parallel_world_size=_process_group_size(
+                                    intra_expt_dp_group
+                                ),
+                            )
+                        )
+                wrapped_model.append(
+                    DP(
+                        config=config,
+                        ddp_config=ddp_config,
+                        module=model_chunk,
+                        disable_bucketing=disable_bucketing,
+                        **chunk_kwargs,
+                    )
                 )
-                for (model_chunk_idx, model_chunk) in enumerate(model)
-            ]
+            model = wrapped_model
 
         # Broadcast params from data parallel src rank to other data parallel ranks.
         if args.data_parallel_random_init:

@@ -68,6 +68,19 @@ def convert_megatron_transformer_config_args(megatron_args, config_class=None):
     ]
     transformer_config_args["fp8_param"] = megatron_args["fp8_param_gather"]
 
+    # LoongForge's CLI retains the legacy fused-kernel selector while MCore
+    # 0.20 TransformerConfig expects the implementation family. Map at the
+    # compatibility boundary instead of changing either public CLI vocabulary.
+    dsa_backend = megatron_args.get("dsa_kernel_backend")
+    if dsa_backend in ("sm80", "sm100"):
+        dsa_backend = "cudnn"
+    elif dsa_backend == "torch_ref":
+        dsa_backend = "none"
+    elif dsa_backend == "auto":
+        dsa_backend = None
+    if dsa_backend in (None, "none", "tilelang", "cudnn"):
+        transformer_config_args["dsa_kernel_backend"] = dsa_backend
+
     if "activation_func_fp8_input_store" in megatron_args:
         transformer_config_args["activation_func_fp8_input_store"] = megatron_args[
             "activation_func_fp8_input_store"
