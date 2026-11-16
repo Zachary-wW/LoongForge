@@ -280,46 +280,46 @@ name_map:
       fp8: true
       extra: true
     final_layernorm:
-      name: decoder.final_layernorm
+      name: decoder.final_norm
       extra: true
     word_embeddings_for_head: output_layer
     transformer_tpl: model%d
     hc_attn_fn:
-      name: self_attention_hyper_connection.mapping_proj
+      name: hyper_connection.mapping_proj
       ignore_tp: true
     hc_attn_base:
-      name: self_attention_hyper_connection.bias
+      name: hyper_connection.bias
       is_direct_name: true
       ignore_tp: true
     hc_attn_alpha_pre:
-      name: self_attention_hyper_connection.alpha_pre
+      name: hyper_connection.alpha_pre
       is_direct_name: true
       ignore_tp: true
     hc_attn_alpha_post:
-      name: self_attention_hyper_connection.alpha_post
+      name: hyper_connection.alpha_post
       is_direct_name: true
       ignore_tp: true
     hc_attn_alpha_res:
-      name: self_attention_hyper_connection.alpha_res
+      name: hyper_connection.alpha_res
       is_direct_name: true
       ignore_tp: true
     hc_ffn_fn:
-      name: mlp_hyper_connection.mapping_proj
+      name: hyper_connection.mapping_proj
       ignore_tp: true
     hc_ffn_base:
-      name: mlp_hyper_connection.bias
+      name: hyper_connection.bias
       is_direct_name: true
       ignore_tp: true
     hc_ffn_alpha_pre:
-      name: mlp_hyper_connection.alpha_pre
+      name: hyper_connection.alpha_pre
       is_direct_name: true
       ignore_tp: true
     hc_ffn_alpha_post:
-      name: mlp_hyper_connection.alpha_post
+      name: hyper_connection.alpha_post
       is_direct_name: true
       ignore_tp: true
     hc_ffn_alpha_res:
-      name: mlp_hyper_connection.alpha_res
+      name: hyper_connection.alpha_res
       is_direct_name: true
       ignore_tp: true
     hc_head_fn:
