@@ -60,15 +60,21 @@ def __getattr__(name: str):
 def load_model_family(model_type: str):
     """Import and register one foundation family without loading unrelated models."""
     normalized = str(model_type).lower()
-    registration = _FOUNDATION_MODELS.get(normalized)
-    if registration is None:
-        raise ValueError(f"Unsupported foundation model type: {model_type}")
+    get_foundation_model_classes(model_type)
     if normalized in _REGISTERED_MODEL_TYPES:
         return
 
-    module_name, config_name, model_name = registration
-    module = importlib.import_module(module_name, package=__name__)
-    config_class = getattr(module, config_name)
-    model_class = getattr(module, model_name)
+    config_class, model_class = get_foundation_model_classes(model_type)
     AutoModel.register(config_class, model_class, exist_ok=True)
     _REGISTERED_MODEL_TYPES.add(normalized)
+
+
+def get_foundation_model_classes(model_type: str):
+    """Return the lazy config and model classes for one foundation family."""
+    normalized = str(model_type).lower()
+    registration = _FOUNDATION_MODELS.get(normalized)
+    if registration is None:
+        raise ValueError(f"Unsupported foundation model type: {model_type}")
+    module_name, config_name, model_name = registration
+    module = importlib.import_module(module_name, package=__name__)
+    return getattr(module, config_name), getattr(module, model_name)

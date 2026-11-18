@@ -9,6 +9,7 @@
 import os
 import dataclasses
 import gc
+import functools
 from datetime import datetime, timedelta
 import logging
 import sys
@@ -502,9 +503,13 @@ def pretrain(
         test_data_iterator = []
         for i in range(len(model)):
             mpu.set_virtual_pipeline_model_parallel_rank(i)
+            vp_stage_provider = functools.partial(
+                train_valid_test_dataset_provider, vp_stage=i
+            )
+            if getattr(train_valid_test_dataset_provider, "is_distributed", False):
+                vp_stage_provider.is_distributed = True
             iterators = build_train_valid_test_data_iterators(
-                train_valid_test_dataset_provider,
-                vp_stage=i,
+                vp_stage_provider,
             )
             train_data_iterator.append(iterators[0])
             valid_data_iterator.append(iterators[1])

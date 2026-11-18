@@ -21,9 +21,6 @@ from megatron.core.fp8_utils import get_fp8_context
 from megatron.core.fusions.fused_layer_norm import FusedLayerNorm
 from megatron.core.inference.contexts import BaseInferenceContext
 from megatron.core.packed_seq_params import PackedSeqParams
-from megatron.core.pipeline_parallel.fine_grained_activation_offload import (
-    fine_grained_offloading_set_last_layer,
-)
 from megatron.core.process_groups_config import ProcessGroupCollection
 from megatron.core.transformer.spec_utils import ModuleSpec
 from megatron.core.transformer.transformer_config import TransformerConfig
@@ -316,8 +313,9 @@ class TransformerBlock(MegatronTransformerBlock):
                         inner_quantization_context = nullcontext()
 
                     if self.config.fine_grained_activation_offloading:
-                        fine_grained_offloading_set_last_layer(
-                            l_no == self.num_layers_per_pipeline_rank - 1
+                        raise NotImplementedError(
+                            "Fine-grained activation offloading must migrate to the MCore 0.20 "
+                            "FineGrainedActivationOffloadingInterface."
                         )
 
                     with self.offload_context, inner_quantization_context:
@@ -390,6 +388,12 @@ class TransformerBlock(MegatronTransformerBlock):
     ):
         """Forward method with activation checkpointing."""
         deepstack_feature_lists = []
+        recompute_num_layers = self.config.recompute_num_layers
+        if recompute_num_layers is None or recompute_num_layers < 1:
+            raise ValueError(
+                "recompute_num_layers must be a positive integer when full "
+                "activation recomputation is enabled"
+            )
         if self.has_deepstack:
             deepstack_visual_indexes = kwargs.pop('deepstack_visual_indexes', None)
             deepstack_merger_list = kwargs.pop('deepstack_merger_list', None)
@@ -399,7 +403,7 @@ class TransformerBlock(MegatronTransformerBlock):
             # If DeepStack is enabled and using uniform strategy, recompute_num_layers must be 1, 
             # otherwise DeepStack may be skipped
             if self.config.recompute_method == 'uniform' and self.config.recompute_granularity == 'full':
-                assert self._recompute_num_layers == 1, \
+                assert recompute_num_layers == 1, \
                     "If recompute_method is set to uniform, recompute_num_layers must be 1."
 
         def custom(start: int, end: int):
@@ -480,7 +484,7 @@ class TransformerBlock(MegatronTransformerBlock):
             layer_idx = 0
             while layer_idx < self.num_layers_per_pipeline_rank:
                 hidden_states, context = checkpoint_handler(
-                    custom(layer_idx, layer_idx + self._recompute_num_layers)
+                    custom(layer_idx, layer_idx + recompute_num_layers)
                 )
                 # Extract deepstack features
                 if self.has_deepstack and layer_idx in deepstack_visual_indexes:
@@ -488,7 +492,7 @@ class TransformerBlock(MegatronTransformerBlock):
                     deepstack_feature = merger(hidden_states)
                     deepstack_feature_lists.append(deepstack_feature)
 
-                layer_idx += self._recompute_num_layers
+                layer_idx += recompute_num_layers
 
         elif self.config.recompute_method == 'block':
             # Checkpoint the input activation of only a set number of individual
@@ -504,7 +508,7 @@ class TransformerBlock(MegatronTransformerBlock):
                     recompute_skip_num_layers += 1
                 if (
                     layer_idx >= recompute_skip_num_layers
-                    and layer_idx < self._recompute_num_layers + recompute_skip_num_layers
+                    and layer_idx < recompute_num_layers + recompute_skip_num_layers
                 ):
                     hidden_states, context = checkpoint_handler(custom(layer_idx, layer_idx + 1))
                 else:
