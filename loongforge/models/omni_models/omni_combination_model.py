@@ -18,9 +18,6 @@ from loongforge.train.initialize import (
     mpu,
     get_encoder_dp_size,
 )
-from megatron.core.pipeline_parallel.fine_grained_activation_offload import (
-    fine_grained_offloading_init_chunk_handler,
-)
 
 class OmniCombinationModel(BaseMegatronModule):
     """Omni multimodal combination model"""
@@ -69,6 +66,9 @@ class OmniCombinationModel(BaseMegatronModule):
             self.encoder_model = None
 
         if config.foundation is not None and add_decoder:
+            from loongforge.models.foundation import load_model_family
+
+            load_model_family(config.foundation.model_type)
             # TODO: remove this dependency?
             config.foundation.padded_vocab_size = language_vocab_size
             config.foundation.max_position_embeddings = language_max_sequence_length
@@ -167,19 +167,10 @@ class OmniCombinationModel(BaseMegatronModule):
 
     def preprocess_for_fine_grained_offloading(self):
         """Preprocess for fine-grained activation offloading."""
-        fine_grained_offloading_init_chunk_handler(
-            self.vp_stage, self.config.min_offloaded_tensor_size
+        raise NotImplementedError(
+            "Fine-grained activation offloading must migrate to the MCore 0.20 "
+            "FineGrainedActivationOffloadingInterface."
         )
-        if self.disable_param_offloading:
-            for param in self.foundation_model.decoder.parameters():
-                param.offloading_activation = False
-            if self.foundation_model.mtp_process:
-                for param in self.foundation_model.mtp.parameters():
-                    param.offloading_activation = False
-            if self.foundation_model.post_process:
-                for param in self.foundation_model.output_layer.parameters():
-                    param.offloading_activation = False
-            self.disable_param_offloading = False
 
     def hetero_dp_get_tensor_shape(
         self, group, src, local_rank, forward_group_id=None, tensor_name=None,

@@ -151,6 +151,8 @@ class OmniEncoderModel(torch.nn.Module):
         **kwargs,
     ) -> None:
         super().__init__()
+        import loongforge.models.encoder  # noqa: F401
+
         self.config = config
         self.mix_used_vision_encoder = getattr(config, "mix_used_vision_encoder", True)
         self.mix_used_vision_projector = getattr(
