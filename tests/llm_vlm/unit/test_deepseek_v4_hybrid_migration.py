@@ -9,6 +9,7 @@ from loongforge.models.foundation.deepseek_v4.deepseek_v4_layer_spec import (
     build_deepseek_v4_hybrid_layer_pattern,
     expand_deepseek_v4_hybrid_compress_ratios,
 )
+from loongforge.models.foundation.deepseek_v4.deepseek_v4_config import DeepseekV4Config
 
 TOOLS_DIR = Path(__file__).resolve().parents[3] / "tools"
 sys.path.insert(0, str(TOOLS_DIR))
@@ -36,6 +37,26 @@ def test_honors_per_layer_dense_and_moe_frequency():
     )
 
     assert pattern == "WEC-HE"
+
+
+def test_v4_config_enables_legacy_numeric_parity():
+    config = DeepseekV4Config(
+        num_layers=1,
+        hidden_size=64,
+        ffn_hidden_size=128,
+        num_attention_heads=4,
+        csa_compress_ratios=[0],
+        qk_pos_emb_head_dim=8,
+        v_head_dim=24,
+        q_lora_rank=16,
+        num_experts=2,
+        moe_ffn_hidden_size=64,
+        moe_shared_expert_intermediate_size=64,
+        experimental_attention_variant="dsv4_hybrid",
+        dsa_kernel_backend="none",
+    )
+
+    assert config.dsv4_legacy_numeric_parity is True
 
 
 @pytest.mark.parametrize(
