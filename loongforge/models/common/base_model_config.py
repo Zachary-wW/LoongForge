@@ -8,7 +8,7 @@ from transformers import PretrainedConfig
 from megatron.core.transformer import TransformerConfig
 from megatron.core.transformer.transformer_config import MLATransformerConfig
 import dataclasses
-from typing import Optional, List, Dict, Set
+from typing import ClassVar, Optional, List, Dict, Set
 from collections import defaultdict
 from omegaconf import ListConfig
 
@@ -37,6 +37,7 @@ class BasePeftModelConfig():
 class BaseModelConfig(TransformerConfig, PretrainedConfig):
     """Base configuration class for LoongForge models."""
 
+    model_backend: ClassVar[str] = "gpt"
     freeze: bool = False
     enable_chunkpipe: bool = False
     model_type: str = None
@@ -66,6 +67,7 @@ class BaseModelConfig(TransformerConfig, PretrainedConfig):
 class BaseModelMLAConfig(MLATransformerConfig, PretrainedConfig):
     """Base configuration class for LoongForge models with multi-latent attention."""
 
+    model_backend: ClassVar[str] = "gpt"
     freeze: bool = False
     enable_chunkpipe: bool = False
     model_type: str = None

@@ -223,3 +223,4 @@ class DeepseekV4Config(BaseModelMLAConfig):
         "get_deepseek_v4_hybrid_stack_spec",
     ]
     model_type = LanguageModelFamilies.DEEPSEEK_V4
+    model_backend = "hybrid"
