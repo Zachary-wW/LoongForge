@@ -717,6 +717,7 @@ def get_model(
     model_provider_func,
     model_type=ModelType.encoder_or_decoder,
     wrap_with_ddp=True,
+    apply_mixed_precision=True,
     model_config=None,
 ):
     """Build the model."""
@@ -810,7 +811,8 @@ def get_model(
                 model,
                 None,  # optimizer
                 None,  # opt_param_scheduler
-                args
+                args,
+                model_config=model_config,
             )
             print_rank_0(f"HF checkpoint loaded successfully, iteration={iteration}")
 
@@ -880,7 +882,7 @@ def get_model(
             model_module.cuda(torch.cuda.current_device())
 
     # Fp16 conversion.
-    if args.fp16 or args.bf16:
+    if (args.fp16 or args.bf16) and apply_mixed_precision:
         param_pattern = getattr(args, "use_fp32_dtype_for_param_pattern", None)
         if param_pattern and not isinstance(param_pattern, list):
             param_pattern = [param_pattern]
@@ -1070,6 +1072,118 @@ def _p2p_embedding_weights_for_mtp(unwrapped_model, args):
         print(f"[MTP] Received embedding.word_embeddings.weight "
               f"from first PP stage (rank {first_rank}), shape={embedding_weight.shape}")
 
+def _build_mimo_ddp_config(args, num_parameters):
+    """Build the per-module DDP config used by the MiMo lifecycle."""
+    kwargs = {}
+    for field in dataclasses.fields(DistributedDataParallelConfig):
+        if hasattr(args, field.name):
+            kwargs[field.name] = getattr(args, field.name)
+    kwargs["grad_reduce_in_fp32"] = args.accumulate_allreduce_grads_in_fp32
+    kwargs["check_for_nan_in_grad"] = args.check_for_nan_in_loss_and_grad
+    kwargs["check_for_large_grads"] = args.check_for_large_grads
+    kwargs["pad_buckets_for_high_nccl_busbw"] = (
+        args.ddp_pad_buckets_for_high_nccl_busbw
+    )
+    kwargs["average_in_collective"] = args.ddp_average_in_collective
+    if args.ddp_num_buckets is not None:
+        assert args.ddp_bucket_size is None, (
+            "Cannot specify both --ddp-num-buckets and --ddp-bucket-size"
+        )
+        assert args.ddp_num_buckets > 0, "--ddp-num-buckets must be greater than 0"
+        kwargs["bucket_size"] = num_parameters // args.ddp_num_buckets
+    else:
+        kwargs["bucket_size"] = args.ddp_bucket_size
+    if "force_turn_on_bucketing" in {
+        field.name for field in dataclasses.fields(DistributedDataParallelConfig)
+    }:
+        kwargs["force_turn_on_bucketing"] = args.force_turn_on_bucketing
+    ddp_config = DistributedDataParallelConfig(**kwargs)
+    if ddp_config.bucket_size is None:
+        ddp_config.bucket_size = max(
+            40_000_000,
+            1_000_000 * mpu.get_data_parallel_world_size(with_context_parallel=True),
+        )
+    if not ddp_config.overlap_grad_reduce:
+        ddp_config.bucket_size = None
+    return ddp_config
+
+
+def _configure_mimo_grad_finalization(wrappers):
+    """Finalize each MiMo module over its own process groups."""
+    from megatron.core.distributed.finalize_model_grads import finalize_model_grads
+    from megatron.core.models.mimo.config.role import MIMO_LANGUAGE_MODULE_KEY
+
+    module_pgs = wrappers[0].topology.module_pgs
+    mimo_models = [wrapper.mimo_model for wrapper in wrappers]
+
+    def finalize_grads_func(
+        _model_list, _num_tokens, force_all_reduce=False, **_kwargs
+    ):
+        finalize_model_grads(
+            [mimo_model.language_model for mimo_model in mimo_models],
+            num_tokens=None,
+            pg_collection=module_pgs[MIMO_LANGUAGE_MODULE_KEY],
+            force_all_reduce=force_all_reduce,
+        )
+        for mimo_model in mimo_models:
+            for name, submodule in mimo_model.modality_submodules.items():
+                finalize_model_grads(
+                    [submodule],
+                    num_tokens=None,
+                    pg_collection=module_pgs[name],
+                    force_all_reduce=force_all_reduce,
+                )
+                bridge = mimo_model.colocated_comms.get((name, MIMO_LANGUAGE_MODULE_KEY))
+                if bridge is not None and bridge.is_fan_in():
+                    submodule.scale_gradients(bridge.scale)
+
+    def chunk_hooks(name):
+        hooks = [getattr(mimo_model, name) for mimo_model in mimo_models]
+        return hooks if len(hooks) > 1 else hooks[0]
+
+    config = mimo_models[0].config
+    config.finalize_model_grads_func = finalize_grads_func
+    if getattr(get_args(), "overlap_grad_reduce", False):
+        config.no_sync_func = chunk_hooks("no_sync")
+        config.grad_sync_func = chunk_hooks("start_grad_sync")
+    if getattr(get_args(), "overlap_param_gather", False):
+        config.param_sync_func = chunk_hooks("start_param_sync")
+
+
+def _build_mimo_optimizer(model, optimizer_config):
+    """Prepare MiMo module DDP and return one optimizer over all active modules."""
+    from examples.mimo.training.runtime import wrap_active_modules_with_ddp
+    from megatron.core.models.mimo import get_mimo_optimizer
+
+    args = get_args()
+    if args.calculate_per_token_loss:
+        raise NotImplementedError("MiMo lifecycle requires per-microbatch loss normalization")
+    if args.use_torch_fsdp2 or args.use_megatron_fsdp:
+        raise NotImplementedError("MiMo lifecycle supports DDP only")
+    if not args.use_distributed_optimizer:
+        raise NotImplementedError("MiMo lifecycle requires distributed optimizer")
+    wrappers = unwrap_model(model)
+    for wrapper in wrappers:
+        if not hasattr(wrapper, "mimo_model") or not hasattr(wrapper, "topology"):
+            raise TypeError("MiMo backend must return LoongForgeMimoVLMModel")
+        num_parameters = sum(param.numel() for param in wrapper.parameters())
+        wrap_active_modules_with_ddp(
+            args,
+            wrapper.mimo_model,
+            wrapper.topology,
+            ddp_config=_build_mimo_ddp_config(args, num_parameters),
+            data_parallel_random_init=args.data_parallel_random_init,
+            use_layer_wise_distributed_optimizer=args.use_layer_wise_distributed_optimizer,
+            use_layer_wise_param_layout=args.use_layer_wise_param_layout,
+        )
+    _configure_mimo_grad_finalization(wrappers)
+    return get_mimo_optimizer(
+        [wrapper.mimo_model for wrapper in wrappers],
+        optimizer_config,
+        module_to_grid_map=wrappers[0].topology.grids,
+    )
+
+
 def setup_model_and_optimizer(
     model_provider_func,
     model_type,
@@ -1091,8 +1205,13 @@ def setup_model_and_optimizer(
         freeze_parameters(mods, args.freeze_parameters, args.freeze_parameters_regex)
         return m
 
+    is_mimo_backend = getattr(model_config, "model_backend", None) == "mimo"
     model, peft_class = get_model(
-        provider_with_freeze, model_type, model_config=model_config
+        provider_with_freeze,
+        model_type,
+        wrap_with_ddp=not is_mimo_backend,
+        apply_mixed_precision=not is_mimo_backend,
+        model_config=model_config,
     )
     unwrapped_model = unwrap_model(model)
 
@@ -1113,12 +1232,17 @@ def setup_model_and_optimizer(
     if getattr(args, "force_all_weight_decay", None):
         no_wd_decay_cond = (False,)
 
-    optimizer = get_megatron_optimizer(
-        config,
-        model,
-        use_gloo_process_groups=args.use_gloo_process_groups,
-        dump_param_to_param_group_map=args.dump_param_to_param_group_map,
-    )
+    if is_mimo_backend:
+        if peft_class is not None:
+            raise NotImplementedError("MiMo lifecycle does not support PEFT yet")
+        optimizer = _build_mimo_optimizer(model, config)
+    else:
+        optimizer = get_megatron_optimizer(
+            config,
+            model,
+            use_gloo_process_groups=args.use_gloo_process_groups,
+            dump_param_to_param_group_map=args.dump_param_to_param_group_map,
+        )
     opt_param_scheduler = get_optimizer_param_scheduler(optimizer)
 
     # moe upcycling
@@ -1236,7 +1360,8 @@ def setup_model_and_optimizer(
             model,
             optimizer,
             opt_param_scheduler,
-            args
+            args,
+            model_config=model_config,
         )
         timers("load-checkpoint").stop(barrier=True)
         timers.log(["load-checkpoint"])
@@ -2530,10 +2655,11 @@ def train(
     # Setup some training config params.
     config.grad_scale_func = optimizer.scale_loss
     config.timers = timers
+    is_mimo_model = hasattr(unwrap_model(model[0]), "mimo_model")
     is_ddp_or_megatron_fsdp = isinstance(model[0], DDP) or (
         isinstance(megatron_FSDP, type) and isinstance(model[0], megatron_FSDP)
     )
-    if is_ddp_or_megatron_fsdp and args.overlap_grad_reduce:
+    if not is_mimo_model and is_ddp_or_megatron_fsdp and args.overlap_grad_reduce:
         assert config.no_sync_func is None, (
             "When overlap_grad_reduce is True, config.no_sync_func must be None; "
             "a custom no_sync_func is not supported when overlapping grad-reduce"
@@ -2547,11 +2673,12 @@ def train(
             ]
             if len(model) == 1:
                 config.grad_sync_func = config.grad_sync_func[0]
-    if args.overlap_param_gather and args.align_param_gather:
+    if not is_mimo_model and args.overlap_param_gather and args.align_param_gather:
         config.param_sync_func = [model_chunk.start_param_sync for model_chunk in model]
         if len(model) == 1:
             config.param_sync_func = config.param_sync_func[0]
-    config.finalize_model_grads_func = finalize_model_grads
+    if not is_mimo_model:
+        config.finalize_model_grads_func = finalize_model_grads
 
     if args.enable_full_hetero_dp and args.overlap_grad_reduce:
         _base_finalize = finalize_model_grads
@@ -2609,6 +2736,15 @@ def train(
     eval_duration = 0.0
     eval_iterations = 0
     forward_backward_func = get_forward_backward_func()
+    if is_mimo_model and args.pipeline_model_parallel_size > 1:
+        from megatron.core.pipeline_parallel.p2p_communication import P2PCommunicator
+
+        language_pg = unwrap_model(model[0]).pg_collection
+        forward_backward_func = functools.partial(
+            forward_backward_func,
+            pg_collection=language_pg,
+            p2p_communicator=P2PCommunicator(pp_group=language_pg.pp, config=config),
+        )
 
     # Full-iteration CUDA graph: wraps forward_backward_func when enabled.
     # Wrapper class is registered by model-specific trainer (e.g. sft_groot.py).

@@ -1,12 +1,17 @@
 """Unit coverage for the Qwen2.5-VL Omni to MiMo migration seam."""
 
+import torch
+
 from loongforge.models.mimo_models.mimo_vlm_model import (
     remap_legacy_omni_state_dict,
 )
 from loongforge.models.foundation.qwen2.qwen_model import (
     use_native_mrope_for_qwen2_vl,
 )
-from loongforge.models.mimo_models.qwen25_vl import normalize_encoder_inputs
+from loongforge.models.mimo_models.qwen25_vl import (
+    normalize_encoder_inputs,
+    split_image_inputs_for_fan_in,
+)
 
 
 class _Config:
@@ -64,3 +69,20 @@ def test_qwen25_vision_inputs_accept_mimo_named_encoder_payload():
 
     assert normalize_encoder_inputs({"image_encoder": payload}) is payload
     assert normalize_encoder_inputs(payload) is payload
+
+
+def test_vision_fan_in_assigns_whole_images_with_uneven_lengths():
+    patches = torch.arange(20).unsqueeze(1)
+    grid = torch.tensor([[1, 2, 4], [1, 2, 6]])
+    image_inputs = {"images": patches, "image_grid_thw": grid}
+
+    first, first_sizes = split_image_inputs_for_fan_in(image_inputs, 0, 3, 2)
+    second, second_sizes = split_image_inputs_for_fan_in(image_inputs, 1, 3, 2)
+    empty, empty_sizes = split_image_inputs_for_fan_in(image_inputs, 2, 3, 2)
+
+    assert first_sizes == second_sizes == empty_sizes == (2, 3, 0)
+    torch.testing.assert_close(first["images"], patches[:8])
+    torch.testing.assert_close(first["image_grid_thw"], grid[:1])
+    torch.testing.assert_close(second["images"], patches[8:])
+    torch.testing.assert_close(second["image_grid_thw"], grid[1:])
+    assert empty is None

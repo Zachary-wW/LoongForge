@@ -31,6 +31,12 @@ def _get_topology(args, image_tp: int):
     from examples.mimo.training.topology import ModuleGridSpec, create_topology
 
     world = torch.distributed.get_world_size()
+    pp_size = args.pipeline_model_parallel_size
+    if args.context_parallel_size != 1:
+        raise NotImplementedError("MiMo colocated vision currently requires language CP1")
+    vision_ranks = world // pp_size
+    if vision_ranks % image_tp:
+        raise ValueError("Image encoder TP must divide the number of first-stage language ranks")
     key = (
         world,
         args.tensor_model_parallel_size,
@@ -51,7 +57,7 @@ def _get_topology(args, image_tp: int):
                 ),
                 ModuleGridSpec(
                     name="images",
-                    num_ranks=world,
+                    num_ranks=vision_ranks,
                     tp=image_tp,
                     cp=1,
                     pp=1,
@@ -158,31 +164,11 @@ def mimo_vlm_model_provider(
     owns_vision = vp_stage in (None, 0) and pre_process
     modality_specs = {"images": _vision_spec(config, vision_pg)} if owns_vision else {}
     special_token_ids = {"images": image_token_id} if owns_vision else {}
-    if args.pipeline_model_parallel_size == 1:
-        module_to_grid_map = (
-            topology.grids
-            if owns_vision
-            else {MIMO_LANGUAGE_MODULE_KEY: topology.grids[MIMO_LANGUAGE_MODULE_KEY]}
-        )
-    else:
-        # ColocatedBridgeCommunicator currently requires language PP=1. With
-        # language DP=1 every vision TP/DP replica sees the same microbatch, so
-        # PP-first can consume its local projected image embeddings directly.
-        # Later PP/VPP chunks dispatch to the MiMo-owned language stage in the
-        # wrapper. Keep the explicit PGC on the module specs and wrapper.
-        language_grid = topology.grids[MIMO_LANGUAGE_MODULE_KEY]
-        language_dp = language_grid.shape[language_grid.dim_names.index("dp")]
-        if language_dp != 1:
-            raise NotImplementedError(
-                "MiMo with language PP>1 currently requires language DP=1 "
-                "so PP-first can consume local replicated vision embeddings"
-            )
-        module_to_grid_map = None
     mimo_config = MimoModelConfig(
         language_model_spec=language_spec,
         modality_submodules_spec=modality_specs,
         special_token_ids=special_token_ids,
-        module_to_grid_map=module_to_grid_map,
+        module_to_grid_map=topology.grids,
         kv_format="sbhd",
     )
     mimo_model = MimoModel(
@@ -196,4 +182,5 @@ def mimo_vlm_model_provider(
         model_type=config.model_type,
         pre_process=pre_process,
         post_process=post_process,
+        image_spatial_merge_size=getattr(image_encoder, "spatial_merge_size", 2),
     )

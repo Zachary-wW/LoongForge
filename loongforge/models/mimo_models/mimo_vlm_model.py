@@ -5,13 +5,19 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from typing import Any, Optional
 
 import torch
 
+from megatron.core.distributed import DistributedDataParallel
 from megatron.core.models.mimo import MimoModel
 from megatron.core.models.mimo.config.role import MIMO_LANGUAGE_MODULE_KEY
 from megatron.core.process_groups_config import MultiModuleProcessGroupCollection
+from megatron.core.transformer.module import Float16Module
+from megatron.core.utils import unwrap_model
+
+from .qwen25_vl import split_image_inputs_for_fan_in
 
 
 _LEGACY_OMNI_PREFIX_MAP = {
@@ -62,6 +68,7 @@ class LoongForgeMimoVLMModel(torch.nn.Module):
         model_type: str,
         pre_process: bool,
         post_process: bool,
+        image_spatial_merge_size: int,
     ) -> None:
         super().__init__()
         self.mimo_model = mimo_model
@@ -73,6 +80,7 @@ class LoongForgeMimoVLMModel(torch.nn.Module):
         self.disable_param_offloading = True
         self.pre_process = pre_process
         self.post_process = post_process
+        self.image_spatial_merge_size = image_spatial_merge_size
         self.pg_collection = topology.module_pgs[MIMO_LANGUAGE_MODULE_KEY]
         self.share_embeddings_and_output_weights = getattr(
             getattr(mimo_model.language_model, "module", mimo_model.language_model),
@@ -95,6 +103,28 @@ class LoongForgeMimoVLMModel(torch.nn.Module):
     def set_input_tensor(self, input_tensor) -> None:
         self.mimo_model.set_input_tensor(input_tensor)
 
+    def enable_forward_pre_hook(self):
+        return self.mimo_model.enable_forward_pre_hook()
+
+    def disable_forward_pre_hook(self, param_sync: bool = True):
+        return self.mimo_model.disable_forward_pre_hook(param_sync=param_sync)
+
+    def start_param_sync(self, *args, **kwargs):
+        return self.mimo_model.start_param_sync(*args, **kwargs)
+
+    def start_grad_sync(self, *args, **kwargs):
+        return self.mimo_model.start_grad_sync(*args, **kwargs)
+
+    def free_overlap_buffers(self):
+        return self.mimo_model.free_overlap_buffers()
+
+    def zero_grad_buffer(self):
+        return self.mimo_model.zero_grad_buffer()
+
+    @property
+    def remove_forward_pre_hook_handles(self):
+        return self.mimo_model.remove_forward_pre_hook_handles
+
     def shared_embedding_or_output_weight(self):
         language = self.mimo_model.language_model
         return language.shared_embedding_or_output_weight()
@@ -103,11 +133,43 @@ class LoongForgeMimoVLMModel(torch.nn.Module):
         return self.mimo_model.state_dict(*args, **kwargs)
 
     def load_state_dict(self, state_dict, strict=True, assign=False):
-        return self.mimo_model.load_state_dict(
-            remap_legacy_omni_state_dict(state_dict),
-            strict=strict,
-            assign=assign,
+        """Load unwrapped MiMo or legacy Omni weights into the active module tree."""
+        state_dict = remap_legacy_omni_state_dict(state_dict)
+        roles = {"language_model": self.mimo_model.language_model}
+        roles.update(
+            (f"modality_submodules.{name}", module)
+            for name, module in self.mimo_model.modality_submodules.items()
         )
+        prefixes = {}
+        for role, module in roles.items():
+            target = role
+            while isinstance(module, (DistributedDataParallel, Float16Module)):
+                target += ".module"
+                module = module.module
+            if target != role:
+                prefixes[role + "."] = target + "."
+
+        if prefixes:
+            def resolve_key(key):
+                for source, target in prefixes.items():
+                    if key.startswith(source) and not key.startswith(target):
+                        return target + key[len(source):]
+                return key
+
+            resolved = OrderedDict()
+            for key, value in state_dict.items():
+                target_key = resolve_key(key)
+                if target_key in resolved:
+                    raise RuntimeError(f"Duplicate MiMo weight key: {target_key}")
+                resolved[target_key] = value
+            if hasattr(state_dict, "_metadata"):
+                resolved._metadata = OrderedDict(
+                    (resolve_key(name + ".")[:-1], value)
+                    for name, value in state_dict._metadata.items()
+                )
+            state_dict = resolved
+
+        return self.mimo_model.load_state_dict(state_dict, strict=strict, assign=assign)
 
     def sharded_state_dict(self, prefix="", sharded_offsets=(), metadata=None):
         return self.mimo_model.sharded_state_dict(
@@ -147,25 +209,16 @@ class LoongForgeMimoVLMModel(torch.nn.Module):
                 "Phase 3 MiMo smoke supports SBHD only; packed sequence is disabled"
             )
 
-        language_model = self.mimo_model.language_model
-        language_module = getattr(language_model, "module", language_model)
-        if language_module is not None and not language_module.pre_process:
-            # Non-first PP/VPP chunks contain only a language-model stage. The
-            # MimoModel colocated front-end requires an embedding and therefore
-            # cannot be called here; dispatch the language stage directly while
-            # preserving the same MiMo-owned module and PGC.
-            output = language_model(
-                input_ids=input_ids,
-                position_ids=position_ids,
-                decoder_input=None,
-                labels=labels,
-                loss_mask=loss_mask,
-                attention_mask=attention_mask,
-                packed_seq_params=packed_seq_params,
+        modality_fan_in_sizes = None
+        image_bridge = self.mimo_model.colocated_comms.get(("images", MIMO_LANGUAGE_MODULE_KEY))
+        if image_bridge is not None and image_bridge.is_fan_out():
+            raise NotImplementedError("Qwen2.5-VL MiMo needs vision DP >= language DP")
+        if image_inputs is not None and image_bridge is not None and image_bridge.is_fan_in():
+            slot = image_bridge.get_slice_info(image_bridge.scale).start
+            image_inputs, fan_in_sizes = split_image_inputs_for_fan_in(
+                image_inputs, slot, image_bridge.scale, self.image_spatial_merge_size
             )
-            if labels is not None:
-                return output
-            return output, loss_mask
+            modality_fan_in_sizes = {"images": fan_in_sizes}
 
         modality_inputs = None
         if image_inputs is not None:
@@ -185,6 +238,7 @@ class LoongForgeMimoVLMModel(torch.nn.Module):
             labels=labels,
             loss_mask=loss_mask,
             modality_inputs=modality_inputs,
+            modality_fan_in_sizes=modality_fan_in_sizes,
         )
         if labels is not None:
             return output

@@ -58,7 +58,6 @@ class DeepseekV4Config(BaseModelMLAConfig):
     hc_mult: int = 4
     hc_sinkhorn_iters: int = 20
     hc_eps: float = 1e-6
-    dsv4_legacy_numeric_parity: bool = True
 
     def __post_init__(self, **kwargs):
         if self.num_moe_experts is None:
