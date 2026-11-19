@@ -1,5 +1,6 @@
 """Unit coverage for the Qwen2.5-VL Omni to MiMo migration seam."""
 
+import pytest
 import torch
 
 from loongforge.models.mimo_models.mimo_vlm_model import (
@@ -11,6 +12,9 @@ from loongforge.models.foundation.qwen2.qwen_model import (
 from loongforge.models.mimo_models.qwen25_vl import (
     normalize_encoder_inputs,
     split_image_inputs_for_fan_in,
+)
+from loongforge.models.mimo_models.mimo_vlm_provider import (
+    validate_mimo_vlm_feature_flags,
 )
 
 
@@ -86,3 +90,20 @@ def test_vision_fan_in_assigns_whole_images_with_uneven_lengths():
     torch.testing.assert_close(second["images"], patches[8:])
     torch.testing.assert_close(second["image_grid_thw"], grid[1:])
     assert empty is None
+
+
+@pytest.mark.parametrize(
+    "flag",
+    (
+        "enable_encoder_hetero_dp",
+        "enable_full_hetero_dp",
+        "use_vit_dp_balance",
+        "use_vlm_dp_balance",
+        "enable_chunkpipe",
+    ),
+)
+def test_mimo_vlm_rejects_unsupported_feature_flags(flag):
+    args = type("Args", (), {flag: True})()
+
+    with pytest.raises(NotImplementedError):
+        validate_mimo_vlm_feature_flags(args)

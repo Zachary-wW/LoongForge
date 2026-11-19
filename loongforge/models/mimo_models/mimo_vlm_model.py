@@ -82,10 +82,9 @@ class LoongForgeMimoVLMModel(torch.nn.Module):
         self.post_process = post_process
         self.image_spatial_merge_size = image_spatial_merge_size
         self.pg_collection = topology.module_pgs[MIMO_LANGUAGE_MODULE_KEY]
+        language_model = unwrap_model(mimo_model.language_model)
         self.share_embeddings_and_output_weights = getattr(
-            getattr(mimo_model.language_model, "module", mimo_model.language_model),
-            "share_embeddings_and_output_weights",
-            False,
+            language_model, "share_embeddings_and_output_weights", False
         )
         self.vp_stage = mimo_model.mimo_config.language_model_spec.params.get(
             "vp_stage"
@@ -126,7 +125,7 @@ class LoongForgeMimoVLMModel(torch.nn.Module):
         return self.mimo_model.remove_forward_pre_hook_handles
 
     def shared_embedding_or_output_weight(self):
-        language = self.mimo_model.language_model
+        language = unwrap_model(self.mimo_model.language_model)
         return language.shared_embedding_or_output_weight()
 
     def state_dict(self, *args, **kwargs):

@@ -26,6 +26,24 @@ from loongforge.utils import get_args, get_model_config
 _TOPOLOGY_CACHE = {}
 
 
+def validate_mimo_vlm_feature_flags(args):
+    """Reject MiMo VLM features without a native lifecycle path."""
+    if getattr(args, "enable_encoder_hetero_dp", False) or getattr(
+        args, "enable_full_hetero_dp", False
+    ):
+        raise NotImplementedError(
+            "MiMo VLM does not support heterogeneous encoder DP in this release"
+        )
+    if getattr(args, "use_vit_dp_balance", False) or getattr(
+        args, "use_vlm_dp_balance", False
+    ):
+        raise NotImplementedError(
+            "MiMo VLM does not support VLM or ViT DP balance in this release"
+        )
+    if getattr(args, "enable_chunkpipe", False):
+        raise NotImplementedError("MiMo VLM does not support ChunkPipe in this release")
+
+
 def _get_topology(args, image_tp: int):
     """Create one explicit PGC topology shared by all virtual PP chunks."""
     from examples.mimo.training.topology import ModuleGridSpec, create_topology
@@ -107,12 +125,7 @@ def mimo_vlm_model_provider(
 ):
     args = get_args()
     config = get_model_config()
-    if args.enable_encoder_hetero_dp or args.enable_full_hetero_dp:
-        raise NotImplementedError("Heterogeneous encoder DP is deferred until Phase 6")
-    if args.use_vit_dp_balance or args.use_vlm_dp_balance:
-        raise NotImplementedError("VLM/ViT DP balance is deferred until Phase 6")
-    if args.enable_chunkpipe:
-        raise NotImplementedError("MiMo VLM ChunkPipe is deferred until Phase 6")
+    validate_mimo_vlm_feature_flags(args)
 
     foundation = config.foundation
     foundation.padded_vocab_size = args.padded_vocab_size
