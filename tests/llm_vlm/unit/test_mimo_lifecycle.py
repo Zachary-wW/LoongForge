@@ -88,3 +88,25 @@ def test_mimo_loads_hf_converted_weights_after_module_wrapping():
     torch.testing.assert_close(image_encoder.weight.float(), vision_weights)
     with pytest.raises(RuntimeError, match="Missing key"):
         wrapper.load_state_dict({"foundation_model.weight": language_weights}, strict=True)
+
+
+def test_mimo_shared_embedding_weight_unwraps_lifecycle_wrappers():
+    config = SimpleNamespace(
+        fp16=False,
+        bf16=True,
+        virtual_pipeline_model_parallel_size=None,
+    )
+    expected = torch.nn.Parameter(torch.ones(2, 2))
+
+    class _LanguageModel(torch.nn.Module):
+        share_embeddings_and_output_weights = True
+
+        def shared_embedding_or_output_weight(self):
+            return expected
+
+    mimo = SimpleNamespace(language_model=Float16Module(config, _LanguageModel()))
+    wrapper = torch.nn.Module.__new__(LoongForgeMimoVLMModel)
+    torch.nn.Module.__init__(wrapper)
+    wrapper.mimo_model = mimo
+
+    assert wrapper.shared_embedding_or_output_weight() is expected
