@@ -6,48 +6,41 @@
 
 """default pretrain for generative models like GPTS"""
 
-import torch
-
 from functools import partial
-
-from megatron.training import get_timers
 from typing import List, Optional
-from megatron.core import mpu
-from megatron.core.enums import ModelType
-from megatron.core.utils import (
-    StragglerDetector,
-    get_batch_on_this_cp_rank,
-    get_batch_on_this_tp_rank,
-)
 
+import torch
+from loongforge.models.foundation.llm_model_provider import llm_model_provider
+from loongforge.models.model_backend import get_model_backend
+from loongforge.train.mcore_runtime import pretrain_with_mcore
+from loongforge.train.megatron_trainer import MegatronTrainer
+from loongforge.train.trainer_builder import register_model_trainer
+from loongforge.utils import constants, get_args, get_tokenizer, print_rank_0
+from loongforge.utils.global_vars import get_model_config
+
+from megatron.core import mpu, parallel_state
 from megatron.core.datasets.blended_megatron_dataset_builder import (
     BlendedMegatronDatasetBuilder,
 )
-from megatron.core.datasets.utils import get_blend_from_list
 from megatron.core.datasets.gpt_dataset import (
+    GPTDataset,
     GPTDatasetConfig,
     MockGPTDataset,
-    GPTDataset,
 )
+from megatron.core.datasets.utils import get_blend_from_list
+from megatron.core.enums import ModelType
 from megatron.core.rerun_state_machine import get_rerun_state_machine
-
+from megatron.core.transformer.multi_token_prediction import get_mtp_ranks, mtp_on_this_rank
+from megatron.core.utils import (
+    StragglerDetector,
+    get_attr_wrapped_model,
+    get_batch_on_this_cp_rank,
+    get_batch_on_this_tp_rank,
+)
+from megatron.training import get_timers
 from megatron.training.utils import (
     is_first_or_last_pipeline_stage,
 )
-from megatron.core.utils import get_attr_wrapped_model
-from megatron.core import parallel_state
-from megatron.core.transformer.multi_token_prediction import mtp_on_this_rank, get_mtp_ranks
-
-from loongforge.utils import constants, get_args, get_tokenizer, print_rank_0
-
-
-from loongforge.train.megatron_trainer import MegatronTrainer
-from loongforge.train.trainer_builder import register_model_trainer
-from loongforge.models.foundation.llm_model_provider import llm_model_provider
-from loongforge.models.model_backend import get_model_backend
-
-from loongforge.utils.global_vars import get_model_config
-
 
 stimer = StragglerDetector()
 
@@ -326,6 +319,12 @@ def get_embedding_ranks(pp_ranks: List[int]):
 )
 def default_pretrain_trainer(train_args):
     """build trainer"""
+    runtime_kwargs = {}
+    if train_args.model_family in (
+        constants.LanguageModelFamilies.DEEPSEEK,
+        constants.LanguageModelFamilies.DEEPSEEK_V4,
+    ):
+        runtime_kwargs["pretrain_func"] = pretrain_with_mcore
     trainer = MegatronTrainer(
         train_args=train_args,
         train_valid_test_dataset_provider=train_valid_test_datasets_provider,
@@ -333,6 +332,7 @@ def default_pretrain_trainer(train_args):
         model_type=ModelType.encoder_or_decoder,
         forward_step_func=forward_step,
         get_embedding_ranks=get_embedding_ranks,
+        **runtime_kwargs,
     )
 
     return trainer

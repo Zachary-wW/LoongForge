@@ -25,6 +25,34 @@ def normalize_encoder_inputs(encoder_inputs: dict) -> dict:
         ) from exc
 
 
+def split_image_inputs_for_fan_in(image_inputs, slot, scale, spatial_merge_size):
+    """Assign contiguous whole images to source DP slots in gather order."""
+    images = image_inputs["images"]
+    image_grid_thw = image_inputs["image_grid_thw"]
+    patch_counts = image_grid_thw.to(torch.int64).prod(dim=1).tolist()
+    patches_per_token = spatial_merge_size**2
+    if sum(patch_counts) != images.size(0) or any(
+        count <= 0 or count % patches_per_token for count in patch_counts
+    ):
+        raise ValueError("Qwen2.5-VL image patches do not match image_grid_thw")
+
+    images_per_slot, remainder = divmod(len(patch_counts), scale)
+    image_offsets = [
+        index * images_per_slot + min(index, remainder) for index in range(scale + 1)
+    ]
+    patch_offsets = [sum(patch_counts[:offset]) for offset in image_offsets]
+    fan_in_sizes = tuple(
+        (end - start) // patches_per_token
+        for start, end in zip(patch_offsets, patch_offsets[1:])
+    )
+    if fan_in_sizes[slot] == 0:
+        return None, fan_in_sizes
+    return {
+        "images": images[patch_offsets[slot] : patch_offsets[slot + 1]],
+        "image_grid_thw": image_grid_thw[image_offsets[slot] : image_offsets[slot + 1]],
+    }, fan_in_sizes
+
+
 class Qwen25VisionModalitySubmodules(VisionModalitySubmodules):
     """Run the existing Qwen vision encoder and projector as one MiMo modality."""
 

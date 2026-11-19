@@ -39,7 +39,7 @@ def test_honors_per_layer_dense_and_moe_frequency():
     assert pattern == "WEC-HE"
 
 
-def test_v4_config_enables_legacy_numeric_parity():
+def test_v4_config_uses_baseline_numeric_path():
     config = DeepseekV4Config(
         num_layers=1,
         hidden_size=64,
@@ -56,7 +56,7 @@ def test_v4_config_enables_legacy_numeric_parity():
         dsa_kernel_backend="none",
     )
 
-    assert config.dsv4_legacy_numeric_parity is True
+    assert not getattr(config, "dsv4_legacy_numeric_parity", False)
 
 
 @pytest.mark.parametrize(
