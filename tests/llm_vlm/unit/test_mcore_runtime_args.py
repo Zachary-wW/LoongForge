@@ -13,6 +13,7 @@ def test_sft_training_phase_enables_mcore_sft_semantics():
             sft_loss_log_mode="token-weighted",
             variable_seq_lengths=False,
             use_fixed_seq_lengths=False,
+            apply_rope_fusion=True,
             tp_comm_overlap=False,
             num_experts=None,
             moe_token_dispatcher_type="alltoall",
@@ -23,6 +24,7 @@ def test_sft_training_phase_enables_mcore_sft_semantics():
     assert args.sft_chunkpipe_mode is False
     assert args.sft_loss_log_mode == "microbatch"
     assert args.variable_seq_lengths is True
+    assert args.apply_rope_fusion is False
 
 
 def test_pretrain_training_phase_does_not_enable_sft():
@@ -41,6 +43,7 @@ def test_fixed_sft_lengths_are_preserved():
             sft_loss_log_mode="token-weighted",
             variable_seq_lengths=True,
             use_fixed_seq_lengths=True,
+            apply_rope_fusion=True,
             tp_comm_overlap=False,
             num_experts=None,
             moe_token_dispatcher_type="alltoall",
@@ -48,3 +51,4 @@ def test_fixed_sft_lengths_are_preserved():
     )
 
     assert args.variable_seq_lengths is False
+    assert args.apply_rope_fusion is False
