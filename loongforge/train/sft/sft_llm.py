@@ -452,6 +452,8 @@ def get_embedding_ranks(pp_ranks: List[int]):
 )
 def default_sft_trainer(train_args):
     """build trainer"""
+    from loongforge.train.mcore_runtime import pretrain_with_mcore
+
     trainer = MegatronTrainer(
         train_args=train_args,
         train_valid_test_dataset_provider=train_valid_test_datasets_provider,
@@ -459,6 +461,7 @@ def default_sft_trainer(train_args):
         model_type=ModelType.encoder_or_decoder,
         forward_step_func=forward_step,
         get_embedding_ranks=get_embedding_ranks,
+        pretrain_func=pretrain_with_mcore,
     )
 
     return trainer
