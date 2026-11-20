@@ -153,8 +153,11 @@ class ModelBackend(ABC):
             return
         try:
             from megatron.core.fp8_utils import validate_selective_fp8_coverage
-        except ImportError:
-            return
+        except ImportError as error:
+            raise RuntimeError(
+                "selective_fp8 is enabled, but the installed MCore does not expose "
+                "validate_selective_fp8_coverage"
+            ) from error
         validate_selective_fp8_coverage(model)
 
 
