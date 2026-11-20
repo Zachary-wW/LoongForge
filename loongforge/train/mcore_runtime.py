@@ -11,6 +11,7 @@ from loongforge.train.training_utils import (
     _resolve_convert_pp_layout,
     is_hf_checkpoint,
 )
+from loongforge.utils import constants
 from loongforge.utils.global_vars import get_model_config, set_loongforge_extra_global_vars
 
 from megatron.core.transformer import TransformerConfig
@@ -128,6 +129,14 @@ def _load_hf_weights(context, *, args, model_config):
     )
 
 
+def normalize_training_args(train_args):
+    """Map LoongForge training-phase semantics onto MCore flags."""
+    if getattr(train_args, "training_phase", None) == constants.TrainingPhase.SFT:
+        train_args.sft = True
+        train_args.sft_loss_log_mode = "microbatch"
+    return train_args
+
+
 def pretrain_with_mcore(
     train_args,
     train_valid_test_dataset_provider,
@@ -139,6 +148,7 @@ def pretrain_with_mcore(
     get_position_embedding_ranks=None,
 ):
     parse_args_from_config(train_args)
+    normalize_training_args(train_args)
     model_config = get_model_config()
     if train_args.enable_ema or getattr(model_config, "peft_config", None) is not None:
         raise NotImplementedError("This MCore runtime adapter does not yet support EMA or PEFT")
