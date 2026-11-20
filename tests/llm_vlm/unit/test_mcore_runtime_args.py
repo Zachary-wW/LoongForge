@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from loongforge.train.mcore_runtime import normalize_training_args
+from loongforge.train.validators import _drop_custom_pipeline_recompute_layers
 
 
 def test_sft_training_phase_enables_mcore_sft_semantics():
@@ -52,3 +53,11 @@ def test_fixed_sft_lengths_are_preserved():
 
     assert args.variable_seq_lengths is False
     assert args.apply_rope_fusion is False
+
+
+def test_custom_pipeline_recompute_is_not_inherited_by_vlm_submodels():
+    args = SimpleNamespace(custom_pipeline_recompute_layers="12,16")
+
+    _drop_custom_pipeline_recompute_layers("image_encoder", args)
+
+    assert args.custom_pipeline_recompute_layers is None
