@@ -133,6 +133,10 @@ def normalize_training_args(train_args):
     """Map LoongForge training-phase semantics onto MCore flags."""
     if getattr(train_args, "training_phase", None) == constants.TrainingPhase.SFT:
         train_args.sft = True
+        if not getattr(train_args, "enable_chunkpipe", False):
+            # MCore sets sft_chunkpipe_mode=True whenever --sft is present;
+            # non-ChunkPipe SFT must not take the ChunkPipe model branches.
+            train_args.sft_chunkpipe_mode = False
         train_args.sft_loss_log_mode = "microbatch"
     return train_args
 
