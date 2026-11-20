@@ -72,7 +72,6 @@ class TransformerBlock(MegatronTransformerBlock):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._recompute_num_layers = self.config.recompute_num_layers
 
     def forward(
         self,
