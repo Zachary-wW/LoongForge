@@ -6,10 +6,10 @@ from functools import partial
 from typing import Callable, ClassVar
 
 from loongforge.train.parser import parse_args_from_config
-from loongforge.train.training_utils import (
-    _configure_mimo_grad_finalization,
-    _resolve_convert_pp_layout,
+from loongforge.train.mcore_utils import (
+    configure_mimo_grad_finalization,
     is_hf_checkpoint,
+    resolve_convert_pp_layout,
 )
 from loongforge.utils import constants
 from loongforge.utils.global_vars import get_model_config, set_loongforge_extra_global_vars
@@ -100,7 +100,7 @@ class LoongForgeMimoBuilder(LoongForgeModelBuilder):
                     use_layer_wise_param_layout=use_layer_wise_param_layout,
                 )
         if wrap_with_ddp:
-            _configure_mimo_grad_finalization(models)
+            configure_mimo_grad_finalization(models)
         return compose_hooks(model_config.post_wrap_hooks)(models)
 
     def build_optimizer(self, config, model_chunks, **kwargs):
@@ -121,7 +121,7 @@ class LoongForgeMimoBuilder(LoongForgeModelBuilder):
 def _load_hf_weights(context, *, args, model_config):
     from tools.mcore_bridge.checkpoint.hf_checkpoint_loader import load_hf_checkpoint_online
 
-    layout = _resolve_convert_pp_layout(model_config)
+    layout = resolve_convert_pp_layout(model_config)
     if layout is not None:
         args.convert_pp_layout = layout
     load_hf_checkpoint_online(
