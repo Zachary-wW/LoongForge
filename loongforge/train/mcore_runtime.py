@@ -155,7 +155,17 @@ def pretrain_with_mcore(
             lambda context: initialize_mimo_vision_parallel_state(model_config.image_encoder),
         )
     else:
-        cfg = LoongForgeModelConfig(transformer=model_config, provider=model_provider)
+        # VLM configs carry the language TransformerConfig under ``foundation``;
+        # plain LLM configs already are TransformerConfig instances.
+        transformer_config = getattr(model_config, "foundation", model_config)
+        cfg = LoongForgeModelConfig(transformer=transformer_config, provider=model_provider)
+        if getattr(model_config, "image_encoder", None) is not None:
+            from loongforge.train.initialize import initialize_mimo_vision_parallel_state
+
+            callbacks.register(
+                "on_setup_start",
+                lambda context: initialize_mimo_vision_parallel_state(model_config.image_encoder),
+            )
 
     runtime_args = train_args
     if is_hf_checkpoint(train_args.load):

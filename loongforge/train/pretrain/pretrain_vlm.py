@@ -551,11 +551,8 @@ def vlm_model_provider(
 def default_vlm_pretrain_trainer(train_args):
     """build trainer"""
     from loongforge.train.mcore_runtime import pretrain_with_mcore
-    from loongforge.utils.global_vars import get_hydra_config
 
-    runtime_kwargs = {}
-    if get_hydra_config().model.get("model_backend") == "mimo":
-        runtime_kwargs["pretrain_func"] = pretrain_with_mcore
+    runtime_kwargs = {"pretrain_func": pretrain_with_mcore}
     trainer = MegatronTrainer(
         train_args=train_args,
         train_valid_test_dataset_provider=train_valid_test_dataset_provider,
