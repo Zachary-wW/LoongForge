@@ -79,6 +79,16 @@ def test_qwen2_vl_and_qwen2_5_vl_use_separate_norm_mappings():
     assert "adapter.layernorm.bias" not in qwen2_5_convert
 
 
+def test_qwen2_5_vl_default_config_keeps_legacy_backend_default():
+    config = _load_yaml(MODEL_CONFIG_DIR / "qwen2.5vl" / "qwen2_5_vl_7b.yaml")
+    mimo_config = _load_yaml(
+        MODEL_CONFIG_DIR / "qwen2.5vl" / "qwen2_5_vl_7b_mimo.yaml"
+    )
+
+    assert "model_backend" not in config["model"]
+    assert mimo_config["model"]["model_backend"] == "mimo"
+
+
 def test_normalization_overrides_explicitly_bind_projector_mapping():
     for config_path in sorted(MODEL_CONFIG_DIR.glob("*/*.yaml")):
         config = _load_yaml(config_path)

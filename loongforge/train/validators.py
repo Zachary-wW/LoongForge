@@ -46,6 +46,22 @@ def validate_custom_model_args(name, args):
     _validate_custom_model_args(name, args)
 
 
+def _drop_custom_pipeline_recompute_layers(name, args):
+    """Keep the foundation pipeline recompute option out of submodels.
+
+    ``--custom-pipeline-recompute-layers`` is a foundation-model pipeline
+    setting. The legacy argument parser copies global arguments into every
+    VLM component, so passing it to an image encoder after forcing that
+    encoder's pipeline size to one makes MCore 0.20 reject the config.
+    """
+    if args.custom_pipeline_recompute_layers is not None:
+        warnings.warn(
+            f"WARNING: Now for {name}, custom_pipeline_recompute_layers is "
+            "only supported for the foundation model; ignoring it."
+        )
+        args.custom_pipeline_recompute_layers = None
+
+
 def _get_wan_packing_cp_alignment(cp_size):
     """Return WAN packing sequence alignment required by CP split."""
     return 2 * cp_size
@@ -568,6 +584,7 @@ def _check_arg_is_not_none(args, arg):
 # Adapted from megatron/training/arguments.py
 def _validate_custom_model_args(name, args, defaults={}):
     """Validate non foundational model arguments"""
+    _drop_custom_pipeline_recompute_layers(name, args)
     if args.custom_pipeline_recompute_layers is not None:
         assert args.recompute_granularity == "full", \
             "recompute-granularity should be full, when custom-pipeline-recompute-layers is set."
