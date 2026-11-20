@@ -11,15 +11,40 @@ def test_sft_training_phase_enables_mcore_sft_semantics():
             enable_chunkpipe=False,
             sft_chunkpipe_mode=True,
             sft_loss_log_mode="token-weighted",
+            variable_seq_lengths=False,
+            use_fixed_seq_lengths=False,
+            tp_comm_overlap=False,
+            num_experts=None,
+            moe_token_dispatcher_type="alltoall",
         )
     )
 
     assert args.sft is True
     assert args.sft_chunkpipe_mode is False
     assert args.sft_loss_log_mode == "microbatch"
+    assert args.variable_seq_lengths is True
 
 
 def test_pretrain_training_phase_does_not_enable_sft():
     args = normalize_training_args(SimpleNamespace(training_phase="pretrain", sft=False))
 
     assert args.sft is False
+
+
+def test_fixed_sft_lengths_are_preserved():
+    args = normalize_training_args(
+        SimpleNamespace(
+            training_phase="sft",
+            sft=False,
+            enable_chunkpipe=False,
+            sft_chunkpipe_mode=True,
+            sft_loss_log_mode="token-weighted",
+            variable_seq_lengths=True,
+            use_fixed_seq_lengths=True,
+            tp_comm_overlap=False,
+            num_experts=None,
+            moe_token_dispatcher_type="alltoall",
+        )
+    )
+
+    assert args.variable_seq_lengths is False

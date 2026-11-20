@@ -17,7 +17,7 @@ from loongforge.utils.global_vars import get_model_config, set_loongforge_extra_
 from megatron.core.transformer import TransformerConfig
 from megatron.training.argument_utils import pretrain_cfg_container_from_args
 from megatron.training.callbacks import CallbackManager
-from megatron.training.global_vars import set_global_variables
+from megatron.training.global_vars import get_args, set_global_variables
 from megatron.training.models.base import ModelBuilder, ModelConfig, compose_hooks
 from megatron.training.models.dist_utils import (
     build_virtual_pipeline_stages,
@@ -138,7 +138,28 @@ def normalize_training_args(train_args):
             # non-ChunkPipe SFT must not take the ChunkPipe model branches.
             train_args.sft_chunkpipe_mode = False
         train_args.sft_loss_log_mode = "microbatch"
+        if _sft_uses_variable_seq_lengths(train_args):
+            # MCore's SFT argument validation resets this after LoongForge's
+            # validator runs. Restore the legacy SFT padding semantics: with
+            # variable sequence lengths the collator pads to the longest
+            # sequence in each microbatch, while fixed mode pads to seq_length.
+            train_args.variable_seq_lengths = True
+        else:
+            train_args.variable_seq_lengths = False
     return train_args
+
+
+def _sft_uses_variable_seq_lengths(train_args):
+    """Mirror LoongForge SFT validation for the MCore argument boundary."""
+    if getattr(train_args, "use_fixed_seq_lengths", False):
+        return False
+    if getattr(train_args, "tp_comm_overlap", False):
+        return False
+    if getattr(train_args, "num_experts", 0) and getattr(
+        train_args, "moe_token_dispatcher_type", None
+    ) in ("allgather", "alltoall_seq"):
+        return False
+    return True
 
 
 def pretrain_with_mcore(
@@ -154,6 +175,14 @@ def pretrain_with_mcore(
     parse_args_from_config(train_args)
     normalize_training_args(train_args)
     model_config = get_model_config()
+    if (
+        getattr(train_args, "training_phase", None) == constants.TrainingPhase.SFT
+        and _sft_uses_variable_seq_lengths(train_args)
+    ):
+        train_args.variable_seq_lengths = True
+        for target in (model_config, getattr(model_config, "foundation", None)):
+            if target is not None and hasattr(target, "variable_seq_lengths"):
+                target.variable_seq_lengths = True
     if (
         getattr(train_args, "training_phase", None) == constants.TrainingPhase.SFT
         and not getattr(train_args, "enable_chunkpipe", False)
@@ -208,6 +237,18 @@ def pretrain_with_mcore(
     config = pretrain_cfg_container_from_args(runtime_args, cfg)
     set_global_variables(runtime_args, config, build_tokenizer=False)
     set_loongforge_extra_global_vars(runtime_args, build_tokenizer=True)
+    runtime_global_args = get_args()
+    if getattr(runtime_global_args, "training_phase", None) == constants.TrainingPhase.SFT:
+        # initialize_megatron consumes the global args object; keep the
+        # training-loop flags on that exact object after service setup.
+        runtime_global_args.sft = True
+        if not getattr(runtime_global_args, "enable_chunkpipe", False):
+            runtime_global_args.sft_chunkpipe_mode = False
+        runtime_global_args.sft_loss_log_mode = "microbatch"
+        if _sft_uses_variable_seq_lengths(runtime_global_args):
+            runtime_global_args.variable_seq_lengths = True
+        else:
+            runtime_global_args.variable_seq_lengths = False
     return pretrain(
         config,
         train_valid_test_dataset_provider,
