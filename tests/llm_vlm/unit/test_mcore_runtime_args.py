@@ -5,10 +5,17 @@ from loongforge.train.mcore_runtime import normalize_training_args
 
 def test_sft_training_phase_enables_mcore_sft_semantics():
     args = normalize_training_args(
-        SimpleNamespace(training_phase="sft", sft=False, sft_loss_log_mode="token-weighted")
+        SimpleNamespace(
+            training_phase="sft",
+            sft=False,
+            enable_chunkpipe=False,
+            sft_chunkpipe_mode=True,
+            sft_loss_log_mode="token-weighted",
+        )
     )
 
     assert args.sft is True
+    assert args.sft_chunkpipe_mode is False
     assert args.sft_loss_log_mode == "microbatch"
 
 
