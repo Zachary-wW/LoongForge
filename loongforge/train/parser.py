@@ -275,7 +275,12 @@ def parse_args_from_config(args):
     config = get_hydra_config()
     model_cfgs = build_model_config(args, config)
     set_model_config(model_cfgs)
-    _register_selective_fp8_decision()
+    registered = _register_selective_fp8_decision()
+    if _has_selective_fp8_config(model_cfgs) and not registered:
+        raise RuntimeError(
+            "selective_fp8 is enabled, but the installed MCore does not expose "
+            "register_selective_fp8_init_decision; refusing to silently run BF16"
+        )
 
 
 def _register_selective_fp8_decision():
@@ -290,9 +295,25 @@ def _register_selective_fp8_decision():
         from loongforge.train.fp8_dynamic_policy import selective_fp8_init_decision
         from megatron.core.fp8_utils import register_selective_fp8_init_decision
     except ImportError:
-        return
+        return False
 
     register_selective_fp8_init_decision(selective_fp8_init_decision)
+    return True
+
+
+def _has_selective_fp8_config(value):
+    """Return whether any nested model config explicitly enables selective FP8."""
+    if isinstance(value, dict):
+        return any(_has_selective_fp8_config(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_has_selective_fp8_config(item) for item in value)
+    if getattr(value, "selective_fp8", False):
+        return True
+    for attribute in ("foundation", "image_encoder", "video_encoder", "audio_encoder"):
+        nested = getattr(value, attribute, None)
+        if nested is not None and _has_selective_fp8_config(nested):
+            return True
+    return False
 
 
 def parse_train_args(args_defaults={}):
