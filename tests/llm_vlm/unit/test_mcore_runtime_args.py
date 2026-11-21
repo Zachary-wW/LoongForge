@@ -5,6 +5,7 @@ from loongforge.train.mcore_runtime import (
     _is_vlm_config,
     _requires_legacy_scalar_grad_norm,
     _requires_variable_seq_lengths,
+    _restore_variable_seq_lengths,
     normalize_training_args,
 )
 from loongforge.train.validators import _drop_custom_pipeline_recompute_layers
@@ -107,6 +108,13 @@ def test_clip_root_matches_legacy_trainer():
     assert (
         _requires_legacy_scalar_grad_norm(
             SimpleNamespace(training_phase="pretrain"),
+            SimpleNamespace(image_encoder=SimpleNamespace(model_type="qwen2_5_vl")),
+        )
+        is True
+    )
+    assert (
+        _requires_legacy_scalar_grad_norm(
+            SimpleNamespace(training_phase="pretrain"),
             SimpleNamespace(image_encoder=SimpleNamespace(model_type="rice_vit")),
         )
         is True
@@ -147,9 +155,16 @@ def test_vlm_pretrain_uses_variable_seq_lengths():
     assert (
         _requires_variable_seq_lengths(
             SimpleNamespace(training_phase="pretrain"),
-            SimpleNamespace(image_encoder=SimpleNamespace(model_type="qwen2_5_vl")),
+            SimpleNamespace(model_backend="omni"),
         )
         is False
+    )
+    assert (
+        _requires_variable_seq_lengths(
+            SimpleNamespace(training_phase="pretrain"),
+            SimpleNamespace(image_encoder=SimpleNamespace(model_type="qwen2_5_vl")),
+        )
+        is True
     )
     assert _is_llava_ov_config(SimpleNamespace(model_type="llava_ov_1_5")) is True
     assert (
@@ -159,3 +174,24 @@ def test_vlm_pretrain_uses_variable_seq_lengths():
         is True
     )
     assert _is_llava_ov_config(SimpleNamespace(model_backend="mimo")) is False
+
+
+def test_restore_variable_seq_lengths_updates_global_and_subconfigs(monkeypatch):
+    runtime_args = SimpleNamespace(variable_seq_lengths=False)
+    foundation = SimpleNamespace(variable_seq_lengths=False)
+    image_encoder = SimpleNamespace(variable_seq_lengths=False)
+    model_config = SimpleNamespace(
+        variable_seq_lengths=False,
+        foundation=foundation,
+        image_encoder=image_encoder,
+    )
+    monkeypatch.setattr(
+        "loongforge.train.mcore_runtime.get_args", lambda: runtime_args
+    )
+
+    _restore_variable_seq_lengths(model_config)
+
+    assert runtime_args.variable_seq_lengths is True
+    assert model_config.variable_seq_lengths is True
+    assert foundation.variable_seq_lengths is True
+    assert image_encoder.variable_seq_lengths is True

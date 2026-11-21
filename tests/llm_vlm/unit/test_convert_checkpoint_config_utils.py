@@ -67,6 +67,7 @@ def test_online_vlm_sharding_uses_resolved_encoder_tp(monkeypatch):
     assert parser.type == "vlm"
     assert parallel_config.tp_size == 2
     assert parallel_config.encoder_tp_size == 1
+    assert parallel_config.hf_checkpoint_device == "cpu"
     assert parser.get_parallel_config().encoder_tp_size is None
 
 

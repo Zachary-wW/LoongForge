@@ -225,7 +225,7 @@ scenarios:
             --attention-backend flash
             --tensor-model-parallel-size ${TENSOR_MODEL_PARALLER_SIZE}
             --pipeline-model-parallel-size ${PIPELINE_MODEL_PARALLER_SIZE}
-            +model.image_encoder.tensor_model_parallel_size=2
+            ++model.image_encoder.tensor_model_parallel_size=2
             --num-virtual-stages-per-pipeline-rank ${NUM_VIRTUAL_STAGES_PER_PIPELINE_RANK}
             --use-distributed-optimizer
             --overlap-grad-reduce
@@ -287,7 +287,7 @@ scenarios:
             --attention-backend flash
             --tensor-model-parallel-size ${TENSOR_MODEL_PARALLER_SIZE}
             --pipeline-model-parallel-size ${PIPELINE_MODEL_PARALLER_SIZE}
-            +model.image_encoder.tensor_model_parallel_size=2
+            ++model.image_encoder.tensor_model_parallel_size=2
             --num-virtual-stages-per-pipeline-rank ${NUM_VIRTUAL_STAGES_PER_PIPELINE_RANK}
             --use-distributed-optimizer
             --overlap-grad-reduce
@@ -335,4 +335,4 @@ scenarios:
 tasks:
   check_correctness_task: True
   check_precess_data_task: True
-  
+
