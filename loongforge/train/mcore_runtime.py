@@ -169,6 +169,15 @@ def _is_vlm_config(model_config):
     )
 
 
+def _is_llava_ov_config(model_config):
+    """Return whether this is the LLaVA-OneVision/RiceViT pretrain family."""
+    return (
+        getattr(model_config, "model_type", None) == "llava_ov_1_5"
+        or getattr(getattr(model_config, "image_encoder", None), "model_type", None)
+        == "rice_vit"
+    )
+
+
 def _requires_variable_seq_lengths(train_args, model_config):
     """Preserve the legacy variable-length batch contract."""
     training_phase = getattr(train_args, "training_phase", None)
@@ -183,7 +192,7 @@ def _requires_legacy_scalar_grad_norm(train_args, model_config):
     """Select the clip root used by the corresponding old-stack trainer."""
     training_phase = getattr(train_args, "training_phase", None)
     if training_phase == constants.TrainingPhase.PRETRAIN:
-        return _is_vlm_config(model_config)
+        return _is_llava_ov_config(model_config)
     if training_phase == constants.TrainingPhase.SFT:
         return not _is_vlm_config(model_config)
     return False
