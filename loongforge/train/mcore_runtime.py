@@ -129,6 +129,19 @@ def _load_hf_weights(context, *, args, model_config):
     )
 
 
+def _restore_variable_seq_lengths(model_config):
+    """Restore LoongForge's batch contract after MCore argument validation."""
+    runtime_args = get_args()
+    runtime_args.variable_seq_lengths = True
+    for target in (
+        model_config,
+        getattr(model_config, "foundation", None),
+        getattr(model_config, "image_encoder", None),
+    ):
+        if target is not None and hasattr(target, "variable_seq_lengths"):
+            target.variable_seq_lengths = True
+
+
 def normalize_training_args(train_args):
     """Map LoongForge training-phase semantics onto MCore flags."""
     if getattr(train_args, "training_phase", None) == constants.TrainingPhase.SFT:
@@ -178,11 +191,20 @@ def _is_llava_ov_config(model_config):
     )
 
 
+def _is_mimo_or_omni_config(model_config):
+    """MiMo/Omni use the fixed-length pretrain contract."""
+    return getattr(model_config, "model_backend", None) in ("mimo", "omni")
+
+
 def _requires_variable_seq_lengths(train_args, model_config):
     """Preserve the legacy variable-length batch contract."""
     training_phase = getattr(train_args, "training_phase", None)
     if training_phase == constants.TrainingPhase.PRETRAIN:
-        return _is_llava_ov_config(model_config)
+        if _is_llava_ov_config(model_config):
+            return True
+        if _is_mimo_or_omni_config(model_config):
+            return False
+        return _is_vlm_config(model_config)
     if training_phase == constants.TrainingPhase.SFT:
         return _sft_uses_variable_seq_lengths(train_args)
     return False
@@ -192,7 +214,9 @@ def _requires_legacy_scalar_grad_norm(train_args, model_config):
     """Select the clip root used by the corresponding old-stack trainer."""
     training_phase = getattr(train_args, "training_phase", None)
     if training_phase == constants.TrainingPhase.PRETRAIN:
-        return _is_llava_ov_config(model_config)
+        if _is_mimo_or_omni_config(model_config):
+            return False
+        return _is_vlm_config(model_config) or _is_llava_ov_config(model_config)
     if training_phase == constants.TrainingPhase.SFT:
         return not _is_vlm_config(model_config)
     return False
@@ -237,6 +261,11 @@ def pretrain_with_mcore(
         raise NotImplementedError("This MCore runtime adapter does not yet support ChunkPipe")
 
     callbacks = CallbackManager()
+    if _requires_variable_seq_lengths(train_args, model_config):
+        callbacks.register(
+            "on_data_init_start",
+            lambda _context: _restore_variable_seq_lengths(model_config),
+        )
     if getattr(model_config, "model_backend", None) == "mimo":
         from loongforge.train.initialize import initialize_mimo_vision_parallel_state
 
