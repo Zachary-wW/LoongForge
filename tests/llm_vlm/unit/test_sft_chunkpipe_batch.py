@@ -5,6 +5,7 @@ import torch
 
 from loongforge.train.sft import sft_llm
 from loongforge.train.sft import utils as sft_utils
+from loongforge.data import sft_data_collator
 
 
 def test_get_batch_consumes_sft_chunkpipe_metadata_and_mtp(monkeypatch):
@@ -105,3 +106,50 @@ def test_build_sft_data_collator_sets_chunkpipe_contract(monkeypatch):
     assert collator.kwargs["max_length"] == 4
     assert collator.kwargs["chunkpipe_base_length"] == 4
     assert collator.kwargs["chunkpipe_mtp_num_layers"] == 1
+
+
+def test_sft_collator_splits_and_rejoins_bridge_window(monkeypatch):
+    class FakeCollator:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __call__(self, features, return_tensors=None):
+            return {
+                key: torch.tensor([feature[key] for feature in features])
+                for key in ("input_ids", "labels", "attention_mask", "loss_mask")
+            }
+
+    monkeypatch.setattr(sft_data_collator, "DataCollatorForSeq2Seq", FakeCollator)
+    collator = sft_data_collator.DataCollatorForSupervisedDataset(
+        tokenizer=object(),
+        chunkpipe_base_length=4,
+        chunkpipe_mtp_num_layers=1,
+        padding=None,
+    )
+    features = [
+        {
+            "input_ids": [10, 11, 12, 13, 90],
+            "labels": [11, 12, 13, 14, 91],
+            "attention_mask": [1, 1, 1, 1, 1],
+            "loss_mask": [1, 1, 1, 1, 1],
+            "chunk_group_size": 4,
+            "group_total_tokens": 8,
+        },
+        {
+            "input_ids": [20, 21, 22, 23, 92],
+            "labels": [21, 22, 23, 24, 93],
+            "attention_mask": [1, 1, 1, 1, 1],
+            "loss_mask": [1, 1, 1, 1, 1],
+            "chunk_group_size": 4,
+            "group_total_tokens": 8,
+        },
+    ]
+
+    result = collator(features)
+
+    assert result["input_ids"].tolist() == [[10, 11, 12, 13, 90], [20, 21, 22, 23, 92]]
+    assert result["labels"].tolist() == [[11, 12, 13, 14, 91], [21, 22, 23, 24, 93]]
+    assert result["attention_mask"].shape == (2, 5)
+    assert result["loss_mask"].shape == (2, 5)
+    assert result["chunk_group_size"].tolist() == [4, 4]
+    assert result["group_total_tokens"].tolist() == [8, 8]
