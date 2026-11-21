@@ -25,7 +25,7 @@ def test_sft_training_phase_enables_mcore_sft_semantics():
     assert args.sft_chunkpipe_mode is False
     assert args.sft_loss_log_mode == "microbatch"
     assert args.variable_seq_lengths is True
-    assert args.apply_rope_fusion is False
+    assert args.apply_rope_fusion is True
 
 
 def test_pretrain_training_phase_does_not_enable_sft():
@@ -52,7 +52,7 @@ def test_fixed_sft_lengths_are_preserved():
     )
 
     assert args.variable_seq_lengths is False
-    assert args.apply_rope_fusion is False
+    assert args.apply_rope_fusion is True
 
 
 def test_custom_pipeline_recompute_is_not_inherited_by_vlm_submodels():
