@@ -162,15 +162,28 @@ def _sft_uses_variable_seq_lengths(train_args):
     return True
 
 
+def _is_vlm_config(model_config):
+    return (
+        getattr(model_config, "image_encoder", None) is not None
+        or getattr(model_config, "model_backend", None) == "mimo"
+    )
+
+
+def _requires_variable_seq_lengths(train_args, model_config):
+    """Preserve the legacy variable-length batch contract."""
+    training_phase = getattr(train_args, "training_phase", None)
+    if training_phase == constants.TrainingPhase.PRETRAIN:
+        return _is_vlm_config(model_config)
+    if training_phase == constants.TrainingPhase.SFT:
+        return _sft_uses_variable_seq_lengths(train_args)
+    return False
+
+
 def _sft_requires_legacy_scalar_grad_norm(train_args, model_config):
     """Keep the old LLM-SFT clip root while VLM-SFT uses the tensor path."""
     if getattr(train_args, "training_phase", None) != constants.TrainingPhase.SFT:
         return False
-    is_vlm = (
-        getattr(model_config, "image_encoder", None) is not None
-        or getattr(model_config, "model_backend", None) == "mimo"
-    )
-    return not is_vlm
+    return not _is_vlm_config(model_config)
 
 
 def pretrain_with_mcore(
@@ -191,10 +204,7 @@ def pretrain_with_mcore(
     set_legacy_scalar_grad_norm(
         _sft_requires_legacy_scalar_grad_norm(train_args, model_config)
     )
-    if (
-        getattr(train_args, "training_phase", None) == constants.TrainingPhase.SFT
-        and _sft_uses_variable_seq_lengths(train_args)
-    ):
+    if _requires_variable_seq_lengths(train_args, model_config):
         train_args.variable_seq_lengths = True
         for target in (model_config, getattr(model_config, "foundation", None)):
             if target is not None and hasattr(target, "variable_seq_lengths"):
