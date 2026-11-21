@@ -218,8 +218,21 @@ def _requires_legacy_scalar_grad_norm(train_args, model_config):
             return False
         return _is_vlm_config(model_config) or _is_llava_ov_config(model_config)
     if training_phase == constants.TrainingPhase.SFT:
-        return not _is_vlm_config(model_config)
+        # Legacy SFT starts from the scalar root; packed VLM batches override
+        # this to the tensor root in pretrain_vlm.forward_step().
+        return True
     return False
+
+
+def _select_sft_clip_root(train_args, packed_seq_params):
+    """Packed VLM SFT needs tensor root; non-packed SFT keeps scalar root."""
+    if getattr(train_args, "training_phase", None) != constants.TrainingPhase.SFT:
+        return
+    if not _is_vlm_config(get_model_config()):
+        return
+    from megatron.core.optimizer.clip_grads import set_legacy_scalar_grad_norm
+
+    set_legacy_scalar_grad_norm(packed_seq_params is None)
 
 
 def pretrain_with_mcore(

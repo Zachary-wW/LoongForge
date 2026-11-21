@@ -6,6 +6,7 @@ from loongforge.train.mcore_runtime import (
     _requires_legacy_scalar_grad_norm,
     _requires_variable_seq_lengths,
     _restore_variable_seq_lengths,
+    _select_sft_clip_root,
     normalize_training_args,
 )
 from loongforge.train.validators import _drop_custom_pipeline_recompute_layers
@@ -77,13 +78,13 @@ def test_clip_root_matches_legacy_trainer():
         _requires_legacy_scalar_grad_norm(
             sft_args, SimpleNamespace(image_encoder=object())
         )
-        is False
+        is True
     )
     assert (
         _requires_legacy_scalar_grad_norm(
             sft_args, SimpleNamespace(model_backend="mimo")
         )
-        is False
+        is True
     )
     assert (
         _requires_legacy_scalar_grad_norm(
@@ -119,6 +120,24 @@ def test_clip_root_matches_legacy_trainer():
         )
         is True
     )
+
+
+def test_sft_clip_root_follows_packed_status(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        "megatron.core.optimizer.clip_grads.set_legacy_scalar_grad_norm",
+        lambda enabled: calls.append(enabled),
+    )
+    monkeypatch.setattr(
+        "loongforge.train.mcore_runtime.get_model_config",
+        lambda: SimpleNamespace(image_encoder=object()),
+    )
+
+    _select_sft_clip_root(SimpleNamespace(training_phase="sft"), None)
+    _select_sft_clip_root(SimpleNamespace(training_phase="sft"), object())
+    _select_sft_clip_root(SimpleNamespace(training_phase="pretrain"), None)
+
+    assert calls == [True, False]
 
 
 def test_vlm_pretrain_uses_variable_seq_lengths():
