@@ -55,6 +55,45 @@ def test_get_batch_consumes_sft_chunkpipe_metadata_and_mtp(monkeypatch):
     assert output[6]["position_ids"].shape == (2, 5)
 
 
+def test_get_batch_preserves_mtp_position_ids(monkeypatch):
+    args = SimpleNamespace(
+        enable_chunkpipe=True,
+        sft_chunkpipe_mode=True,
+        chunksize=4,
+        mtp_num_layers=1,
+    )
+    config = SimpleNamespace(
+        sft_chunkpipe_mode=True,
+        chunkpipe_chunk_idx_in_group=0,
+    )
+    mtp_position_ids = torch.tensor([[10, 11, 12, 13, 14], [20, 21, 22, 23, 24]])
+    batch = {
+        "tokens": torch.zeros(2, 4, dtype=torch.long),
+        "labels": torch.zeros(2, 4, dtype=torch.long),
+        "loss_mask": torch.ones(2, 4),
+        "position_ids": torch.arange(4).expand(2, 4),
+        "attention_mask": None,
+        "packed_seq_params": None,
+        "chunk_group_size": torch.tensor([4]),
+        "composite_component_sizes": [2, 2],
+        "group_total_tokens": torch.tensor([8]),
+        "step_num_groups": torch.tensor([3]),
+        "mtp_tokens": torch.zeros(2, 5, dtype=torch.long),
+        "mtp_position_ids": mtp_position_ids,
+        "mtp_labels": torch.zeros(2, 5, dtype=torch.long),
+        "mtp_loss_mask": torch.ones(2, 5),
+    }
+    monkeypatch.setattr(sft_llm, "get_batch_on_this_tp_rank", lambda _: batch)
+    monkeypatch.setattr(sft_llm, "get_batch_on_this_cp_rank", lambda value: value)
+    monkeypatch.setattr(sft_llm, "get_args", lambda: args)
+    monkeypatch.setattr(sft_llm, "get_model_config", lambda: config)
+
+    output = sft_llm.get_batch(None)
+
+    assert output[6]["position_ids"] is mtp_position_ids
+    assert output[6]["position_ids"].shape == (2, 5)
+
+
 def test_bind_chunkpipe_queue_iter_binds_queues_before_each_batch(monkeypatch):
     args = SimpleNamespace()
     step_g_queue = deque([3])
