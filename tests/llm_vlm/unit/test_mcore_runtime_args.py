@@ -1,6 +1,9 @@
 from types import SimpleNamespace
 
-from loongforge.train.mcore_runtime import normalize_training_args
+from loongforge.train.mcore_runtime import (
+    _sft_requires_legacy_scalar_grad_norm,
+    normalize_training_args,
+)
 from loongforge.train.validators import _drop_custom_pipeline_recompute_layers
 
 
@@ -61,3 +64,26 @@ def test_custom_pipeline_recompute_is_not_inherited_by_vlm_submodels():
     _drop_custom_pipeline_recompute_layers("image_encoder", args)
 
     assert args.custom_pipeline_recompute_layers is None
+
+
+def test_sft_llm_uses_legacy_scalar_grad_norm():
+    sft_args = SimpleNamespace(training_phase="sft")
+    assert _sft_requires_legacy_scalar_grad_norm(sft_args, SimpleNamespace()) is True
+    assert (
+        _sft_requires_legacy_scalar_grad_norm(
+            sft_args, SimpleNamespace(image_encoder=object())
+        )
+        is False
+    )
+    assert (
+        _sft_requires_legacy_scalar_grad_norm(
+            sft_args, SimpleNamespace(model_backend="mimo")
+        )
+        is False
+    )
+    assert (
+        _sft_requires_legacy_scalar_grad_norm(
+            SimpleNamespace(training_phase="pretrain"), SimpleNamespace()
+        )
+        is False
+    )
