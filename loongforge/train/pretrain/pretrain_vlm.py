@@ -63,6 +63,11 @@ def _batch_has_non_dummy_value(data, key):
     return v is not None
 
 
+def _packed_max_seqlen(cu_seqlens: torch.Tensor) -> int:
+    """Return the longest packed segment, including the padding segment."""
+    return (cu_seqlens[1:] - cu_seqlens[:-1]).max().item()
+
+
 def get_batch_on_this_tp_rank(data_iterator):
     """Get the current micro-batch on this rank."""
     if data_iterator is not None and mpu.get_tensor_model_parallel_rank() == 0:
@@ -125,13 +130,14 @@ def get_batch_on_this_tp_rank(data_iterator):
     packed_seq_params = None
     if cu_lengths.shape != torch.Size([1, 1]):
         assert cu_lengths.shape[0] == 1, "micro-batch-size must be 1 for packing"
+        packed_max_seqlen = _packed_max_seqlen(cu_lengths[0])
         packed_seq_params = PackedSeqParams(
             qkv_format="thd",
             cu_seqlens_q=cu_lengths[0],
             cu_seqlens_kv=cu_lengths[0],
             cu_seqlens_cpu=cu_lengths_cpu[0],
-            max_seqlen_q=max_lengths[0].item(),
-            max_seqlen_kv=max_lengths[0].item(),
+            max_seqlen_q=packed_max_seqlen,
+            max_seqlen_kv=packed_max_seqlen,
         )
 
     batch = {
