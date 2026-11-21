@@ -77,7 +77,7 @@ fi
 
 ############################################ Model Training Parameters ############################################
 
-export PYTHONPATH=$MEGATRON_PATH:$LOONGFORGE_PATH:$PYTHONPATH
+export PYTHONPATH=$LOONGFORGE_PATH/tools:$LOONGFORGE_PATH:$MEGATRON_PATH:$PYTHONPATH
 
 command="torchrun ${DISTRIBUTED_ARGS[@]} \
     $LOONGFORGE_PATH/loongforge/train.py \
