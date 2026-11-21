@@ -1,6 +1,8 @@
 from types import SimpleNamespace
 
 from loongforge.train.mcore_runtime import (
+    _is_vlm_config,
+    _requires_variable_seq_lengths,
     _sft_requires_legacy_scalar_grad_norm,
     normalize_training_args,
 )
@@ -84,6 +86,32 @@ def test_sft_llm_uses_legacy_scalar_grad_norm():
     assert (
         _sft_requires_legacy_scalar_grad_norm(
             SimpleNamespace(training_phase="pretrain"), SimpleNamespace()
+        )
+        is False
+    )
+
+
+def test_vlm_pretrain_uses_variable_seq_lengths():
+    assert _is_vlm_config(SimpleNamespace(image_encoder=object())) is True
+    assert _is_vlm_config(SimpleNamespace(model_backend="mimo")) is True
+    assert _is_vlm_config(SimpleNamespace()) is False
+    assert (
+        _requires_variable_seq_lengths(
+            SimpleNamespace(
+                training_phase="pretrain",
+                use_fixed_seq_lengths=False,
+                tp_comm_overlap=False,
+                num_experts=None,
+                moe_token_dispatcher_type="alltoall",
+            ),
+            SimpleNamespace(image_encoder=object()),
+        )
+        is True
+    )
+    assert (
+        _requires_variable_seq_lengths(
+            SimpleNamespace(training_phase="pretrain"),
+            SimpleNamespace(),
         )
         is False
     )
