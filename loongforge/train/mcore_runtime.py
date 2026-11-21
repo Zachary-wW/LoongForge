@@ -162,6 +162,17 @@ def _sft_uses_variable_seq_lengths(train_args):
     return True
 
 
+def _sft_requires_legacy_scalar_grad_norm(train_args, model_config):
+    """Keep the old LLM-SFT clip root while VLM-SFT uses the tensor path."""
+    if getattr(train_args, "training_phase", None) != constants.TrainingPhase.SFT:
+        return False
+    is_vlm = (
+        getattr(model_config, "image_encoder", None) is not None
+        or getattr(model_config, "model_backend", None) == "mimo"
+    )
+    return not is_vlm
+
+
 def pretrain_with_mcore(
     train_args,
     train_valid_test_dataset_provider,
@@ -175,6 +186,11 @@ def pretrain_with_mcore(
     parse_args_from_config(train_args)
     normalize_training_args(train_args)
     model_config = get_model_config()
+    from megatron.core.optimizer.clip_grads import set_legacy_scalar_grad_norm
+
+    set_legacy_scalar_grad_norm(
+        _sft_requires_legacy_scalar_grad_norm(train_args, model_config)
+    )
     if (
         getattr(train_args, "training_phase", None) == constants.TrainingPhase.SFT
         and _sft_uses_variable_seq_lengths(train_args)
