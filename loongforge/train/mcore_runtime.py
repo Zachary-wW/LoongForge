@@ -182,7 +182,7 @@ def _requires_variable_seq_lengths(train_args, model_config):
     """Preserve the legacy variable-length batch contract."""
     training_phase = getattr(train_args, "training_phase", None)
     if training_phase == constants.TrainingPhase.PRETRAIN:
-        return _is_vlm_config(model_config)
+        return _is_llava_ov_config(model_config)
     if training_phase == constants.TrainingPhase.SFT:
         return _sft_uses_variable_seq_lengths(train_args)
     return False

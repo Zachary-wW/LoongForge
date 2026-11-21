@@ -126,7 +126,7 @@ def test_vlm_pretrain_uses_variable_seq_lengths():
                 num_experts=None,
                 moe_token_dispatcher_type="alltoall",
             ),
-            SimpleNamespace(image_encoder=object()),
+            SimpleNamespace(model_type="llava_ov_1_5"),
         )
         is True
     )
@@ -134,6 +134,20 @@ def test_vlm_pretrain_uses_variable_seq_lengths():
         _requires_variable_seq_lengths(
             SimpleNamespace(training_phase="pretrain"),
             SimpleNamespace(),
+        )
+        is False
+    )
+    assert (
+        _requires_variable_seq_lengths(
+            SimpleNamespace(training_phase="pretrain"),
+            SimpleNamespace(model_backend="mimo"),
+        )
+        is False
+    )
+    assert (
+        _requires_variable_seq_lengths(
+            SimpleNamespace(training_phase="pretrain"),
+            SimpleNamespace(image_encoder=SimpleNamespace(model_type="qwen2_5_vl")),
         )
         is False
     )
