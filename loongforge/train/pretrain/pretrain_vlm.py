@@ -372,6 +372,10 @@ def forward_step(data_iterator, model, return_schedule_plan: bool = False):
             packed_seq_params,
         ) = batch_list[inner_group_id].values()
 
+        from loongforge.train.mcore_runtime import _select_sft_clip_root
+
+        _select_sft_clip_root(args, packed_seq_params)
+
         dump_model_input_example_once(
             tokens, labels, attn_mask, cu_lengths, packed_seq_params,
         )
