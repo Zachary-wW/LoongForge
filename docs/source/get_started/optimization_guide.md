@@ -277,6 +277,10 @@ The framework automatically selects the implementation based on GPU architecture
 --cross-entropy-fusion-impl linear
 ```
 
+For the current MCore 0.20 integration, keep `--overlap-param-gather`
+disabled when using `linear`; the output-layer parameter bucket is consumed
+directly by the fused loss and the overlap dispatcher is not yet validated.
+
 The vocabulary chunk size can be tuned via environment variable (default 3072):
 
 ```bash
