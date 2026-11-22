@@ -218,6 +218,22 @@ def _validate_chunkpipe_entrypoint(train_args, model_config, *, allow_chunkpipe)
         )
 
 
+def _validate_linear_ce_entrypoint(train_args):
+    """Reject the unsupported linear-CE + param-gather-overlap combination."""
+    if not (
+        getattr(train_args, "cross_entropy_loss_fusion", False)
+        and getattr(train_args, "cross_entropy_fusion_impl", "native") == "linear"
+    ):
+        return
+    if getattr(train_args, "overlap_param_gather", False):
+        raise NotImplementedError(
+            "cross_entropy_fusion_impl='linear' currently requires "
+            "overlap_param_gather=False. MCore DDP's output-layer bucket pre-hook "
+            "is bypassed by the linear loss, and the overlap dispatcher cannot "
+            "preserve bucket order for this path."
+        )
+
+
 def _sft_uses_variable_seq_lengths(train_args):
     """Mirror LoongForge SFT validation for the MCore argument boundary."""
     if getattr(train_args, "use_fixed_seq_lengths", False):
@@ -305,6 +321,7 @@ def pretrain_with_mcore(
     normalize_training_args(train_args)
     parse_args_from_config(train_args)
     model_config = get_model_config()
+    _validate_linear_ce_entrypoint(train_args)
     _validate_chunkpipe_entrypoint(
         train_args, model_config, allow_chunkpipe=allow_chunkpipe
     )

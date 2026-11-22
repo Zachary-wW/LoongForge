@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from loongforge.train.mcore_runtime import (
     _sync_chunkpipe_model_config,
     _validate_chunkpipe_entrypoint,
+    _validate_linear_ce_entrypoint,
     _is_llava_ov_config,
     _is_vlm_config,
     _requires_legacy_scalar_grad_norm,
@@ -133,6 +134,23 @@ def test_chunkpipe_entrypoint_allows_llm_sft_only():
         pass
     else:
         raise AssertionError("expected allow_chunkpipe=False to reject")
+
+
+def test_linear_ce_rejects_param_gather_overlap():
+    args = SimpleNamespace(
+        cross_entropy_loss_fusion=True,
+        cross_entropy_fusion_impl="linear",
+        overlap_param_gather=False,
+    )
+    _validate_linear_ce_entrypoint(args)
+
+    args.overlap_param_gather = True
+    try:
+        _validate_linear_ce_entrypoint(args)
+    except NotImplementedError as exc:
+        assert "overlap_param_gather=False" in str(exc)
+    else:
+        raise AssertionError("expected linear CE to reject overlap_param_gather")
 
 
 def test_fixed_sft_lengths_are_preserved():

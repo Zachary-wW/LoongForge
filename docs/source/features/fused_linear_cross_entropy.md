@@ -17,6 +17,11 @@ Add the following parameters to the training launch script:
 --cross-entropy-fusion-impl linear
 ```
 
+The MCore 0.20 integration currently requires `--overlap-param-gather` to be
+disabled for `linear`; production launch scripts in this repository already
+omit it. Do not silently combine the two until the DDP output-layer bucket
+ordering path is validated.
+
 ---
 
 ## 1. Generic Implementation
