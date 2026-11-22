@@ -38,7 +38,20 @@ def validate_megatron_args(args):
     """Validate Megatron arguments"""
     _align_wan_packing_seq_length(args)
     _validate_legacy_pipeline_args(args)
+    _prepare_sft_chunkpipe_validation(args)
     validate_args(args)
+
+
+def _prepare_sft_chunkpipe_validation(args):
+    """Mirror LoongForge's SFT phase before MCore derives ChunkPipe flags."""
+    if (
+        getattr(args, "training_phase", None) == constants.TrainingPhase.SFT
+        and getattr(args, "enable_chunkpipe", False)
+    ):
+        # MCore derives sft_chunkpipe_mode from args.sft inside
+        # validate_args(). Set the phase flag first so the SFT-specific
+        # ChunkPipe derivations and validations run on the first pass.
+        args.sft = True
 
 
 def validate_custom_model_args(name, args):
