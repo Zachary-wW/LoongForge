@@ -13,8 +13,9 @@ import torch.distributed as dist
 
 
 def _masked_sum(losses: torch.Tensor, weights: torch.Tensor) -> torch.Tensor:
-    """Sum only weighted positions so masked NaNs cannot poison the loss."""
-    return torch.sum(torch.where(weights != 0, losses, torch.zeros_like(losses)))
+    """Sum weighted losses after masking zero-weight positions."""
+    safe_losses = torch.where(weights != 0, losses, torch.zeros_like(losses))
+    return torch.sum(safe_losses * weights)
 
 
 def default_loss_func(

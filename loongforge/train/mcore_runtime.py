@@ -366,23 +366,29 @@ def pretrain_with_mcore(
             partial(_load_hf_weights, args=train_args, model_config=model_config),
         )
 
+    if getattr(runtime_args, "training_phase", None) == constants.TrainingPhase.SFT:
+        # Set these before the args are copied into the runtime config/global
+        # state. The MCore training loop keys SFT loss reporting off these
+        # fields, not only off training_phase.
+        runtime_args.sft = True
+        runtime_args.sft_chunkpipe_mode = getattr(
+            runtime_args, "enable_chunkpipe", False
+        )
+        runtime_args.sft_loss_log_mode = "microbatch"
+        runtime_args.variable_seq_lengths = _sft_uses_variable_seq_lengths(
+            runtime_args
+        )
+
     runtime_args.model_type = model_type
     config = pretrain_cfg_container_from_args(runtime_args, cfg)
     set_global_variables(runtime_args, config, build_tokenizer=False)
     set_loongforge_extra_global_vars(runtime_args, build_tokenizer=True)
-    runtime_global_args = get_args()
-    if getattr(runtime_global_args, "training_phase", None) == constants.TrainingPhase.SFT:
-        # initialize_megatron consumes the global args object; keep the
-        # training-loop flags on that exact object after service setup.
-        runtime_global_args.sft = True
-        runtime_global_args.sft_chunkpipe_mode = getattr(
-            runtime_global_args, "enable_chunkpipe", False
+    if getattr(model_config, "image_encoder", None) is not None:
+        from loongforge.models.encoder.internvl_vision_models.internvl_config import (
+            resolve_image_token_id,
         )
-        runtime_global_args.sft_loss_log_mode = "microbatch"
-        if _sft_uses_variable_seq_lengths(runtime_global_args):
-            runtime_global_args.variable_seq_lengths = True
-        else:
-            runtime_global_args.variable_seq_lengths = False
+
+        resolve_image_token_id(model_config.image_encoder)
     return pretrain(
         config,
         train_valid_test_dataset_provider,
