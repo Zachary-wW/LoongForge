@@ -14,6 +14,17 @@ def test_masked_sum_ignores_nan_in_masked_positions():
     assert losses.grad.tolist() == [1.0, 0.0, 1.0]
 
 
+def test_masked_sum_applies_non_unit_weights():
+    losses = torch.tensor([2.0, 4.0], requires_grad=True)
+    weights = torch.tensor([0.25, 0.5])
+
+    result = _masked_sum(losses, weights)
+
+    assert result.item() == 2.5
+    result.backward()
+    assert losses.grad.tolist() == [0.25, 0.5]
+
+
 def test_masked_sum_handles_zero_weight_batch():
     losses = torch.tensor([float("nan"), float("nan")], requires_grad=True)
     weights = torch.zeros(2)
