@@ -113,6 +113,61 @@ def test_bind_chunkpipe_queue_iter_binds_queues_before_each_batch(monkeypatch):
     assert next(bound) == {"chunk": 1}
 
 
+def test_build_chunkpipe_iterator_constructs_real_sampler_and_dataloader(monkeypatch):
+    class FakeDataset:
+        def __init__(self):
+            self.group_sizes = [2, 2, 2, 2]
+
+        def __len__(self):
+            return len(self.group_sizes)
+
+        def __getitem__(self, index):
+            if index == "chunk_group_size":
+                return self.group_sizes
+            return {"index": index}
+
+    args = SimpleNamespace(
+        sft_data_streaming=False,
+        enable_chunkpipe=True,
+        global_batch_size=4,
+        micro_batch_size=1,
+        num_workers=0,
+        dataloader_save=None,
+        seed=0,
+    )
+    monkeypatch.setattr(sft_utils, "get_args", lambda: args)
+    monkeypatch.setattr(sft_utils.mpu, "get_data_parallel_rank", lambda: 0)
+    monkeypatch.setattr(sft_utils.mpu, "get_data_parallel_world_size", lambda: 1)
+
+    captured = {}
+    real_data_loader = sft_utils.DataLoader
+
+    def recording_data_loader(dataset, **kwargs):
+        captured["dataset"] = dataset
+        captured["kwargs"] = kwargs
+        return real_data_loader(dataset, **kwargs)
+
+    monkeypatch.setattr(sft_utils, "DataLoader", recording_data_loader)
+
+    iterator = sft_utils._build_cylic_iterator(
+        FakeDataset(),
+        consumed_samples=0,
+        data_collator=lambda samples: {"indices": [sample["index"] for sample in samples]},
+    )
+    first_batch = next(iterator)
+
+    batch_sampler = captured["kwargs"]["batch_sampler"]
+    assert isinstance(batch_sampler, sft_utils.ChunkPipeGroupBatchSampler)
+    assert captured["kwargs"]["persistent_workers"] is False
+    assert captured["kwargs"]["num_workers"] == 0
+    assert "batch_sampler" in captured["kwargs"]
+    assert first_batch == {"indices": [0]}
+    assert args.chunkpipe_step_g_queue is batch_sampler._step_g_queue
+    assert args.chunkpipe_composite_queue is batch_sampler._composite_queue
+    assert list(batch_sampler._step_g_queue) == [2]
+    assert list(batch_sampler._composite_queue) == [[2]]
+
+
 def test_build_sft_data_collator_sets_chunkpipe_contract(monkeypatch):
     class FakeAutoTokenizer:
         def hf_tokenizer(self):
