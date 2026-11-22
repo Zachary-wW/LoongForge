@@ -883,11 +883,6 @@ class BaseGPTModel(BaseMegatronLanguageModule):
             # [s b h] => [b s h]
             return logits.transpose(0, 1).contiguous()
         
-        if getattr(self.config, 'enable_chunkpipe', False):
-            raise NotImplementedError(
-                "ChunkPipe fused output/loss needs the 0.20 chunk scheduler migration"
-            )
-
         logits, _ = self.output_layer(
             hidden_states,
             weight=output_weight,

@@ -1,6 +1,8 @@
 from types import SimpleNamespace
 
 from loongforge.train.mcore_runtime import (
+    _sync_chunkpipe_model_config,
+    _validate_chunkpipe_entrypoint,
     _is_llava_ov_config,
     _is_vlm_config,
     _requires_legacy_scalar_grad_norm,
@@ -9,7 +11,10 @@ from loongforge.train.mcore_runtime import (
     _select_sft_clip_root,
     normalize_training_args,
 )
-from loongforge.train.validators import _drop_custom_pipeline_recompute_layers
+from loongforge.train.validators import (
+    _drop_custom_pipeline_recompute_layers,
+    _prepare_sft_chunkpipe_validation,
+)
 
 
 def test_sft_training_phase_enables_mcore_sft_semantics():
@@ -40,6 +45,94 @@ def test_pretrain_training_phase_does_not_enable_sft():
     args = normalize_training_args(SimpleNamespace(training_phase="pretrain", sft=False))
 
     assert args.sft is False
+
+
+def test_sft_chunkpipe_normalization_keeps_chunkpipe_mode():
+    args = normalize_training_args(
+        SimpleNamespace(
+            training_phase="sft",
+            sft=False,
+            enable_chunkpipe=True,
+            sft_chunkpipe_mode=False,
+            sft_loss_log_mode="token-weighted",
+            variable_seq_lengths=False,
+            use_fixed_seq_lengths=False,
+            apply_rope_fusion=True,
+            tp_comm_overlap=False,
+            num_experts=None,
+            moe_token_dispatcher_type="alltoall",
+        )
+    )
+
+    assert args.sft is True
+    assert args.sft_chunkpipe_mode is True
+
+
+def test_sft_chunkpipe_is_enabled_before_mcore_validation():
+    args = SimpleNamespace(
+        training_phase="sft",
+        enable_chunkpipe=True,
+        sft=False,
+        sft_chunkpipe_mode=False,
+    )
+
+    _prepare_sft_chunkpipe_validation(args)
+
+    assert args.sft is True
+
+
+def test_chunkpipe_model_config_syncs_both_views():
+    foundation = SimpleNamespace(sft_chunkpipe_mode=False)
+    model_config = SimpleNamespace(sft_chunkpipe_mode=False, foundation=foundation)
+
+    _sync_chunkpipe_model_config(model_config, True)
+    assert model_config.sft_chunkpipe_mode is True
+    assert foundation.sft_chunkpipe_mode is True
+
+    _sync_chunkpipe_model_config(model_config, False)
+    assert model_config.sft_chunkpipe_mode is False
+    assert foundation.sft_chunkpipe_mode is False
+
+
+def test_chunkpipe_entrypoint_allows_llm_sft_only():
+    args = SimpleNamespace(
+        training_phase="sft",
+        enable_chunkpipe=True,
+        rerun_mode="disabled",
+        eval_iters=0,
+        calculate_per_token_loss=False,
+        tensor_model_parallel_size=1,
+        num_virtual_stages_per_pipeline_rank=1,
+    )
+    model_config = SimpleNamespace()
+
+    _validate_chunkpipe_entrypoint(args, model_config, allow_chunkpipe=True)
+
+    for overrides, config in (
+        ({"training_phase": "pretrain"}, SimpleNamespace()),
+        ({}, SimpleNamespace(image_encoder=object())),
+        ({"rerun_mode": "validate_results"}, SimpleNamespace()),
+        ({"eval_iters": 1}, SimpleNamespace()),
+        ({"tensor_model_parallel_size": 2}, SimpleNamespace()),
+    ):
+        candidate = SimpleNamespace(**{**vars(args), **overrides})
+        try:
+            _validate_chunkpipe_entrypoint(
+                candidate, config, allow_chunkpipe=True
+            )
+        except NotImplementedError:
+            pass
+        else:
+            raise AssertionError(f"expected chunkpipe rejection for {overrides}")
+
+    try:
+        _validate_chunkpipe_entrypoint(
+            args, model_config, allow_chunkpipe=False
+        )
+    except NotImplementedError:
+        pass
+    else:
+        raise AssertionError("expected allow_chunkpipe=False to reject")
 
 
 def test_fixed_sft_lengths_are_preserved():
