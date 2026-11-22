@@ -211,6 +211,13 @@ def initialize_loongforge_megatron(
 
     # set loongforge extra global args
     set_loongforge_extra_global_vars(args, build_tokenizer=True)
+    from loongforge.models.encoder.internvl_vision_models.internvl_config import (
+        resolve_image_token_id,
+    )
+
+    model_config = get_model_config()
+    if model_config is not None:
+        resolve_image_token_id(getattr(model_config, "image_encoder", None))
 
     # set logging level
     setup_logging(args)
