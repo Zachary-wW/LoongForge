@@ -14,6 +14,7 @@ from loongforge.models.foundation.llm_model_provider import llm_model_provider
 from loongforge.models.model_backend import get_model_backend
 from loongforge.train.mcore_runtime import pretrain_with_mcore
 from loongforge.train.megatron_trainer import MegatronTrainer
+from loongforge.train.runtime_utils import get_next_batch_on_this_tp_rank
 from loongforge.train.trainer_builder import register_model_trainer
 from loongforge.utils import constants, get_args, get_tokenizer, print_rank_0
 from loongforge.utils.global_vars import get_model_config
@@ -41,7 +42,6 @@ from megatron.training import get_timers
 from megatron.training.utils import (
     is_first_or_last_pipeline_stage,
 )
-from loongforge.train.runtime_utils import get_next_batch_on_this_tp_rank
 
 stimer = StragglerDetector()
 
