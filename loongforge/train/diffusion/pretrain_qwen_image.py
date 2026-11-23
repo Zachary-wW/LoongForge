@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 from loongforge.data.video.latent_dataset import TensorDataset
 from loongforge.models import get_model_provider
 from loongforge.train.megatron_trainer import MegatronTrainer
-from loongforge.train.training_utils import pretrain as legacy_pretrain
+from loongforge.train.mcore_runtime import pretrain_with_mcore as legacy_pretrain
 from loongforge.train.trainer_builder import register_model_trainer
 from loongforge.utils import get_args, get_model_config, print_rank_0
 from loongforge.utils.constants import CustomModelFamilies, TrainingPhase

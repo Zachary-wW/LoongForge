@@ -39,7 +39,7 @@ from loongforge.train.sft.utils import (
     build_sft_data_collator,
 )
 from loongforge.train.trainer_builder import register_model_trainer
-from loongforge.train.training_utils import dump_model_input_example_once
+from loongforge.train.runtime_utils import dump_model_input_example_once
 from loongforge.utils import constants, get_args, get_model_config
 from transformers import DataCollatorForSeq2Seq
 
