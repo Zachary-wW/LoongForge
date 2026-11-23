@@ -76,6 +76,7 @@ def get_qwen2_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
                     linear_proj=multiacc_modules.TERowParallelLinear,
                     q_layernorm=qk_norm if config.qk_layernorm else IdentityOp,
                     k_layernorm=qk_norm if config.qk_layernorm else IdentityOp,
+                    apply_rotary_fn=multiacc_modules.apply_rotary_pos_emb,
                 ),
             ),
             self_attn_bda=multiacc_modules.get_bias_dropout_add,
@@ -127,6 +128,8 @@ def apply_mrope(
     mrope_section=[16, 24, 24],
     mscale: float = 1.0,
     cp_group=None,
+    max_seqlen=None,
+    **kwargs,
 ):
     """mrope"""
     if cu_seqlens is not None:
@@ -178,6 +181,7 @@ def get_qwen2_vl_layer_with_te_spec(config: TransformerConfig) -> ModuleSpec:
                     linear_proj=TERowParallelLinear,
                     q_layernorm=qk_norm if config.qk_layernorm else IdentityOp,
                     k_layernorm=qk_norm if config.qk_layernorm else IdentityOp,
+                    apply_rotary_fn=apply_mrope,
                 ),
             ),
             self_attn_bda=get_bias_dropout_add,
