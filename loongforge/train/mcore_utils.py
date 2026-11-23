@@ -7,6 +7,9 @@ from __future__ import annotations
 
 import os
 
+from megatron.core.msc_utils import maybe_msc
+from megatron.training.checkpointing import get_checkpoint_tracker_filename
+
 
 def is_hf_checkpoint(load_path):
     """Return whether a path contains a supported HuggingFace checkpoint."""
@@ -19,6 +22,27 @@ def is_hf_checkpoint(load_path):
         "pytorch_model.bin",
     )
     return any(os.path.exists(os.path.join(load_path, name)) for name in names)
+
+
+def read_tracker_iteration(checkpoints_path):
+    """Read a tracker without exiting on missing or malformed files."""
+    tracker_filename = get_checkpoint_tracker_filename(checkpoints_path)
+    if not os.path.isfile(tracker_filename):
+        return None
+    try:
+        with maybe_msc.open(tracker_filename, "r") as stream:
+            metastring = stream.read().strip()
+    except OSError:
+        return None
+    if metastring == "release":
+        return (0, True)
+    try:
+        iteration = int(metastring)
+    except ValueError:
+        return None
+    if iteration <= 0:
+        return None
+    return (iteration, False)
 
 
 def resolve_convert_pp_layout(model_config):

@@ -17,12 +17,13 @@ from datasets.distributed import split_dataset_by_node
 from megatron.core import mpu, tensor_parallel, parallel_state
 from megatron.core.packed_seq_params import PackedSeqParams
 
+from megatron.training.checkpointing import get_checkpoint_name
 from megatron.training.datasets.data_samplers import MegatronPretrainingRandomSampler
 
 from loongforge.utils import get_args, get_model_config, get_tokenizer, constants
 from loongforge.data import DataCollatorForSupervisedDataset
 from loongforge.tokenizer import AutoTokenizerFromHF
-from loongforge.train.checkpointing import get_checkpoint_name, read_tracker_iteration
+from loongforge.train.mcore_utils import read_tracker_iteration
 
 
 if TYPE_CHECKING:
