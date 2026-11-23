@@ -53,15 +53,12 @@ def _is_hf_checkpoint(checkpoint_path: str) -> bool:
     return has_config and (has_safetensors or has_pytorch_bin)
 
 
+@torch.no_grad()
 def _log_loaded_param_stats(unwrapped_model):
-    """Print count + norm/mean of a small set of well-known parameters so we
-    can tell from logs whether ckpt values actually landed in the model.
-    strict=True only verifies key set + shapes, not actual values — this
-    closes that gap for the rank-0 sanity check."""
+    """Log bounded value samples from representative checkpoint parameters."""
     if dist.get_rank() != 0:
         return
     total = 0
-    total_nonzero = 0
     samples = []
     sample_targets = (
         "encoder_model.image_projector.layernorm.weight",
@@ -87,20 +84,21 @@ def _log_loaded_param_stats(unwrapped_model):
         "decoder.final_norm.weight",
         "output_layer.weight",
     )
-    for m in unwrapped_model:
-        for name, p in m.named_parameters():
-            n = p.numel()
-            total += n
-            if p.is_floating_point():
-                total_nonzero += int((p != 0).sum().item())
-            for tgt in sample_targets:
-                if name.endswith(tgt) and len(samples) < 16:
-                    pf = p.detach().float()
-                    samples.append((name, n, pf.norm().item(), pf.abs().mean().item()))
-                    break
-    print_rank_0(f"[CKPT_LOAD] total params={total:,}, nonzero floats={total_nonzero:,}")
-    for name, n, norm, mean_abs in samples:
-        print_rank_0(f"[CKPT_LOAD]   {name}: numel={n:,} norm={norm:.4f} mean_abs={mean_abs:.6f}")
+    for module in unwrapped_model:
+        for name, param in module.named_parameters():
+            numel = param.numel()
+            total += numel
+            if numel == 0 or len(samples) >= 16 or not name.endswith(sample_targets):
+                continue
+            sample = param[(0,) * max(param.ndim - 2, 0)]
+            sample = sample[tuple(slice(64) for _ in sample.shape)].float()
+            samples.append((name, numel, sample.numel(), sample.norm().item(), sample.abs().mean().item()))
+    print_rank_0(f"[CKPT_LOAD] total params={total:,}")
+    for name, numel, count, norm, mean_abs in samples:
+        print_rank_0(
+            f"[CKPT_LOAD]   {name}: numel={numel:,} sampled={count:,} "
+            f"sample_norm={norm:.4f} sample_mean_abs={mean_abs:.6f}"
+        )
 
 
 @time_checkpoint_operation
@@ -108,7 +106,9 @@ def load_hf_checkpoint_online(
     model,
     optimizer,
     opt_param_scheduler,
-    args
+    args,
+    *,
+    model_config=None,
 ) -> Tuple[int, int]:
     """
     Load HF checkpoint online and shard to distributed model
@@ -124,6 +124,7 @@ def load_hf_checkpoint_online(
         optimizer: Optimizer
         opt_param_scheduler: Learning rate scheduler
         args: Command line arguments
+        model_config: Resolved model configuration used to construct the model
 
     Returns:
         (iteration, num_floating_point_operations_so_far)
@@ -150,7 +151,7 @@ def load_hf_checkpoint_online(
     parser = Parser(args)
 
     # Get parallel config
-    parallel_config = parser.get_parallel_config()
+    parallel_config = parser.get_parallel_config(model_config=model_config)
 
     print_rank_0(f"Model type: {parser.type}")
 
