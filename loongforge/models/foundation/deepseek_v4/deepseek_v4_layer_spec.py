@@ -1,193 +1,129 @@
 # Copyright 2026 The LoongForge Authors.
 # SPDX-License-Identifier: Apache-2.0
 
-"""DeepSeek-V4 layer spec using native Megatron Core 0.20 attention."""
+"""DeepSeek-V4 hybrid pattern and native MCore stack specification."""
 
-from typing import Optional, Tuple
+from typing import Iterable, List, Sequence, Union
 
 from omegaconf import ListConfig
 
-from megatron.core.extensions.transformer_engine_spec_provider import TESpecProvider
-from megatron.core.fusions.fused_bias_dropout import get_bias_dropout_add
-from megatron.core.models.backends import BackendSpecProvider
-from megatron.core.models.gpt.moe_module_specs import get_moe_module_spec_for_backend
-from megatron.core.models.backends import get_backend_from_config
-from megatron.core.transformer.enums import LayerType
-from megatron.core.transformer.experimental_attention_variant.deepseek_v4_hybrid_attention_module_specs import (
-    get_dsv4_hybrid_module_spec_for_backend,
+from megatron.core.models.hybrid.hybrid_layer_specs import (
+    hybrid_dsv4_stack_spec as deepseek_v4_hybrid_stack_spec,
 )
-from megatron.core.transformer.hyper_connection import HyperConnectionModule
-from megatron.core.transformer.identity_op import IdentityOp
-from megatron.core.transformer.mlp import MLP, MLPSubmodules
-from megatron.core.transformer.multi_token_prediction import (
-    MultiTokenPredictionLayer,
-    MultiTokenPredictionLayerSubmodules,
-    MultiTokenPredictionBlockSubmodules,
-    get_mtp_num_layers_to_build,
-)
-from megatron.core.transformer.spec_utils import ModuleSpec
-from megatron.core.transformer.transformer_block import (
-    TransformerBlockSubmodules,
-    get_num_layers_to_build,
-)
-from megatron.core.transformer.transformer_config import TransformerConfig
-from megatron.core.transformer.transformer_layer import (
-    HyperConnectionTransformerLayer,
-    TransformerLayer,
-    TransformerLayerSubmodules,
-    get_transformer_layer_offset,
-)
-from megatron.core.models.hybrid.hybrid_layer_specs import hybrid_stack_spec
 
 
-def _get_mlp_module_spec_for_backend(
-    backend: BackendSpecProvider,
-    num_experts: Optional[int] = None,
-    moe_grouped_gemm: bool = False,
-    use_te_activation_func: bool = False,
-) -> ModuleSpec:
-    """Build the dense or MoE MLP spec used by DeepSeek-V4."""
-    if num_experts is None:
-        return ModuleSpec(
-            module=MLP,
-            submodules=MLPSubmodules(
-                linear_fc1=backend.column_parallel_linear(),
-                linear_fc2=backend.row_parallel_linear(),
-                activation_func=backend.activation_func() if use_te_activation_func else None,
-            ),
-        )
-
-    return get_moe_module_spec_for_backend(
-        backend=backend,
-        num_experts=num_experts,
-        moe_grouped_gemm=moe_grouped_gemm,
-        use_te_activation_func=use_te_activation_func,
-    )
+_COMPRESS_RATIO_SYMBOLS = {0: "W", 4: "C", 128: "H"}
 
 
-def _get_deepseek_v4_layer_with_te_spec(
-    config: TransformerConfig,
-    backend: BackendSpecProvider,
-    num_experts: Optional[int] = None,
-    moe_grouped_gemm: bool = False,
-    use_te_activation_func: bool = False,
-) -> ModuleSpec:
-    """Build one DSv4 TransformerLayer with native MCore attention modules."""
-    mlp = _get_mlp_module_spec_for_backend(
-        backend=backend,
-        num_experts=num_experts,
-        moe_grouped_gemm=moe_grouped_gemm,
-        use_te_activation_func=use_te_activation_func,
-    )
-    hyper_connection = HyperConnectionModule if config.enable_mhc_connections else IdentityOp
-    layer_module = HyperConnectionTransformerLayer if config.enable_mhc_connections else TransformerLayer
-    attention = get_dsv4_hybrid_module_spec_for_backend(config=config, backend=backend)
-
-    return ModuleSpec(
-        module=layer_module,
-        submodules=TransformerLayerSubmodules(
-            input_layernorm=backend.layer_norm(),
-            self_attention=attention,
-            self_attn_bda=get_bias_dropout_add,
-            self_attention_hyper_connection=hyper_connection,
-            pre_mlp_layernorm=backend.layer_norm() if num_experts else IdentityOp,
-            mlp=mlp,
-            mlp_bda=get_bias_dropout_add,
-            mlp_hyper_connection=hyper_connection,
-        ),
-    )
-
-
-def _get_moe_layer_pattern(config: TransformerConfig):
-    """Return the dense/MoE pattern for decoder layers."""
-    if isinstance(config.moe_layer_freq, ListConfig):
-        config.moe_layer_freq = list(config.moe_layer_freq)
-    if isinstance(config.moe_layer_freq, int):
-        return [1 if i % config.moe_layer_freq == 0 else 0 for i in range(config.num_layers)]
-    if isinstance(config.moe_layer_freq, list):
-        if len(config.moe_layer_freq) != config.num_layers:
+def _decoder_layer_is_moe(
+    layer_id: int,
+    num_layers: int,
+    moe_layer_freq: Union[int, Sequence[int], None],
+) -> bool:
+    """Return whether a decoder layer owns a MoE FFN."""
+    if moe_layer_freq is None:
+        moe_layer_freq = 1
+    if isinstance(moe_layer_freq, (list, tuple, ListConfig)):
+        if len(moe_layer_freq) != num_layers:
             raise ValueError(
-                f"Invalid moe_layer_freq length: {len(config.moe_layer_freq)}, "
-                f"expected {config.num_layers}"
+                f"moe_layer_freq length ({len(moe_layer_freq)}) must equal "
+                f"num_layers ({num_layers})."
             )
-        return config.moe_layer_freq
-    raise ValueError(f"Invalid moe_layer_freq: {config.moe_layer_freq!r}")
-
-
-def get_deepseek_v4_decoder_block_and_mtp_spec(
-    config: TransformerConfig,
-    vp_stage: Optional[int] = None,
-) -> Tuple[TransformerBlockSubmodules, Optional[ModuleSpec]]:
-    """Return decoder and MTP block specs backed by native MCore 0.20 modules."""
-    if not config.num_moe_experts:
-        raise ValueError("DeepSeek-V4 requires MoE")
-    if not config.multi_latent_attention:
-        raise ValueError("DeepSeek-V4 requires MLA")
-    if config.experimental_attention_variant != "dsv4_hybrid":
-        raise ValueError("DeepSeek-V4 requires experimental_attention_variant='dsv4_hybrid'")
-    if config.transformer_impl != "transformer_engine":
-        raise ValueError("DeepSeek-V4 currently requires Transformer Engine")
-
-    backend = TESpecProvider()
-    dense_layer_spec = _get_deepseek_v4_layer_with_te_spec(
-        config=config,
-        backend=backend,
-        num_experts=None,
-        use_te_activation_func=config.use_te_activation_func,
-    )
-    moe_layer_spec = _get_deepseek_v4_layer_with_te_spec(
-        config=config,
-        backend=backend,
-        num_experts=config.num_moe_experts,
-        moe_grouped_gemm=config.moe_grouped_gemm,
-        use_te_activation_func=config.use_te_activation_func,
-    )
-
-    pattern = _get_moe_layer_pattern(config)
-    layer_specs = [moe_layer_spec if is_moe else dense_layer_spec for is_moe in pattern]
-    num_layers_to_build = get_num_layers_to_build(config, vp_stage=vp_stage)
-
-    if config.pipeline_model_parallel_layout is not None:
-        local_layer_specs = [
-            layer_specs[layer_id]
-            for layer_id in config.pipeline_model_parallel_layout.get_layer_id_list(
-                layer_type=LayerType.decoder,
-                vp_stage=vp_stage,
+        value = moe_layer_freq[layer_id]
+        if value not in (0, 1, False, True):
+            raise ValueError(
+                "DeepSeek-V4 hybrid patterns require binary moe_layer_freq entries."
             )
-        ]
-    else:
-        offset = get_transformer_layer_offset(config, vp_stage=vp_stage)
-        local_layer_specs = layer_specs[offset : offset + num_layers_to_build]
+        return bool(value)
+    if not isinstance(moe_layer_freq, int) or moe_layer_freq <= 0:
+        raise ValueError("moe_layer_freq must be a positive integer or a binary layer list.")
+    return layer_id % moe_layer_freq == 0
 
-    block_spec = TransformerBlockSubmodules(
-        layer_specs=local_layer_specs,
-        layer_norm=backend.layer_norm(),
-    )
 
-    mtp_block_spec = None
-    num_mtp_layers = get_mtp_num_layers_to_build(config, vp_stage=vp_stage)
-    if num_mtp_layers > 0:
-        ratio_symbol = {0: "W", 4: "C", 128: "H"}[config.csa_compress_ratios[-1]]
-        mtp_layer_pattern = ratio_symbol + "E"
-        config.mtp_layer_pattern = mtp_layer_pattern
-        config.mtp_hybrid_submodules = hybrid_stack_spec.submodules
-        backend = get_backend_from_config(config, transformer_impl="transformer_engine")
-        linear = backend.column_parallel_linear()
-        norm = backend.layer_norm(rms_norm=config.normalization == "RMSNorm")
-        mtp_layer_spec = ModuleSpec(
-            module=MultiTokenPredictionLayer,
-            submodules=MultiTokenPredictionLayerSubmodules(
-                enorm=norm,
-                hnorm=norm,
-                eh_proj=linear,
-                e_proj=linear,
-                h_proj=linear,
-                mtp_model_layer=None,
-                layer_norm=norm,
-            ),
-        )
-        mtp_block_spec = MultiTokenPredictionBlockSubmodules(
-            layer_specs=[mtp_layer_spec] * num_mtp_layers
+def _ratio_symbol(ratio: int) -> str:
+    try:
+        return _COMPRESS_RATIO_SYMBOLS[ratio]
+    except KeyError as exc:
+        raise ValueError(
+            f"Unsupported DeepSeek-V4 compress ratio {ratio}; "
+            f"expected one of {sorted(_COMPRESS_RATIO_SYMBOLS)}."
+        ) from exc
+
+
+def build_deepseek_v4_hybrid_layer_pattern(
+    csa_compress_ratios: Iterable[int],
+    num_layers: int,
+    mtp_num_layers: int = 0,
+    moe_layer_freq: Union[int, Sequence[int], None] = 1,
+) -> str:
+    """Build the unified HybridModel pattern for DeepSeek-V4.
+
+    Each logical decoder layer is represented by an attention physical layer and
+    an FFN physical layer. The final walker/select symbols become ``W``, ``C`` or
+    ``H``; MoE and dense FFNs use ``E`` and ``-`` respectively.
+    """
+    ratios: List[int] = list(csa_compress_ratios)
+    expected_length = num_layers + mtp_num_layers
+    if len(ratios) != expected_length:
+        raise ValueError(
+            f"csa_compress_ratios length ({len(ratios)}) must equal "
+            f"num_layers + mtp_num_layers ({expected_length})."
         )
 
-    return block_spec, mtp_block_spec
+    decoder_parts: List[str] = []
+    for layer_id in range(num_layers):
+        decoder_parts.append(_ratio_symbol(ratios[layer_id]))
+        decoder_parts.append(
+            "E" if _decoder_layer_is_moe(layer_id, num_layers, moe_layer_freq) else "-"
+        )
+
+    pattern = "".join(decoder_parts)
+    if mtp_num_layers <= 0:
+        return pattern
+
+    mtp_ratios = ratios[num_layers:]
+    if len(mtp_ratios) != mtp_num_layers:
+        raise ValueError("MTP compress-ratio count does not match mtp_num_layers.")
+
+    # MCore's unified MTP syntax repeats one pattern per prediction depth.
+    mtp_symbol = _ratio_symbol(mtp_ratios[0])
+    if any(_ratio_symbol(ratio) != mtp_symbol for ratio in mtp_ratios[1:]):
+        raise ValueError(
+            "MCore Hybrid MTP requires the same attention pattern at every MTP depth."
+        )
+    mtp_pattern = f"{mtp_symbol}E"
+    return pattern + "/" + "/".join([mtp_pattern] * mtp_num_layers)
+
+
+def expand_deepseek_v4_hybrid_compress_ratios(
+    pattern: str,
+    csa_compress_ratios: Iterable[int],
+) -> List[int]:
+    """Expand logical V4 attention ratios to one entry per physical Hybrid layer."""
+    ratios = iter(csa_compress_ratios)
+    expanded: List[int] = []
+    for symbol in pattern:
+        if symbol == "/":
+            continue
+        if symbol in _COMPRESS_RATIO_SYMBOLS.values():
+            try:
+                expanded.append(next(ratios))
+            except StopIteration as exc:
+                raise ValueError(
+                    "csa_compress_ratios does not cover every attention symbol "
+                    f"in hybrid pattern {pattern!r}."
+                ) from exc
+        else:
+            expanded.append(0)
+    try:
+        next(ratios)
+    except StopIteration:
+        return expanded
+    raise ValueError(
+        f"csa_compress_ratios contains unused entries for hybrid pattern {pattern!r}."
+    )
+
+
+def get_deepseek_v4_hybrid_stack_spec(config=None, vp_stage=None):
+    """Return MCore's native DeepSeek-V4 HybridStack specification."""
+    return deepseek_v4_hybrid_stack_spec
