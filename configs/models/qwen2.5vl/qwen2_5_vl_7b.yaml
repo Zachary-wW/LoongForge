@@ -10,6 +10,7 @@ defaults:
 
 model:
   model_type: qwen2_5_vl
+  model_backend: mimo
   position_idx_func: ${position_func:mrope_ids}
   loss_func: ${loss_func:default}
   mix_used_vision_encoder: true

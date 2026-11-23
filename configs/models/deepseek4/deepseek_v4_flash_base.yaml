@@ -86,7 +86,6 @@ hidden_dropout: 0
 add_bias_linear: false
 add_qkv_bias: false
 qk_layernorm: true
-dsv4_legacy_numeric_parity: true
 
 # ── Vocab / Embedding ──────────────────────────────────────────
 untie_embeddings_and_output_weights: true
