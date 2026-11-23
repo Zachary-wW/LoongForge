@@ -1,4 +1,4 @@
 [submodule "third_party/Loong-Megatron"]
 	path = third_party/Loong-Megatron
 	url = https://github.com/Zachary-wW/Loong-Megatron.git
-	branch = upgrade/mcore-v020-full
+	branch = review/lm-verified
