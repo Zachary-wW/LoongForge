@@ -17,13 +17,13 @@ from .constants import TrainingPhase
 
 
 if TYPE_CHECKING:
-    from megatron.core.datasets.megatron_tokenizer import MegatronLegacyTokenizer
+    from megatron.core.tokenizers.base_tokenizer import MegatronTokenizerBase
 
     from loongforge.data import ChatTemplate
 
 
 _GLOBAL_CHAT_TEMPLATE: Optional["ChatTemplate"] = None
-_GLOBAL_LOONGFORGE_TOKENIZER: Optional["MegatronLegacyTokenizer"] = None
+_GLOBAL_LOONGFORGE_TOKENIZER: Optional["MegatronTokenizerBase"] = None
 _GLOBAL_MODEL_CONFIG = None
 _GLOBAL_HYDRA_CONFIG = None
 _GLOBAL_DATA_CONFIG = None
@@ -117,7 +117,7 @@ def _build_chat_template(args) -> Optional["ChatTemplate"]:
     return None
 
 
-def _build_tokenizer(args) -> Optional["MegatronLegacyTokenizer"]:
+def _build_tokenizer(args) -> Optional["MegatronTokenizerBase"]:
     """Initialize tokenizer."""
     global _GLOBAL_LOONGFORGE_TOKENIZER
     _ensure_var_is_not_initialized(_GLOBAL_LOONGFORGE_TOKENIZER, "loongforge-tokenizer")
@@ -125,7 +125,7 @@ def _build_tokenizer(args) -> Optional["MegatronLegacyTokenizer"]:
     return _GLOBAL_LOONGFORGE_TOKENIZER
 
 
-def get_tokenizer() -> Optional["MegatronLegacyTokenizer"]:
+def get_tokenizer() -> Optional["MegatronTokenizerBase"]:
     """Return tokenizer."""
     _ensure_var_is_initialized(_GLOBAL_LOONGFORGE_TOKENIZER, "loongforge-tokenizer")
     return _GLOBAL_LOONGFORGE_TOKENIZER

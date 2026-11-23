@@ -14,7 +14,11 @@ from megatron.training import get_timers
 from typing import List, Optional
 from megatron.core import mpu
 from megatron.core.enums import ModelType
-from megatron.core.utils import StragglerDetector
+from megatron.core.utils import (
+    StragglerDetector,
+    get_batch_on_this_cp_rank,
+    get_batch_on_this_tp_rank,
+)
 
 from megatron.core.datasets.blended_megatron_dataset_builder import (
     BlendedMegatronDatasetBuilder,
@@ -28,10 +32,7 @@ from megatron.core.datasets.gpt_dataset import (
 from megatron.core.rerun_state_machine import get_rerun_state_machine
 
 from megatron.training.utils import (
-    get_batch_on_this_cp_rank,
-    get_batch_on_this_tp_rank,
     is_first_or_last_pipeline_stage,
-    get_next_batch_on_this_tp_rank,
 )
 from megatron.core.utils import get_attr_wrapped_model
 from megatron.core import parallel_state
@@ -49,24 +50,89 @@ from loongforge.utils.global_vars import get_model_config
 
 stimer = StragglerDetector()
 
+_BATCH_KEYS = (
+    "tokens",
+    "labels",
+    "loss_mask",
+    "position_ids",
+    "attention_mask",
+    "cu_seqlens",
+    "cu_seqlens_padded",
+    "max_seqlen",
+    "local_cp_size",
+    "hybrid_cp_group",
+)
+
+
+def _mtp_on_this_rank(config, vp_stage=None):
+    """Return whether MTP is built on this rank using the 0.20 explicit config API."""
+    return mtp_on_this_rank(
+        layout=config.pipeline_model_parallel_layout,
+        mtp_num_layers=config.mtp_num_layers,
+        ignore_virtual=False,
+        vp_stage=vp_stage,
+    )
+
 
 def get_batch(data_iterator, vp_stage: Optional[int] = None):
     """Generate a batch."""
-    # TODO: this is pretty hacky, find a better way
-    if not is_first_or_last_pipeline_stage(vp_stage) and (
-    (not mtp_on_this_rank(config=get_model_config(), ignore_virtual=False, vp_stage=vp_stage))):
+    args = get_args()
+    config = get_model_config()
+    has_cu_seqlens = getattr(args, "dataloader_inter_document_masking", False)
+    is_hybrid_cp = getattr(args, "hybrid_context_parallel", False)
+    mtp_on_rank = _mtp_on_this_rank(config, vp_stage)
+
+    if (
+        not is_first_or_last_pipeline_stage(vp_stage)
+        and not mtp_on_rank
+        and not has_cu_seqlens
+    ):
         return None, None, None, None, None
 
-    # get batches based on the TP rank you are on
+    batch = {}
+    tp_rank = parallel_state.get_tensor_model_parallel_rank()
+    if tp_rank == 0:
+        batch = next(data_iterator)
+        for key in _BATCH_KEYS:
+            value = batch.get(key)
+            if value is not None:
+                batch[key] = value.cuda(non_blocking=True)
+
     batch = get_batch_on_this_tp_rank(
-        data_iterator,
-        mtp_on_this_rank=mtp_on_this_rank(config=get_model_config(), ignore_virtual=False, vp_stage=vp_stage)
+        batch,
+        has_cu_seqlens=has_cu_seqlens,
+        is_hybrid_cp=is_hybrid_cp,
+        create_attention_mask_in_dataloader=args.create_attention_mask_in_dataloader,
+        broadcast_src_rank=parallel_state.get_tensor_model_parallel_src_rank(),
+        broadcast_group=parallel_state.get_tensor_model_parallel_group(),
+        cp_size=args.context_parallel_size,
+        tp_rank=tp_rank,
+        micro_batch_size=args.micro_batch_size,
+        seq_length=args.seq_length,
+        mtp_on_this_rank=mtp_on_rank,
+        pipeline_model_parallel_size=args.pipeline_model_parallel_size,
+        is_pipeline_first_stage=parallel_state.is_pipeline_first_stage(),
+        is_pipeline_last_stage=parallel_state.is_pipeline_last_stage(),
+    )
+
+    if args.context_parallel_size > 1:
+        batch = get_batch_on_this_cp_rank(
+            batch,
+            is_hybrid_cp=is_hybrid_cp,
+            cp_group=parallel_state.get_context_parallel_group(),
+            use_per_sequence_balancing=(
+                getattr(args, "dataloader_inter_document_masking", False)
+                and not args.training_phase == "sft"
+            ),
         )
 
-    # slice batch along sequence dimension for context parallelism
-    batch = get_batch_on_this_cp_rank(batch)
-
-    return batch.values()
+    return (
+        batch.get("tokens"),
+        batch.get("labels"),
+        batch.get("loss_mask"),
+        batch.get("attention_mask"),
+        batch.get("position_ids"),
+    )
 
 
 # define spiky loss as a loss that's 10x the max loss observed
@@ -154,7 +220,10 @@ def forward_step(data_iterator, model, return_schedule_plan: bool = False):
 
     next_batch = None
     if args.enable_chunkpipe and args.mtp_num_layers and args.mtp_num_layers > 0 and mpu.is_pipeline_last_stage():
-        next_batch = get_next_batch_on_this_tp_rank(data_iterator)
+        raise NotImplementedError(
+            "ChunkPipe still uses the pre-0.20 next-batch API; "
+            "it is not supported by the DeepSeek-V2-Lite baseline path."
+        )
 
     extra_block_kwargs = None
     if next_batch is not None:
@@ -190,7 +259,7 @@ def train_valid_test_datasets_provider(train_val_test_num_samples, vp_stage=None
     def _is_dataset_built_on_rank(vp_stage=None):
         return (
             is_first_or_last_pipeline_stage(vp_stage)
-            or mtp_on_this_rank(config=get_model_config(), ignore_virtual=False, vp_stage=vp_stage)
+            or _mtp_on_this_rank(get_model_config(), vp_stage)
         ) and parallel_state.get_tensor_model_parallel_rank() == 0
 
 

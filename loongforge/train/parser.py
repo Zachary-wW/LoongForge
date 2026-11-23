@@ -101,6 +101,29 @@ def parse_megatron_arguments(extra_args_provider=None, parse_unknown_args=False)
     if args.world_size == -1:
         args.world_size = int(os.getenv("WORLD_SIZE", "1"))
 
+    # MCore 0.20 removed several legacy-only attributes. Keep LoongForge's
+    # checks deterministic while leaving every actual feature disabled unless
+    # its explicit CLI/config option is present.
+    compatibility_defaults = {
+        "async_tensor_model_parallel_allreduce": True,
+        "chunk_num_per_seq": 0,
+        "chunksize": 0,
+        "custom_pipeline_recompute_layers": None,
+        "enable_chunkpipe": False,
+        "force_turn_on_bucketing": False,
+        "padding_v_to_qk_dim": False,
+        "preprocess_data_on_cpu": False,
+        "retro_add_retriever": False,
+        "retro_cyclic_train_iters": None,
+        "retro_project_dir": None,
+        "use_custom_fsdp": False,
+        "use_fp32_dtype_for_param_pattern": None,
+        "use_legacy_models": False,
+    }
+    for key, value in compatibility_defaults.items():
+        if not hasattr(args, key):
+            setattr(args, key, value)
+
     return args, hydra_overrides
 
 
