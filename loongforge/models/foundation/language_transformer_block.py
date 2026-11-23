@@ -20,6 +20,9 @@ from megatron.core.fp8_utils import get_fp8_context
 from megatron.core.fusions.fused_layer_norm import FusedLayerNorm
 from megatron.core.inference.contexts import BaseInferenceContext
 from megatron.core.packed_seq_params import PackedSeqParams
+from megatron.core.pipeline_parallel.fine_grained_activation_offload import (
+    fine_grained_offloading_set_last_layer,
+)
 from megatron.core.transformer.hyper_connection import HyperConnectionModule
 from megatron.core.utils import (
     WrappedTensor,
@@ -72,7 +75,6 @@ class TransformerBlock(MegatronTransformerBlock):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._recompute_num_layers = self.config.recompute_num_layers
 
     def forward(
         self,
@@ -147,6 +149,7 @@ class TransformerBlock(MegatronTransformerBlock):
                 **kwargs,
             )
 
+        kwargs = self._prepare_index_share_kwargs(kwargs)
         inference_context = deprecate_inference_params(inference_context, inference_params)
         # Remove 'dynamic_inference_decode_only' from kwargs if present
         # this is only used to uniquely identify decode and non-decode cuda graph
@@ -260,6 +263,11 @@ class TransformerBlock(MegatronTransformerBlock):
                             inner_quantization_context = nullcontext()
                     else:
                         inner_quantization_context = nullcontext()
+
+                    if self.config.fine_grained_activation_offloading:
+                        fine_grained_offloading_set_last_layer(
+                            l_no == self.num_layers_per_pipeline_rank - 1
+                        )
 
                     with self.offload_context, inner_quantization_context:
                         if isinstance(packed_seq_params, list) and len(packed_seq_params) > 0:
