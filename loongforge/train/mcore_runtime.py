@@ -146,7 +146,9 @@ def normalize_training_args(train_args):
     """Map LoongForge training-phase semantics onto MCore flags."""
     if getattr(train_args, "training_phase", None) == constants.TrainingPhase.SFT:
         train_args.sft = True
-        if not getattr(train_args, "enable_chunkpipe", False):
+        if getattr(train_args, "enable_chunkpipe", False):
+            train_args.sft_chunkpipe_mode = True
+        else:
             # MCore sets sft_chunkpipe_mode=True whenever --sft is present;
             # non-ChunkPipe SFT must not take the ChunkPipe model branches.
             train_args.sft_chunkpipe_mode = False
@@ -160,6 +162,60 @@ def normalize_training_args(train_args):
         else:
             train_args.variable_seq_lengths = False
     return train_args
+
+
+def _sync_chunkpipe_model_config(model_config, enabled):
+    """Keep MCore and LoongForge model views of the ChunkPipe mode aligned."""
+    for target in (
+        model_config,
+        getattr(model_config, "foundation", None),
+        getattr(model_config, "image_encoder", None),
+    ):
+        if target is not None and hasattr(target, "sft_chunkpipe_mode"):
+            target.sft_chunkpipe_mode = enabled
+
+
+def _validate_chunkpipe_entrypoint(train_args, model_config, *, allow_chunkpipe):
+    """Fail fast unless this is the supported LLM-SFT ChunkPipe entrypoint."""
+    if not getattr(train_args, "enable_chunkpipe", False):
+        return
+    if not allow_chunkpipe:
+        raise NotImplementedError(
+            "ChunkPipe is currently supported only by the LLM SFT trainer. "
+            "Pretrain, VLM, InternVL, Ernie, MiMo and Omni entrypoints stay disabled."
+        )
+    if getattr(train_args, "training_phase", None) != constants.TrainingPhase.SFT:
+        raise NotImplementedError("ChunkPipe is currently supported only for SFT.")
+    if _is_vlm_config(model_config) or getattr(model_config, "model_backend", None) in (
+        "mimo",
+        "omni",
+    ):
+        raise NotImplementedError("ChunkPipe is currently supported only for LLM SFT.")
+    if getattr(train_args, "rerun_mode", None) != "disabled":
+        raise NotImplementedError(
+            "SFT ChunkPipe requires --rerun-mode disabled until sampler metadata "
+            "is replayed from the batch itself."
+        )
+    if getattr(train_args, "eval_iters", 0):
+        raise NotImplementedError(
+            "SFT ChunkPipe currently requires eval_iters=0; validation loss reduction "
+            "for the per-sample path is not yet migrated."
+        )
+    if getattr(train_args, "calculate_per_token_loss", False):
+        raise NotImplementedError(
+            "SFT ChunkPipe currently supports the per-sample loss path only; "
+            "disable --calculate-per-token-loss."
+        )
+    if getattr(train_args, "tensor_model_parallel_size", 1) != 1:
+        raise NotImplementedError(
+            "SFT ChunkPipe currently requires tensor_model_parallel_size=1; "
+            "multi-TP metadata queue ownership is not yet validated."
+        )
+    if getattr(train_args, "num_virtual_stages_per_pipeline_rank", 1) not in (None, 1):
+        raise NotImplementedError(
+            "SFT ChunkPipe currently requires virtual pipeline size 1; "
+            "multi-VPP metadata queue ownership is not yet validated."
+        )
 
 
 def _sft_uses_variable_seq_lengths(train_args):
@@ -244,10 +300,14 @@ def pretrain_with_mcore(
     process_non_loss_data_func=None,
     get_embedding_ranks=None,
     get_position_embedding_ranks=None,
+    allow_chunkpipe=False,
 ):
-    parse_args_from_config(train_args)
     normalize_training_args(train_args)
+    parse_args_from_config(train_args)
     model_config = get_model_config()
+    _validate_chunkpipe_entrypoint(
+        train_args, model_config, allow_chunkpipe=allow_chunkpipe
+    )
     from megatron.core.optimizer.clip_grads import set_legacy_scalar_grad_norm
 
     set_legacy_scalar_grad_norm(
@@ -258,21 +318,14 @@ def pretrain_with_mcore(
         for target in (model_config, getattr(model_config, "foundation", None)):
             if target is not None and hasattr(target, "variable_seq_lengths"):
                 target.variable_seq_lengths = True
-    if (
-        getattr(train_args, "training_phase", None) == constants.TrainingPhase.SFT
-        and not getattr(train_args, "enable_chunkpipe", False)
-    ):
-        # The parser materializes this flag into TransformerConfig before the
-        # LoongForge adapter runs; keep the model and CLI views consistent.
-        if hasattr(model_config, "sft_chunkpipe_mode"):
-            model_config.sft_chunkpipe_mode = False
-        elif hasattr(model_config, "foundation"):
-            model_config.foundation.sft_chunkpipe_mode = False
+    if getattr(train_args, "training_phase", None) == constants.TrainingPhase.SFT:
+        # The parser materializes the SFT mode into TransformerConfig before
+        # the LoongForge adapter runs; keep the model and CLI views consistent.
+        _sync_chunkpipe_model_config(
+            model_config, getattr(train_args, "enable_chunkpipe", False)
+        )
     if train_args.enable_ema or getattr(model_config, "peft_config", None) is not None:
         raise NotImplementedError("This MCore runtime adapter does not yet support EMA or PEFT")
-    if train_args.enable_chunkpipe:
-        raise NotImplementedError("This MCore runtime adapter does not yet support ChunkPipe")
-
     callbacks = CallbackManager()
     if _requires_variable_seq_lengths(train_args, model_config):
         callbacks.register(
@@ -322,8 +375,9 @@ def pretrain_with_mcore(
         # initialize_megatron consumes the global args object; keep the
         # training-loop flags on that exact object after service setup.
         runtime_global_args.sft = True
-        if not getattr(runtime_global_args, "enable_chunkpipe", False):
-            runtime_global_args.sft_chunkpipe_mode = False
+        runtime_global_args.sft_chunkpipe_mode = getattr(
+            runtime_global_args, "enable_chunkpipe", False
+        )
         runtime_global_args.sft_loss_log_mode = "microbatch"
         if _sft_uses_variable_seq_lengths(runtime_global_args):
             runtime_global_args.variable_seq_lengths = True

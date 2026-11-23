@@ -937,7 +937,6 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                     "runtime_gather_output": runtime_gather_output,
                 },
             )
-
         return loss
 
     def shared_embedding_or_output_weight(self) -> Tensor:
