@@ -1,0 +1,99 @@
+model_name: deepseek_v4_flash_lite_4l
+description: $model_name
+TOTAL_K8S_NODES: 1
+bos_path: bos:/dongximiao/DeepSeek-V4-Flash-Base/
+huggingface_path: ""
+
+MODEL_RUNNABLE: True
+
+# Direct HF loading. No Step1 checkpoint conversion.
+HF_CKPT_PATH: $pfs_path/huggingface.co/deepseek-ai/DeepSeek-V4-Flash-Base-lite-lay4L-mtp1
+DATA_PATH: $pfs_path/omni_datasets/LoongForge/deepseek_v4/pile_test/pile-deepseek_text_document
+TOKENIZER_PATH: $pfs_path/huggingface.co/deepseek-ai/DeepSeek-V4-Flash-Base-lite-lay4L-mtp1
+CHECKPOINT_PATH: $step1_output_path
+TENSORBOARD_PATH: $training_log_path/tensorboard/$model_name.log
+MODEL_CONFIG_PATH: $LOONGFORGE_PATH/configs/models/deepseek4/deepseek_v4_flash_lite_4l.yaml
+MODEL_CONFIG_ARGS: 'apply_rope_fusion=false'
+
+TENSOR_MODEL_PARALLER_SIZE: 1
+PIPELINE_MODEL_PARALLER_SIZE: 1
+EXPERT_MODEL_PARALLEL_SIZE: 8
+EXPERT_TENSOR_PARALLEL_SIZE: 1
+log_interval: 1
+global_batch_size: 8
+precision: bf16
+
+scenarios:
+  - function:
+      pretrain:
+        Step1:
+          RUNNABLE_FLAG: False
+        Step2:
+          MODEL_ARGS: '
+            --model-name deepseek-v4-flash-lite-4l
+            --multi-latent-attention
+            --rotary-base 10000
+            --original-max-position-embeddings 65536
+            --norm-epsilon 1e-6
+            --rotary-scaling-factor 16
+            --qk-layernorm'
+          DATA_ARGS: '
+            --tokenizer-type HFTokenizer
+            --hf-tokenizer-path $TOKENIZER_PATH
+            --data-path $DATA_PATH
+            --data-cache-path $dataset_cache_path
+            --split 99990,8,2
+            --no-create-attention-mask-in-dataloader'
+          TRAINING_ARGS: '
+            --training-phase pretrain
+            --seq-length 512
+            --max-position-embeddings 512
+            --init-method-std 0.02
+            --no-masked-softmax-fusion
+            --micro-batch-size 1
+            --global-batch-size ${global_batch_size}
+            --lr 1e-6
+            --train-iters ${train_iters}
+            --load ${HF_CKPT_PATH}
+            --lr-decay-iters 5000
+            --lr-decay-style cosine
+            --min-lr 1.0e-7
+            --weight-decay 0.1
+            --lr-warmup-iters 1
+            --clip-grad 1.0
+            --bf16
+            --eval-interval 1000
+            --eval-iters 0
+            --no-load-optim
+            --no-load-rng
+            --enable-experimental
+            --deterministic-mode
+            --log-memory-stats
+            --dsa-kernel-backend torch_ref
+            --no-gradient-accumulation-fusion
+            --recompute-granularity selective
+            --recompute-modules mlp'
+          MOE_ARGS: '
+            --moe-router-load-balancing-type seq_aux_loss
+            --moe-router-topk 6
+            --moe-aux-loss-coeff 1e-3
+            --moe-grouped-gemm
+            --moe-router-enable-expert-bias
+            --moe-router-bias-update-rate 0.001
+            --moe-router-score-function sqrtsoftplus
+            --moe-router-topk-scaling-factor 1.5
+            --moe-router-dtype fp32'
+          MODEL_PARALLEL_ARGS: '
+            --tensor-model-parallel-size ${TENSOR_MODEL_PARALLER_SIZE}
+            --pipeline-model-parallel-size ${PIPELINE_MODEL_PARALLER_SIZE}
+            --expert-model-parallel-size ${EXPERT_MODEL_PARALLEL_SIZE}
+            --expert-tensor-parallel-size ${EXPERT_TENSOR_PARALLEL_SIZE}
+            --sequence-parallel
+            --moe-token-dispatcher-type alltoall
+            --use-distributed-optimizer'
+          LOGGING_ARGS: '
+            --log-interval ${log_interval}
+            --tensorboard-dir $TENSORBOARD_PATH
+            --log-timers-to-tensorboard'
+tasks:
+  check_correctness_task: True
