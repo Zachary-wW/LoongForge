@@ -154,6 +154,16 @@ def pretrain_with_mcore(
     parse_args_from_config(train_args)
     normalize_training_args(train_args)
     model_config = get_model_config()
+    if (
+        getattr(train_args, "training_phase", None) == constants.TrainingPhase.SFT
+        and not getattr(train_args, "enable_chunkpipe", False)
+    ):
+        # The parser materializes this flag into TransformerConfig before the
+        # LoongForge adapter runs; keep the model and CLI views consistent.
+        if hasattr(model_config, "sft_chunkpipe_mode"):
+            model_config.sft_chunkpipe_mode = False
+        elif hasattr(model_config, "foundation"):
+            model_config.foundation.sft_chunkpipe_mode = False
     if train_args.enable_ema or getattr(model_config, "peft_config", None) is not None:
         raise NotImplementedError("This MCore runtime adapter does not yet support EMA or PEFT")
     if train_args.enable_chunkpipe:
