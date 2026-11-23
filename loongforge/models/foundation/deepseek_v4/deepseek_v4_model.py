@@ -32,13 +32,15 @@ def _load_state_dict_hook_ignore_extra_state(module, incompatible_keys):
     """
     keys_to_remove = [
         key
-        for key in incompatible_keys.missing_keys
+        for key in (*incompatible_keys.missing_keys, *incompatible_keys.unexpected_keys)
         if "._extra_state" in key
     ]
 
     for key in keys_to_remove:
         if key in incompatible_keys.missing_keys:
             incompatible_keys.missing_keys.remove(key)
+        if key in incompatible_keys.unexpected_keys:
+            incompatible_keys.unexpected_keys.remove(key)
 
 
 class DeepseekV4Model(BaseGPTModel):

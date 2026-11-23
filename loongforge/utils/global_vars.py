@@ -11,8 +11,6 @@ from megatron.training.global_vars import (
     _ensure_var_is_not_initialized,
 )
 
-from loongforge.tokenizer import build_tokenizer
-
 from .constants import TrainingPhase
 
 
@@ -119,6 +117,12 @@ def _build_chat_template(args) -> Optional["ChatTemplate"]:
 
 def _build_tokenizer(args) -> Optional["MegatronTokenizerBase"]:
     """Initialize tokenizer."""
+    # Keep this import lazy: loongforge.tokenizer imports utilities from
+    # loongforge.utils, so importing it while this module is being initialized
+    # leaves either package partially initialized and breaks preprocessing
+    # entry points that import the tokenizer first.
+    from loongforge.tokenizer import build_tokenizer
+
     global _GLOBAL_LOONGFORGE_TOKENIZER
     _ensure_var_is_not_initialized(_GLOBAL_LOONGFORGE_TOKENIZER, "loongforge-tokenizer")
     _GLOBAL_LOONGFORGE_TOKENIZER = build_tokenizer(args, chat_template=_GLOBAL_CHAT_TEMPLATE)

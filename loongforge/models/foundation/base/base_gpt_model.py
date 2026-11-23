@@ -35,6 +35,7 @@ from megatron.core.transformer.multi_token_prediction import (
     MTPLossAutoScaler,
     MTPLossLoggingHelper,
     MultiTokenPredictionBlock,
+    _compute_mtp_acceptance_counts,
     roll_tensor,
     tie_word_embeddings_state_dict,
 )
@@ -240,11 +241,20 @@ class BaseGPTModel(BaseMegatronLanguageModule):
         )
 
         if self.mtp_process:
+            mtp_hybrid_kwargs = {}
+            if getattr(self.config, "mtp_layer_pattern", None) is not None:
+                mtp_hybrid_kwargs = {
+                    "mtp_layer_pattern": self.config.mtp_layer_pattern,
+                    "hybrid_submodules": getattr(
+                        self.config, "mtp_hybrid_submodules", None
+                    ),
+                }
             self.mtp = MultiTokenPredictionBlock(
                 config=self.config,
                 spec=self.mtp_block_spec,
                 vp_stage=vp_stage,
                 pg_collection=self.pg_collection,
+                **mtp_hybrid_kwargs,
             )
 
         # Output
@@ -723,19 +733,17 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                         self.config.chunk_sizes[self.config.chunkpipe_chunk_idx_in_group]
                         if self.config.enable_chunkpipe else None
                     )
-                    # Compute mtp loss without storing logits to save memory.
-                    mtp_loss = self.compute_output_layer_and_language_model_loss(
+                    mtp_logits, _ = self.output_layer(
                         hidden_states_list[mtp_layer_number + 1],
-                        labels=mtp_labels[:, :cur_chunk_len] if self.config.enable_chunkpipe else mtp_labels,
-                        weight=self.shared_embedding_or_output_weight()
-                        if self.share_embeddings_and_output_weights else self.output_layer.weight,
-                        sequence_parallel_enabled=self.output_layer.sequence_parallel,
-                        column_parallel_linear=self.output_layer,
-                        col_linear_kwargs={
-                            'weight': output_weight,
-                            'runtime_gather_output': runtime_gather_output,
-                        },
-                    )       
+                        weight=output_weight,
+                        runtime_gather_output=runtime_gather_output,
+                    )
+                    mtp_loss = self.compute_language_model_loss(
+                        mtp_labels[:, :cur_chunk_len]
+                        if self.config.enable_chunkpipe
+                        else mtp_labels,
+                        mtp_logits,
+                    )
                     
                     if self.config.enable_chunkpipe:
                         # Apply loss mask only within the current chunk range.
@@ -790,17 +798,30 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                                 dp_size * get_num_microbatches() / step_num_groups
                             )
 
-                        MTPLossLoggingHelper.save_loss_to_tracker(
+                        correct, total = _compute_mtp_acceptance_counts(
+                            mtp_logits,
+                            mtp_labels,
+                            loss_mask,
+                            tp_group=self.pg_collection.tp,
+                        )
+                        MTPLossLoggingHelper.save_metrics_to_tracker(
                             mtp_log_loss,
-                            mtp_layer_number,
-                            self.config.mtp_num_layers,
+                            correct,
+                            total,
+                            layer_number=mtp_layer_number,
+                            num_layers=self.config.mtp_num_layers,
                             avg_group=parallel_state.get_data_parallel_group(
                                 with_context_parallel=True
                             ),
                         )
                     mtp_loss_scaling_factor = (
                         self.config.mtp_loss_scaling_factor
-                        * self.config.mtp_loss_scaling_factor_decay_ratio ** mtp_layer_number
+                        * getattr(
+                            self.config,
+                            "mtp_loss_scaling_factor_decay_ratio",
+                            1.0,
+                        )
+                        ** mtp_layer_number
                     )
                     mtp_loss_scale = mtp_loss_scaling_factor / self.config.mtp_num_layers
                     if self.config.calculate_per_token_loss:
