@@ -9,6 +9,7 @@ import pytest
 import torch
 
 from loongforge.models.foundation.kimi_k3.kimi_k3_ops import (
+    RMSNorm,
     SiTUAndMul,
     situ_and_mul,
 )
@@ -55,6 +56,13 @@ def test_situ_matches_closed_form():
         expected,
     )
     torch.testing.assert_close(SiTUAndMul(config)(inputs), expected)
+
+
+def test_local_rmsnorm_preserves_legacy_math():
+    norm = RMSNorm(8, eps=1e-5)
+    inputs = torch.randn(2, 3, 8)
+    expected = inputs * torch.rsqrt(inputs.float().pow(2).mean(-1, keepdim=True) + norm.eps)
+    torch.testing.assert_close(norm(inputs), expected, rtol=1e-5, atol=1e-6)
 
 
 def test_stage_boundary_pack_unpack_and_bank_schedule():

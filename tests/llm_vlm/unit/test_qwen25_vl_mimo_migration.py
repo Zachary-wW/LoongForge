@@ -16,6 +16,10 @@ from loongforge.models.mimo_models.qwen25_vl import (
 from loongforge.models.mimo_models.mimo_vlm_provider import (
     validate_mimo_vlm_feature_flags,
 )
+from loongforge.models.encoder.qwen2_vl_vision_models.qwen2_vl_layer_spec import (
+    apply_rotary_pos_emb_vision,
+    get_qwen2_vl_vision_model_layer_with_te_spec,
+)
 
 
 class _Config:
@@ -51,13 +55,22 @@ def test_native_mimo_state_dict_is_unchanged():
     assert remap_legacy_omni_state_dict(native) is native
 
 
-def test_qwen2_vl_legacy_rope_marker_maps_to_native_mrope():
+def test_qwen2_vl_legacy_rope_marker_stays_on_legacy_path():
     config = _Config()
     config.rotary_emb_func = "Qwen2VLRotaryEmbedding"
 
-    assert use_native_mrope_for_qwen2_vl(config)
-    assert config.position_embedding_type == "mrope"
-    assert config.mrope_section == [16, 24, 24]
+    assert not use_native_mrope_for_qwen2_vl(config)
+    assert config.position_embedding_type == "rope"
+    assert config.mrope_section is None
+
+
+def test_qwen2_vl_vision_layers_keep_the_vision_rope_adapter():
+    spec = get_qwen2_vl_vision_model_layer_with_te_spec(_Config())
+
+    assert (
+        spec.submodules.self_attention.submodules.apply_rotary_fn
+        is apply_rotary_pos_emb_vision
+    )
 
 
 def test_non_qwen2_vl_rope_is_unchanged():

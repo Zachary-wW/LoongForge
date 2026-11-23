@@ -38,12 +38,41 @@ def validate_megatron_args(args):
     """Validate Megatron arguments"""
     _align_wan_packing_seq_length(args)
     _validate_legacy_pipeline_args(args)
+    _prepare_sft_chunkpipe_validation(args)
     validate_args(args)
+
+
+def _prepare_sft_chunkpipe_validation(args):
+    """Mirror LoongForge's SFT phase before MCore derives ChunkPipe flags."""
+    if (
+        getattr(args, "training_phase", None) == constants.TrainingPhase.SFT
+        and getattr(args, "enable_chunkpipe", False)
+    ):
+        # MCore derives sft_chunkpipe_mode from args.sft inside
+        # validate_args(). Set the phase flag first so the SFT-specific
+        # ChunkPipe derivations and validations run on the first pass.
+        args.sft = True
 
 
 def validate_custom_model_args(name, args):
     """Validate non foundational model arguments"""
     _validate_custom_model_args(name, args)
+
+
+def _drop_custom_pipeline_recompute_layers(name, args):
+    """Keep the foundation pipeline recompute option out of submodels.
+
+    ``--custom-pipeline-recompute-layers`` is a foundation-model pipeline
+    setting. The legacy argument parser copies global arguments into every
+    VLM component, so passing it to an image encoder after forcing that
+    encoder's pipeline size to one makes MCore 0.20 reject the config.
+    """
+    if args.custom_pipeline_recompute_layers is not None:
+        warnings.warn(
+            f"WARNING: Now for {name}, custom_pipeline_recompute_layers is "
+            "only supported for the foundation model; ignoring it."
+        )
+        args.custom_pipeline_recompute_layers = None
 
 
 def _get_wan_packing_cp_alignment(cp_size):
@@ -568,6 +597,7 @@ def _check_arg_is_not_none(args, arg):
 # Adapted from megatron/training/arguments.py
 def _validate_custom_model_args(name, args, defaults={}):
     """Validate non foundational model arguments"""
+    _drop_custom_pipeline_recompute_layers(name, args)
     if args.custom_pipeline_recompute_layers is not None:
         assert args.recompute_granularity == "full", \
             "recompute-granularity should be full, when custom-pipeline-recompute-layers is set."
