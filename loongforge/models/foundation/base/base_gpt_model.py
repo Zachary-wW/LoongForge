@@ -23,6 +23,9 @@ from megatron.core.models.common.embeddings.rotary_pos_embedding import (
     MultimodalRotaryEmbedding,
     RotaryEmbedding,
 )
+from megatron.core.pipeline_parallel.fine_grained_activation_offload import (
+    FineGrainedActivationOffloadingInterface as off_interface,
+)
 from megatron.core.packed_seq_params import PackedSeqParams
 from megatron.core.process_groups_config import ProcessGroupCollection
 from megatron.core.quantization.utils import get_quant_config_or_none
@@ -458,10 +461,25 @@ class BaseGPTModel(BaseMegatronLanguageModule):
 
     def preprocess_for_fine_grained_offloading(self):
         """Preprocess for fine-grained activation offloading."""
-        raise NotImplementedError(
-            "Fine-grained activation offloading must be migrated to "
-            "FineGrainedActivationOffloadingInterface before it can be enabled"
+        off_interface.init_chunk_handler(
+            pp_rank=self.pg_collection.pp.rank(),
+            vp_size=self.config.virtual_pipeline_model_parallel_size,
+            vp_stage=self.vp_stage,
+            min_offloaded_tensor_size=self.config.min_offloaded_tensor_size,
+            delta_offload_bytes_across_pp_ranks=self.config.delta_offload_bytes_across_pp_ranks,
+            activation_offload_fraction=self.config.activation_offload_fraction,
+            max_inflight_offloads=self.config.fine_grained_offloading_max_inflight_offloads,
         )
+        if self.disable_param_offloading:
+            for param in self.decoder.parameters():
+                off_interface.mark_not_offload(param)
+            if self.mtp_process:
+                for param in self.mtp.parameters():
+                    off_interface.mark_not_offload(param)
+            if self.post_process:
+                for param in self.output_layer.parameters():
+                    off_interface.mark_not_offload(param)
+            self.disable_param_offloading = False
 
     def forward(
         self,
@@ -862,17 +880,42 @@ class BaseGPTModel(BaseMegatronLanguageModule):
             # [s b h] => [b s h]
             return logits.transpose(0, 1).contiguous()
         
-        if getattr(self.config, 'enable_chunkpipe', False):
-            raise NotImplementedError(
-                "ChunkPipe fused output/loss needs the 0.20 chunk scheduler migration"
-            )
+        if getattr(self.config, "enable_chunkpipe", False):
+            def _compute_output_layer_and_loss(hidden_states_, labels_):
+                return self.compute_output_layer_and_language_model_loss(
+                    hidden_states_,
+                    labels=labels_,
+                    weight=self.shared_embedding_or_output_weight()
+                    if self.share_embeddings_and_output_weights
+                    else self.output_layer.weight,
+                    sequence_parallel_enabled=self.output_layer.sequence_parallel,
+                    column_parallel_linear=self.output_layer,
+                    col_linear_kwargs={
+                        "weight": output_weight,
+                        "runtime_gather_output": runtime_gather_output,
+                    },
+                )
 
-        logits, _ = self.output_layer(
-            hidden_states,
-            weight=output_weight,
-            runtime_gather_output=runtime_gather_output,
-        )
-        loss = self.compute_language_model_loss(labels, logits)
+            loss = tensor_parallel.checkpoint(
+                _compute_output_layer_and_loss,
+                self.config.distribute_saved_activations,
+                hidden_states,
+                labels,
+            )
+        else:
+            loss = self.compute_output_layer_and_language_model_loss(
+                hidden_states,
+                labels=labels,
+                weight=self.shared_embedding_or_output_weight()
+                if self.share_embeddings_and_output_weights
+                else self.output_layer.weight,
+                sequence_parallel_enabled=self.output_layer.sequence_parallel,
+                column_parallel_linear=self.output_layer,
+                col_linear_kwargs={
+                    "weight": output_weight,
+                    "runtime_gather_output": runtime_gather_output,
+                },
+            )
 
         return loss
 

@@ -73,21 +73,6 @@ class TransformerBlock(MegatronTransformerBlock):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._recompute_num_layers = self.config.recompute_num_layers
-        # Replace parent's inline hc_head params with a HyperHead module.
-        # Remove duplicate parameters created by parent __init__ to avoid
-        # state_dict conflicts.
-        if self.config.enable_mhc_connections and self.has_final_layernorm_in_this_stage():
-            raise NotImplementedError(
-                "LoongForge mHC HyperHead is not available in the core_v0.20 baseline"
-            )
-            # Delete parent's inline parameters
-            if hasattr(self, 'hc_head_fn'):
-                del self.hc_head_fn
-            if hasattr(self, 'hc_head_base'):
-                del self.hc_head_base
-            if hasattr(self, 'hc_head_scale'):
-                del self.hc_head_scale
-            self.head_hyper_connection = HyperHead(self.config)
 
     def forward(
         self,
@@ -143,6 +128,24 @@ class TransformerBlock(MegatronTransformerBlock):
             Union[Tensor, Tuple[Tensor, Tensor]]: The output hidden states tensor of shape
             [s, b, h], and optionally the updated context tensor if cross-attention is used.
         """
+        if self.config.enable_mhc_connections:
+            return super().forward(
+                hidden_states=hidden_states,
+                attention_mask=attention_mask,
+                context=context,
+                context_mask=context_mask,
+                rotary_pos_emb=rotary_pos_emb,
+                rotary_pos_cos=rotary_pos_cos,
+                rotary_pos_sin=rotary_pos_sin,
+                rotary_pos_cos_sin=rotary_pos_cos_sin,
+                attention_bias=attention_bias,
+                inference_context=inference_context,
+                packed_seq_params=packed_seq_params,
+                sequence_len_offset=sequence_len_offset,
+                inference_params=inference_params,
+                dynamic_inference_decode_only=dynamic_inference_decode_only,
+                **kwargs,
+            )
 
         inference_context = deprecate_inference_params(inference_context, inference_params)
         # Remove 'dynamic_inference_decode_only' from kwargs if present
@@ -257,12 +260,6 @@ class TransformerBlock(MegatronTransformerBlock):
                             inner_quantization_context = nullcontext()
                     else:
                         inner_quantization_context = nullcontext()
-
-                    if self.config.fine_grained_activation_offloading:
-                        raise NotImplementedError(
-                            "Fine-grained activation offloading must be migrated to "
-                            "FineGrainedActivationOffloadingInterface before it can be enabled"
-                        )
 
                     with self.offload_context, inner_quantization_context:
                         if isinstance(packed_seq_params, list) and len(packed_seq_params) > 0:
