@@ -13,7 +13,7 @@ import copy
 
 from megatron.training import get_timers
 
-from typing import List
+from typing import List, Optional
 from megatron.core.transformer.multi_token_prediction import get_mtp_ranks
 
 from megatron.core import mpu, tensor_parallel
@@ -48,6 +48,7 @@ from datasets import load_from_disk
 from loongforge.models.omni_models.omni_model_provider import (
     omni_model_provider,
 )
+from loongforge.models.mimo_models.mimo_vlm_provider import mimo_vlm_model_provider
 from loongforge.models.omni_models.utils import get_batch_on_this_cp_rank
 from loongforge.train.get_loss_func import default_loss_func
 from loongforge.train.initialize import (
@@ -530,6 +531,24 @@ def get_embedding_ranks(pp_ranks: List[int]):
     embedding_ranks = sorted(embedding_ranks)
     return embedding_ranks
 
+
+def vlm_model_provider(
+    pre_process: bool = True,
+    post_process: bool = True,
+    parallel_output: bool = True,
+    vp_stage: Optional[int] = None,
+):
+    """Resolve the configured VLM backend without duplicating the trainer."""
+    backend = getattr(get_model_config(), "model_backend", "omni")
+    provider = mimo_vlm_model_provider if backend == "mimo" else omni_model_provider
+    return provider(
+        pre_process=pre_process,
+        post_process=post_process,
+        parallel_output=parallel_output,
+        vp_stage=vp_stage,
+    )
+
+
 @register_model_trainer(
     model_family=constants.VisionLanguageModelFamilies.names(),
     training_phase=constants.TrainingPhase.PRETRAIN,
@@ -539,7 +558,7 @@ def default_vlm_pretrain_trainer(train_args):
     trainer = MegatronTrainer(
         train_args=train_args,
         train_valid_test_dataset_provider=train_valid_test_dataset_provider,
-        model_provider=omni_model_provider,
+        model_provider=vlm_model_provider,
         model_type=ModelType.encoder_or_decoder,  # TODO: Heterogeneous TP/PP not supported yet
         forward_step_func=forward_step,
         get_embedding_ranks=get_embedding_ranks,

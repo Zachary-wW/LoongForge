@@ -83,7 +83,6 @@ def get_qwen2_vl_vision_model_layer_with_te_spec(
                     linear_qkv=TELayerNormColumnParallelLinear,
                     core_attention=TEDotProductAttention,
                     linear_proj=TERowParallelLinear,
-                    apply_rotary_fn=apply_rotary_pos_emb_vision,
                 ),
             ),
             self_attn_bda=get_bias_dropout_add,
