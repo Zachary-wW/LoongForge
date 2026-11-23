@@ -317,12 +317,7 @@ def get_embedding_ranks(pp_ranks: List[int]):
 )
 def default_pretrain_trainer(train_args):
     """build trainer"""
-    runtime_kwargs = {}
-    if train_args.model_family in (
-        constants.LanguageModelFamilies.DEEPSEEK,
-        constants.LanguageModelFamilies.DEEPSEEK_V4,
-    ):
-        runtime_kwargs["pretrain_func"] = pretrain_with_mcore
+    runtime_kwargs = {"pretrain_func": pretrain_with_mcore}
     trainer = MegatronTrainer(
         train_args=train_args,
         train_valid_test_dataset_provider=train_valid_test_datasets_provider,
