@@ -146,6 +146,11 @@ def normalize_training_args(train_args):
             train_args.variable_seq_lengths = True
         else:
             train_args.variable_seq_lengths = False
+        # The legacy SFT path is numerically aligned with the unfused RoPE
+        # implementation. MCore's fused RoPE path diverges after long updates
+        # under the SFT variable-length batches, so keep the old execution
+        # semantics here instead of silently selecting a different kernel.
+        train_args.apply_rope_fusion = False
     return train_args
 
 
@@ -183,6 +188,10 @@ def pretrain_with_mcore(
         for target in (model_config, getattr(model_config, "foundation", None)):
             if target is not None and hasattr(target, "variable_seq_lengths"):
                 target.variable_seq_lengths = True
+    if getattr(train_args, "training_phase", None) == constants.TrainingPhase.SFT:
+        for target in (model_config, getattr(model_config, "foundation", None)):
+            if target is not None and hasattr(target, "apply_rope_fusion"):
+                target.apply_rope_fusion = False
     if (
         getattr(train_args, "training_phase", None) == constants.TrainingPhase.SFT
         and not getattr(train_args, "enable_chunkpipe", False)
@@ -249,6 +258,7 @@ def pretrain_with_mcore(
             runtime_global_args.variable_seq_lengths = True
         else:
             runtime_global_args.variable_seq_lengths = False
+        runtime_global_args.apply_rope_fusion = False
     return pretrain(
         config,
         train_valid_test_dataset_provider,
