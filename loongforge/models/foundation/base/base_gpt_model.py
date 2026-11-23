@@ -733,16 +733,22 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                         self.config.chunk_sizes[self.config.chunkpipe_chunk_idx_in_group]
                         if self.config.enable_chunkpipe else None
                     )
-                    mtp_logits, _ = self.output_layer(
+                    mtp_loss = self.compute_output_layer_and_language_model_loss(
                         hidden_states_list[mtp_layer_number + 1],
-                        weight=output_weight,
-                        runtime_gather_output=runtime_gather_output,
-                    )
-                    mtp_loss = self.compute_language_model_loss(
-                        mtp_labels[:, :cur_chunk_len]
-                        if self.config.enable_chunkpipe
-                        else mtp_labels,
-                        mtp_logits,
+                        labels=(
+                            mtp_labels[:, :cur_chunk_len]
+                            if self.config.enable_chunkpipe
+                            else mtp_labels
+                        ),
+                        weight=self.shared_embedding_or_output_weight()
+                        if self.share_embeddings_and_output_weights
+                        else self.output_layer.weight,
+                        sequence_parallel_enabled=self.output_layer.sequence_parallel,
+                        column_parallel_linear=self.output_layer,
+                        col_linear_kwargs={
+                            "weight": output_weight,
+                            "runtime_gather_output": runtime_gather_output,
+                        },
                     )
                     
                     if self.config.enable_chunkpipe:
@@ -900,7 +906,6 @@ class BaseGPTModel(BaseMegatronLanguageModule):
         if labels is None:
             # [s b h] => [b s h]
             return logits.transpose(0, 1).contiguous()
-        
         if getattr(self.config, "enable_chunkpipe", False):
             def _compute_output_layer_and_loss(hidden_states_, labels_):
                 return self.compute_output_layer_and_language_model_loss(
@@ -916,7 +921,6 @@ class BaseGPTModel(BaseMegatronLanguageModule):
                         "runtime_gather_output": runtime_gather_output,
                     },
                 )
-
             loss = tensor_parallel.checkpoint(
                 _compute_output_layer_and_loss,
                 self.config.distribute_saved_activations,

@@ -277,6 +277,9 @@ torchrun --nproc_per_node=8 pretrain_gpt.py \
 --cross-entropy-fusion-impl linear
 ```
 
+当前 MCore 0.20 接入使用 `linear` 时需保持 `--overlap-param-gather` 关闭；
+融合 loss 会直接读取输出层参数桶，overlap 调度尚未完成顺序验证。
+
 词表分块大小可通过环境变量调整（默认 3072）：
 
 ```bash

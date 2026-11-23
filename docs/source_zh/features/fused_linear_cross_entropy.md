@@ -17,6 +17,10 @@ LoongForge 提供两种实现路径，框架**根据 GPU 架构自动选择**；
 --cross-entropy-fusion-impl linear
 ```
 
+当前 MCore 0.20 接入要求 `linear` 不启用 `--overlap-param-gather`；仓库中的
+生产启动脚本已移除该组合。在 DDP 输出层参数桶顺序完成验证前，不要静默
+组合这两个选项。
+
 ---
 
 ## 1. 通用实现
