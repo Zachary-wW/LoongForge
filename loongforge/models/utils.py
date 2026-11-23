@@ -42,17 +42,23 @@ def convert_megatron_transformer_config_args(megatron_args, config_class=None):
     for k, v in megatron_args.items():
         if k in config_class.__dataclass_fields__:
             transformer_config_args[k] = v
-    transformer_config_args["persist_layer_norm"] = not megatron_args[
-        "no_persist_layer_norm"
-    ]
-    transformer_config_args["layernorm_zero_centered_gamma"] = megatron_args[
-        "apply_layernorm_1p"
-    ]
-    transformer_config_args["layernorm_epsilon"] = megatron_args["norm_epsilon"]
+    transformer_config_args["persist_layer_norm"] = megatron_args.get(
+        "persist_layer_norm",
+        not megatron_args.get("no_persist_layer_norm", False),
+    )
+    transformer_config_args["layernorm_zero_centered_gamma"] = megatron_args.get(
+        "layernorm_zero_centered_gamma",
+        megatron_args.get("apply_layernorm_1p", False),
+    )
+    transformer_config_args["layernorm_epsilon"] = megatron_args.get(
+        "layernorm_epsilon", megatron_args.get("norm_epsilon", 1e-5)
+    )
     transformer_config_args["deallocate_pipeline_outputs"] = True
     transformer_config_args["pipeline_dtype"] = megatron_args["params_dtype"]
     transformer_config_args["batch_p2p_comm"] = not megatron_args["overlap_p2p_comm"]
-    transformer_config_args["num_moe_experts"] = megatron_args["num_experts"]
+    transformer_config_args["num_moe_experts"] = megatron_args.get(
+        "num_moe_experts", megatron_args.get("num_experts")
+    )
     transformer_config_args["rotary_interleaved"] = megatron_args["rotary_interleaved"]
     transformer_config_args["num_layers_in_first_pipeline_stage"] = megatron_args[
         "decoder_first_pipeline_num_layers"
@@ -67,26 +73,26 @@ def convert_megatron_transformer_config_args(megatron_args, config_class=None):
             "activation_func_fp8_input_store"
         ]
 
-    if megatron_args["swiglu"]:
+    if megatron_args.get("swiglu", False):
         transformer_config_args["activation_func"] = F.silu
         transformer_config_args["gated_linear_unit"] = True
-        transformer_config_args["bias_activation_fusion"] = megatron_args[
-            "bias_swiglu_fusion"
-        ]
+        transformer_config_args["bias_activation_fusion"] = megatron_args.get(
+            "bias_swiglu_fusion", megatron_args.get("bias_activation_fusion", True)
+        )
     else:
-        transformer_config_args["bias_activation_fusion"] = megatron_args[
-            "bias_gelu_fusion"
-        ]
+        transformer_config_args["bias_activation_fusion"] = megatron_args.get(
+            "bias_gelu_fusion", megatron_args.get("bias_activation_fusion", True)
+        )
 
-    if megatron_args["squared_relu"]:
-        assert not megatron_args["swiglu"]
+    if megatron_args.get("squared_relu", False):
+        assert not megatron_args.get("swiglu", False)
         transformer_config_args["activation_func"] = squared_relu
 
-    if megatron_args["init_method_xavier_uniform"]:
+    if megatron_args.get("init_method_xavier_uniform", False):
         transformer_config_args["init_method"] = torch.nn.init.xavier_uniform_
         transformer_config_args["scaled_init_method"] = torch.nn.init.xavier_uniform_
 
-    if megatron_args["group_query_attention"]:
+    if megatron_args.get("group_query_attention", False):
         transformer_config_args["num_query_groups"] = megatron_args["num_query_groups"]
     else:
         transformer_config_args["num_query_groups"] = None
