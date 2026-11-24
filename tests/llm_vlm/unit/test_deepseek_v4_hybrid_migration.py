@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from loongforge.models.foundation.deepseek_v4.deepseek_v4_layer_spec import (
+from loongforge.models.foundation.deepseek_v4.deepseek_v4_config import (
     build_deepseek_v4_hybrid_layer_pattern,
     expand_deepseek_v4_hybrid_compress_ratios,
 )
