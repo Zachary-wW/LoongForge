@@ -3,8 +3,6 @@
 
 """model trainer"""
 
-from .training_utils import pretrain
-
 
 class MegatronTrainer(object):
     """megatron trainer"""
@@ -19,6 +17,7 @@ class MegatronTrainer(object):
         process_non_loss_data_func=None,
         get_embedding_ranks=None,
         get_position_embedding_ranks=None,
+        pretrain_func=None,
     ):
         """
         train_valid_test_dataset_provider: a function that takes the size of
@@ -44,12 +43,18 @@ class MegatronTrainer(object):
         self.process_non_loss_data_func = process_non_loss_data_func
         self.get_embedding_ranks = get_embedding_ranks
         self.get_position_embedding_ranks = get_position_embedding_ranks
+        self.pretrain_func = pretrain_func
 
     def train(self):
         """start training"""
+        if self.pretrain_func is None:
+            raise RuntimeError(
+                "MegatronTrainer requires an explicit pretrain_func; "
+                "select pretrain_with_mcore or the diffusion legacy runtime."
+            )
         self.train_valid_test_datasets_provider.is_distributed = True
 
-        pretrain(
+        self.pretrain_func(
             train_args=self.train_args,
             train_valid_test_dataset_provider=self.train_valid_test_datasets_provider,
             model_provider=self.model_provider,
