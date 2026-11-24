@@ -11,8 +11,10 @@ from typing import List, Optional
 
 import torch
 from loongforge.models.foundation.llm_model_provider import llm_model_provider
+from loongforge.models.model_backend import get_model_backend
 from loongforge.train.mcore_runtime import pretrain_with_mcore
 from loongforge.train.megatron_trainer import MegatronTrainer
+from loongforge.train.runtime_utils import get_next_batch_on_this_tp_rank
 from loongforge.train.trainer_builder import register_model_trainer
 from loongforge.utils import constants, get_args, get_tokenizer, print_rank_0
 from loongforge.utils.global_vars import get_model_config
@@ -211,10 +213,13 @@ def forward_step(data_iterator, model, return_schedule_plan: bool = False):
 
     timers("batch-generator").stop()
 
+    next_batch = None
     if args.enable_chunkpipe and args.mtp_num_layers and args.mtp_num_layers > 0 and mpu.is_pipeline_last_stage():
-        raise NotImplementedError(
-            "ChunkPipe MTP next-batch support is introduced in LF-C."
-        )
+        next_batch = get_next_batch_on_this_tp_rank(data_iterator)
+
+    extra_block_kwargs = None
+    if next_batch is not None:
+        extra_block_kwargs = {'next_batch': next_batch}
 
     with stimer:
         if return_schedule_plan:
@@ -225,16 +230,18 @@ def forward_step(data_iterator, model, return_schedule_plan: bool = False):
             )
             return schedule_plan, partial(loss_func, loss_mask)
         else:
+            backend = get_model_backend(get_model_config())
             output_tensor = model(
-                tokens,
-                position_ids,
-                attention_mask,
-                labels=labels,
-                loss_mask=loss_mask,
-                extra_block_kwargs=None,
+                **backend.pretrain_forward_kwargs(
+                    tokens=tokens,
+                    labels=labels,
+                    loss_mask=loss_mask,
+                    attention_mask=attention_mask,
+                    position_ids=position_ids,
+                    extra_block_kwargs=extra_block_kwargs,
+                )
             )
-            if hasattr(output_tensor, "loss") and output_tensor.loss is not None:
-                output_tensor = output_tensor.loss
+            output_tensor = backend.extract_loss(output_tensor)
 
     return output_tensor, partial(loss_func, loss_mask)
 

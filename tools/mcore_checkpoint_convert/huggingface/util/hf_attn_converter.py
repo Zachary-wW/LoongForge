@@ -25,7 +25,10 @@ class HfAttnQkvConverter():
         self.heads = cargs["num_attention_heads"]
         self.head_dim = cargs.get("head_dim", hidden_size // self.heads)
         self.transpose_query_key_value = margs.get("transpose_query_key_value", False)
-        self.num_key_value_heads = cargs.get("num_key_value_heads", self.heads)
+        # MHA checkpoints may serialize ``num_key_value_heads: null`` rather
+        # than omitting the field. Treat null as the MHA default, not as a
+        # divisor.
+        self.num_key_value_heads = cargs.get("num_key_value_heads") or self.heads
         self.num_padded_heads = cargs.get("num_padded_heads", 0)
         self.hidden_size_per_head = hidden_size // self.heads
 
@@ -100,7 +103,8 @@ class HfAttnGateQkvConverter():
         self.heads = cargs["num_attention_heads"]
         self.hidden_size = cargs["hidden_size"]
         self.head_dim = cargs.get("head_dim", self.hidden_size // self.heads)
-        self.num_key_value_heads = cargs.get("num_key_value_heads", self.heads)
+        # See HfAttnQkvConverter: null means standard multi-head attention.
+        self.num_key_value_heads = cargs.get("num_key_value_heads") or self.heads
         self.num_querys_per_group = self.heads // self.num_key_value_heads
 
         self.q_dim = 2 * self.num_querys_per_group * self.head_dim

@@ -241,11 +241,20 @@ class BaseGPTModel(BaseMegatronLanguageModule):
         )
 
         if self.mtp_process:
+            mtp_hybrid_kwargs = {}
+            if getattr(self.config, "mtp_layer_pattern", None) is not None:
+                mtp_hybrid_kwargs = {
+                    "mtp_layer_pattern": self.config.mtp_layer_pattern,
+                    "hybrid_submodules": getattr(
+                        self.config, "mtp_hybrid_submodules", None
+                    ),
+                }
             self.mtp = MultiTokenPredictionBlock(
                 config=self.config,
                 spec=self.mtp_block_spec,
                 vp_stage=vp_stage,
                 pg_collection=self.pg_collection,
+                **mtp_hybrid_kwargs,
             )
 
         # Output

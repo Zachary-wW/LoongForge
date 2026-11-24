@@ -83,7 +83,7 @@ def _add_log_tensor_args(parser):
             --save-tensor-dir "./tensor_logs"
 
     Note: If llm-inspector is not installed, these arguments will be ignored
-    silently. The feature is controlled by HAS_INSPECTOR flag in training_utils.py.
+    silently when the optional llm-inspector dependency is unavailable.
     """
     group = parser.add_argument_group(
         title="Tensor Logging (llm-inspector)",
