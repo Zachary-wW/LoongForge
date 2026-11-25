@@ -1,0 +1,13 @@
+schema_version: 1
+preparation_id: "prep-0042"
+request_id: "f1-0001"
+stage: "f1"
+attempt_id: "f1-attempt-01"
+request_sha256: "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+execution_status: "completed"
+observed_scope: ["static", "startup_probe"]
+validator_verdict:
+  path: "evidence/validate/verdict.json"
+  sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+unknowns: []
+blocked_reasons: []

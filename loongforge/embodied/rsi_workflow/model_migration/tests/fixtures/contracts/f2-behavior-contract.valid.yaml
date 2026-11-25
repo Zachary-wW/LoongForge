@@ -1,0 +1,57 @@
+schema_version: 1
+
+case:
+  id: "pi05-libero-step-1"
+  f1_manifest_sha256: "13579bdf02468ace13579bdf02468ace13579bdf02468ace13579bdf02468ace"
+  upstream_commit: "7f3c2a9d4e5b6f70128394aa65b7c8d9e0f1a2b3"
+  framework_commit: "5c4b3a291807f6e5d4c3b2a1908f7e6d5c4b3a29"
+  gpu_count: 0
+  seed: 42
+  batch:
+    sample_ids:
+      - "libero_10:episode-000:frame-000"
+      - "libero_10:episode-001:frame-000"
+  precision:
+    dtype: "bfloat16"
+    math_mode: "float32"
+    backend: "fake"
+    jit: false
+
+phases:
+  - id: "dataload"
+    required: true
+  - id: "model_forward"
+    required: true
+  - id: "loss"
+    required: true
+  - id: "backward"
+    required: true
+  - id: "optimizer_step"
+    required: true
+
+assertions:
+  - id: "rng-order"
+    type: "rng_fingerprint"
+    required: true
+  - id: "model-forward-count"
+    type: "call_count"
+    required: true
+  - id: "loss-endpoints"
+    type: "tensor_summary"
+    required: true
+  - id: "optimizer-state"
+    type: "state_digest"
+    required: false
+
+optional_views:
+  segment_view:
+    enabled: false
+    path: null
+
+validator:
+  id: "f2-two-attempt-comparator"
+  version: "1"
+  sha256: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+
+unknowns: []
+blocked_reasons: []

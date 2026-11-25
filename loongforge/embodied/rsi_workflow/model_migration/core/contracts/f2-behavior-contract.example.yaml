@@ -1,0 +1,52 @@
+schema_version: 1
+
+case:
+  id: pi05-libero-step-1
+  upstream_commit: REPLACE_WITH_SHA
+  framework_commit: REPLACE_WITH_SHA
+  gpu_count: 1
+  seed: null
+  batch:
+    sample_ids: []
+  precision:
+    dtype: null
+    math_mode: null
+
+phases:
+  - id: dataload
+    required: true
+  - id: model_forward
+    required: true
+  - id: loss
+    required: true
+  - id: backward
+    required: true
+  - id: optimizer_step
+    required: true
+
+assertions:
+  - id: rng-order
+    type: rng_fingerprint
+    required: true
+  - id: model-forward-count
+    type: call_count
+    required: true
+  - id: loss-endpoints
+    type: tensor_summary
+    required: true
+  - id: optimizer-state
+    type: state_digest
+    required: false
+
+optional_views:
+  segment_view:
+    enabled: false
+    path: null
+
+validator:
+  id: null
+  version: null
+  sha256: null
+
+unknowns: []
+blocked_reasons: []

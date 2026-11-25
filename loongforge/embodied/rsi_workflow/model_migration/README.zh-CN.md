@@ -1,22 +1,32 @@
-# 模型迁移
+# LoongForge 具身模型适配 RSI 框架
 
-将开源模型迁移到 LoongForge 的完整工作区：在保证逻辑一致、精度对齐的前提下，把开源模型的格式、结构与 LoongForge 的模型约定对齐，使其可以在 LoongForge 框架内直接训练、评估与发布。
+面向 [`baidu-baige/LoongForge`](https://github.com/baidu-baige/LoongForge) 的统一 6 阶段具身/VLA 模型适配编排与验证框架（`intake` → `anatomy` → `scaffold` → `adapt` → `verify` → `deliver`，外加跨任务 `rsi` 外循环）。
 
-迁移工作以 RSI（Robust Self-Improvement / Recurrent Self-Improvement）智能体流程为核心组织：由 `core` 中的调度与执行逻辑驱动，复用 `skills` 中的技能完成具体操作，产出物通过 `validate` 的检查后归档为 `examples` 中的可复现任务，全部过程记录在 `docs` 中。
+## 架构与当前落地状态
 
-## 目录结构
+| 模块 / 阶段 | 职责 | 状态 |
+| --- | --- | --- |
+| [`core/`](core/README.zh-CN.md) | 严格 Pydantic v2 契约（`intake` / `anatomy` / `stage` / `verdict` / `handoff`）、JSON Schema 导出及不可变包原子封存（`publish`/`verify`） | 已完成 |
+| `engine/` | 纯标准库 + PyYAML 轻量 DAG 编排内核（`graph`、原子 checkpoint 断点续跑/重规划 `scheduler`、传递失效 `invalidation`、`isolation`、确定性 `judger`） | 已完成 |
+| `stages/intake/` | Stage 1：Git commit/tree/递归 submodule 锁、离线 `git bundle` 打包恢复、固定树 AST 入口发现、只读资产分流（`WAITING_ASSET`/`blocked`）、只读隔离 probe、原子封存与 CLI | 已完成（CPU 测试 + 真实 `openpi` 演练通过） |
+| `stages/anatomy/` | Stage 2：强制复验 Stage 1 封存包、双独立子进程单步采集与重放、4 级权重快照对比、行为契约与观测计划、`FakeStepAdapter` 与 `OpenPIJaxAdapter` 骨架 | 离线闭环已完成（真机 GPU 待资产就绪） |
+| `stages/verify/` | 独立校验器（`IntakeChecker` / `AnatomyChecker` 已实装；`Construct`/`Parity`/`TrainResume`/`Eval` 占位）与 fail-closed `VerifyStageRunner` | Stage 1 & 2 已实装 |
+| `stages/{scaffold,adapt,deliver}/` 与 `rsi/` | 对齐 LoongForge 6 大扩展点、3 个具身 Skill 与外循环 RSI 的契约与接口占位 | 接口占位就绪 |
+| `profiles/loongforge_embodied.yaml` | 声明式 6 阶段默认 DAG、LoongForge 6 大扩展点映射、3 个具身 Skill 与 5 个无状态确定性工具清单 | 已配置并校验 |
 
-| 目录 | 说明 |
-| --- | --- |
-| [`core/`](core/README.zh-CN.md) | 核心代码。完成迁移工作的主要部分，包含沙盒、模板、调度控制等涉及 RSI 的主要实现 |
-| [`docs/`](docs/README.zh-CN.md) | 说明文档。包含各功能的使用说明和样例 |
-| [`examples/`](examples/README.zh-CN.md) | 参考任务。已经跑通、可作为模板复用的迁移任务 |
-| [`skills/`](skills/README.zh-CN.md) | 技能集。迁移过程中主要使用的 skill 整理于此，由 `core` 调用 |
-| [`validate/`](validate/README.zh-CN.md) | 校验模块。检查最终成果的准确性，包括逻辑一致性、精度对齐等，确保成果准确可用 |
+## 快速验证
 
-## 使用流程
+```bash
+python3 -m pytest -q
+ruff check .
+python3 -m compileall -q core engine stages rsi tests
+```
 
-1. 在 `examples/` 中选择或新建一个迁移任务作为目标。
-2. `core/` 依据任务描述，调度 `skills/` 中的技能完成模型迁移与格式转换。
-3. 迁移产物提交到 `validate/` 进行逻辑与精度校验。
-4. 通过校验后，将流程沉淀为 `examples/` 中的可复现任务，并把用法写入 `docs/`。
+CLI 入口：
+
+```bash
+python3 -m stages.intake.cli {init,analyze,freeze} --help
+python3 -m stages.verify.intake_check --help
+python3 -m stages.anatomy.cli {capture,freeze,replay} --help
+python3 -m stages.verify.anatomy_check --help
+```

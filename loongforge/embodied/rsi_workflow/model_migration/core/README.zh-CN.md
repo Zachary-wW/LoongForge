@@ -1,15 +1,16 @@
 # Core
 
-模型迁移的核心代码目录，也是完成迁移工作的主要部分。这里集中了涉及 RSI（Robust Self-Improvement / Recurrent Self-Improvement）流程的主要实现，包括沙盒、模板、调度控制等。
+6 阶段具身模型适配流水线的公共严格契约与不可变包封存基础库。
 
-## 职责
+## 模块说明
 
-- **沙盒（Sandbox）**：为模型迁移、格式转换等操作提供隔离、可控的执行环境，防止迁移过程中的副作用污染仓库或宿主环境。
-- **模板（Templates）**：提供模型接入 LoongForge 所需的代码与配置模板，保证迁移产物在结构上符合 LoongForge 约定。
-- **调度控制（Scheduling & Control）**：RSI 流程的驱动核心，负责任务拆分、步骤调度、技能调用与状态管理，串联 `skills`、`validate` 等模块完成一次完整的迁移闭环。
+- `contracts/`：严格 Pydantic v2 模型（`intake` / `anatomy` / `stage` / `verdict` / `handoff`，保留 `f1`/`f2` 兼容导出）、防重复键 YAML 解析器与 `PipelineProfile` 校验器。
+- `contracts/schema.py`：JSON Schema 导出（`artifact-manifest`、`f1-task-pack`、`f2-behavior-contract`、`handoff-result`、`stage-spec`、`gate-result`、`gate-decision`）。
+- `contracts/errors.py`：结构化解析与校验错误类型。
+- `artifacts.py`：`.staging` → 原子发布 `publish()` 与全量 manifest/摘要/symlink 拦截 `verify()`。
 
-## 目录内容
+运行 CPU 测试：
 
-- 沙盒相关：环境创建、依赖注入、隔离执行与清理。
-- 模板相关：模型配置、模型实现、数据接入、启动脚本等可复用模板。
-- 调度相关：任务描述解析、步骤编排、技能调度、结果汇总。
+```bash
+python3 -m pytest -q
+```

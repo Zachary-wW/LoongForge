@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "loongforge-model-migration-rsi"
+version = "0.1.0"
+description = "6-stage embodied model adaptation RSI framework targeting LoongForge (intake, anatomy, scaffold, adapt, verify, deliver)"
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.10,<3",
+  "PyYAML>=6,<7",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8,<10",
+]
+
+[tool.setuptools.packages.find]
+include = ["core*", "engine*", "stages*", "rsi*", "profiles*"]
+
+[tool.setuptools.package-data]
+profiles = ["*.yaml"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+extend-exclude = ["skills"]

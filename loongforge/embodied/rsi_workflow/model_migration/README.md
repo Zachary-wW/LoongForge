@@ -1,22 +1,32 @@
-# Model Migration
+# LoongForge Embodied Model Adaptation RSI Framework
 
-The workspace for migrating open-source models into LoongForge: while keeping the logic consistent and the precision aligned, adapt the open-source model's format and structure to LoongForge's model conventions so that it can be directly trained, evaluated, and released inside the LoongForge framework.
+A 6-stage deterministic orchestration and verification framework (`intake` → `anatomy` → `scaffold` → `adapt` → `verify` → `deliver`, plus outer-loop `rsi`) for adapting open-source embodied/VLA models into [`baidu-baige/LoongForge`](https://github.com/baidu-baige/LoongForge).
 
-The migration work is organized around the RSI (Robust Self-Improvement / Recurrent Self-Improvement) agent workflow: the scheduling and execution logic in `core` drives the process, the skills in `skills` are reused to carry out concrete operations, the outputs are archived as reproducible tasks in `examples` after passing the checks in `validate`, and the whole process is documented in `docs`.
+## Architecture & Implementation Status
 
-## Directory Structure
+| Package / Stage | Responsibility | Status |
+| --- | --- | --- |
+| [`core/`](core/README.md) | Strict Pydantic v2 contracts (`intake`, `anatomy`, `stage`, `verdict`, `handoff`), JSON Schema export, and immutable artifact sealing (`publish`/`verify`) | Implemented |
+| `engine/` | Stdlib + PyYAML DAG orchestration kernel (`graph`, `scheduler` with atomic checkpoint/resume/replan, `invalidation`, `isolation`, deterministic `judger`) | Implemented |
+| `stages/intake/` | Stage 1: Git commit/tree/recursive submodule lock, offline `git bundle` archive/restore, pinned-tree AST discovery, read-only asset triage (`WAITING_ASSET`/`blocked`), isolated startup probe, atomic freeze & CLI | Implemented (CPU + `openpi` dry-run verified) |
+| `stages/anatomy/` | Stage 2: Verified intake handoff, dual-subprocess single-step capture & replay, 4-tier weight snapshot diff, behavior contract & observation plan, `FakeStepAdapter` + `OpenPIJaxAdapter` skeleton | Implemented (offline CPU fake closed-loop; GPU smoke pending assets/hardware) |
+| `stages/verify/` | Independent checkers (`IntakeChecker`, `AnatomyChecker` implemented; `Construct`/`Parity`/`TrainResume`/`Eval` placeholders) + fail-closed `VerifyStageRunner` | Stage 1 & 2 implemented |
+| `stages/{scaffold,adapt,deliver}/` & `rsi/` | Contracts and protocol placeholders targeting LoongForge's 6 extension points, 3 embodied Skills, and outer-loop RSI | Interfaces & placeholders ready |
+| `profiles/loongforge_embodied.yaml` | Declarative 6-stage DAG, LoongForge 6 extension-point mapping, 3 core embodied Skills, and 5 stateless deterministic tools | Configured & validated |
 
-| Directory | Description |
-| --- | --- |
-| [`core/`](core/README.md) | Core code. The main part of the migration work, covering the RSI-related implementations such as sandbox, templates, and scheduling/control |
-| [`docs/`](docs/README.md) | Documentation. Usage guides and samples for the features |
-| [`examples/`](examples/README.md) | Reference tasks. Migration tasks that have already been run end-to-end and can be reused as templates |
-| [`skills/`](skills/README.md) | Skill collection. The skills mainly used during migration, collected here and invoked by `core` |
-| [`validate/`](validate/README.md) | Validation module. Checks the accuracy of the final output, including logic consistency and precision alignment, to make sure the result is correct and usable |
+## Quick Verification
 
-## Workflow
+```bash
+python3 -m pytest -q
+ruff check .
+python3 -m compileall -q core engine stages rsi tests
+```
 
-1. Pick or create a migration task in `examples/` as the target.
-2. `core/` schedules the skills in `skills/` to perform the model migration and format conversion according to the task description.
-3. Submit the migration output to `validate/` for logic and precision checks.
-4. After validation passes, archive the process as a reproducible task in `examples/` and document the usage in `docs/`.
+CLI entrypoints:
+
+```bash
+python3 -m stages.intake.cli {init,analyze,freeze} --help
+python3 -m stages.verify.intake_check --help
+python3 -m stages.anatomy.cli {capture,freeze,replay} --help
+python3 -m stages.verify.anatomy_check --help
+```

@@ -1,0 +1,43 @@
+schema_version: 1
+
+source:
+  repo: https://github.com/Physical-Intelligence/openpi
+  commit: REPLACE_WITH_SHA
+  model_variant: pi05
+  references: []
+  behavior_reference: null
+
+target:
+  framework: loongforge
+  commit: REPLACE_WITH_SHA
+
+environment:
+  name: embodied-gpu
+  gpu_count: 1
+  image: null
+  dependencies_lock: null
+  python: null
+
+entrypoint:
+  path: null
+  argv: []
+  cwd: null
+  env: {}
+  topology: null
+
+assets:
+  checkpoint: null
+  tokenizer: null
+  dataset: null
+  statistics: null
+  simulator: null
+  download_policy: manifest_only
+
+scope:
+  static: true
+  train_step: true
+  checkpoint_resume: false
+  task_eval: false
+
+unknowns: []
+blocked_reasons: []
