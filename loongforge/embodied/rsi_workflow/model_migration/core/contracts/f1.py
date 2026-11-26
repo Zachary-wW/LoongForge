@@ -84,7 +84,11 @@ class F1TaskPack(StrictModel):
 
 def load_f1_task_pack(path: Any) -> F1TaskPack:
     try:
-        return F1TaskPack.model_validate(load_yaml_document(path))
+        document = load_yaml_document(path)
+        if document.get("schema_version") == 2:
+            from .intake_v2 import IntakeTaskPackV2
+            return IntakeTaskPackV2.model_validate(document)
+        return F1TaskPack.model_validate(document)
     except ContractValidationError:
         raise
     except Exception as error:

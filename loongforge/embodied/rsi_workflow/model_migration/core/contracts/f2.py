@@ -36,6 +36,8 @@ class F2CaseSpec(StrictModel):
     seed: int = Field(ge=0)
     batch: BatchSpec
     precision: PrecisionSpec
+    anatomy_spec_sha256: Sha256 | None = None
+    spec_manifest_sha256: Sha256 | None = None
 
 
 class PhaseSpec(StrictModel):

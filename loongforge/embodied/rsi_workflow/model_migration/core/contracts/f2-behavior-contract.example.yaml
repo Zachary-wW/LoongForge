@@ -1,52 +1,61 @@
+# Schema-only example, NOT an accepted bundle. validator.sha256 hashes f2.py schema bytes,
+# not AnatomyChecker. capture/freeze must generate the real composite validator binding.
 schema_version: 1
-
 case:
   id: pi05-libero-step-1
-  upstream_commit: REPLACE_WITH_SHA
-  framework_commit: REPLACE_WITH_SHA
-  gpu_count: 1
-  seed: null
+  f1_manifest_sha256: 13579bdf02468ace13579bdf02468ace13579bdf02468ace13579bdf02468ace
+  upstream_commit: 7f3c2a9d4e5b6f70128394aa65b7c8d9e0f1a2b3
+  framework_commit: 5c4b3a291807f6e5d4c3b2a1908f7e6d5c4b3a29
+  gpu_count: 0
+  seed: 42
   batch:
-    sample_ids: []
+    sample_ids:
+    - libero_10:episode-000:frame-000
+    - libero_10:episode-001:frame-000
   precision:
-    dtype: null
-    math_mode: null
-
+    dtype: float32
+    math_mode: float32
+    backend: fake
+    jit: false
 phases:
-  - id: dataload
-    required: true
-  - id: model_forward
-    required: true
-  - id: loss
-    required: true
-  - id: backward
-    required: true
-  - id: optimizer_step
-    required: true
-
+- id: dataload
+  required: true
+- id: model_forward
+  required: true
+- id: loss
+  required: true
+- id: backward
+  required: true
+- id: optimizer_step
+  required: true
 assertions:
-  - id: rng-order
-    type: rng_fingerprint
-    required: true
-  - id: model-forward-count
-    type: call_count
-    required: true
-  - id: loss-endpoints
-    type: tensor_summary
-    required: true
-  - id: optimizer-state
-    type: state_digest
-    required: false
-
+- id: sample-and-camera-order
+  type: state_digest
+  required: true
+- id: rng-consumer-order
+  type: rng_fingerprint
+  required: true
+- id: model-forward-count
+  type: call_count
+  required: true
+- id: loss-and-grad-endpoints
+  type: tensor_summary
+  required: true
+- id: real-parameter-update
+  type: state_digest
+  required: true
+- id: action-semantics
+  type: state_digest
+  required: true
 optional_views:
   segment_view:
     enabled: false
     path: null
-
 validator:
-  id: null
-  version: null
-  sha256: null
-
-unknowns: []
-blocked_reasons: []
+  id: schema-only:core.contracts.f2
+  version: '1'
+  sha256: 54ba36e1190c722292810a5b3bfdaa30f4cc5fac01fa71ee882fdfe3a8a85bab
+unknowns:
+- 'schema_only: no captured evidence or sealed intake reference'
+blocked_reasons:
+- EXAMPLE_NOT_EXECUTABLE

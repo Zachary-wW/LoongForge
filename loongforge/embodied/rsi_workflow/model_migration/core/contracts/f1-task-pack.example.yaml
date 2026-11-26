@@ -1,43 +1,44 @@
+# Schema example. Commit IDs are illustrative; provision pinned source/assets before execution.
 schema_version: 1
-
 source:
   repo: https://github.com/Physical-Intelligence/openpi
-  commit: REPLACE_WITH_SHA
+  commit: 7f3c2a9d4e5b6f70128394aa65b7c8d9e0f1a2b3
   model_variant: pi05
-  references: []
-  behavior_reference: null
-
+  behavior_reference: scripts/train.py
 target:
   framework: loongforge
-  commit: REPLACE_WITH_SHA
-
+  commit: 5c4b3a291807f6e5d4c3b2a1908f7e6d5c4b3a29
 environment:
-  name: embodied-gpu
-  gpu_count: 1
+  name: embodied-cpu-fixture
+  gpu_count: 0
   image: null
   dependencies_lock: null
-  python: null
-
+  python: '3.12'
 entrypoint:
-  path: null
-  argv: []
-  cwd: null
+  path: scripts/train.py
+  argv:
+  - python
+  - scripts/train.py
+  - --config
+  - pi05_libero
+  cwd: .
   env: {}
-  topology: null
-
+  topology: single_process
 assets:
-  checkpoint: null
-  tokenizer: null
-  dataset: null
-  statistics: null
-  simulator: null
-  download_policy: manifest_only
-
+- id: checkpoint
+  kind: checkpoint
+  required_for:
+  - f1_startup_probe
+  - f2_train_step
+  source: owner-provided checkpoint
+  access_policy: owner_provided
+  local_path: null
 scope:
   static: true
-  train_step: true
+  startup_probe: true
+  train_step: false
   checkpoint_resume: false
   task_eval: false
-
+  asset_mode: manifest_only
 unknowns: []
 blocked_reasons: []

@@ -99,7 +99,7 @@ class ProfileStatelessToolEntry(StrictModel):
 
 
 class PipelineProfile(StrictModel):
-    """Validated top-level pipeline profile (e.g. `profiles/loongforge_embodied.yaml`)."""
+    """Validated top-level pipeline profile (e.g. `core/profiles/loongforge_embodied.yaml`)."""
 
     schema_version: Literal[1]
     profile_id: str = Field(min_length=1)
@@ -174,7 +174,7 @@ def load_pipeline_profile(
         resolved_repo = (
             repo_root.resolve()
             if repo_root is not None
-            else Path(path).resolve().parents[1]
+            else Path(path).resolve().parents[2]
         )
         resolved_ws = (
             workspace_root.resolve()

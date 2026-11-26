@@ -14,3 +14,23 @@
 ```bash
 python3 -m pytest -q
 ```
+
+## Canonical package layout
+
+```text
+core/
+  __init__.py         # empty: no transitive Pydantic imports for orchestrator
+  artifacts.py
+  contracts/         # v1 contracts + versioned v2 Intake handoff
+  orchestrator/      # stdlib + PyYAML graph/scheduler/judger
+  profiles/
+  rsi/
+  stages/
+    base.py
+    f1_intake/
+    f2_anatomy/
+    f3_scaffold/
+    f4_adapt/
+    f5_verify/       # orchestration only; concrete checkers in ../validate/
+    f6_deliver/
+```

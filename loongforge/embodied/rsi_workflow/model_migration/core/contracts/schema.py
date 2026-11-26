@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from .f1 import F1TaskPack
+from .intake_v2 import IntakeTaskPackV2, ModelAnalysisReport, SkillHandoffRequest, SkillHandoffReceipt
 from .f2 import F2BehaviorContract
 from .handoff import HandoffResult
 from .stage import StageSpec
@@ -17,6 +18,10 @@ def export_json_schemas(output_dir: str | Path) -> list[Path]:
     models = {
         "artifact-manifest.schema.json": ArtifactManifest,
         "f1-task-pack.schema.json": F1TaskPack,
+        "intake-task-pack-v2.schema.json": IntakeTaskPackV2,
+        "model-analysis-v2.schema.json": ModelAnalysisReport,
+        "skill-handoff-request-v2.schema.json": SkillHandoffRequest,
+        "skill-handoff-receipt-v2.schema.json": SkillHandoffReceipt,
         "f2-behavior-contract.schema.json": F2BehaviorContract,
         "gate-decision.schema.json": GateDecision,
         "gate-result.schema.json": GateResult,

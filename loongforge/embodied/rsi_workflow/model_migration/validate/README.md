@@ -13,3 +13,21 @@ The validation-module directory of the model-migration workspace. It is responsi
 - Validation scripts: implementations of the logic comparison, precision comparison, and smoke tests.
 - Validation configuration: check items and thresholds for different models/tasks.
 - Validation reports: results and conclusions of each validation run, used as the merge basis.
+
+## Implemented checker boundary
+
+`IntakeChecker` and `AnatomyChecker` independently verify sealed artifacts;
+`base.py` contains the checker protocol and source-digest helper.
+`VerifyStageRunner` lives in `core/stages/f5_verify/`, not in this directory.
+Other checker classes remain explicit placeholders, not accepted validation.
+
+The composite validator hash binds checker source paths, `validate/base.py`,
+`core/orchestrator/judger.py` and declared dependency sources.
+See `../docs/intake-v2-handoff.md` and `../docs/anatomy-spec.md` for v2 and model-specific checks.
+
+Both implemented validators now emit `validator_version="2"`.
+Anatomy verification requires an externally trusted `spec_manifest_sha256`
+(`--spec-manifest-sha256` in the CLI), not a digest taken from the bundle's lock.
+v1 task/behavior schemas remain supported with newly generated v2 receipts.
+Historical `stages.verify.*` v1 sealed packages require their pinned old runtime;
+historical sealed-package replay compatibility is not implemented or claimed.

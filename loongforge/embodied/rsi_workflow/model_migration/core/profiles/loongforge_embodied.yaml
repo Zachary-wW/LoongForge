@@ -1,0 +1,251 @@
+schema_version: 1
+profile_id: loongforge_embodied
+description: >
+  Default 6-stage embodied model adaptation profile targeting baidu-baige/LoongForge,
+  binding the 6 real LoongForge extension points, 3 core embodied Skill playbooks,
+  and stateless deterministic tools.
+
+target_framework:
+  repo: baidu-baige/LoongForge
+  reference_commit: 5f48c81d1209419fcd53efe8495141ec1be5437f
+  commit_display: 5f48c81
+  ci_suite_command: /ok-to-test --suite embodied
+
+stages:
+  - id: intake
+    stage: intake
+    depends_on: []
+    description: Reference source lock, pinned-tree AST discovery, asset triage, read-only startup probe, optional v2 handoff_only analysis import, and immutable package freeze.
+    isolation: read_only_reference
+    checks:
+      - intake
+    skills:
+      - model-adaptation
+    tools:
+      - reap_gpus.sh
+
+  - id: anatomy
+    stage: anatomy
+    depends_on:
+      - intake
+    description: Pre-capture frozen AnatomySpec (pi05 preset or declared family), dual-subprocess capture/replay, VLA action evidence, observation plan, and behavior contract generation.
+    isolation: read_only_reference
+    checks:
+      - anatomy
+    tools:
+      - diff_weight_probe.py
+      - read_tb.py
+      - reap_gpus.sh
+
+  - id: scaffold
+    stage: scaffold
+    depends_on:
+      - anatomy
+    description: Map frozen intake/anatomy contracts onto LoongForge 6 extension points and generate integration skeleton.
+    isolation: git_worktree
+    extension_points:
+      - model_registry
+      - data_and_transforms
+      - config_map
+      - trainer_builder
+      - eval_adapter
+      - regression_runner
+    skills:
+      - model-adaptation
+      - vla-model-eval-adapter
+
+  - id: adapt
+    stage: adapt
+    depends_on:
+      - scaffold
+    description: Dispatch Typed Handoff to Coding Agent in isolated Git Worktree with embodied Skill playbooks.
+    isolation: git_worktree
+    extension_points:
+      - model_registry
+      - data_and_transforms
+      - config_map
+      - trainer_builder
+      - eval_adapter
+      - regression_runner
+    skills:
+      - model-adaptation
+      - precision-alignment
+      - vla-model-eval-adapter
+
+  - id: verify
+    stage: verify
+    depends_on:
+      - adapt
+    description: Run layered independent checkers and aggregate bound GateResults via deterministic Judger.
+    isolation: read_only_reference
+    checks:
+      - intake
+      - anatomy
+      - construct
+      - parity
+      - train_resume
+      - task_eval
+    tools:
+      - codenorm.py
+      - diff_live_code.sh
+      - diff_weight_probe.py
+      - read_tb.py
+      - reap_gpus.sh
+
+  - id: deliver
+    stage: deliver
+    depends_on:
+      - verify
+    description: Clean-worktree re-verification, evidence index, validation_report.md, and PR package assembly.
+    isolation: git_worktree
+    metadata:
+      ci_trigger: /ok-to-test --suite embodied
+
+extension_points:
+  model_registry:
+    registry_path: loongforge/embodied/model/registry.py
+    decorator: "@register_model"
+    model_dir_pattern: loongforge/embodied/model/<model_name>/
+    required_files:
+      - modeling_<model_name>.py
+      - model_configuration_<model_name>.py
+    interface_notes: >
+      Implement from_pretrained(model_cfg) and forward(batch, **kwargs) -> (loss, log_loss_dict);
+      respect FinetuneTrainer._select_forward_kwargs reflection on iteration parameter.
+
+  data_and_transforms:
+    registry_path: loongforge/embodied/data/datasets/dataset_builder.py
+    dataset_dir_pattern: loongforge/embodied/data/datasets/<model_name>/
+    reuse_components:
+      - loongforge/embodied/data/datasets/lerobot_dataset.py
+      - loongforge/embodied/data/datasets/hdf5_dataset.py
+      - loongforge/embodied/data/transforms/
+    interface_notes: Provide DataConfig, transforms, collator, and optional dataset strategy.
+
+  config_map:
+    registry_path: loongforge/embodied/train/config_map.py
+    config_path_pattern: configs/models/embodied/<model_name>.yaml
+    interface_notes: Register MODEL_SCHEMA entry binding YAML, ModelConfig, and DataConfig.
+
+  trainer_builder:
+    registry_path: loongforge/embodied/train/trainers/trainer_builder.py
+    default_trainer: FinetuneTrainer
+    base_class: BaseTrainer
+    interface_notes: Reuse FinetuneTrainer for standard SFT (DDP/ZeRO-1/FSDP/HSDP + checkpoint resume); subclass BaseTrainer only for non-standard training loops.
+
+  eval_adapter:
+    factory_registry_path: loongforge/embodied/eval/factories/registry.py
+    payload_builder_registry_path: loongforge/embodied/eval/payload_builders/registry.py
+    action_decoder_dir: loongforge/embodied/eval/action_decoders/
+    orchestrator_dir: loongforge/embodied/eval/orchestrator/
+    repro_compare_path: loongforge/embodied/eval/metrics/repro_compare.py
+    interface_notes: Factory and PayloadBuilder registry key sets must strictly match.
+
+  regression_runner:
+    entry_script: tests/embodied/run.sh
+    executor_path: tests/embodied/execution/executor.py
+    example_dir_pattern: examples/embodied/<model_name>/
+    interface_notes: Wire reproducible training smoke and regression invocation.
+
+skills_source:
+  repo: baidu/hac-aiacc/loongforge-skills
+  commit: 14b22570d8047ff11c3c3187746d17f03792cdc4
+  path_base: repo_root
+  root_relative_to_workspace: skills
+
+skills:
+  - name: model-adaptation
+    path_base: repo_root
+    path: skills/model-adaptation/SKILL.md
+    local_mirror_base: repo_root
+    local_mirror: skills/model-adaptation/SKILL.md
+    optional: false
+    stages:
+      - intake
+      - scaffold
+      - adapt
+      - verify
+    role: Guide data/sampling, network construction, and trainer alignment without mutating read-only BASE.
+
+  - name: precision-alignment
+    path_base: repo_root
+    path: skills/precision-alignment/SKILL.md
+    local_mirror_base: repo_root
+    local_mirror: skills/precision-alignment/SKILL.md
+    optional: false
+    stages:
+      - anatomy
+      - adapt
+      - verify
+    role: Guide input, forward/loss, and backward/gradient/optimizer precision alignment and first-divergence localization.
+
+  - name: vla-model-eval-adapter
+    path_base: repo_root
+    path: null
+    local_mirror_base: repo_root
+    local_mirror: null
+    optional: true
+    stages:
+      - scaffold
+      - adapt
+      - verify
+    role: External optional skill (from loongforge-skills/embodied-model/vla-model-eval-adapter) guiding LoongForge eval triad (ModelFactory, PayloadBuilder, ActionDecoder) and closed-loop smoke verification.
+
+optional_post_delivery_skills:
+  - general-perf-opt
+  - perf-analysis
+  - p6k-operator-opt
+
+stateless_tools:
+  - id: codenorm
+    filename: codenorm.py
+    skill: model-adaptation
+    path_base: repo_root
+    path: skills/model-adaptation/tools/codenorm.py
+    stages:
+      - scaffold
+      - adapt
+      - verify
+    purpose: Strip comments/formatting for semantic live-code comparison.
+
+  - id: diff_live_code
+    filename: diff_live_code.sh
+    skill: model-adaptation
+    path_base: repo_root
+    path: skills/model-adaptation/tools/diff_live_code.sh
+    stages:
+      - scaffold
+      - adapt
+      - verify
+    purpose: Compare live code between reference and adapted implementation.
+
+  - id: diff_weight_probe
+    filename: diff_weight_probe.py
+    skill: precision-alignment
+    path_base: repo_root
+    path: skills/precision-alignment/tools/diff_weight_probe.py
+    stages:
+      - anatomy
+      - verify
+    purpose: Hierarchical name -> shape -> dtype -> value weight snapshot diff.
+
+  - id: read_tb
+    filename: read_tb.py
+    skill: precision-alignment
+    path_base: repo_root
+    path: skills/precision-alignment/tools/read_tb.py
+    stages:
+      - anatomy
+      - verify
+    purpose: Extract fp32-precision TensorBoard scalar curves for deterministic comparison.
+
+  - id: reap_gpus
+    filename: reap_gpus.sh
+    skill: precision-alignment
+    path_base: repo_root
+    path: skills/precision-alignment/tools/reap_gpus.sh
+    stages:
+      - intake
+      - anatomy
+      - verify
+    purpose: Clean zombie GPU processes between isolated A/B runs.

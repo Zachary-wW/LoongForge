@@ -10,6 +10,7 @@ from .f1 import F1TaskPack, load_f1_task_pack
 from .f2 import F2BehaviorContract, load_f2_behavior_contract
 from .handoff import HandoffResult, load_handoff_result
 from .intake import IntakeTaskPack, load_intake_task_pack
+from .intake_v2 import IntakeTaskPackV2, ModelAnalysisReport, SkillHandoffRequest, SkillHandoffReceipt, SlotCatalog
 from .schema import export_json_schemas
 from .stage import (
     PipelineProfile,
@@ -43,6 +44,11 @@ __all__ = [
     "GateResult",
     "HandoffResult",
     "IntakeTaskPack",
+    "IntakeTaskPackV2",
+    "ModelAnalysisReport",
+    "SkillHandoffRequest",
+    "SkillHandoffReceipt",
+    "SlotCatalog",
     "PipelineProfile",
     "StageName",
     "StageSpec",

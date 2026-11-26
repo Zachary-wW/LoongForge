@@ -45,6 +45,8 @@ class HandoffResult(StrictModel):
     validator_verdict: EvidenceRef | None
     unknowns: list[str]
     blocked_reasons: list[str]
+    anatomy_spec_sha256: Sha256 | None = None
+    spec_manifest_sha256: Sha256 | None = None
 
     @model_validator(mode="after")
     def completed_requires_validator_verdict(self) -> "HandoffResult":

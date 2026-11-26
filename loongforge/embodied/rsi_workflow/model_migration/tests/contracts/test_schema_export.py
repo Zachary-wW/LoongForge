@@ -12,6 +12,10 @@ def test_json_schemas_are_exported_for_every_public_contract(
     assert {path.name for path in exported_paths} == {
         "artifact-manifest.schema.json",
         "f1-task-pack.schema.json",
+        "intake-task-pack-v2.schema.json",
+        "model-analysis-v2.schema.json",
+        "skill-handoff-request-v2.schema.json",
+        "skill-handoff-receipt-v2.schema.json",
         "f2-behavior-contract.schema.json",
         "gate-decision.schema.json",
         "gate-result.schema.json",

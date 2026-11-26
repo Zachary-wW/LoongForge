@@ -18,10 +18,11 @@ test = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["core*", "engine*", "stages*", "rsi*", "profiles*"]
+include = ["core*", "validate*"]
 
 [tool.setuptools.package-data]
-profiles = ["*.yaml"]
+"core.profiles" = ["*.yaml"]
+"core.contracts" = ["*.yaml"]
 
 [tool.pytest.ini_options]
 addopts = "-q"
