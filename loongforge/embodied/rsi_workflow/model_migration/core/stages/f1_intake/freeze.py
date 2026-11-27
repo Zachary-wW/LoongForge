@@ -342,6 +342,11 @@ def analyze_intake(
     # Persist analysis workspace artifacts under prep/work/analysis
     work_dir = prep / "work"
     work_dir.mkdir(parents=True, exist_ok=True)
+    # Evidence belongs to this analysis run, not to the preparation directory's
+    # history. Do this even when the replacement handoff fails validation.
+    evidence_dir = work_dir / "evidence"
+    if evidence_dir.exists():
+        shutil.rmtree(evidence_dir)
     if isinstance(task, IntakeTaskPackV2):
         try:
             if handoff_dir is None:
@@ -428,6 +433,9 @@ def analyze_intake(
 
     analysis_summary = {
         **state,
+        # Preparation-only control state: freeze must recheck this same checkout,
+        # not resolve a remote URL or a different task.source.repo as a local path.
+        "resolved_repo": str(resolved_repo),
         "status": "analyzed",
         "probe_mode": probe_mode,
         "probe_status": probe_result.status,
@@ -502,6 +510,16 @@ def freeze_intake(
             unknowns=unknowns,
         )
 
+    resolved_repo = Path(state.get("resolved_repo") or task.source.repo).resolve()
+    if not resolved_repo.is_dir():
+        return FreezeResult(
+            status="blocked",
+            summary=f"analyzed source checkout is unavailable: {resolved_repo}; rerun analyze with --repo-root",
+            reason_codes=("SOURCE_NOT_DIRECTORY",),
+            observed_scope=observed_scope,
+            unknowns=unknowns,
+        )
+
     work_dir = prep / "work"
     releases_dir = prep / "packages"
     releases_dir.mkdir(parents=True, exist_ok=True)
@@ -563,7 +581,7 @@ def freeze_intake(
             staging_dir=staging_dir,
             expected_commit=task.source.commit,
             request_sha256=request_sha,
-            reference_dir=Path(task.source.repo).resolve(),
+            reference_dir=resolved_repo,
         )
         if pre_gate.status != "pass" or pre_verdict_doc is None:
             shutil.rmtree(staging_dir, ignore_errors=True)
@@ -604,7 +622,7 @@ def freeze_intake(
             package_dir=staging_dir,
             expected_commit=task.source.commit,
             manifest_sha256=request_sha,
-            reference_dir=Path(task.source.repo).resolve(),
+            reference_dir=resolved_repo,
             require_sealed=False,
         )
         if full_pre_verdict.status != "pass":
@@ -626,7 +644,7 @@ def freeze_intake(
             package_dir=package_ref.package_dir,
             expected_commit=task.source.commit,
             manifest_sha256=package_ref.manifest_sha256,
-            reference_dir=Path(task.source.repo).resolve(),
+            reference_dir=resolved_repo,
             require_sealed=True,
         )
         if sealed_verdict.status != "pass":

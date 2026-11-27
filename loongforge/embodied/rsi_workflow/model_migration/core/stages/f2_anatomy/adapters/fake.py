@@ -19,8 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, TypeAlias
 
-from core.contracts.common import load_yaml_document
 from ..contract import AnatomySpec, PI05_SPEC
+from ..spec import load_anatomy_spec
 
 FakeNegativeInjection: TypeAlias = Literal[
     "skip_forward",
@@ -372,7 +372,7 @@ def main(argv: list[str] | None = None) -> int:
     samples = tuple(s.strip() for s in args.sample_ids.split(",") if s.strip())
     spec = PI05_SPEC
     if args.spec_file:
-        spec = AnatomySpec.from_dict(load_yaml_document(args.spec_file)["spec"])
+        spec = load_anatomy_spec(args.spec_file)
     cfg = FakeStepConfig(
         spec=spec,
         seed=args.seed,

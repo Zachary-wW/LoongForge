@@ -15,6 +15,31 @@ from .contract import AnatomySpec
 
 SPEC_RELEASE_REL = "evidence/spec_freeze"
 
+
+def load_anatomy_spec(path: str | Path) -> AnatomySpec:
+    """Load a strict bare policy or a schema-2 Intake/frozen-spec wrapper.
+
+    Wrapper metadata is not a trust anchor; the caller still verifies the
+    sealed release, source binding and external manifest digest separately.
+    """
+    document = load_yaml_document(path)
+    if "spec" not in document:
+        return AnatomySpec.from_dict(document)
+    layouts = (
+        {"schema_version", "spec"},
+        {"schema_version", "spec", "source_ref", "source_commit", "request_id"},
+        {"schema_version", "spec", "source_ref", "anatomy_spec_sha256",
+         "intake_manifest_sha256", "upstream_commit"},
+    )
+    if (type(document.get("schema_version")) is not int
+            or document["schema_version"] != 2 or set(document) not in layouts):
+        raise ValueError("AnatomySpec wrapper must use a declared schema-2 layout")
+    spec = AnatomySpec.from_dict(document["spec"])
+    if "anatomy_spec_sha256" in document and document["anatomy_spec_sha256"] != spec.sha256():
+        raise ValueError("AnatomySpec wrapper policy digest mismatch")
+    return spec
+
+
 def freeze_spec(
     prep: Path, spec: AnatomySpec, *, intake_manifest_sha256: str, upstream_commit: str,
     source_ref: dict[str, Any] | None = None,
@@ -69,7 +94,7 @@ def verify_frozen_spec(
             or trusted_spec_manifest_sha256 == "0" * 64):
         raise ValueError("external trusted spec_manifest_sha256 is required")
     doc = load_yaml_document(package_dir / "analysis/anatomy_spec.yaml")
-    spec = AnatomySpec.from_dict(doc["spec"])
+    spec = load_anatomy_spec(package_dir / "analysis/anatomy_spec.yaml")
     lock = json.loads((package_dir / "analysis/spec_lock.json").read_text(encoding="utf-8"))
     if lock.get("package_dir") != SPEC_RELEASE_REL or lock.get("manifest_sha256") != trusted_spec_manifest_sha256:
         raise ValueError("embedded spec lock disagrees with the external trusted spec manifest")

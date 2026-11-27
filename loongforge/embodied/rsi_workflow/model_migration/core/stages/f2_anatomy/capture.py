@@ -39,7 +39,7 @@ from .contract import (
     build_observation_plan,
     build_step_anatomy,
 )
-from .spec import freeze_spec, verify_frozen_spec
+from .spec import freeze_spec, load_anatomy_spec, verify_frozen_spec
 
 CaptureStatus: TypeAlias = Literal["captured", "failed", "blocked", "not_run"]
 STATE_FILENAME = "anatomy_state.json"
@@ -170,8 +170,16 @@ def _run_fake_subprocess(
     payload = json.loads(output_path.read_text(encoding="utf-8"))
     if spec_file is not None:
         payload["spec_manifest_sha256"] = hashlib.sha256((spec_file.parent / MANIFEST_NAME).read_bytes()).hexdigest()
+    # Receipt metadata is portable; it is never executed. Keep the actual launch
+    # bound to sys.executable and its real output path above.
+    receipt_cmd = list(cmd)
+    receipt_cmd[0] = "python3"
+    receipt_output = output_path.name
+    if package_root is not None and output_path.is_relative_to(package_root):
+        receipt_output = output_path.relative_to(package_root).as_posix()
+    receipt_cmd[receipt_cmd.index("--output") + 1] = receipt_output
     payload["launch_receipt"] = {
-        "command": cmd,
+        "command": receipt_cmd,
         "exit_code": proc.returncode,
         "executed_at": _utc_now(),
     }
@@ -260,7 +268,7 @@ def capture_two_attempts(
         if task.schema_version == 2:
             from core.contracts.common import load_yaml_document
             intake_spec_doc = load_yaml_document(intake_dir / "analysis/anatomy_spec.yaml")
-            intake_spec = AnatomySpec.from_dict(intake_spec_doc["spec"])
+            intake_spec = load_anatomy_spec(intake_dir / "analysis/anatomy_spec.yaml")
             source_ref = intake_spec_doc["source_ref"]
             if spec is not None and spec != intake_spec:
                 raise ValueError("requested AnatomySpec differs from frozen v2 Intake handoff")

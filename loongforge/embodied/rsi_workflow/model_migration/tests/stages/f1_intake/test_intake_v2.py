@@ -14,6 +14,7 @@ from core.stages.f1_intake.freeze import analyze_intake, freeze_intake, init_pre
 from core.stages.f1_intake.handoff import canonical_sha256
 from core.stages.f1_intake.source import create_source_bundle
 from core.stages.f2_anatomy.capture import capture_two_attempts
+from core.stages.f2_anatomy.cli import main as anatomy_cli
 from core.stages.f2_anatomy.contract import ActionSpec, AnatomySpec
 from core.stages.f2_anatomy.freeze import freeze_anatomy
 from core.stages.f3_scaffold import ScaffoldPlan
@@ -146,6 +147,44 @@ def prepare(root: Path, inputs, mutate=None):
     return prep, analyze_intake(prep, handoff_dir=handoff), task_path
 
 
+@pytest.mark.parametrize("valid_handoff", [True, False])
+def test_reanalyze_same_preparation_drops_previous_handoff_evidence(tmp_path, v2_inputs, valid_handoff):
+    prep, state, _ = prepare(tmp_path / "first", v2_inputs)
+    assert not state["blocked_reasons"], state
+    old_evidence = prep / "work/evidence/papers/paper.txt"
+    assert old_evidence.is_file()
+
+    handoff = tmp_path / "replacement-handoff"
+    shutil.copytree(v2_inputs["handoff"], handoff)
+    report = copy.deepcopy(v2_inputs["report"])
+    paper_source = report["training_parameters"][0]["sources"][1]
+    paper_source["path"] = "evidence/papers/replacement.txt"
+    paper = handoff / paper_source["path"]
+    (handoff / "evidence/papers/paper.txt").rename(paper)
+    if not valid_handoff:
+        paper.write_text("invalid replacement evidence")
+    raw_report = json.dumps(report, sort_keys=True).encode()
+    (handoff / "model_analysis.json").write_bytes(raw_report)
+    task = copy.deepcopy(v2_inputs["task"])
+    task["analysis_handoff"]["report_sha256"] = hashlib.sha256(raw_report).hexdigest()
+    task_path = tmp_path / "replacement-task.yaml"
+    task_path.write_text(yaml.safe_dump(task))
+    init_preparation(task_path, prep)
+    state = analyze_intake(prep, handoff_dir=handoff)
+    assert not old_evidence.exists()
+    result = freeze_intake(prep)
+    if valid_handoff:
+        assert not state["blocked_reasons"], state
+        assert result.status == "completed", result
+        paths = verify(result.package_ref).manifest_paths
+        assert "evidence/papers/replacement.txt" in paths
+        assert "evidence/papers/paper.txt" not in paths
+    else:
+        assert "V2_HANDOFF_INVALID" in state["blocked_reasons"]
+        assert result.status == "blocked"
+        assert not list((prep / "work/evidence").rglob("*"))
+
+
 @pytest.fixture(scope="module")
 def sealed_v2(tmp_path_factory, v2_inputs):
     prep, state, _ = prepare(tmp_path_factory.mktemp("v2-sealed"), v2_inputs)
@@ -199,6 +238,18 @@ def test_v2_import_receipt_scaffold_mapping_and_frozen_spec_chain(tmp_path, v2_i
         prep_dir=tmp_path / "mismatched", spec=AnatomySpec(),
     )
     assert mismatch.status == "blocked"
+
+
+def test_capture_cli_consumes_the_actual_v2_intake_spec_wrapper(tmp_path, sealed_v2, capsys):
+    assert anatomy_cli([
+        "capture", "--intake-dir", str(sealed_v2.package_dir),
+        "--intake-manifest-sha256", sealed_v2.manifest_sha256,
+        "--prep-dir", str(tmp_path),
+        "--spec", str(sealed_v2.package_dir / "analysis/anatomy_spec.yaml"),
+    ]) == 0
+    receipt = json.loads(capsys.readouterr().out)
+    assert receipt["status"] == "captured", receipt
+    assert receipt["spec_manifest_sha256"]
 
 
 @pytest.mark.parametrize("mutation", [

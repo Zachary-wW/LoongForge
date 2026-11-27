@@ -31,6 +31,16 @@ python -m core.stages.f1_intake.cli analyze \
 python -m core.stages.f1_intake.cli freeze --prep-dir <prep>
 ```
 
+For a remote `source.repo` or a different local checkout, pass
+`analyze --repo-root <local-checkout>`. The resolved path is retained in
+unsealed `prep_state.json`; all freeze-time live checks use that same checkout.
+An unavailable/changed checkout blocks freezing, rather than silently falling
+back to offline evidence. Independent validation of an already sealed package
+can still restore its source bundles without the original checkout.
+Re-running analysis in the same preparation clears `work/evidence/` before
+importing the new handoff, including when the replacement is invalid, so old
+paper/Skill evidence cannot leak into a later release.
+
 The import directory contains:
 
 ```text

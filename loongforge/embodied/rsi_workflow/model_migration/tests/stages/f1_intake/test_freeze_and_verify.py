@@ -6,16 +6,80 @@ import sys
 from pathlib import Path
 
 import yaml
+import pytest
 
 from core.artifacts import PackageRef, verify as verify_package
 from core.contracts import load_gate_result, load_handoff_result
 from core.stages.base import StageContext
 from core.stages.f1_intake import IntakeStageRunner
+from core.stages.f1_intake.cli import main as intake_cli
 from core.stages.f1_intake.freeze import analyze_intake, freeze_intake, init_preparation
 from validate.base import CheckContext
 from validate.intake_check import IntakeChecker
 
 from helpers import create_sample_repo, make_asset_file, write_task_yaml
+
+
+@pytest.mark.parametrize("source_kind", ["remote", "other_local"])
+@pytest.mark.parametrize("source_change", ["unchanged", "dirty", "missing"])
+def test_freeze_rechecks_the_analyzed_repo_root_override(
+    tmp_path: Path, source_kind: str, source_change: str,
+) -> None:
+    info = create_sample_repo(tmp_path / "actual")
+    repo = info["repo"]
+    task_path = write_task_yaml(
+        tmp_path / "task.yaml", repo=repo, commit=info["head_commit"],
+        startup_probe=False,
+    )
+    task = yaml.safe_load(task_path.read_text())
+    task["source"]["repo"] = (
+        "https://github.com/example/upstream.git" if source_kind == "remote"
+        else str(create_sample_repo(tmp_path / "declared")["repo"])
+    )
+    task_path.write_text(yaml.safe_dump(task), encoding="utf-8")
+    prep = tmp_path / "prep"
+    init_preparation(task_path, prep)
+    state = analyze_intake(prep, repo_root=repo)
+    assert not state["blocked_reasons"], state
+    assert state["resolved_repo"] == str(repo.resolve())
+    assert json.loads((prep / "prep_state.json").read_text())["resolved_repo"] == str(repo.resolve())
+
+    if source_change == "dirty":
+        (repo / "configs/pi05.yaml").write_text("batch_size: 99\n")
+    elif source_change == "missing":
+        repo.rename(tmp_path / "moved-source")
+    result = freeze_intake(prep)
+    if source_change == "unchanged":
+        assert result.status == "completed", result
+        assert result.package_ref is not None
+        assert "prep_state.json" not in verify_package(result.package_ref).manifest_paths
+    else:
+        assert result.status == "blocked", result
+        assert result.package_ref is None
+        assert ("SOURCE_WORKTREE_DIRTY" if source_change == "dirty" else "SOURCE_NOT_DIRECTORY") in result.reason_codes
+
+
+def test_cli_freeze_uses_repo_root_saved_by_analyze(tmp_path: Path, capsys) -> None:
+    info = create_sample_repo(tmp_path)
+    repo = info["repo"]
+    task_path = write_task_yaml(
+        tmp_path / "task.yaml", repo=repo, commit=info["head_commit"],
+        startup_probe=False,
+    )
+    task = yaml.safe_load(task_path.read_text())
+    task["source"]["repo"] = "https://github.com/example/upstream.git"
+    task_path.write_text(yaml.safe_dump(task))
+    prep = tmp_path / "prep"
+    assert intake_cli(["init", "--request", str(task_path), "--prep-dir", str(prep)]) == 0
+    capsys.readouterr()
+    assert intake_cli(["analyze", "--prep-dir", str(prep), "--repo-root", str(repo)]) == 0
+    assert json.loads(capsys.readouterr().out)["resolved_repo"] == str(repo.resolve())
+    (repo / "configs/pi05.yaml").write_text("batch_size: 99\n")
+    assert intake_cli(["freeze", "--prep-dir", str(prep)]) == 0
+    receipt = json.loads(capsys.readouterr().out)
+    assert receipt["status"] == "blocked"
+    assert receipt["reason_codes"] == ["SOURCE_WORKTREE_DIRTY"]
+    assert receipt["package_dir"] is None
 
 
 def test_end_to_end_init_analyze_freeze_and_independent_intake_checker(

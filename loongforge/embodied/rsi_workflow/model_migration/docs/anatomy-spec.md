@@ -69,6 +69,20 @@ and fresh replay no longer depend on the old prep directory/absolute launch path
 The separately verified Stage 1 package and pinned assets remain prerequisites;
 this is a self-contained **spec release**, not duplication of every Intake asset.
 
+`launch_receipt.command` is normalized metadata, never an executable trust root.
+It records `python3 -m core.stages.f2_anatomy.adapters.fake`, the fixed relative
+`--spec-file evidence/spec_freeze/anatomy_spec.yaml`, and
+`--output evidence/attempt-1/capture.json` (or `attempt-2`). The checker rejects
+absolute/escaping/wrong output paths and noncanonical interpreter names.
+Actual capture and independent replay always launch the current controlled
+`sys.executable` with their real output paths, without resolving the recorded
+name through `PATH`. Replay receipts use temporary-output basenames.
+This permits Anatomy verification/replay in a different venv with the same
+pinned validator/dependencies and separately valid Intake/asset prerequisites.
+For portable Intake startup contracts, use a bare controlled `python3` name;
+an explicit Stage 1 interpreter path remains subject to its existing strict
+local-interpreter policy and is not made portable by this Anatomy change.
+
 **The lock is not a trust root.** Retain `spec_manifest_sha256` from trusted
 capture/freeze control-plane output before consuming the package (the controller
 also emits it in release metadata). Supply it independently alongside trusted
@@ -103,6 +117,11 @@ Python callers use `CheckContext.parameters["spec_manifest_sha256"]` or
 For v2 Intake, capture automatically uses the accepted typed report spec and
 pinned `source_ref`/analysis basis; conflicting caller specs are rejected.
 For v1 Intake, the caller chooses/approves the initial spec or `pi05` preset.
+`capture --spec` accepts strict bare policy YAML and the schema-2 wrappers
+produced at `analysis/anatomy_spec.yaml` by Intake or Anatomy. CLI, adapter and
+validator use the same loader; unknown fields/versions, duplicate YAML keys
+and an incorrect supplied policy digest are rejected. Loading a wrapper
+does not approve its metadata or replace sealed-package/source verification.
 
 ## Independent checks, not just matching attempts
 
@@ -145,5 +164,11 @@ Offline formats remain `cpu_mock/orchestration_only`: they do not prove real
 autoregressive VLA execution, actual tokenizer/codebook parity, image semantics
 or numerical parity. `OpenPIJaxAdapter` remains fail-closed on missing
 assets/runtime/GPU. Real verification requires a real adapter and hardware replay.
+Only `backend: jax` invokes OpenPI JAX preflight; it uses a temporary pinned
+source checkout restored from the verified Intake bundles, never a remote
+`source.repo` interpreted as a local path. Other non-fake backends (including
+`pytorch`) are blocked directly with `UNSUPPORTED_BACKEND_REPLAY_REQUIRED`,
+without JAX diagnostics. Even a ready JAX preflight cannot substitute for
+independent real-hardware replay and remains blocked.
 Schema-only F2 examples retain their separate schema identity/version and explicit
 blocker; they are not accepted v2 validator receipts.

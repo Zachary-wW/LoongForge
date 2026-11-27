@@ -43,15 +43,15 @@ from core.stages.f2_anatomy import capture as _capture_module
 from core.stages.f2_anatomy import compare as _compare_module
 from core.stages.f2_anatomy import contract as _contract_module
 from core.stages.f2_anatomy import spec as _spec_module
-from core.stages.f2_anatomy.spec import verify_frozen_spec
+from core.stages.f2_anatomy.spec import load_anatomy_spec, verify_frozen_spec
 from core.stages.f2_anatomy.adapters import fake as _fake_adapter_module
+from core.stages.f2_anatomy.adapters import openpi_jax as _openpi_jax_module
 from core.stages.f2_anatomy.compare import REQUIRED_PHASE_IDS, compare_attempts
 from core.stages.f2_anatomy.contract import (
     observation_boundaries,
     negative_injections,
 )
 from core.stages.f1_intake.assets import triage_assets
-from core.stages.f1_intake.probe import resolve_trusted_interpreter
 from validate import intake_check as _intake_check_module
 from validate.intake_check import IntakeChecker
 
@@ -97,6 +97,7 @@ def _anatomy_dependency_sources() -> tuple[Path, ...]:
         _spec_module,
         _capture_module,
         _fake_adapter_module,
+        _openpi_jax_module,
         _intake_check_module,
     ):
         src = inspect.getsourcefile(mod)
@@ -128,6 +129,7 @@ def _validate_fake_launch_receipt(
     sample_ids: list[str],
     spec_file: Path,
     package_root: Path,
+    expected_output: str,
 ) -> tuple[bool, str]:
     """Strictly verify a fake subprocess launch_receipt's command, exit code, and timestamp."""
     if not isinstance(receipt, dict):
@@ -145,8 +147,10 @@ def _validate_fake_launch_receipt(
     cmd = receipt.get("command")
     if not isinstance(cmd, list) or len(cmd) < 4 or not all(isinstance(x, str) for x in cmd):
         return False, "launch_receipt.command must be a non-empty list of strings"
-    if resolve_trusted_interpreter(cmd[0]) is None:
-        return False, f"launch_receipt.command[0]={cmd[0]!r} is not a trusted Python interpreter"
+    # This is canonical evidence, not an executable command. Fresh replay uses
+    # the validator's sys.executable, never a recorded host path or task PATH.
+    if cmd[0] != "python3":
+        return False, "launch_receipt.command[0] must be the portable name 'python3'"
     if cmd[1:3] != ["-m", "core.stages.f2_anatomy.adapters.fake"]:
         return False, f"launch_receipt.command must invoke '-m core.stages.f2_anatomy.adapters.fake', got {cmd[1:3]!r}"
 
@@ -176,8 +180,8 @@ def _validate_fake_launch_receipt(
         return False, f"launch_receipt --case-id {flags.get('--case-id')!r} != {case_id!r}"
     if flags.get("--sample-ids") != ",".join(sample_ids):
         return False, "launch_receipt --sample-ids disagrees with frozen case sample_ids"
-    if not flags.get("--output"):
-        return False, "launch_receipt missing --output path"
+    if flags.get("--output") != expected_output:
+        return False, f"launch_receipt --output must equal package-relative {expected_output!r}"
     return True, "ok"
 
 
@@ -549,9 +553,8 @@ class AnatomyChecker:
                     or any(doc.get("spec_manifest_sha256") != expected_spec_manifest_sha256 for doc in (case_doc, step_doc, obs_doc))):
                 raise ValueError("behavior contract spec digest mismatch")
             if intake_task.schema_version == 2:
-                from core.stages.f2_anatomy.contract import AnatomySpec
                 intake_spec_doc = load_yaml_document(intake_dir_path / "analysis/anatomy_spec.yaml")
-                intake_spec = AnatomySpec.from_dict(intake_spec_doc["spec"])
+                intake_spec = load_anatomy_spec(intake_dir_path / "analysis/anatomy_spec.yaml")
                 if (spec != intake_spec or load_yaml_document(pkg_dir / "analysis/anatomy_spec.yaml")["source_ref"] != intake_spec_doc["source_ref"]):
                     raise ValueError("AnatomySpec differs from frozen v2 Intake handoff")
         except (ValueError, OSError, KeyError, ArtifactError, ContractParseError) as error:
@@ -568,32 +571,50 @@ class AnatomyChecker:
         # Batch 3 P0: fail-closed on non-fake backends (cannot masquerade fake CPU evidence
         # as real jax/pytorch evidence by relabeling behavior_contract.yaml).
         if contract.case.precision.backend != "fake":
-            from core.stages.f2_anatomy.adapters.openpi_jax import OpenPIJaxAdapter, OpenPIJaxConfig
-
-            preflight = OpenPIJaxAdapter().preflight(
-                OpenPIJaxConfig(
-                    upstream_repo=Path(intake_task.source.repo),
-                    require_gpu=True,
-                )
+            backend = contract.case.precision.backend
+            actual: dict[str, Any] = {"backend": backend}
+            summary = (
+                f"backend={backend!r} cannot pass offline verification "
+                "without independent real-hardware replay"
             )
+            if backend == "jax":
+                from core.stages.f1_intake.source import SourceError, restore_from_bundle_manifest
+                from core.stages.f2_anatomy.adapters.openpi_jax import OpenPIJaxAdapter, OpenPIJaxConfig
+
+                # source.repo is identity metadata and may be a remote URL.
+                # Use the verified Intake's pinned offline tree, not a host path.
+                try:
+                    fingerprint = json.loads((intake_dir_path / "inputs/source_fingerprint.json").read_text())
+                    with tempfile.TemporaryDirectory(prefix="anatomy-jax-preflight-") as temp:
+                        source = Path(temp) / "source"
+                        restore_from_bundle_manifest(intake_dir_path, fingerprint["bundles"], source)
+                        preflight = OpenPIJaxAdapter().preflight(
+                            OpenPIJaxConfig(upstream_repo=source, require_gpu=True)
+                        )
+                    actual.update(
+                        preflight_status=preflight.status,
+                        preflight_reasons=list(preflight.reason_codes),
+                    )
+                except (SourceError, OSError, ValueError, KeyError) as error:
+                    actual.update(
+                        preflight_status="not_run",
+                        preflight_reasons=["JAX_PREFLIGHT_SOURCE_UNAVAILABLE"],
+                        preflight_error=str(error),
+                    )
+                summary += (
+                    f" (preflight={actual['preflight_status']}, "
+                    f"reasons={actual['preflight_reasons']})"
+                )
             return self._fail(
                 commit=expected_commit,
                 manifest_sha256=manifest_sha256,
                 status="blocked",
                 reason_code="UNSUPPORTED_BACKEND_REPLAY_REQUIRED",
                 first_mismatch="analysis/behavior_contract.yaml:case.precision.backend",
-                summary=(
-                    f"backend={contract.case.precision.backend!r} cannot pass offline verification "
-                    f"without independent real-hardware replay (preflight={preflight.status}, "
-                    f"reasons={list(preflight.reason_codes)})"
-                ),
+                summary=summary,
                 evidence_path="analysis/behavior_contract.yaml",
                 expected="fake (for offline CPU closed-loop verification)",
-                actual={
-                    "backend": contract.case.precision.backend,
-                    "preflight_status": preflight.status,
-                    "preflight_reasons": list(preflight.reason_codes),
-                },
+                actual=actual,
             )
 
         # P2-2: behavior_contract must have empty unknowns/blocked_reasons.
@@ -826,7 +847,7 @@ class AnatomyChecker:
                 seed=int(contract.case.seed),
                 world_size=int(case_doc["world_size"]),
                 sample_ids=list(contract.case.batch.sample_ids),
-                spec_file=spec_file, package_root=pkg_dir,
+                spec_file=spec_file, package_root=pkg_dir, expected_output=ev_path,
             )
             if not receipt_ok:
                 return self._fail(

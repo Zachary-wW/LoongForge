@@ -14,8 +14,7 @@ from typing import Any
 from .adapters.fake import DEFAULT_SAMPLE_IDS, FAKE_NEGATIVE_INJECTIONS
 from .capture import capture_two_attempts, replay_sealed_anatomy
 from .freeze import freeze_anatomy
-from .contract import AnatomySpec
-from core.contracts.common import load_yaml_document
+from .spec import load_anatomy_spec
 
 
 def _emit(payload: dict[str, Any]) -> None:
@@ -37,7 +36,7 @@ def build_parser() -> argparse.ArgumentParser:
     cap_cmd.add_argument("--intake-manifest-sha256", required=True)
     cap_cmd.add_argument("--prep-dir", required=True)
     cap_cmd.add_argument("--case-id", default="pi05-cpu-mock-step-1")
-    cap_cmd.add_argument("--spec", default=None, help="Strict AnatomySpec YAML (default: pi05 preset).")
+    cap_cmd.add_argument("--spec", default=None, help="Strict bare or schema-2 wrapped AnatomySpec YAML (default: pi05 preset).")
     cap_cmd.add_argument("--seed", type=int, default=42)
     cap_cmd.add_argument("--world-size", type=int, default=1)
     cap_cmd.add_argument("--sample-ids", default=",".join(DEFAULT_SAMPLE_IDS))
@@ -80,7 +79,7 @@ def main(argv: list[str] | None = None) -> int:
             sample_ids=samples,
             inject_attempt1=args.inject_attempt1,
             inject_attempt2=args.inject_attempt2,
-            spec=AnatomySpec.from_dict(load_yaml_document(args.spec)) if args.spec else None,
+            spec=load_anatomy_spec(args.spec) if args.spec else None,
         )
         _emit(res.to_dict())
         return 0

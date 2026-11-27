@@ -44,6 +44,8 @@ def build_sealed_intake_package(
     framework_commit: str = FRAMEWORK_COMMIT,
     asset_ready: bool = True,
     train_step: bool = True,
+    interpreter: str = sys.executable,
+    source_repo: str | None = None,
 ) -> dict[str, Any]:
     """Build a genuine sealed Stage 1 (`intake`) package produced by the real intake pipeline.
 
@@ -98,7 +100,7 @@ if __name__ == "__main__":
     task_doc = {
         "schema_version": 1,
         "source": {
-            "repo": str(repo),
+            "repo": source_repo or str(repo),
             "commit": upstream_commit,
             "model_variant": "pi05",
             "behavior_reference": "scripts/train.py",
@@ -116,7 +118,7 @@ if __name__ == "__main__":
         },
         "entrypoint": {
             "path": "scripts/train.py",
-            "argv": [sys.executable, "scripts/train.py", "--config", "configs/pi05.yaml"],
+            "argv": [interpreter, "scripts/train.py", "--config", "configs/pi05.yaml"],
             "cwd": ".",
             "env": {},
             "topology": "single_process",
@@ -150,7 +152,7 @@ if __name__ == "__main__":
         task_path.write_text(yaml.safe_dump(task_doc, sort_keys=False), encoding="utf-8")
         prep = root / f"{name}_prep"
         init_preparation(task_path, prep)
-        analyze_intake(prep, probe_mode="startup")
+        analyze_intake(prep, probe_mode="startup", repo_root=repo if source_repo else None)
         fr = freeze_intake(prep, release_name=name)
         assert fr.status == "completed" and fr.package_ref is not None, fr
         return {
